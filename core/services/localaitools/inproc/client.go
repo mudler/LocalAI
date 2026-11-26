@@ -1105,6 +1105,10 @@ func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimate
 		ContextSize: uint32(req.ContextSize),
 		GPULayers:   req.GPULayers,
 		KVQuantBits: req.KVQuantBits,
+		CacheTypeK:  req.CacheTypeK,
+		CacheTypeV:  req.CacheTypeV,
+		Batch:       req.Batch,
+		UBatch:      req.UBatch,
 	}, c.ConfigLoader, c.SystemState)
 	if err != nil {
 		return nil, err

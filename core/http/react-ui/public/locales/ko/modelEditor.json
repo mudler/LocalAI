@@ -18,7 +18,10 @@
             "memory": "메모리",
             "sampling": "기본 샘플링",
             "template": "채팅 템플릿",
-            "speed": "속도"
+            "speed": "속도",
+            "serving": "동시 처리",
+            "speculative": "추측 디코딩",
+            "engine_advanced": "llama.cpp 고급 옵션"
         },
         "fields": {
             "context_size": "컨텍스트 크기",
@@ -38,7 +41,78 @@
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Jinja 채팅 템플릿",
             "load_mode": "로드 방식",
-            "options_ubatch": "마이크로배치 크기"
+            "options_ubatch": "마이크로배치 크기",
+            "options_paged_kv": "페이지 방식 처리",
+            "options_paged_preempt": "캐시가 가득 차면 일시 중지",
+            "options_prefill_budget": "프리필 예산",
+            "backend_sampling": "GPU 샘플링",
+            "options_kv_pool_tokens": "KV 풀 토큰",
+            "options_kv_output_reserve": "출력 예약",
+            "options_cache_idle_slots": "유휴 슬롯 캐시",
+            "options_n_cache_reuse": "캐시 재사용 단위",
+            "options_slot_prompt_similarity": "슬롯 프롬프트 유사도",
+            "options_kv_unified_per_slot": "슬롯당 토큰",
+            "options_cache_ram": "프롬프트 캐시 메모리 (MiB)",
+            "options_mmproj_use_gpu": "GPU 비전 프로젝터",
+            "options_backend_sampling_min_slots": "GPU 샘플링 최소 슬롯",
+            "options_context_shift": "컨텍스트 이동",
+            "options_cont_batching": "연속 배칭",
+            "options_kv_unified": "통합 KV 캐시",
+            "options_swa_full": "전체 슬라이딩 윈도 캐시",
+            "options_fit_params_target": "맞춤 여유 (MiB)",
+            "options_fit_params_min_ctx": "맞춤 최소 컨텍스트",
+            "options_n_cpu_ffn": "CPU의 밀집 FFN 레이어",
+            "options_moe_cache_cpu_share": "MoE 캐시 CPU 비율",
+            "options_lazy_mode": "지연 로딩",
+            "options_split_mode": "다중 GPU 분할",
+            "options_device": "장치",
+            "options_grpc_servers": "RPC 워커",
+            "options_check_tensors": "텐서 검사",
+            "options_warmup": "워밍업",
+            "options_verbosity": "로그 상세도",
+            "options_n_ctx_checkpoints": "컨텍스트 체크포인트",
+            "options_checkpoint_min_step": "체크포인트 간격",
+            "options_n_rs_seq": "순환 상태 스냅샷",
+            "options_slot_save_path": "슬롯 저장 폴더",
+            "options_yarn_orig_ctx": "YaRN 원래 컨텍스트",
+            "options_pooling_type": "임베딩 풀링",
+            "options_embd_normalize": "임베딩 정규화",
+            "options_image_min_tokens": "이미지당 최소 비전 토큰",
+            "options_image_max_tokens": "이미지당 최대 비전 토큰",
+            "options_reasoning_format": "추론 형식",
+            "options_enable_reasoning": "생각",
+            "options_reasoning_budget": "추론 예산",
+            "options_prefill_assistant": "어시스턴트 미리 채우기",
+            "options_spec_type": "추측 유형",
+            "options_spec_n_max": "최대 초안 토큰",
+            "options_spec_n_min": "최소 초안 토큰",
+            "options_spec_p_min": "최소 초안 확률",
+            "options_spec_p_split": "분기 확률",
+            "options_draft_gpu_layers": "초안 GPU 레이어",
+            "options_draft_threads": "초안 스레드",
+            "options_draft_threads_batch": "초안 배치 스레드",
+            "options_draft_cache_type_k": "초안 KV 캐시 유형 (K)",
+            "options_draft_cache_type_v": "초안 KV 캐시 유형 (V)",
+            "options_spec_draft_n_ubatch": "초안 마이크로 배치",
+            "options_spec_draft_sampling": "초안 샘플링",
+            "options_spec_draft_device": "초안 장치",
+            "options_draft_cpu_moe": "CPU의 초안 MoE",
+            "options_draft_n_cpu_moe": "CPU의 초안 MoE 레이어",
+            "options_draft_override_tensor": "초안 텐서 재지정",
+            "options_spec_ngram_size_n": "n-gram 조회 길이",
+            "options_spec_ngram_size_m": "n-gram 제안 길이",
+            "options_spec_ngram_min_hits": "n-gram 최소 일치",
+            "options_spec_ngram_mod_n_min": "ngram-mod 최소",
+            "options_spec_ngram_mod_n_max": "ngram-mod 최대",
+            "options_spec_ngram_mod_n_match": "ngram-mod 일치 길이",
+            "options_spec_ngram_map_k_size_n": "ngram-map-k 조회 길이",
+            "options_spec_ngram_map_k_size_m": "ngram-map-k 제안 길이",
+            "options_spec_ngram_map_k_min_hits": "ngram-map-k 최소 일치",
+            "options_spec_ngram_map_k4v_size_n": "ngram-map-k4v 조회 길이",
+            "options_spec_ngram_map_k4v_size_m": "ngram-map-k4v 제안 길이",
+            "options_spec_ngram_map_k4v_min_hits": "ngram-map-k4v 최소 일치",
+            "options_spec_lookup_cache_static": "정적 n-gram 캐시 파일",
+            "options_spec_lookup_cache_dynamic": "동적 n-gram 캐시 파일"
         },
         "choices": {
             "load_mode": {
@@ -48,10 +122,16 @@
                 "mlock": "mlock",
                 "mmap_mlock": "mmap + mlock",
                 "direct_io": "직접 I/O"
+            },
+            "backend_sampling": {
+                "off": "끔",
+                "auto": "자동",
+                "on": "켬"
             }
         },
         "hints": {
-            "load_mode": "모델 파일을 읽는 방식입니다. mmap, mmlock, direct_io 옵션을 기록합니다."
+            "load_mode": "모델 파일을 읽는 방식입니다. mmap, mmlock, direct_io 옵션을 기록합니다.",
+            "backend_sampling": "토큰을 샘플링하는 위치입니다. GPU 샘플링이 없는 백엔드는 이 설정을 무시합니다."
         },
         "errors": {
             "notInteger": "정수를 입력하세요.",
@@ -171,6 +251,44 @@
         "readOnly": {
             "title": "읽기 전용.",
             "body": "관리자만 이 설정을 바꿀 수 있습니다."
-        }
+        },
+        "quick": {
+            "title": "빠른 설정",
+            "custom": "직접 설정",
+            "customText": "아래 항목을 직접 설정합니다.",
+            "current": "현재 설정",
+            "estimating": "추정 중...",
+            "noEstimate": "추정 없음",
+            "same": "메모리가 거의 같음",
+            "more": "메모리 ≈ {{size}} 증가",
+            "less": "메모리 ≈ {{size}} 감소",
+            "now": "현재: 가중치 외에 {{context}} 토큰 기준 KV 캐시 ≈ {{kv}}, 연산 버퍼 ≈ {{compute}}.",
+            "estimate": "이 수치는 추정값입니다.",
+            "approximate": "대략적인 추정: 모델 구조를 파일에서 읽지 못했습니다.",
+            "failed": "메모리 추정을 사용할 수 없습니다."
+        },
+        "profiles": {
+            "balanced": {
+                "name": "균형",
+                "text": "기본값: LocalAI가 GPU에 맞춰 배치와 슬롯을 정하고 f16 KV 캐시를 씁니다."
+            },
+            "longPrompts": {
+                "name": "긴 프롬프트",
+                "text": "배치와 마이크로 배치 2048. 긴 프롬프트를 훨씬 빨리 읽고, 연산 버퍼가 메모리를 더 씁니다."
+            },
+            "concurrent": {
+                "name": "더 많은 동시 사용자",
+                "text": "8비트 KV 캐시, 페이지 방식 처리, 슬롯 8개. 같은 메모리에 약 두 배의 토큰이 들어가 더 많은 사용자가 나눠 쓰며, 품질은 조금 떨어집니다.",
+                "note": "llama.cpp에 빠른 커널이 생기기 전까지는 일부 어텐션 경로에서 양자화된 KV 캐시가 더 느릴 수 있습니다. 페이지 방식 처리는 이를 지원하는 백엔드 빌드가 필요하며, 다른 빌드는 이 옵션을 무시합니다."
+            }
+        },
+        "choiceHints": {
+            "backend_sampling": {
+                "off": "CPU에서 토큰을 샘플링합니다. 파일에는 아무것도 쓰지 않습니다.",
+                "auto": "모델이 여러 병렬 요청과 함께 GPU에서 실행되고 요청에 문법이나 logprobs가 필요 없을 때 GPU 샘플링을 사용합니다.",
+                "on": "GPU에서 토큰을 샘플링합니다. 병렬 요청이 많을 때 더 빠릅니다. 문법, 추론 예산 또는 logprobs를 쓰는 요청에서는 자동으로 꺼집니다."
+            }
+        },
+        "groupCount": "설정 {{count}}개"
     }
 }

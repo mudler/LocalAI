@@ -6,7 +6,7 @@ import Icon from '../../Icon'
 import { useEngineSchema } from '../../../hooks/useEngineSettings'
 import { engineSettingsApi } from '../../../utils/api'
 import {
-  CAPABILITY_COMMAND_LINE, MODEL_FILE_KEY, applyParsed, applyPreset, describeChanges, diffPaths,
+  CAPABILITY_COMMAND_LINE, MODEL_FILE_KEY, applyParsed, applyPreset, applyProfile, describeChanges, diffPaths,
   groupItems, hasCapability, ownedOptionNames, rawOptionFor, readCombined, splitEntry, undoChanges,
   unflatten, writeCombined, writeEntry, writeItem,
 } from '../../../utils/engineSettings'
@@ -19,6 +19,8 @@ import TensorPlacement from './TensorPlacement'
 import RawOptions from './RawOptions'
 // eslint-disable-next-line no-unused-vars
 import { CommandPreview, PasteCommand } from './CommandTools'
+// eslint-disable-next-line no-unused-vars
+import QuickSetup from './QuickSetup'
 import './engine-settings.css'
 
 const humanize = (id) => id.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
@@ -56,13 +58,14 @@ function changeLabel(t, change) {
 // command-line, the placement block for tensor-placement).
 //
 //   engine          the engine summary of GET /api/engines ({ id, name, binary })
+//   model           the model name, for the memory figures of the quick setup
 //   values          the editor's flat values (dotted paths, `options` list)
 //   onChange        (path, value) => void; undefined unsets the key
 //   readOnly        draw the settings without any way to change them
 //   onOpenYaml      switches the editor to the YAML tab (the fallback when the
 //                   schema cannot be read)
 //   onValidity      (ok) => void; false while a field holds text that does not validate
-export default function EngineRuntimeSection({ engine, values, onChange, readOnly = false, onOpenYaml, onValidity }) {
+export default function EngineRuntimeSection({ engine, model, values, onChange, readOnly = false, onOpenYaml, onValidity }) {
   const { t } = useTranslation('modelEditor')
   const state = useEngineSchema(engine.id)
   const schema = state.schema
@@ -113,9 +116,10 @@ export default function EngineRuntimeSection({ engine, values, onChange, readOnl
         setPresetBusy(null)
       }
     }
-    const { draft } = commit(d => applyPreset(schema, d, preset, entry))
+    const { draft } = commit(d => (preset.profile ? applyProfile(schema, d, preset) : applyPreset(schema, d, preset, entry)))
     const changes = describeChanges(schema, values, draft)
-    setApplied({ kind: 'preset', name: t(`engineSettings.presets.${preset.id}.name`, { defaultValue: preset.name }), changes })
+    const ns = preset.profile ? 'profiles' : 'presets'
+    setApplied({ kind: 'preset', name: t(`engineSettings.${ns}.${preset.id}.name`, { defaultValue: preset.name }), changes })
   }
 
   const writePlacement = useCallback((entry) => commit(d => {
@@ -193,6 +197,45 @@ export default function EngineRuntimeSection({ engine, values, onChange, readOnl
   const commandLine = hasCapability(schema, CAPABILITY_COMMAND_LINE)
   const groupTitle = (id) => t(`engineSettings.groups.${id}`, { defaultValue: humanize(id) })
 
+  // The fields and combined controls of one group.
+  const groupGrid = (g) => (
+    <div className="rt-group__grid">
+      {g.items.map(item => (
+        <EngineField key={item.id} item={item} values={values} onWrite={write} onValidity={onFieldValidity} readOnly={readOnly} />
+      ))}
+      {g.combined.map(c => {
+        const id = testIdOf(c.id)
+        const chosen = readCombined(schema, values, c)
+        const chosenDoc = c.choices.find(ch => ch.value === chosen)?.doc
+        return (
+          <div className="dk-field rt-field" key={c.id} data-testid={`${id}-field`}>
+            <label className="dk-label" htmlFor={id}>{combinedLabel(t, c)}</label>
+            <span className="dk-select-wrap">
+              <select
+                id={id}
+                className="dk-select"
+                value={chosen}
+                disabled={readOnly}
+                aria-describedby={`${id}-hint`}
+                onChange={e => commit(d => writeCombined(schema, d, c, e.target.value))}
+                data-testid={id}
+              >
+                {c.choices.map(ch => <option key={ch.value} value={ch.value}>{choiceLabel(t, c, ch.value)}</option>)}
+              </select>
+            </span>
+            <p className="dk-hint rt-field__hint" id={`${id}-hint`}>
+              {c.flag && <code className="rt-flag">{c.flag}</code>}
+              <span>{t(`engineSettings.hints.${c.id}`, { defaultValue: c.doc })}</span>
+              {chosenDoc && (
+                <span data-testid={`${id}-choice-hint`}>{t(`engineSettings.choiceHints.${c.id}.${chosen}`, { defaultValue: chosenDoc })}</span>
+              )}
+            </p>
+          </div>
+        )
+      })}
+    </div>
+  )
+
   return (
     <section className="rt" data-testid="runtime">
       <Head t={t} engine={engine} />
@@ -201,6 +244,10 @@ export default function EngineRuntimeSection({ engine, values, onChange, readOnl
         <Callout tone="info" icon="lock" title={t('engineSettings.readOnly.title')} testId="runtime-read-only">
           {t('engineSettings.readOnly.body')}
         </Callout>
+      )}
+
+      {schema.profiles.length > 0 && (
+        <QuickSetup schema={schema} model={model} values={values} onPick={runPreset} readOnly={readOnly} />
       )}
 
       {!readOnly && schema.presets.length > 0 && (
@@ -259,41 +306,23 @@ export default function EngineRuntimeSection({ engine, values, onChange, readOnl
                 <TensorPlacement engine={engine} placement={schema.placement} values={values} onEntry={writePlacement} onValidity={onFieldValidity} readOnly={readOnly} />
               </fieldset>
             )
-            : (
-              <fieldset className="rt-group" key={g.id} data-testid={`rt-group-${g.id}`}>
-                <legend className="rt-group__title">{groupTitle(g.id)}</legend>
-                <div className="rt-group__grid">
-                  {g.items.map(item => (
-                    <EngineField key={item.id} item={item} values={values} onWrite={write} onValidity={onFieldValidity} readOnly={readOnly} />
-                  ))}
-                  {g.combined.map(c => {
-                    const id = testIdOf(c.id)
-                    return (
-                      <div className="dk-field rt-field" key={c.id} data-testid={`${id}-field`}>
-                        <label className="dk-label" htmlFor={id}>{combinedLabel(t, c)}</label>
-                        <span className="dk-select-wrap">
-                          <select
-                            id={id}
-                            className="dk-select"
-                            value={readCombined(schema, values, c)}
-                            disabled={readOnly}
-                            aria-describedby={`${id}-hint`}
-                            onChange={e => commit(d => writeCombined(schema, d, c, e.target.value))}
-                            data-testid={id}
-                          >
-                            {c.choices.map(ch => <option key={ch.value} value={ch.value}>{choiceLabel(t, c, ch.value)}</option>)}
-                          </select>
-                        </span>
-                        <p className="dk-hint rt-field__hint" id={`${id}-hint`}>
-                          {c.flag && <code className="rt-flag">{c.flag}</code>}
-                          <span>{t(`engineSettings.hints.${c.id}`, { defaultValue: c.doc })}</span>
-                        </p>
-                      </div>
-                    )
-                  })}
-                </div>
-              </fieldset>
-            )))}
+            : g.collapsed
+              ? (
+                <details className="rt-group rt-group--fold" key={g.id} data-testid={`rt-group-${g.id}`}>
+                  <summary className="rt-group__title rt-group__summary" data-testid={`rt-group-${g.id}-toggle`}>
+                    <Icon name="chevron-right" className="rt-group__chevron" />
+                    {groupTitle(g.id)}
+                    <span className="text-meta">{t('engineSettings.groupCount', { count: g.items.length + g.combined.length })}</span>
+                  </summary>
+                  {groupGrid(g)}
+                </details>
+              )
+              : (
+                <fieldset className="rt-group" key={g.id} data-testid={`rt-group-${g.id}`}>
+                  <legend className="rt-group__title">{groupTitle(g.id)}</legend>
+                  {groupGrid(g)}
+                </fieldset>
+              )))}
 
           <fieldset className="rt-group" data-testid="rt-group-advanced">
             <legend className="rt-group__title">{t('engineSettings.raw.title')}</legend>

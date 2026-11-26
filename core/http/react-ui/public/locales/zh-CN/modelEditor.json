@@ -18,7 +18,10 @@
             "memory": "内存",
             "sampling": "默认采样",
             "template": "聊天模板",
-            "speed": "速度"
+            "speed": "速度",
+            "serving": "并发服务",
+            "speculative": "推测解码",
+            "engine_advanced": "llama.cpp 高级选项"
         },
         "fields": {
             "context_size": "上下文大小",
@@ -38,7 +41,78 @@
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Jinja 聊天模板",
             "load_mode": "加载方式",
-            "options_ubatch": "微批大小"
+            "options_ubatch": "微批大小",
+            "options_paged_kv": "分页服务",
+            "options_paged_preempt": "缓存满时暂停",
+            "options_prefill_budget": "预填充预算",
+            "backend_sampling": "GPU 采样",
+            "options_kv_pool_tokens": "KV 池 token 数",
+            "options_kv_output_reserve": "输出预留",
+            "options_cache_idle_slots": "缓存空闲槽位",
+            "options_n_cache_reuse": "缓存复用块大小",
+            "options_slot_prompt_similarity": "槽位提示词相似度",
+            "options_kv_unified_per_slot": "每槽位 token 数",
+            "options_cache_ram": "提示词缓存内存 (MiB)",
+            "options_mmproj_use_gpu": "视觉投影器使用 GPU",
+            "options_backend_sampling_min_slots": "GPU 采样最少槽位",
+            "options_context_shift": "上下文平移",
+            "options_cont_batching": "连续批处理",
+            "options_kv_unified": "统一 KV 缓存",
+            "options_swa_full": "完整滑动窗口缓存",
+            "options_fit_params_target": "适配余量 (MiB)",
+            "options_fit_params_min_ctx": "适配最小上下文",
+            "options_n_cpu_ffn": "CPU 上的稠密 FFN 层",
+            "options_moe_cache_cpu_share": "MoE 缓存 CPU 份额",
+            "options_lazy_mode": "延迟加载",
+            "options_split_mode": "多 GPU 切分",
+            "options_device": "设备",
+            "options_grpc_servers": "RPC 工作节点",
+            "options_check_tensors": "检查张量",
+            "options_warmup": "预热",
+            "options_verbosity": "日志详细程度",
+            "options_n_ctx_checkpoints": "上下文检查点",
+            "options_checkpoint_min_step": "检查点间隔",
+            "options_n_rs_seq": "循环状态快照",
+            "options_slot_save_path": "槽位保存目录",
+            "options_yarn_orig_ctx": "YaRN 原始上下文",
+            "options_pooling_type": "嵌入池化",
+            "options_embd_normalize": "嵌入归一化",
+            "options_image_min_tokens": "每张图片最少视觉 token",
+            "options_image_max_tokens": "每张图片最多视觉 token",
+            "options_reasoning_format": "推理格式",
+            "options_enable_reasoning": "思考",
+            "options_reasoning_budget": "推理预算",
+            "options_prefill_assistant": "预填助手消息",
+            "options_spec_type": "推测类型",
+            "options_spec_n_max": "最多草稿 token",
+            "options_spec_n_min": "最少草稿 token",
+            "options_spec_p_min": "草稿最低概率",
+            "options_spec_p_split": "分支概率",
+            "options_draft_gpu_layers": "草稿 GPU 层数",
+            "options_draft_threads": "草稿线程",
+            "options_draft_threads_batch": "草稿批处理线程",
+            "options_draft_cache_type_k": "草稿 KV 缓存类型 (K)",
+            "options_draft_cache_type_v": "草稿 KV 缓存类型 (V)",
+            "options_spec_draft_n_ubatch": "草稿微批大小",
+            "options_spec_draft_sampling": "草稿采样",
+            "options_spec_draft_device": "草稿设备",
+            "options_draft_cpu_moe": "草稿 MoE 放在 CPU",
+            "options_draft_n_cpu_moe": "放在 CPU 的草稿 MoE 层",
+            "options_draft_override_tensor": "草稿张量覆盖",
+            "options_spec_ngram_size_n": "n-gram 查找长度",
+            "options_spec_ngram_size_m": "n-gram 建议长度",
+            "options_spec_ngram_min_hits": "n-gram 最少命中",
+            "options_spec_ngram_mod_n_min": "ngram-mod 最小值",
+            "options_spec_ngram_mod_n_max": "ngram-mod 最大值",
+            "options_spec_ngram_mod_n_match": "ngram-mod 匹配长度",
+            "options_spec_ngram_map_k_size_n": "ngram-map-k 查找长度",
+            "options_spec_ngram_map_k_size_m": "ngram-map-k 建议长度",
+            "options_spec_ngram_map_k_min_hits": "ngram-map-k 最少命中",
+            "options_spec_ngram_map_k4v_size_n": "ngram-map-k4v 查找长度",
+            "options_spec_ngram_map_k4v_size_m": "ngram-map-k4v 建议长度",
+            "options_spec_ngram_map_k4v_min_hits": "ngram-map-k4v 最少命中",
+            "options_spec_lookup_cache_static": "静态 n-gram 缓存文件",
+            "options_spec_lookup_cache_dynamic": "动态 n-gram 缓存文件"
         },
         "choices": {
             "load_mode": {
@@ -48,10 +122,16 @@
                 "mlock": "mlock",
                 "mmap_mlock": "mmap + mlock",
                 "direct_io": "直接 I/O"
+            },
+            "backend_sampling": {
+                "off": "关",
+                "auto": "自动",
+                "on": "开"
             }
         },
         "hints": {
-            "load_mode": "读取模型文件的方式。写入 mmap、mmlock 和 direct_io 选项。"
+            "load_mode": "读取模型文件的方式。写入 mmap、mmlock 和 direct_io 选项。",
+            "backend_sampling": "在哪里采样 token。不支持 GPU 采样的后端会忽略此设置。"
         },
         "errors": {
             "notInteger": "请输入整数。",
@@ -171,6 +251,44 @@
         "readOnly": {
             "title": "只读。",
             "body": "只有管理员可以更改这些设置。"
-        }
+        },
+        "quick": {
+            "title": "快速设置",
+            "custom": "自定义",
+            "customText": "自行设置下面的字段。",
+            "current": "当前设置",
+            "estimating": "正在估算...",
+            "noEstimate": "无估算",
+            "same": "内存大致相同",
+            "more": "内存约增加 {{size}}",
+            "less": "内存约减少 {{size}}",
+            "now": "当前：除权重外，{{context}} 个 token 时 KV 缓存约 {{kv}}，计算缓冲区约 {{compute}}。",
+            "estimate": "这些数值是估算值。",
+            "approximate": "粗略估算：未从文件中读取模型结构。",
+            "failed": "内存估算不可用。"
+        },
+        "profiles": {
+            "balanced": {
+                "name": "均衡",
+                "text": "默认值：LocalAI 按你的 GPU 选择批大小和槽位，使用 f16 KV 缓存。"
+            },
+            "longPrompts": {
+                "name": "长提示词",
+                "text": "批大小和微批大小为 2048。长提示词读取快得多；计算缓冲区占用更多内存。"
+            },
+            "concurrent": {
+                "name": "更多并发用户",
+                "text": "8 位 KV 缓存、分页服务和 8 个槽位。相同内存可容纳约两倍的 token，由更多用户共享，质量略有下降。",
+                "note": "在 llama.cpp 提供快速内核之前，量化的 KV 缓存在某些注意力路径上可能更慢。分页服务需要支持它的后端构建；其他构建会忽略该选项。"
+            }
+        },
+        "choiceHints": {
+            "backend_sampling": {
+                "off": "在 CPU 上采样 token。不向文件写入任何内容。",
+                "auto": "当模型在 GPU 上运行且有多个并行请求，并且请求不需要语法约束或 logprobs 时，使用 GPU 采样。",
+                "on": "在 GPU 上采样 token。并行请求多时更快。对使用语法约束、推理预算或 logprobs 的请求会自动关闭。"
+            }
+        },
+        "groupCount": "{{count}} 项设置"
     }
 }

@@ -25,6 +25,22 @@ type GGUFMeta struct {
 	MaximumContextLength uint64
 	// ExpertCount is <arch>.expert_count, zero for a dense model.
 	ExpertCount uint32
+	// KeyLength and ValueLength are the sizes of one key and one value head
+	// (<arch>.attention.key_length / value_length). Zero when the file does
+	// not say; the head size is then the width divided by the head count.
+	KeyLength   uint32 `json:",omitempty"`
+	ValueLength uint32 `json:",omitempty"`
+	// VocabSize is the number of tokens of the vocabulary, zero when unknown.
+	VocabSize uint64 `json:",omitempty"`
+	// SlidingWindow is the attention window of the sliding-window layers and
+	// SlidingWindowLayers how many of the layers use it (Gemma 3 and
+	// others). Those layers keep only the window in the KV cache, not the
+	// whole context. KeyLengthSWA and ValueLengthSWA are their head sizes
+	// when they differ.
+	SlidingWindow       uint64 `json:",omitempty"`
+	SlidingWindowLayers uint32 `json:",omitempty"`
+	KeyLengthSWA        uint32 `json:",omitempty"`
+	ValueLengthSWA      uint32 `json:",omitempty"`
 }
 
 // GGUFMetadataReader reads GGUF metadata from a URI (e.g. via HTTP Range).
@@ -33,10 +49,15 @@ type GGUFMetadataReader interface {
 }
 
 // EstimateOptions configures VRAM/size estimation.
-// GPULayers and KVQuantBits apply uniformly across all context sizes.
+// GPULayers and the KV cache bits apply uniformly across all context sizes.
 type EstimateOptions struct {
-	GPULayers   int
+	GPULayers int
+	// KVQuantBits is the bits of a KV cache value for both K and V (4, 8,
+	// 16...). CacheTypeK and CacheTypeV, when set, take its place.
 	KVQuantBits int
+	// CacheTypeK and CacheTypeV are llama.cpp KV cache types (f16, q8_0...).
+	CacheTypeK string
+	CacheTypeV string
 }
 
 // VRAMAt holds the VRAM estimate at a specific context size.
@@ -56,6 +77,10 @@ type EstimateResult struct {
 	ContextLength uint32 `json:"context_length,omitempty"`
 	VRAMBytes     uint64 `json:"vram_bytes"`
 	VRAMDisplay   string `json:"vram_display"`
+	// Runtime is the KV cache and compute buffer part of a llama.cpp model
+	// for the KV cache types and physical batch of the request. Absent when
+	// the estimate has no weight files.
+	Runtime *RuntimeBreakdown `json:"runtime,omitempty"`
 }
 
 // MultiContextEstimate holds VRAM estimates for one or more context sizes,
@@ -71,6 +96,9 @@ type MultiContextEstimate struct {
 	// header, so the KV cache term is a rule of thumb (size plus 2 KiB per
 	// context token) and not computed from layers, width and heads.
 	Approximate bool `json:"approximate,omitempty"`
+	// Meta is the GGUF header the estimate read, nil when none. Callers use
+	// it for EstimateRuntime without reading the file again.
+	Meta *GGUFMeta `json:"-"`
 }
 
 // VRAMForContext is a convenience method that returns the VRAMBytes for a

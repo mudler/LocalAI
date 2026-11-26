@@ -75,7 +75,7 @@
       "type": "int",
       "min": 1,
       "default": "backend default",
-      "doc": "Logical batch size: the most prompt tokens processed in one step.",
+      "doc": "Logical batch size: the most prompt tokens processed in one step. Larger values read long prompts faster and use more compute memory.",
       "group": "speed"
     },
     {
@@ -117,7 +117,7 @@
         "q5_1"
       ],
       "default": "f16",
-      "doc": "Data type of the K half of the KV cache. Smaller types save memory at some cost in quality.",
+      "doc": "Data type of the K half of the KV cache. q8_0 holds about twice the tokens of f16 in the same memory, at a small cost in quality. A quantized cache can be slower on some attention paths until llama.cpp has a fast kernel for them.",
       "group": "memory"
     },
     {
@@ -207,9 +207,9 @@
       ],
       "type": "int",
       "min": -1,
-      "default": "1",
-      "doc": "Number of requests served at the same time (server slots). The context is shared between the slots.",
-      "group": "speed"
+      "default": "LocalAI default for the GPU",
+      "doc": "Number of requests served at the same time (server slots). The slots share the context, so long requests leave less room for the others.",
+      "group": "serving"
     },
     {
       "key": "ubatch",
@@ -226,8 +226,87 @@
       "type": "int",
       "min": 1,
       "default": "same as the batch size",
-      "doc": "Physical batch size: the most tokens one compute step handles. Smaller values use less memory.",
+      "doc": "Physical batch size: the most tokens one compute step handles. Larger values prefill faster and use more compute memory; smaller values use less.",
       "group": "speed"
+    },
+    {
+      "key": "backend_sampling",
+      "target": "option",
+      "path": "options",
+      "option": "backend_sampling",
+      "type": "enum",
+      "enum": [
+        "off",
+        "auto",
+        "on"
+      ],
+      "default": "off",
+      "doc": "Sample tokens on the GPU. off: on the CPU. auto: on the GPU when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs. on: always on the GPU, turned off for a request with a grammar, a reasoning budget or logprobs.",
+      "group": "speed",
+      "localai_only": true
+    },
+    {
+      "key": "paged_kv",
+      "target": "option",
+      "path": "options",
+      "option": "paged_kv",
+      "option_aliases": [
+        "paged_serving"
+      ],
+      "type": "bool",
+      "default": "on in builds with paged serving",
+      "doc": "Paged serving: start a request only when the shared KV cache has room for it, and pause the newest one when it runs out, so many users share the cache without failing. It needs more than one slot. Default: on in builds with paged serving.",
+      "group": "serving",
+      "localai_only": true
+    },
+    {
+      "key": "paged_preempt",
+      "target": "option",
+      "path": "options",
+      "option": "paged_preempt",
+      "type": "bool",
+      "default": "on",
+      "doc": "With paged serving: pause the newest request when the KV cache is full and resume it later. Off makes new requests wait instead.",
+      "group": "serving",
+      "localai_only": true
+    },
+    {
+      "key": "prefill_budget",
+      "target": "option",
+      "path": "options",
+      "option": "prefill_budget",
+      "option_aliases": [
+        "max_prefill_tokens"
+      ],
+      "type": "string",
+      "default": "256 in builds with paged serving",
+      "doc": "Prompt tokens read per step while other requests generate, so a long prompt does not stall them. A number, 0 to turn it off, or auto to follow the load in builds that have it.",
+      "group": "serving",
+      "localai_only": true
+    },
+    {
+      "key": "kv_pool_tokens",
+      "target": "option",
+      "path": "options",
+      "option": "kv_pool_tokens",
+      "type": "int",
+      "min": 0,
+      "default": "the context size",
+      "doc": "With paged serving: the tokens of the shared KV cache all requests draw from. It sets the context size.",
+      "group": "serving",
+      "localai_only": true
+    },
+    {
+      "key": "kv_output_reserve",
+      "target": "option",
+      "path": "options",
+      "option": "kv_output_reserve",
+      "type": "int",
+      "min": 0,
+      "default": "256",
+      "doc": "With paged serving: free tokens a request needs beyond its prompt before it starts, capped at its max tokens.",
+      "group": "serving",
+      "localai_only": true
     },
     {
       "key": "threads_batch",
@@ -303,6 +382,1116 @@
       "default": "false",
       "doc": "Read the model file with direct I/O, bypassing the page cache. Takes priority over mmap and mlock.",
       "group": "memory"
+    },
+    {
+      "key": "cache_idle_slots",
+      "target": "option",
+      "path": "options",
+      "option": "cache_idle_slots",
+      "option_aliases": [
+        "idle_slots_cache"
+      ],
+      "cli": [
+        "--cache-idle-slots"
+      ],
+      "cli_negated": [
+        "--no-cache-idle-slots"
+      ],
+      "type": "bool",
+      "default": "on",
+      "doc": "Save the KV cache of an idle slot to the prompt cache, so a later request with the same start loads it instead of reading it again.",
+      "group": "serving"
+    },
+    {
+      "key": "cache_reuse",
+      "target": "option",
+      "path": "options",
+      "option": "n_cache_reuse",
+      "option_aliases": [
+        "cache_reuse"
+      ],
+      "cli": [
+        "--cache-reuse"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "0",
+      "doc": "Smallest chunk of a cached prompt to reuse by shifting the KV cache. 0 turns it off.",
+      "group": "serving"
+    },
+    {
+      "key": "slot_prompt_similarity",
+      "target": "option",
+      "path": "options",
+      "option": "slot_prompt_similarity",
+      "option_aliases": [
+        "sps"
+      ],
+      "cli": [
+        "-sps",
+        "--slot-prompt-similarity"
+      ],
+      "type": "float",
+      "min": 0,
+      "max": 1,
+      "default": "0.1",
+      "doc": "How much a prompt must match the prompt of a slot to use that slot and its cache. 0 turns the match off.",
+      "group": "serving"
+    },
+    {
+      "key": "kv_unified_per_slot",
+      "target": "option",
+      "path": "options",
+      "option": "kv_unified_per_slot",
+      "cli": [
+        "--kv-unified-per-slot"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "no limit",
+      "doc": "Most tokens one slot may use of the shared KV cache. Without a context size, the cache is sized to the slots times this value.",
+      "group": "serving"
+    },
+    {
+      "key": "cache_ram",
+      "target": "option",
+      "path": "options",
+      "option": "cache_ram",
+      "cli": [
+        "-cram",
+        "--cache-ram"
+      ],
+      "type": "int",
+      "min": -1,
+      "default": "8192",
+      "doc": "System memory in MiB for the prompt cache that keeps the KV cache of earlier prompts. 0 turns it off, -1 sets no limit.",
+      "group": "memory"
+    },
+    {
+      "key": "mmproj_use_gpu",
+      "target": "option",
+      "path": "options",
+      "option": "mmproj_use_gpu",
+      "option_aliases": [
+        "mmproj_offload"
+      ],
+      "cli": [
+        "--mmproj-offload"
+      ],
+      "cli_negated": [
+        "--no-mmproj-offload"
+      ],
+      "type": "bool",
+      "default": "true",
+      "doc": "Run the vision projector on the GPU. Off keeps it on the CPU: less GPU memory, slower images.",
+      "group": "memory"
+    },
+    {
+      "key": "backend_sampling_min_slots",
+      "target": "option",
+      "path": "options",
+      "option": "backend_sampling_min_slots",
+      "type": "int",
+      "min": 1,
+      "default": "4",
+      "doc": "With GPU sampling on Auto: the fewest parallel requests that turn GPU sampling on.",
+      "group": "engine_advanced",
+      "localai_only": true
+    },
+    {
+      "key": "context_shift",
+      "target": "option",
+      "path": "options",
+      "option": "context_shift",
+      "cli": [
+        "--context-shift"
+      ],
+      "cli_negated": [
+        "--no-context-shift"
+      ],
+      "type": "bool",
+      "default": "false",
+      "doc": "When the context is full, drop the oldest tokens and keep generating. It turns paged serving off.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "cont_batching",
+      "target": "option",
+      "path": "options",
+      "option": "cont_batching",
+      "option_aliases": [
+        "continuous_batching"
+      ],
+      "cli": [
+        "-cb",
+        "--cont-batching"
+      ],
+      "cli_negated": [
+        "-nocb",
+        "--no-cont-batching"
+      ],
+      "type": "bool",
+      "default": "true",
+      "doc": "Serve several requests in one batch as they come. Off serves them one after the other and turns paged serving off.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "kv_unified",
+      "target": "option",
+      "path": "options",
+      "option": "kv_unified",
+      "option_aliases": [
+        "unified_kv"
+      ],
+      "cli": [
+        "-kvu",
+        "--kv-unified"
+      ],
+      "cli_negated": [
+        "-no-kvu",
+        "--no-kv-unified"
+      ],
+      "type": "bool",
+      "default": "true",
+      "doc": "One KV cache shared by all slots. Off splits it per slot and turns off the idle slot cache and paged serving.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "swa_full",
+      "target": "option",
+      "path": "options",
+      "option": "swa_full",
+      "cli": [
+        "--swa-full"
+      ],
+      "type": "bool",
+      "default": "false",
+      "doc": "Keep the whole context in the sliding-window layers too. Uses much more memory; helps prompt cache reuse.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "fit_target",
+      "target": "option",
+      "path": "options",
+      "option": "fit_params_target",
+      "option_aliases": [
+        "fit_target"
+      ],
+      "cli": [
+        "-fitt",
+        "--fit-target"
+      ],
+      "type": "string",
+      "default": "1024",
+      "doc": "Memory in MiB that fitting leaves free on each device, one value or one per device separated by slashes.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "fit_ctx",
+      "target": "option",
+      "path": "options",
+      "option": "fit_params_min_ctx",
+      "option_aliases": [
+        "fit_ctx"
+      ],
+      "cli": [
+        "-fitc",
+        "--fit-ctx"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "4096",
+      "doc": "Smallest context size that fitting may lower the context to.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "n_cpu_ffn",
+      "target": "option",
+      "path": "options",
+      "option": "n_cpu_ffn",
+      "cli": [
+        "-ncffn",
+        "--n-cpu-ffn"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "0",
+      "doc": "Keep the feed-forward weights of the first N layers of a dense model on the CPU.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "moe_cache_cpu_share",
+      "target": "option",
+      "path": "options",
+      "option": "moe_cache_cpu_share",
+      "cli": [
+        "--moe-cache-cpu-share"
+      ],
+      "type": "float",
+      "min": 0,
+      "max": 1,
+      "default": "0",
+      "doc": "With the MoE expert cache: share of cache misses the CPU computes instead of copying the experts to the GPU.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "lazy_mode",
+      "target": "option",
+      "path": "options",
+      "option": "lazy_mode",
+      "option_aliases": [
+        "lazy-mode",
+        "lzm"
+      ],
+      "cli": [
+        "-lzm",
+        "--lazy-mode"
+      ],
+      "type": "enum",
+      "enum": [
+        "auto",
+        "on",
+        "off"
+      ],
+      "default": "auto",
+      "doc": "Read large tensors such as per-layer embeddings when they are needed instead of at load. on needs mmap.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "split_mode",
+      "target": "option",
+      "path": "options",
+      "option": "split_mode",
+      "option_aliases": [
+        "sm"
+      ],
+      "cli": [
+        "-sm",
+        "--split-mode"
+      ],
+      "type": "enum",
+      "enum": [
+        "none",
+        "layer",
+        "row",
+        "tensor"
+      ],
+      "default": "layer",
+      "doc": "How to split the model over several GPUs: none, by layer, by row, or by tensor (experimental).",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "device",
+      "target": "option",
+      "path": "options",
+      "option": "device",
+      "option_aliases": [
+        "devices"
+      ],
+      "cli": [
+        "-dev",
+        "--device"
+      ],
+      "type": "string",
+      "default": "all devices",
+      "doc": "Devices to use, comma-separated, as llama-server --list-devices names them.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "rpc_servers",
+      "target": "option",
+      "path": "options",
+      "option": "grpc_servers",
+      "option_aliases": [
+        "rpc_servers"
+      ],
+      "cli": [
+        "--rpc"
+      ],
+      "type": "string",
+      "default": "none",
+      "doc": "Comma-separated llama.cpp RPC workers to spread the model over.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "check_tensors",
+      "target": "option",
+      "path": "options",
+      "option": "check_tensors",
+      "cli": [
+        "--check-tensors"
+      ],
+      "type": "bool",
+      "default": "false",
+      "doc": "Check the model weights for invalid values while loading. Slower loads.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "warmup",
+      "target": "option",
+      "path": "options",
+      "option": "warmup",
+      "cli": [
+        "--warmup"
+      ],
+      "cli_negated": [
+        "--no-warmup"
+      ],
+      "type": "bool",
+      "default": "true",
+      "doc": "Run an empty pass after loading, so the first request is not slower.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "verbosity",
+      "target": "option",
+      "path": "options",
+      "option": "verbosity",
+      "cli": [
+        "-lv",
+        "--verbosity",
+        "--log-verbosity"
+      ],
+      "type": "int",
+      "default": "3",
+      "doc": "How much llama.cpp logs. Higher logs more.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "ctx_checkpoints",
+      "target": "option",
+      "path": "options",
+      "option": "n_ctx_checkpoints",
+      "option_aliases": [
+        "ctx_checkpoints"
+      ],
+      "cli": [
+        "-ctxcp",
+        "--ctx-checkpoints",
+        "--swa-checkpoints"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "32",
+      "doc": "Most context checkpoints a slot keeps, to reuse part of a prompt on models that cannot rewind (sliding window, recurrent).",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "checkpoint_min_step",
+      "target": "option",
+      "path": "options",
+      "option": "checkpoint_min_step",
+      "option_aliases": [
+        "checkpoint_min_spacing",
+        "checkpoint_every_nt",
+        "checkpoint_every_n_tokens"
+      ],
+      "cli": [
+        "-cms",
+        "--checkpoint-min-step"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "256",
+      "doc": "Fewest tokens between two context checkpoints. 0 removes the limit.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "n_rs_seq",
+      "target": "option",
+      "path": "options",
+      "option": "n_rs_seq",
+      "option_aliases": [
+        "rs_seq"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "0",
+      "doc": "Recurrent state snapshots per request, so hybrid models can reuse a prompt cache that needs a rewind. Each costs the recurrent state again.",
+      "group": "engine_advanced",
+      "localai_only": true
+    },
+    {
+      "key": "slot_save_path",
+      "target": "option",
+      "path": "options",
+      "option": "slot_save_path",
+      "cli": [
+        "--slot-save-path"
+      ],
+      "type": "string",
+      "default": "off",
+      "doc": "Folder where the slot save and restore API keeps prompt cache files. Save and restore are off without it.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "yarn_orig_ctx",
+      "target": "option",
+      "path": "options",
+      "option": "yarn_orig_ctx",
+      "cli": [
+        "--yarn-orig-ctx"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "the model value",
+      "doc": "Context size the model was trained with, for YaRN scaling. 0 reads it from the model.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "pooling",
+      "target": "option",
+      "path": "options",
+      "option": "pooling_type",
+      "option_aliases": [
+        "pooling"
+      ],
+      "cli": [
+        "--pooling"
+      ],
+      "type": "enum",
+      "enum": [
+        "none",
+        "mean",
+        "cls",
+        "last",
+        "rank"
+      ],
+      "default": "from the model",
+      "doc": "How an embedding model pools the tokens into one vector. Rerank models use rank.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "embd_normalize",
+      "target": "option",
+      "path": "options",
+      "option": "embd_normalize",
+      "option_aliases": [
+        "embedding_normalize"
+      ],
+      "cli": [
+        "--embd-normalize"
+      ],
+      "type": "int",
+      "min": -1,
+      "default": "2",
+      "doc": "Embedding normalization: -1 none, 0 max absolute, 1 taxicab, 2 Euclidean, above 2 p-norm.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "image_min_tokens",
+      "target": "option",
+      "path": "options",
+      "option": "image_min_tokens",
+      "cli": [
+        "--image-min-tokens"
+      ],
+      "type": "int",
+      "min": -1,
+      "default": "-1",
+      "doc": "Fewest vision tokens per image. -1 keeps the model value.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "image_max_tokens",
+      "target": "option",
+      "path": "options",
+      "option": "image_max_tokens",
+      "cli": [
+        "--image-max-tokens"
+      ],
+      "type": "int",
+      "min": -1,
+      "default": "-1",
+      "doc": "Most vision tokens per image. -1 keeps the model value.",
+      "group": "engine_advanced"
+    },
+    {
+      "key": "reasoning_format",
+      "target": "option",
+      "path": "options",
+      "option": "reasoning_format",
+      "cli": [
+        "--reasoning-format"
+      ],
+      "type": "enum",
+      "enum": [
+        "none",
+        "auto",
+        "deepseek",
+        "deepseek-legacy"
+      ],
+      "default": "deepseek",
+      "doc": "How the thinking of a reasoning model is split from the answer.",
+      "group": "template"
+    },
+    {
+      "key": "enable_reasoning",
+      "target": "option",
+      "path": "options",
+      "option": "enable_reasoning",
+      "cli": [
+        "-rea",
+        "--reasoning"
+      ],
+      "type": "enum",
+      "enum": [
+        "auto",
+        "on",
+        "off"
+      ],
+      "default": "auto",
+      "doc": "Thinking in the chat template: auto follows the template.",
+      "group": "template"
+    },
+    {
+      "key": "reasoning_budget",
+      "target": "option",
+      "path": "options",
+      "option": "reasoning_budget",
+      "cli": [
+        "--reasoning-budget"
+      ],
+      "type": "int",
+      "min": -1,
+      "default": "-1",
+      "doc": "Most thinking tokens before the answer starts. -1 sets no limit, 0 skips thinking.",
+      "group": "template"
+    },
+    {
+      "key": "prefill_assistant",
+      "target": "option",
+      "path": "options",
+      "option": "prefill_assistant",
+      "cli": [
+        "--prefill-assistant"
+      ],
+      "cli_negated": [
+        "--no-prefill-assistant"
+      ],
+      "type": "bool",
+      "default": "true",
+      "doc": "Continue a last assistant message instead of starting a new one.",
+      "group": "template"
+    },
+    {
+      "key": "spec_type",
+      "target": "option",
+      "path": "options",
+      "option": "spec_type",
+      "option_aliases": [
+        "speculative_type"
+      ],
+      "cli": [
+        "--spec-type"
+      ],
+      "type": "string",
+      "default": "none, or draft-simple with a draft model",
+      "doc": "Kind of speculative decoding, or several comma-separated: draft-simple, draft-mtp, draft-eagle3, ngram-simple, ngram-mod and others.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_n_max",
+      "target": "option",
+      "path": "options",
+      "option": "spec_n_max",
+      "option_aliases": [
+        "draft_max"
+      ],
+      "cli": [
+        "--spec-draft-n-max",
+        "--draft",
+        "--draft-n",
+        "--draft-max"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "16",
+      "doc": "Most tokens drafted per step.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_n_min",
+      "target": "option",
+      "path": "options",
+      "option": "spec_n_min",
+      "option_aliases": [
+        "draft_min"
+      ],
+      "cli": [
+        "--spec-draft-n-min",
+        "--draft-min",
+        "--draft-n-min"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "0",
+      "doc": "Fewest drafted tokens worth checking.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_p_min",
+      "target": "option",
+      "path": "options",
+      "option": "spec_p_min",
+      "option_aliases": [
+        "draft_p_min"
+      ],
+      "cli": [
+        "--spec-draft-p-min",
+        "--draft-p-min"
+      ],
+      "type": "float",
+      "min": 0,
+      "max": 1,
+      "default": "0.75",
+      "doc": "Lowest draft probability to keep drafting.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_p_split",
+      "target": "option",
+      "path": "options",
+      "option": "spec_p_split",
+      "cli": [
+        "--spec-draft-p-split",
+        "--draft-p-split"
+      ],
+      "type": "float",
+      "min": 0,
+      "max": 1,
+      "default": "0.1",
+      "doc": "Probability at which a draft branches into a tree.",
+      "group": "speculative"
+    },
+    {
+      "key": "draft_gpu_layers",
+      "target": "option",
+      "path": "options",
+      "option": "draft_gpu_layers",
+      "cli": [
+        "--spec-draft-ngl",
+        "-ngld",
+        "--gpu-layers-draft",
+        "--n-gpu-layers-draft"
+      ],
+      "type": "int",
+      "min": -1,
+      "default": "-1",
+      "doc": "Layers of the draft model on the GPU. -1 keeps the default.",
+      "group": "speculative"
+    },
+    {
+      "key": "draft_threads",
+      "target": "option",
+      "path": "options",
+      "option": "draft_threads",
+      "option_aliases": [
+        "spec_draft_threads"
+      ],
+      "cli": [
+        "--spec-draft-threads",
+        "-td",
+        "--threads-draft"
+      ],
+      "type": "int",
+      "default": "same as threads",
+      "doc": "CPU threads of the draft model. 0 or less uses every core.",
+      "group": "speculative"
+    },
+    {
+      "key": "draft_threads_batch",
+      "target": "option",
+      "path": "options",
+      "option": "draft_threads_batch",
+      "option_aliases": [
+        "spec_draft_threads_batch"
+      ],
+      "cli": [
+        "--spec-draft-threads-batch",
+        "-tbd",
+        "--threads-batch-draft"
+      ],
+      "type": "int",
+      "default": "same as draft threads",
+      "doc": "CPU threads of the draft model while reading the prompt.",
+      "group": "speculative"
+    },
+    {
+      "key": "draft_cache_type_k",
+      "target": "option",
+      "path": "options",
+      "option": "draft_cache_type_k",
+      "option_aliases": [
+        "spec_draft_cache_type_k",
+        "spec_draft_type_k"
+      ],
+      "cli": [
+        "--spec-draft-type-k",
+        "-ctkd",
+        "--cache-type-k-draft"
+      ],
+      "type": "enum",
+      "enum": [
+        "f32",
+        "f16",
+        "bf16",
+        "q8_0",
+        "q4_0",
+        "q4_1",
+        "iq4_nl",
+        "q5_0",
+        "q5_1"
+      ],
+      "default": "f16",
+      "doc": "Data type of the K cache of the draft model.",
+      "group": "speculative"
+    },
+    {
+      "key": "draft_cache_type_v",
+      "target": "option",
+      "path": "options",
+      "option": "draft_cache_type_v",
+      "option_aliases": [
+        "spec_draft_cache_type_v",
+        "spec_draft_type_v"
+      ],
+      "cli": [
+        "--spec-draft-type-v",
+        "-ctvd",
+        "--cache-type-v-draft"
+      ],
+      "type": "enum",
+      "enum": [
+        "f32",
+        "f16",
+        "bf16",
+        "q8_0",
+        "q4_0",
+        "q4_1",
+        "iq4_nl",
+        "q5_0",
+        "q5_1"
+      ],
+      "default": "f16",
+      "doc": "Data type of the V cache of the draft model.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_draft_n_ubatch",
+      "target": "option",
+      "path": "options",
+      "option": "spec_draft_n_ubatch",
+      "cli": [
+        "--spec-draft-n-ubatch"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "0",
+      "doc": "Physical batch of the draft model. Smaller saves GPU memory; 0 uses the micro-batch size.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_draft_sampling",
+      "target": "option",
+      "path": "options",
+      "option": "spec_draft_sampling",
+      "cli": [
+        "--spec-draft-sampling"
+      ],
+      "type": "enum",
+      "enum": [
+        "greedy",
+        "probabilistic"
+      ],
+      "default": "greedy",
+      "doc": "How the draft is sampled: greedy takes the most likely token, probabilistic samples and the model checks by rejection.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_draft_device",
+      "target": "option",
+      "path": "options",
+      "option": "spec_draft_device",
+      "option_aliases": [
+        "draft_device"
+      ],
+      "cli": [
+        "--spec-draft-device",
+        "-devd",
+        "--device-draft"
+      ],
+      "type": "string",
+      "default": "same as device",
+      "doc": "Devices of the draft model, comma-separated. none keeps it off the GPU.",
+      "group": "speculative"
+    },
+    {
+      "key": "draft_cpu_moe",
+      "target": "option",
+      "path": "options",
+      "option": "draft_cpu_moe",
+      "option_aliases": [
+        "spec_draft_cpu_moe"
+      ],
+      "cli": [
+        "--spec-draft-cpu-moe",
+        "-cmoed",
+        "--cpu-moe-draft"
+      ],
+      "type": "bool",
+      "default": "false",
+      "doc": "Keep all MoE expert weights of the draft model on the CPU.",
+      "group": "speculative"
+    },
+    {
+      "key": "draft_n_cpu_moe",
+      "target": "option",
+      "path": "options",
+      "option": "draft_n_cpu_moe",
+      "option_aliases": [
+        "spec_draft_n_cpu_moe"
+      ],
+      "cli": [
+        "--spec-draft-n-cpu-moe",
+        "--spec-draft-ncmoe",
+        "-ncmoed",
+        "--n-cpu-moe-draft"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "0",
+      "doc": "Keep the MoE expert weights of the first N draft model layers on the CPU.",
+      "group": "speculative"
+    },
+    {
+      "key": "draft_override_tensor",
+      "target": "option",
+      "path": "options",
+      "option": "draft_override_tensor",
+      "option_aliases": [
+        "spec_draft_override_tensor"
+      ],
+      "cli": [
+        "--spec-draft-override-tensor",
+        "-otd",
+        "--override-tensor-draft"
+      ],
+      "type": "string",
+      "default": "no override",
+      "doc": "Place draft model tensors that match a pattern on a device, as pattern=buffer, comma-separated.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_ngram_size_n",
+      "target": "option",
+      "path": "options",
+      "option": "spec_ngram_size_n",
+      "option_aliases": [
+        "ngram_size_n"
+      ],
+      "cli": [
+        "--spec-ngram-size-n"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "12",
+      "doc": "N-gram drafting: tokens looked up in the history.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_ngram_size_m",
+      "target": "option",
+      "path": "options",
+      "option": "spec_ngram_size_m",
+      "option_aliases": [
+        "ngram_size_m"
+      ],
+      "cli": [
+        "--spec-ngram-size-m"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "48",
+      "doc": "N-gram drafting: tokens proposed after a match.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_ngram_min_hits",
+      "target": "option",
+      "path": "options",
+      "option": "spec_ngram_min_hits",
+      "option_aliases": [
+        "ngram_min_hits"
+      ],
+      "cli": [
+        "--spec-ngram-min-hits"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "1",
+      "doc": "N-gram drafting: fewest matches before a proposal is used.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_ngram_mod_n_min",
+      "target": "option",
+      "path": "options",
+      "option": "spec_ngram_mod_n_min",
+      "cli": [
+        "--spec-ngram-mod-n-min"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "48",
+      "doc": "ngram-mod drafting: fewest n-gram tokens to use.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_ngram_mod_n_max",
+      "target": "option",
+      "path": "options",
+      "option": "spec_ngram_mod_n_max",
+      "cli": [
+        "--spec-ngram-mod-n-max"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "64",
+      "doc": "ngram-mod drafting: most n-gram tokens to use.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_ngram_mod_n_match",
+      "target": "option",
+      "path": "options",
+      "option": "spec_ngram_mod_n_match",
+      "cli": [
+        "--spec-ngram-mod-n-match"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "24",
+      "doc": "ngram-mod drafting: lookup length.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_ngram_map_k_size_n",
+      "target": "option",
+      "path": "options",
+      "option": "spec_ngram_map_k_size_n",
+      "cli": [
+        "--spec-ngram-map-k-size-n"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "12",
+      "doc": "ngram-map-k drafting: tokens looked up.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_ngram_map_k_size_m",
+      "target": "option",
+      "path": "options",
+      "option": "spec_ngram_map_k_size_m",
+      "cli": [
+        "--spec-ngram-map-k-size-m"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "48",
+      "doc": "ngram-map-k drafting: tokens proposed.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_ngram_map_k_min_hits",
+      "target": "option",
+      "path": "options",
+      "option": "spec_ngram_map_k_min_hits",
+      "cli": [
+        "--spec-ngram-map-k-min-hits"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "1",
+      "doc": "ngram-map-k drafting: fewest matches before a proposal is used.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_ngram_map_k4v_size_n",
+      "target": "option",
+      "path": "options",
+      "option": "spec_ngram_map_k4v_size_n",
+      "cli": [
+        "--spec-ngram-map-k4v-size-n"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "12",
+      "doc": "ngram-map-k4v drafting: tokens looked up.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_ngram_map_k4v_size_m",
+      "target": "option",
+      "path": "options",
+      "option": "spec_ngram_map_k4v_size_m",
+      "cli": [
+        "--spec-ngram-map-k4v-size-m"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "48",
+      "doc": "ngram-map-k4v drafting: tokens proposed.",
+      "group": "speculative"
+    },
+    {
+      "key": "spec_ngram_map_k4v_min_hits",
+      "target": "option",
+      "path": "options",
+      "option": "spec_ngram_map_k4v_min_hits",
+      "cli": [
+        "--spec-ngram-map-k4v-min-hits"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "1",
+      "doc": "ngram-map-k4v drafting: fewest matches before a proposal is used.",
+      "group": "speculative"
+    },
+    {
+      "key": "lookup_cache_static",
+      "target": "option",
+      "path": "options",
+      "option": "spec_lookup_cache_static",
+      "option_aliases": [
+        "lookup_cache_static"
+      ],
+      "cli": [
+        "-lcs",
+        "--lookup-cache-static"
+      ],
+      "type": "string",
+      "default": "none",
+      "doc": "File of a fixed n-gram cache for ngram-cache drafting.",
+      "group": "speculative"
+    },
+    {
+      "key": "lookup_cache_dynamic",
+      "target": "option",
+      "path": "options",
+      "option": "spec_lookup_cache_dynamic",
+      "option_aliases": [
+        "lookup_cache_dynamic"
+      ],
+      "cli": [
+        "-lcd",
+        "--lookup-cache-dynamic"
+      ],
+      "type": "string",
+      "default": "none",
+      "doc": "File of an n-gram cache that generation updates, for ngram-cache drafting.",
+      "group": "speculative"
     },
     {
       "key": "temperature",
@@ -383,9 +1572,16 @@
   "groups": [
     "memory",
     "speed",
+    "serving",
     "placement",
     "sampling",
-    "template"
+    "template",
+    "speculative",
+    "engine_advanced"
+  ],
+  "collapsed_groups": [
+    "speculative",
+    "engine_advanced"
   ],
   "combined": [
     {
@@ -459,9 +1655,89 @@
           }
         }
       ]
+    },
+    {
+      "id": "backend_sampling",
+      "group": "speed",
+      "doc": "Where tokens are sampled. A backend without GPU sampling ignores the setting.",
+      "keys": [
+        "backend_sampling"
+      ],
+      "unset": {
+        "backend_sampling": "off"
+      },
+      "choices": [
+        {
+          "value": "off",
+          "label": "Off",
+          "set": {
+            "backend_sampling": null
+          },
+          "doc": "Sample tokens on the CPU. Nothing is written to the file."
+        },
+        {
+          "value": "auto",
+          "label": "Auto",
+          "set": {
+            "backend_sampling": "auto"
+          },
+          "doc": "Use GPU sampling when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs."
+        },
+        {
+          "value": "on",
+          "label": "On",
+          "set": {
+            "backend_sampling": "on"
+          },
+          "doc": "Sample tokens on the GPU. Faster with many parallel requests. Turned off automatically for requests that use a grammar, a reasoning budget or logprobs."
+        }
+      ]
     }
   ],
   "presets": [
+    {
+      "id": "balanced",
+      "name": "Balanced",
+      "description": "The defaults: LocalAI picks the batch and the slots for the GPU, with an f16 KV cache.",
+      "settings": {
+        "batch": null,
+        "cache_type_k": null,
+        "cache_type_v": null,
+        "paged_kv": null,
+        "parallel": null,
+        "ubatch": null
+      },
+      "profile": true
+    },
+    {
+      "id": "longPrompts",
+      "name": "Long prompts",
+      "description": "Batch and micro-batch of 2048: long prompts are read much faster, and the compute buffers grow.",
+      "settings": {
+        "batch": 2048,
+        "cache_type_k": null,
+        "cache_type_v": null,
+        "paged_kv": null,
+        "parallel": null,
+        "ubatch": 2048
+      },
+      "profile": true
+    },
+    {
+      "id": "concurrent",
+      "name": "More concurrent users",
+      "description": "8-bit KV cache, paged serving and 8 slots: about twice the tokens fit, shared by more users, at a small cost in quality.",
+      "settings": {
+        "batch": null,
+        "cache_type_k": "q8_0",
+        "cache_type_v": "q8_0",
+        "flash_attention": "on",
+        "paged_kv": true,
+        "parallel": 8,
+        "ubatch": null
+      },
+      "profile": true
+    },
     {
       "id": "bigMoe",
       "name": "Big MoE on a small GPU",
@@ -522,5 +1798,13 @@
       "experts_cpu_layers",
       "first_layers_gpu"
     ]
+  },
+  "estimate": {
+    "batch": "batch",
+    "cache_type_k": "cache_type_k",
+    "cache_type_v": "cache_type_v",
+    "context_size": "context_size",
+    "gpu_layers": "gpu_layers",
+    "ubatch": "ubatch"
   }
 }

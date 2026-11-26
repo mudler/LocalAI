@@ -31,7 +31,8 @@ An engine description has these parts:
 | Flag table | One row per setting: a key, where the value goes (a YAML key or an `options` entry), the option name and its aliases, the command-line spellings, the type, the allowed values, the limits, the default, a doc line and the editor group. |
 | Groups | The editor sections, in the order the editor draws them. |
 | Combined controls | Optional. One control that writes several settings, such as a load mode that writes `mmap`, `mmlock` and `direct_io`. |
-| Presets | Optional. Whole-setup starting points. |
+| Presets | Optional. Whole-setup starting points. A preset marked as a profile is one of a set of exclusive setups over the same keys; the editor shows the profiles as one choice and reads the current one back from the file. A `null` value in a preset unsets the key. |
+| Estimate | Optional. Maps the fields of `POST /api/models/vram-estimate` (`context_size`, `gpu_layers`, `cache_type_k`, `cache_type_v`, `batch`, `ubatch`) to flag keys, so the editor can show what a setup costs in memory. |
 | Capabilities | Optional features. `command-line`: the engine reads a pasted command and writes the command of a config. `tensor-placement`: the engine builds and reads an `options` entry that keeps MoE expert tensors on the CPU. |
 
 The editor draws the fields, groups, combined controls and presets from the
@@ -66,8 +67,9 @@ To add the runtime settings of another engine:
    the description at start-up, so a broken table fails early.
 8. Write Ginkgo tests for the table: parse and build round trips, the backend
    match, and the presets.
-9. Add translations for new group, field and preset labels under
-   `engineSettings` in the `modelEditor` namespace of the React UI. Without a
+9. Add translations for new group, field, preset and profile labels under
+   `engineSettings` in the `modelEditor` namespace of the React UI (profiles
+   go under `engineSettings.profiles`, with an optional `note`). Without a
    translation, the editor shows the name or the English text of the schema.
 10. Document the settings in a section of this page.
 
@@ -103,6 +105,32 @@ settings that you write in its YAML file.
 | `--no-op-offload` | `options: [no_op_offload]` |
 | `-dio`, `--direct-io` | `options: [direct_io:true]` |
 | `-ot`, `--override-tensor` | `options: ['-ot:<pattern>=<buffer>']` |
+
+Some settings are read by the llama.cpp backend of LocalAI and have no
+`llama-server` flag. The flag table marks them as LocalAI only: they have a
+field, but no command-line spelling, and the command preview leaves them out
+with a warning.
+
+| Setting | Model YAML |
+|---|---|
+| Paged serving | `options: [paged_kv:true]` (also read as `paged_serving`) |
+| Pause on a full cache | `options: [paged_preempt:false]` |
+| Prefill budget | `options: [prefill_budget:N]` or `prefill_budget:auto` (also read as `max_prefill_tokens`) |
+| KV pool tokens | `options: [kv_pool_tokens:N]` |
+| Output reserve | `options: [kv_output_reserve:N]` (default 256) |
+| GPU sampling | `options: [backend_sampling:auto]` or `options: [backend_sampling:on]` |
+| GPU sampling minimum slots | `options: [backend_sampling_min_slots:N]` (default 4) |
+| Recurrent state snapshots | `options: [n_rs_seq:N]` (also read as `rs_seq`) |
+
+A backend build without these features ignores the options.
+
+**GPU sampling** is one choice in the Speed group:
+
+| Choice | Model YAML | What it does |
+|---|---|---|
+| **Off** (default) | no entry | Tokens are sampled on the CPU. |
+| **Auto** | `backend_sampling:auto` | Use GPU sampling when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs. |
+| **On** | `backend_sampling:on` | Sample tokens on the GPU. Faster with many parallel requests. Turned off automatically for requests that use a grammar, a reasoning budget or logprobs. |
 
 Any other flag works too. Write it in `options` with a leading dash and put a
 colon between the flag and its value, for example `--rope-freq-base:10000`.
@@ -172,8 +200,39 @@ the model's backend is `llama-cpp` (or a build of it, or no backend at all),
 the **Interactive** tab has a **Runtime tuning** section with the badge
 `llama.cpp`.
 
-- **Fields.** The settings of the table above, in the groups Memory, Speed,
-  Sampling defaults and Chat template. Each field shows its `llama-server` flag
+- **Quick setup.** One choice between three setups and **Custom**.
+
+  ![The Quick setup of Runtime tuning: Balanced is current; Long prompts needs about 940 MB more memory and More concurrent users about 480 MB less, with the KV cache and compute buffer sizes of the current settings below.](../../images/engine-settings/quick-setup.png)
+ Each setup
+  says what it does and how much more or less memory it needs than the current
+  values. The figure is an estimate of the KV cache and the compute buffers,
+  beside the weights, from the model file. The section also shows the current
+  KV cache and compute buffer sizes. Nothing changes until you pick a setup.
+
+  | Setup | What it writes | Trade-off |
+  |---|---|---|
+  | **Balanced** | Removes `parameters.batch`, `ubatch`, `cache_type_k`, `cache_type_v`, `paged_kv` and `parallel`, so the defaults apply. | The defaults of LocalAI for the GPU. |
+  | **Long prompts** | `parameters.batch: 2048` and `ubatch:2048`. | Long prompts are read much faster. The compute buffers grow with the batch. |
+  | **More concurrent users** | `cache_type_k: q8_0`, `cache_type_v: q8_0`, `flash_attention: "on"`, `paged_kv:true` and `parallel:8`. | About twice the tokens fit in the same memory, shared by more users, at a small cost in quality. A quantized KV cache can be slower on some attention paths until llama.cpp has a fast kernel for them. |
+
+  Balanced and Long prompts do not remove a flash attention value that you set.
+  They remove it only when the values came from More concurrent users, which
+  turns it on for its 8-bit KV cache.
+
+  The choice shows the setup the file holds. A file with any other value of
+  these settings shows **Custom**. **Custom** changes nothing: set the fields
+  yourself. The section lists the settings a setup changed, with **Undo**.
+- **Fields.** Every option the llama.cpp backend of LocalAI reads has a field,
+  in the groups Memory, Speed, Concurrent serving, Sampling defaults and Chat
+  template. Rarely used or risky options are in two groups that start closed:
+  **Speculative decoding** and **Advanced llama.cpp options** (for example
+  `context_shift`, `cont_batching` and `kv_unified`, which turn paged serving
+  off). A file that uses another name of an option (an alias such as
+  `unified_kv` or `max_prefill_tokens`) shows in the field of that option; an
+  edit writes the main name in its place. A test reads the option names that
+  `backend/cpp/llama-cpp/grpc-server.cpp` parses and fails when one has no
+  field, so a new option is not missed. The full list with defaults is in
+  [Model configuration]({{%relref "/models/model-configuration" %}}). Each field shows its `llama-server` flag
   and the server's description. An empty field, or **Default**, keeps the
   setting out of the file. A value that does not fit the type or the range is
   marked, and **Save** stays off until you correct it.
@@ -249,7 +308,7 @@ operations as the `parse_engine_command` and `preview_engine_command` tools.
 | Route | Purpose |
 |---|---|
 | `GET /api/engines` | The registered engines: id, name, binary, the backend names each serves, and the capabilities. With `?backend=<name>`, only the engine that serves that backend. An empty name is a model with no backend. |
-| `GET /api/engines/{engine}/settings-schema` | The schema of one engine: the flag table (key, target, YAML path, option name and aliases, CLI spellings, type, allowed values, limits, default, doc line, group), the groups, the combined controls, the presets, the reserved options and the capabilities. |
+| `GET /api/engines/{engine}/settings-schema` | The schema of one engine: the flag table (key, target, YAML path, option name and aliases, CLI spellings, type, allowed values, limits, default, doc line, group, and `localai_only` for an option with no command-line flag), the groups, the combined controls, the presets (with `profile: true` for a quick setup), the reserved options, the `estimate` map and the capabilities. |
 | `POST /api/engines/{engine}/parse-command` | Needs `command-line`. Body `{"command": "..."}`. Returns `fields`, `options`, `unmapped` and `warnings`, plus `placements` for an engine with `tensor-placement`. |
 | `POST /api/engines/{engine}/command-preview` | Needs `command-line`. Body `{"config": {...}}` with model YAML keys. Returns `{"command": "...", "warnings": []}`. |
 | `POST /api/engines/{engine}/placement` | Needs `tensor-placement`. Body `{"placement": {...}, "layers": "0-6,18-23"}` returns the `options` entry. Body `{"option": "-ot:..."}` returns its structured form, or `raw: true`. |

@@ -54,7 +54,10 @@
             "memory": "Memory",
             "sampling": "Sampling defaults",
             "template": "Chat template",
-            "speed": "Speed"
+            "speed": "Speed",
+            "serving": "Concurrent serving",
+            "speculative": "Speculative decoding",
+            "engine_advanced": "Advanced llama.cpp options"
         },
         "fields": {
             "context_size": "Context size",
@@ -74,7 +77,78 @@
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Jinja chat template",
             "load_mode": "Load mode",
-            "options_ubatch": "Micro-batch size"
+            "options_ubatch": "Micro-batch size",
+            "options_paged_kv": "Paged serving",
+            "options_paged_preempt": "Pause on a full cache",
+            "options_prefill_budget": "Prefill budget",
+            "backend_sampling": "GPU sampling",
+            "options_kv_pool_tokens": "KV pool tokens",
+            "options_kv_output_reserve": "Output reserve",
+            "options_cache_idle_slots": "Cache idle slots",
+            "options_n_cache_reuse": "Cache reuse chunk",
+            "options_slot_prompt_similarity": "Slot prompt similarity",
+            "options_kv_unified_per_slot": "Tokens per slot",
+            "options_cache_ram": "Prompt cache memory (MiB)",
+            "options_mmproj_use_gpu": "Vision projector on GPU",
+            "options_backend_sampling_min_slots": "GPU sampling minimum slots",
+            "options_context_shift": "Context shift",
+            "options_cont_batching": "Continuous batching",
+            "options_kv_unified": "Unified KV cache",
+            "options_swa_full": "Full sliding-window cache",
+            "options_fit_params_target": "Fit margin (MiB)",
+            "options_fit_params_min_ctx": "Fit minimum context",
+            "options_n_cpu_ffn": "Dense FFN layers on CPU",
+            "options_moe_cache_cpu_share": "MoE cache CPU share",
+            "options_lazy_mode": "Lazy loading",
+            "options_split_mode": "Multi-GPU split",
+            "options_device": "Devices",
+            "options_grpc_servers": "RPC workers",
+            "options_check_tensors": "Check tensors",
+            "options_warmup": "Warmup",
+            "options_verbosity": "Log verbosity",
+            "options_n_ctx_checkpoints": "Context checkpoints",
+            "options_checkpoint_min_step": "Checkpoint spacing",
+            "options_n_rs_seq": "Recurrent state snapshots",
+            "options_slot_save_path": "Slot save folder",
+            "options_yarn_orig_ctx": "YaRN original context",
+            "options_pooling_type": "Embedding pooling",
+            "options_embd_normalize": "Embedding normalization",
+            "options_image_min_tokens": "Min vision tokens per image",
+            "options_image_max_tokens": "Max vision tokens per image",
+            "options_reasoning_format": "Reasoning format",
+            "options_enable_reasoning": "Thinking",
+            "options_reasoning_budget": "Reasoning budget",
+            "options_prefill_assistant": "Prefill assistant",
+            "options_spec_type": "Speculative type",
+            "options_spec_n_max": "Max draft tokens",
+            "options_spec_n_min": "Min draft tokens",
+            "options_spec_p_min": "Min draft probability",
+            "options_spec_p_split": "Draft split probability",
+            "options_draft_gpu_layers": "Draft GPU layers",
+            "options_draft_threads": "Draft threads",
+            "options_draft_threads_batch": "Draft batch threads",
+            "options_draft_cache_type_k": "Draft KV cache type (K)",
+            "options_draft_cache_type_v": "Draft KV cache type (V)",
+            "options_spec_draft_n_ubatch": "Draft micro-batch size",
+            "options_spec_draft_sampling": "Draft sampling",
+            "options_spec_draft_device": "Draft devices",
+            "options_draft_cpu_moe": "Draft MoE on CPU",
+            "options_draft_n_cpu_moe": "Draft MoE layers on CPU",
+            "options_draft_override_tensor": "Draft tensor override",
+            "options_spec_ngram_size_n": "N-gram lookup size",
+            "options_spec_ngram_size_m": "N-gram proposal size",
+            "options_spec_ngram_min_hits": "N-gram minimum hits",
+            "options_spec_ngram_mod_n_min": "ngram-mod minimum",
+            "options_spec_ngram_mod_n_max": "ngram-mod maximum",
+            "options_spec_ngram_mod_n_match": "ngram-mod match length",
+            "options_spec_ngram_map_k_size_n": "ngram-map-k lookup size",
+            "options_spec_ngram_map_k_size_m": "ngram-map-k proposal size",
+            "options_spec_ngram_map_k_min_hits": "ngram-map-k minimum hits",
+            "options_spec_ngram_map_k4v_size_n": "ngram-map-k4v lookup size",
+            "options_spec_ngram_map_k4v_size_m": "ngram-map-k4v proposal size",
+            "options_spec_ngram_map_k4v_min_hits": "ngram-map-k4v minimum hits",
+            "options_spec_lookup_cache_static": "Static n-gram cache file",
+            "options_spec_lookup_cache_dynamic": "Dynamic n-gram cache file"
         },
         "choices": {
             "load_mode": {
@@ -84,10 +158,16 @@
                 "mlock": "mlock",
                 "mmap_mlock": "mmap + mlock",
                 "direct_io": "Direct I/O"
+            },
+            "backend_sampling": {
+                "off": "Off",
+                "auto": "Auto",
+                "on": "On"
             }
         },
         "hints": {
-            "load_mode": "How the model file is read. Writes mmap, mmlock and the direct_io option."
+            "load_mode": "How the model file is read. Writes mmap, mmlock and the direct_io option.",
+            "backend_sampling": "Where tokens are sampled. A backend without GPU sampling ignores the setting."
         },
         "errors": {
             "notInteger": "Type a whole number.",
@@ -207,6 +287,44 @@
         "readOnly": {
             "title": "Read only.",
             "body": "Only an administrator can change these settings."
-        }
+        },
+        "quick": {
+            "title": "Quick setup",
+            "custom": "Custom",
+            "customText": "Set the fields below yourself.",
+            "current": "Your settings",
+            "estimating": "Estimating...",
+            "noEstimate": "No estimate",
+            "same": "About the same memory",
+            "more": "≈ {{size}} more memory",
+            "less": "≈ {{size}} less memory",
+            "now": "Now: KV cache ≈ {{kv}} and compute buffers ≈ {{compute}} at {{context}} tokens, beside the weights.",
+            "estimate": "These figures are estimates.",
+            "approximate": "Rough estimates: the model layout was not read from the file.",
+            "failed": "The memory estimate is not available."
+        },
+        "profiles": {
+            "balanced": {
+                "name": "Balanced",
+                "text": "The defaults: LocalAI picks the batch and the slots for your GPU, with an f16 KV cache."
+            },
+            "longPrompts": {
+                "name": "Long prompts",
+                "text": "Batch and micro-batch of 2048. Long prompts are read much faster; the compute buffers use more memory."
+            },
+            "concurrent": {
+                "name": "More concurrent users",
+                "text": "8-bit KV cache, paged serving and 8 slots. About twice the tokens fit in the same memory, shared by more users, at a small cost in quality.",
+                "note": "A quantized KV cache can be slower on some attention paths until llama.cpp has a fast kernel for them. Paged serving needs a backend build that supports it; other builds ignore the option."
+            }
+        },
+        "choiceHints": {
+            "backend_sampling": {
+                "off": "Sample tokens on the CPU. Nothing is written to the file.",
+                "auto": "Use GPU sampling when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs.",
+                "on": "Sample tokens on the GPU. Faster with many parallel requests. Turned off automatically for requests that use a grammar, a reasoning budget or logprobs."
+            }
+        },
+        "groupCount": "{{count}} settings"
     }
 }

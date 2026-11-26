@@ -54,7 +54,10 @@
             "memory": "Memori",
             "sampling": "Sampling bawaan",
             "template": "Templat chat",
-            "speed": "Kecepatan"
+            "speed": "Kecepatan",
+            "serving": "Layanan serentak",
+            "speculative": "Decoding spekulatif",
+            "engine_advanced": "Opsi lanjutan llama.cpp"
         },
         "fields": {
             "context_size": "Ukuran konteks",
@@ -74,7 +77,78 @@
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Templat chat Jinja",
             "load_mode": "Mode muat",
-            "options_ubatch": "Ukuran micro-batch"
+            "options_ubatch": "Ukuran micro-batch",
+            "options_paged_kv": "Layanan berhalaman",
+            "options_paged_preempt": "Jeda saat cache penuh",
+            "options_prefill_budget": "Anggaran prefill",
+            "backend_sampling": "Sampling di GPU",
+            "options_kv_pool_tokens": "Token pool KV",
+            "options_kv_output_reserve": "Cadangan output",
+            "options_cache_idle_slots": "Cache slot menganggur",
+            "options_n_cache_reuse": "Potongan pemakaian ulang cache",
+            "options_slot_prompt_similarity": "Kemiripan prompt per slot",
+            "options_kv_unified_per_slot": "Token per slot",
+            "options_cache_ram": "Memori cache prompt (MiB)",
+            "options_mmproj_use_gpu": "Proyektor visi di GPU",
+            "options_backend_sampling_min_slots": "Slot minimum untuk sampling GPU",
+            "options_context_shift": "Pergeseran konteks",
+            "options_cont_batching": "Batching berkelanjutan",
+            "options_kv_unified": "Cache KV terpadu",
+            "options_swa_full": "Cache sliding window penuh",
+            "options_fit_params_target": "Margin penyesuaian (MiB)",
+            "options_fit_params_min_ctx": "Konteks minimum penyesuaian",
+            "options_n_cpu_ffn": "Lapisan FFN padat di CPU",
+            "options_moe_cache_cpu_share": "Bagian CPU cache MoE",
+            "options_lazy_mode": "Pemuatan malas",
+            "options_split_mode": "Pembagian multi-GPU",
+            "options_device": "Perangkat",
+            "options_grpc_servers": "Worker RPC",
+            "options_check_tensors": "Periksa tensor",
+            "options_warmup": "Pemanasan",
+            "options_verbosity": "Detail log",
+            "options_n_ctx_checkpoints": "Checkpoint konteks",
+            "options_checkpoint_min_step": "Jarak checkpoint",
+            "options_n_rs_seq": "Snapshot status rekuren",
+            "options_slot_save_path": "Folder simpan slot",
+            "options_yarn_orig_ctx": "Konteks asli YaRN",
+            "options_pooling_type": "Pooling embedding",
+            "options_embd_normalize": "Normalisasi embedding",
+            "options_image_min_tokens": "Token visi minimum per gambar",
+            "options_image_max_tokens": "Token visi maksimum per gambar",
+            "options_reasoning_format": "Format penalaran",
+            "options_enable_reasoning": "Penalaran",
+            "options_reasoning_budget": "Anggaran penalaran",
+            "options_prefill_assistant": "Isi awal asisten",
+            "options_spec_type": "Jenis spekulatif",
+            "options_spec_n_max": "Token draf maksimum",
+            "options_spec_n_min": "Token draf minimum",
+            "options_spec_p_min": "Probabilitas draf minimum",
+            "options_spec_p_split": "Probabilitas percabangan",
+            "options_draft_gpu_layers": "Lapisan draf di GPU",
+            "options_draft_threads": "Thread draf",
+            "options_draft_threads_batch": "Thread batch draf",
+            "options_draft_cache_type_k": "Jenis cache KV draf (K)",
+            "options_draft_cache_type_v": "Jenis cache KV draf (V)",
+            "options_spec_draft_n_ubatch": "Micro-batch draf",
+            "options_spec_draft_sampling": "Sampling draf",
+            "options_spec_draft_device": "Perangkat draf",
+            "options_draft_cpu_moe": "MoE draf di CPU",
+            "options_draft_n_cpu_moe": "Lapisan MoE draf di CPU",
+            "options_draft_override_tensor": "Override tensor draf",
+            "options_spec_ngram_size_n": "Panjang pencarian n-gram",
+            "options_spec_ngram_size_m": "Panjang usulan n-gram",
+            "options_spec_ngram_min_hits": "Kecocokan minimum n-gram",
+            "options_spec_ngram_mod_n_min": "Minimum ngram-mod",
+            "options_spec_ngram_mod_n_max": "Maksimum ngram-mod",
+            "options_spec_ngram_mod_n_match": "Panjang pencocokan ngram-mod",
+            "options_spec_ngram_map_k_size_n": "Panjang pencarian ngram-map-k",
+            "options_spec_ngram_map_k_size_m": "Panjang usulan ngram-map-k",
+            "options_spec_ngram_map_k_min_hits": "Kecocokan minimum ngram-map-k",
+            "options_spec_ngram_map_k4v_size_n": "Panjang pencarian ngram-map-k4v",
+            "options_spec_ngram_map_k4v_size_m": "Panjang usulan ngram-map-k4v",
+            "options_spec_ngram_map_k4v_min_hits": "Kecocokan minimum ngram-map-k4v",
+            "options_spec_lookup_cache_static": "File cache n-gram statis",
+            "options_spec_lookup_cache_dynamic": "File cache n-gram dinamis"
         },
         "choices": {
             "load_mode": {
@@ -84,10 +158,16 @@
                 "mlock": "mlock",
                 "mmap_mlock": "mmap + mlock",
                 "direct_io": "I/O langsung"
+            },
+            "backend_sampling": {
+                "off": "Mati",
+                "auto": "Otomatis",
+                "on": "Nyala"
             }
         },
         "hints": {
-            "load_mode": "Cara file model dibaca. Menulis mmap, mmlock, dan opsi direct_io."
+            "load_mode": "Cara file model dibaca. Menulis mmap, mmlock, dan opsi direct_io.",
+            "backend_sampling": "Tempat token di-sampling. Backend tanpa sampling GPU mengabaikan pengaturan ini."
         },
         "errors": {
             "notInteger": "Ketik bilangan bulat.",
@@ -207,6 +287,44 @@
         "readOnly": {
             "title": "Hanya baca.",
             "body": "Hanya administrator yang dapat mengubah pengaturan ini."
-        }
+        },
+        "quick": {
+            "title": "Pengaturan cepat",
+            "custom": "Kustom",
+            "customText": "Atur sendiri kolom di bawah.",
+            "current": "Pengaturan Anda",
+            "estimating": "Memperkirakan...",
+            "noEstimate": "Tidak ada perkiraan",
+            "same": "Memori kurang lebih sama",
+            "more": "≈ {{size}} memori lebih banyak",
+            "less": "≈ {{size}} memori lebih sedikit",
+            "now": "Sekarang: cache KV ≈ {{kv}} dan buffer komputasi ≈ {{compute}} pada {{context}} token, di luar bobot.",
+            "estimate": "Angka-angka ini adalah perkiraan.",
+            "approximate": "Perkiraan kasar: susunan model tidak dibaca dari file.",
+            "failed": "Perkiraan memori tidak tersedia."
+        },
+        "profiles": {
+            "balanced": {
+                "name": "Seimbang",
+                "text": "Bawaan: LocalAI memilih batch dan slot untuk GPU Anda, dengan cache KV f16."
+            },
+            "longPrompts": {
+                "name": "Prompt panjang",
+                "text": "Batch dan micro-batch 2048. Prompt panjang dibaca jauh lebih cepat; buffer komputasi memakai lebih banyak memori."
+            },
+            "concurrent": {
+                "name": "Lebih banyak pengguna serentak",
+                "text": "Cache KV 8-bit, layanan berhalaman, dan 8 slot. Sekitar dua kali lipat token muat di memori yang sama, dibagi oleh lebih banyak pengguna, dengan sedikit penurunan kualitas.",
+                "note": "Cache KV terkuantisasi bisa lebih lambat pada beberapa jalur atensi sampai llama.cpp punya kernel cepat untuknya. Layanan berhalaman butuh build backend yang mendukungnya; build lain mengabaikan opsi ini."
+            }
+        },
+        "choiceHints": {
+            "backend_sampling": {
+                "off": "Sampling token di CPU. Tidak ada yang ditulis ke file.",
+                "auto": "Gunakan sampling GPU saat model berjalan di GPU dengan beberapa permintaan paralel dan permintaan tidak butuh grammar atau logprobs.",
+                "on": "Sampling token di GPU. Lebih cepat dengan banyak permintaan paralel. Dimatikan otomatis untuk permintaan yang memakai grammar, anggaran penalaran, atau logprobs."
+            }
+        },
+        "groupCount": "{{count}} pengaturan"
     }
 }

@@ -145,6 +145,23 @@ var loadMode = es.Combined{
 	},
 }
 
+// backendSampling is the GPU sampling choice of the editor. Off writes no
+// entry, so a model without the option keeps the backend default.
+var backendSampling = es.Combined{
+	ID: "backend_sampling", Group: GroupSpeed,
+	Doc:   "Where tokens are sampled. A backend without GPU sampling ignores the setting.",
+	Keys:  []string{"backend_sampling"},
+	Unset: map[string]any{"backend_sampling": "off"},
+	Choices: []es.Choice{
+		{Value: "off", Label: "Off", Set: map[string]any{"backend_sampling": nil},
+			Doc: "Sample tokens on the CPU. Nothing is written to the file."},
+		{Value: "auto", Label: "Auto", Set: map[string]any{"backend_sampling": "auto"},
+			Doc: "Use GPU sampling when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs."},
+		{Value: "on", Label: "On", Set: map[string]any{"backend_sampling": "on"},
+			Doc: "Sample tokens on the GPU. Faster with many parallel requests. Turned off automatically for requests that use a grammar, a reasoning budget or logprobs."},
+	},
+}
+
 // allLayers is a short value that means every layer: llama.cpp clamps -ngl
 // to the model's layer count, and no shipped model has 999 layers.
 const allLayers = 999
@@ -176,6 +193,38 @@ var presets = []es.Preset{
 	},
 }
 
+// profiles are the quick setups of the editor: one is current at a time.
+// nil unsets a key, so Balanced is the defaults of LocalAI and llama.cpp for
+// the host. Balanced and Long prompts do not list flash_attention: a value
+// the person set stays, and the editor removes it only when the values came
+// from More concurrent users. They change memory needs, so nothing applies
+// them unless the person picks one.
+var profiles = []es.Preset{
+	{
+		ID: "balanced", Name: "Balanced", Profile: true,
+		Description: "The defaults: LocalAI picks the batch and the slots for the GPU, with an f16 KV cache.",
+		Settings: map[string]any{
+			"batch": nil, "ubatch": nil, "cache_type_k": nil, "cache_type_v": nil, "paged_kv": nil, "parallel": nil,
+		},
+	},
+	{
+		ID: "longPrompts", Name: "Long prompts", Profile: true,
+		Description: "Batch and micro-batch of 2048: long prompts are read much faster, and the compute buffers grow.",
+		Settings: map[string]any{
+			"batch": 2048, "ubatch": 2048, "cache_type_k": nil, "cache_type_v": nil, "paged_kv": nil, "parallel": nil,
+		},
+	},
+	{
+		ID: "concurrent", Name: "More concurrent users", Profile: true,
+		Description: "8-bit KV cache, paged serving and 8 slots: about twice the tokens fit, shared by more users, at a small cost in quality.",
+		Settings: map[string]any{
+			// A quantized V cache needs flash attention.
+			"batch": nil, "ubatch": nil, "cache_type_k": "q8_0", "cache_type_v": "q8_0",
+			"flash_attention": "on", "paged_kv": true, "parallel": 8,
+		},
+	},
+}
+
 // Engine returns the llama.cpp engine.
 func Engine() *es.Engine {
 	return &es.Engine{
@@ -191,12 +240,19 @@ func Engine() *es.Engine {
 			Excluded: []string{"ik-llama-cpp"},
 			Empty:    true,
 		},
-		Groups:   []es.Group{GroupMemory, GroupSpeed, GroupPlacement, GroupSampling, GroupTemplate},
-		Flags:    flags,
-		Combined: []es.Combined{loadMode},
-		Presets:  presets,
+		Groups: []es.Group{GroupMemory, GroupSpeed, GroupServing, GroupPlacement, GroupSampling, GroupTemplate, GroupSpeculative, GroupAdvanced},
+		// Drawn closed: rarely used, and some of them turn other features off.
+		Collapsed: []es.Group{GroupSpeculative, GroupAdvanced},
+		Flags:     flags,
+		Combined:  []es.Combined{loadMode, backendSampling},
+		Presets:   append(append([]es.Preset{}, profiles...), presets...),
 		// The MoE placement section of the editor writes these.
 		ReservedOptions: []string{"cpu_moe", "n_cpu_moe", "moe_cache_mib"},
+		Estimate: map[string]string{
+			"context_size": "context_size", "gpu_layers": "gpu_layers",
+			"cache_type_k": "cache_type_k", "cache_type_v": "cache_type_v",
+			"batch": "batch", "ubatch": "ubatch",
+		},
 		Command: &es.CommandLine{
 			Binary:  Binary,
 			Example: "llama-server -m model.gguf --ctx-size 8192 -ngl 99 -fa on",

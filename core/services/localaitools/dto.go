@@ -523,6 +523,10 @@ type VRAMEstimateRequest struct {
 	ContextSize int    `json:"context_size,omitempty"  jsonschema:"Context size in tokens."`
 	GPULayers   int    `json:"gpu_layers,omitempty"    jsonschema:"Number of layers to offload to GPU. -1 for all."`
 	KVQuantBits int    `json:"kv_quant_bits,omitempty" jsonschema:"KV cache quantization bits (e.g. 4, 8, 16)."`
+	CacheTypeK  string `json:"cache_type_k,omitempty"  jsonschema:"llama.cpp K cache type (f16, q8_0, q4_0, ...). Empty uses the model's config."`
+	CacheTypeV  string `json:"cache_type_v,omitempty"  jsonschema:"llama.cpp V cache type (f16, q8_0, q4_0, ...). Empty uses the model's config."`
+	Batch       *int   `json:"batch,omitempty"         jsonschema:"Logical batch size. Absent uses the model's config; 0 uses LocalAI's default."`
+	UBatch      *int   `json:"ubatch,omitempty"        jsonschema:"Physical batch size, capped by the batch. Absent uses the model's config; 0 follows the batch."`
 }
 
 // CarrierWeightsInfo is the LLM-facing view of routing.carrier_weights.

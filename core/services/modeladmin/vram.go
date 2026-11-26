@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,6 +21,18 @@ type VRAMRequest struct {
 	ContextSize uint32 `json:"context_size,omitempty"`
 	GPULayers   int    `json:"gpu_layers,omitempty"`
 	KVQuantBits int    `json:"kv_quant_bits,omitempty"`
+	// CacheTypeK and CacheTypeV are llama.cpp KV cache types (f16, q8_0,
+	// q4_0, ...). Empty uses the model's config, then f16. They size the KV
+	// cache of the runtime breakdown, and the KV term of the total when
+	// KVQuantBits is not set.
+	CacheTypeK string `json:"cache_type_k,omitempty"`
+	CacheTypeV string `json:"cache_type_v,omitempty"`
+	// Batch is the logical batch (parameters.batch). Absent uses the model's
+	// config; 0 uses LocalAI's default for this host.
+	Batch *int `json:"batch,omitempty"`
+	// UBatch is the physical batch (the ubatch option), capped by the batch.
+	// Absent uses the model's config; 0 means the same as the batch.
+	UBatch *int `json:"ubatch,omitempty"`
 }
 
 // VRAMResponse embeds vram.EstimateResult and adds the context-defaulted
@@ -81,9 +94,18 @@ func EstimateVRAM(ctx context.Context, req VRAMRequest, cl *config.ModelConfigLo
 		}
 	}
 
+	runtimeOpts, err := runtimeOptions(req, cfg, ctxLen)
+	if err != nil {
+		return nil, err
+	}
 	opts := vram.EstimateOptions{
 		GPULayers:   req.GPULayers,
 		KVQuantBits: req.KVQuantBits,
+	}
+	// With no kv_quant_bits, the total sizes the KV cache from the same cache
+	// types as the runtime breakdown, so the two agree.
+	if opts.KVQuantBits == 0 {
+		opts.CacheTypeK, opts.CacheTypeV = runtimeOpts.CacheTypeK, runtimeOpts.CacheTypeV
 	}
 
 	subCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -98,12 +120,14 @@ func EstimateVRAM(ctx context.Context, req VRAMRequest, cl *config.ModelConfigLo
 	// is automatic, so the estimate must not assume more either.
 	if contextDefaulted && multi.ModelMaxContext > 0 && uint64(ctxLen) > multi.ModelMaxContext {
 		ctxLen = uint32(multi.ModelMaxContext)
+		runtimeOpts.ContextSize = ctxLen
 		if multi, err = vram.EstimateMultiContext(subCtx, files, []uint32{ctxLen}, opts, vram.DefaultCachedSizeResolver(), vram.DefaultCachedGGUFReader()); err != nil {
 			return nil, fmt.Errorf("vram estimate: %w", err)
 		}
 	}
 
 	at := multi.Estimates[fmt.Sprint(ctxLen)]
+	breakdown := vram.EstimateRuntime(multi.Meta, runtimeOpts)
 	resp := &VRAMResponse{
 		EstimateResult: vram.EstimateResult{
 			SizeBytes:     multi.SizeBytes,
@@ -111,6 +135,7 @@ func EstimateVRAM(ctx context.Context, req VRAMRequest, cl *config.ModelConfigLo
 			ContextLength: at.ContextLength,
 			VRAMBytes:     at.VRAMBytes,
 			VRAMDisplay:   at.VRAMDisplay,
+			Runtime:       &breakdown,
 		},
 		ModelMaxContext: multi.ModelMaxContext,
 		ExpertCount:     multi.ExpertCount,
@@ -124,6 +149,81 @@ func EstimateVRAM(ctx context.Context, req VRAMRequest, cl *config.ModelConfigLo
 		)
 	}
 	return resp, nil
+}
+
+// runtimeOptions resolves the KV cache types and the physical batch of an
+// estimate: the request, then the model's config, then the defaults
+// llama.cpp and LocalAI apply.
+func runtimeOptions(req VRAMRequest, cfg config.ModelConfig, ctxLen uint32) (vram.RuntimeOptions, error) {
+	out := vram.RuntimeOptions{ContextSize: ctxLen}
+	pick := func(asked, configured string) (string, error) {
+		t := asked
+		if t == "" {
+			t = configured
+		}
+		if t == "" {
+			return vram.DefaultKVCacheType, nil
+		}
+		if _, ok := vram.KVCacheTypeBits(t); !ok {
+			return "", fmt.Errorf("%w: unknown KV cache type %q", ErrInvalidEstimate, t)
+		}
+		return t, nil
+	}
+	var err error
+	if out.CacheTypeK, err = pick(req.CacheTypeK, cfg.CacheTypeK); err != nil {
+		return out, err
+	}
+	if out.CacheTypeV, err = pick(req.CacheTypeV, cfg.CacheTypeV); err != nil {
+		return out, err
+	}
+
+	batch := cfg.Batch
+	if req.Batch != nil {
+		batch = *req.Batch
+	}
+	if batch < 0 {
+		return out, fmt.Errorf("%w: the batch must not be negative", ErrInvalidEstimate)
+	}
+	if batch == 0 {
+		batch = defaultBatch(int(ctxLen))
+	}
+	ubatch := configuredUBatch(cfg.Options)
+	if req.UBatch != nil {
+		ubatch = *req.UBatch
+	}
+	if ubatch < 0 {
+		return out, fmt.Errorf("%w: the ubatch must not be negative", ErrInvalidEstimate)
+	}
+	// llama.cpp never runs a physical batch larger than the logical one.
+	if ubatch == 0 || ubatch > batch {
+		ubatch = batch
+	}
+	out.UBatch = uint32(ubatch)
+	return out, nil
+}
+
+// defaultBatch is the physical batch LocalAI gives a model with no batch set
+// on this host (see config.ApplyHardwareDefaults).
+func defaultBatch(ctx int) int {
+	if config.HardwareDefaultsDisabled() {
+		return config.DefaultPhysicalBatch
+	}
+	return config.PhysicalBatchForContext(config.LocalGPU(), ctx)
+}
+
+// configuredUBatch reads the ubatch option of a model (either spelling the
+// llama.cpp backend reads), or 0 when it is not set or not a number.
+func configuredUBatch(options []string) int {
+	for _, o := range options {
+		name, value, ok := strings.Cut(o, ":")
+		if !ok || (name != "ubatch" && name != "n_ubatch") {
+			continue
+		}
+		if n, err := strconv.Atoi(strings.TrimSpace(value)); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 0
 }
 
 // resolveModelURI converts a relative model path to a file:// URI so the

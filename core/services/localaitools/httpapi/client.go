@@ -868,6 +868,18 @@ func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimate
 	if req.KVQuantBits > 0 {
 		body["kv_quant_bits"] = req.KVQuantBits
 	}
+	if req.CacheTypeK != "" {
+		body["cache_type_k"] = req.CacheTypeK
+	}
+	if req.CacheTypeV != "" {
+		body["cache_type_v"] = req.CacheTypeV
+	}
+	if req.Batch != nil {
+		body["batch"] = *req.Batch
+	}
+	if req.UBatch != nil {
+		body["ubatch"] = *req.UBatch
+	}
 	// /api/models/vram-estimate returns a wrapper carrying vram.EstimateResult
 	// (size_bytes/size_display/vram_bytes/vram_display) plus context-note
 	// fields. Decode directly into EstimateResult — the LLM gets the

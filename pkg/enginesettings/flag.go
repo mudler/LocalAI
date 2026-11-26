@@ -67,6 +67,10 @@ type Flag struct {
 	// Raw marks a passthrough flag: its options entry is "<flag>:<value>",
 	// kept in the order it appeared.
 	Raw bool `json:"-"`
+	// LocalAIOnly marks an option that LocalAI's backend reads and the
+	// engine's own command line does not have. It has no CLI spelling, a
+	// pasted command never sets it, and a built command leaves it out.
+	LocalAIOnly bool `json:"localai_only,omitempty"`
 }
 
 // F64 returns a pointer to v, for the Min and Max of a flag.

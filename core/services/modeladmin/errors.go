@@ -24,4 +24,7 @@ var (
 	ErrEmptyBody = errors.New("request body is empty")
 	// ErrPathSeparator is returned when a renamed model name contains path separators.
 	ErrPathSeparator = errors.New("model name must not contain path separators")
+	// ErrInvalidEstimate is returned when a VRAM estimate request has a value
+	// the estimator does not know, such as an unknown KV cache type.
+	ErrInvalidEstimate = errors.New("invalid estimate request")
 )

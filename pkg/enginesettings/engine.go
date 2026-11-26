@@ -20,6 +20,12 @@ const (
 	CapabilityTensorPlacement Capability = "tensor-placement"
 )
 
+// estimateFields are the request fields of POST /api/models/vram-estimate
+// that a setting can feed.
+var estimateFields = map[string]bool{
+	"context_size": true, "gpu_layers": true, "cache_type_k": true, "cache_type_v": true, "batch": true, "ubatch": true,
+}
+
 // ErrUnsupported is returned when an engine lacks the capability an
 // operation needs.
 var ErrUnsupported = errors.New("the engine does not support this operation")
@@ -35,6 +41,9 @@ type Engine struct {
 	Backends BackendMatch
 	// Groups lists the editor sections, in the order they are drawn.
 	Groups []Group
+	// Collapsed lists the groups the editor draws closed: rarely used or
+	// risky settings. Optional.
+	Collapsed []Group
 	// Flags is the table of settings, in the order of a built command and
 	// of the known entries of "options".
 	Flags []Flag
@@ -45,6 +54,10 @@ type Engine struct {
 	// ReservedOptions are option names another part of LocalAI writes. The
 	// editor does not offer them as raw options.
 	ReservedOptions []string
+	// Estimate maps the fields of POST /api/models/vram-estimate
+	// (context_size, gpu_layers, cache_type_k, cache_type_v, batch, ubatch)
+	// to flag keys, so a client can ask for the memory of a config. Optional.
+	Estimate map[string]string
 	// Command adds the command-line capability. Optional.
 	Command *CommandLine
 	// Placement adds the tensor-placement capability. Optional.
@@ -120,6 +133,9 @@ type Choice struct {
 	Value string         `json:"value"`
 	Label string         `json:"label"`
 	Set   map[string]any `json:"set"`
+	// Doc says what the choice does. Optional; a client shows it for the
+	// current choice.
+	Doc string `json:"doc,omitempty"`
 }
 
 // Preset is a whole-setup starting point.
@@ -127,8 +143,16 @@ type Preset struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	// Settings maps flag keys to values.
+	// Settings maps flag keys to values. A nil value unsets the key.
 	Settings map[string]any `json:"settings"`
+	// Profile marks one of a set of exclusive setups, such as a balanced,
+	// a long prompt and a many users setup. A client shows the profiles as
+	// one choice and reads the current one back: a profile is current when
+	// every key it lists has its value (unset for nil). A client that
+	// switches from the current profile to another also unsets the keys the
+	// current one sets and the new one does not list, so a value is removed
+	// only when it came from a profile. A profile has no placement.
+	Profile bool `json:"profile,omitempty"`
 	// Placement is an optional tensor placement. Only for engines with the
 	// tensor-placement capability.
 	Placement *Placement `json:"placement,omitempty"`
@@ -269,7 +293,11 @@ func (e *Engine) Validate() error {
 		if f.Type == TypeEnum && len(f.Enum) == 0 {
 			bad("engine %s: enum flag %s lists no value", e.ID, f.Key)
 		}
-		if e.Command != nil && len(f.CLI) == 0 {
+		if f.LocalAIOnly {
+			if f.Target != TargetOption || len(f.CLI) > 0 || len(f.CLINegated) > 0 || f.Raw {
+				bad("engine %s: flag %s is LocalAI only, so it must be a plain option with no command-line spelling", e.ID, f.Key)
+			}
+		} else if e.Command != nil && len(f.CLI) == 0 {
 			bad("engine %s: flag %s has no command-line spelling", e.ID, f.Key)
 		}
 		addCLI(f.Key, append(append([]string{}, f.CLI...), f.CLINegated...))
@@ -310,11 +338,27 @@ func (e *Engine) Validate() error {
 			}
 		}
 	}
+	for _, g := range e.Collapsed {
+		if !groups[g] {
+			bad("engine %s: the collapsed group %q is not a group", e.ID, g)
+		}
+	}
+	for field, k := range e.Estimate {
+		if !estimateFields[field] {
+			bad("engine %s: the estimate field %s is not one of the VRAM estimate", e.ID, field)
+		}
+		if !keys[k] {
+			bad("engine %s: the estimate field %s names the unknown key %s", e.ID, field, k)
+		}
+	}
 	for _, p := range e.Presets {
 		for k, v := range p.Settings {
 			f := e.flag(k)
 			if f == nil {
 				bad("engine %s: preset %s sets the unknown key %s", e.ID, p.ID, k)
+				continue
+			}
+			if v == nil {
 				continue
 			}
 			if _, err := NormalizeValue(f, fmt.Sprint(v)); err != nil {
@@ -323,6 +367,9 @@ func (e *Engine) Validate() error {
 		}
 		if p.Placement != nil && e.Placement == nil {
 			bad("engine %s: preset %s has a placement but the engine has no placement capability", e.ID, p.ID)
+		}
+		if p.Profile && p.Placement != nil {
+			bad("engine %s: profile %s has a placement", e.ID, p.ID)
 		}
 	}
 	if pl := e.Placement; pl != nil {

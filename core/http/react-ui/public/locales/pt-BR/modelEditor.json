@@ -54,7 +54,10 @@
       "memory": "Memória",
       "sampling": "Amostragem padrão",
       "template": "Modelo de chat",
-      "speed": "Velocidade"
+      "speed": "Velocidade",
+      "serving": "Atendimento simultâneo",
+      "speculative": "Decodificação especulativa",
+      "engine_advanced": "Opções avançadas do llama.cpp"
     },
     "fields": {
       "context_size": "Tamanho do contexto",
@@ -74,7 +77,78 @@
       "parameters_min_p": "Min-p",
       "options_use_jinja": "Modelo de chat Jinja",
       "load_mode": "Modo de carregamento",
-      "options_ubatch": "Tamanho do microlote"
+      "options_ubatch": "Tamanho do microlote",
+      "options_paged_kv": "Atendimento paginado",
+      "options_paged_preempt": "Pausar com o cache cheio",
+      "options_prefill_budget": "Orçamento de prefill",
+      "backend_sampling": "Amostragem na GPU",
+      "options_kv_pool_tokens": "Tokens do pool KV",
+      "options_kv_output_reserve": "Reserva de saída",
+      "options_cache_idle_slots": "Cache de slots ociosos",
+      "options_n_cache_reuse": "Bloco de reuso do cache",
+      "options_slot_prompt_similarity": "Semelhança do prompt por slot",
+      "options_kv_unified_per_slot": "Tokens por slot",
+      "options_cache_ram": "Memória do cache de prompts (MiB)",
+      "options_mmproj_use_gpu": "Projetor de visão na GPU",
+      "options_backend_sampling_min_slots": "Slots mínimos para amostragem na GPU",
+      "options_context_shift": "Deslocamento de contexto",
+      "options_cont_batching": "Batching contínuo",
+      "options_kv_unified": "Cache KV unificado",
+      "options_swa_full": "Cache de janela deslizante completo",
+      "options_fit_params_target": "Margem de ajuste (MiB)",
+      "options_fit_params_min_ctx": "Contexto mínimo de ajuste",
+      "options_n_cpu_ffn": "Camadas FFN densas na CPU",
+      "options_moe_cache_cpu_share": "Parte da CPU no cache MoE",
+      "options_lazy_mode": "Carregamento sob demanda",
+      "options_split_mode": "Divisão entre várias GPUs",
+      "options_device": "Dispositivos",
+      "options_grpc_servers": "Workers RPC",
+      "options_check_tensors": "Verificar tensores",
+      "options_warmup": "Aquecimento",
+      "options_verbosity": "Detalhe dos logs",
+      "options_n_ctx_checkpoints": "Checkpoints de contexto",
+      "options_checkpoint_min_step": "Distância entre checkpoints",
+      "options_n_rs_seq": "Snapshots do estado recorrente",
+      "options_slot_save_path": "Pasta de salvamento de slots",
+      "options_yarn_orig_ctx": "Contexto original do YaRN",
+      "options_pooling_type": "Pooling de embeddings",
+      "options_embd_normalize": "Normalização de embeddings",
+      "options_image_min_tokens": "Mín. de tokens de visão por imagem",
+      "options_image_max_tokens": "Máx. de tokens de visão por imagem",
+      "options_reasoning_format": "Formato do raciocínio",
+      "options_enable_reasoning": "Raciocínio",
+      "options_reasoning_budget": "Orçamento de raciocínio",
+      "options_prefill_assistant": "Pré-preencher o assistente",
+      "options_spec_type": "Tipo especulativo",
+      "options_spec_n_max": "Máx. de tokens de rascunho",
+      "options_spec_n_min": "Mín. de tokens de rascunho",
+      "options_spec_p_min": "Probabilidade mínima do rascunho",
+      "options_spec_p_split": "Probabilidade de ramificação",
+      "options_draft_gpu_layers": "Camadas do rascunho na GPU",
+      "options_draft_threads": "Threads do rascunho",
+      "options_draft_threads_batch": "Threads de lote do rascunho",
+      "options_draft_cache_type_k": "Tipo de cache KV do rascunho (K)",
+      "options_draft_cache_type_v": "Tipo de cache KV do rascunho (V)",
+      "options_spec_draft_n_ubatch": "Micro-batch do rascunho",
+      "options_spec_draft_sampling": "Amostragem do rascunho",
+      "options_spec_draft_device": "Dispositivos do rascunho",
+      "options_draft_cpu_moe": "MoE do rascunho na CPU",
+      "options_draft_n_cpu_moe": "Camadas MoE do rascunho na CPU",
+      "options_draft_override_tensor": "Override de tensores do rascunho",
+      "options_spec_ngram_size_n": "Tamanho de busca n-gram",
+      "options_spec_ngram_size_m": "Tamanho de proposta n-gram",
+      "options_spec_ngram_min_hits": "Acertos mínimos n-gram",
+      "options_spec_ngram_mod_n_min": "Mínimo do ngram-mod",
+      "options_spec_ngram_mod_n_max": "Máximo do ngram-mod",
+      "options_spec_ngram_mod_n_match": "Tamanho de correspondência ngram-mod",
+      "options_spec_ngram_map_k_size_n": "Tamanho de busca ngram-map-k",
+      "options_spec_ngram_map_k_size_m": "Tamanho de proposta ngram-map-k",
+      "options_spec_ngram_map_k_min_hits": "Acertos mínimos ngram-map-k",
+      "options_spec_ngram_map_k4v_size_n": "Tamanho de busca ngram-map-k4v",
+      "options_spec_ngram_map_k4v_size_m": "Tamanho de proposta ngram-map-k4v",
+      "options_spec_ngram_map_k4v_min_hits": "Acertos mínimos ngram-map-k4v",
+      "options_spec_lookup_cache_static": "Arquivo de cache n-gram estático",
+      "options_spec_lookup_cache_dynamic": "Arquivo de cache n-gram dinâmico"
     },
     "choices": {
       "load_mode": {
@@ -84,10 +158,16 @@
         "mlock": "mlock",
         "mmap_mlock": "mmap + mlock",
         "direct_io": "E/S direta"
+      },
+      "backend_sampling": {
+        "off": "Desligada",
+        "auto": "Automática",
+        "on": "Ligada"
       }
     },
     "hints": {
-      "load_mode": "Como o arquivo do modelo é lido. Grava mmap, mmlock e a opção direct_io."
+      "load_mode": "Como o arquivo do modelo é lido. Grava mmap, mmlock e a opção direct_io.",
+      "backend_sampling": "Onde os tokens são amostrados. Um backend sem amostragem na GPU ignora a configuração."
     },
     "errors": {
       "notInteger": "Digite um número inteiro.",
@@ -207,6 +287,44 @@
     "readOnly": {
       "title": "Somente leitura.",
       "body": "Só um administrador pode mudar estas configurações."
-    }
+    },
+    "quick": {
+      "title": "Configuração rápida",
+      "custom": "Personalizada",
+      "customText": "Ajuste você mesmo os campos abaixo.",
+      "current": "Suas configurações",
+      "estimating": "Estimando...",
+      "noEstimate": "Sem estimativa",
+      "same": "Mais ou menos a mesma memória",
+      "more": "≈ {{size}} a mais de memória",
+      "less": "≈ {{size}} a menos de memória",
+      "now": "Agora: cache KV ≈ {{kv}} e buffers de cálculo ≈ {{compute}} com {{context}} tokens, além dos pesos.",
+      "estimate": "Estes valores são estimativas.",
+      "approximate": "Estimativas aproximadas: a estrutura do modelo não foi lida do arquivo.",
+      "failed": "A estimativa de memória não está disponível."
+    },
+    "profiles": {
+      "balanced": {
+        "name": "Equilibrada",
+        "text": "Os padrões: o LocalAI escolhe o batch e os slots para sua GPU, com cache KV f16."
+      },
+      "longPrompts": {
+        "name": "Prompts longos",
+        "text": "Batch e micro-batch de 2048. Prompts longos são lidos muito mais rápido; os buffers de cálculo usam mais memória."
+      },
+      "concurrent": {
+        "name": "Mais usuários ao mesmo tempo",
+        "text": "Cache KV de 8 bits, atendimento paginado e 8 slots. Cabem cerca de duas vezes mais tokens na mesma memória, divididos entre mais usuários, com uma pequena perda de qualidade.",
+        "note": "Um cache KV quantizado pode ser mais lento em alguns caminhos de atenção até o llama.cpp ter um kernel rápido para eles. O atendimento paginado precisa de uma versão do backend que o suporte; as outras ignoram a opção."
+      }
+    },
+    "choiceHints": {
+      "backend_sampling": {
+        "off": "Amostra os tokens na CPU. Nada é escrito no arquivo.",
+        "auto": "Usa a amostragem na GPU quando o modelo roda em uma GPU com várias requisições em paralelo e a requisição não precisa de gramática nem de logprobs.",
+        "on": "Amostra os tokens na GPU. Mais rápido com muitas requisições em paralelo. Desligada automaticamente para requisições com gramática, orçamento de raciocínio ou logprobs."
+      }
+    },
+    "groupCount": "{{count}} configurações"
   }
 }

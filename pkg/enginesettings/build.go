@@ -157,6 +157,12 @@ func (e *Engine) BuildCommand(cfg Config) (BuildResult, error) {
 		if f.Raw {
 			continue
 		}
+		if f.LocalAIOnly {
+			if _, set := known[f.Key]; set {
+				res.Warnings = append(res.Warnings, fmt.Sprintf("the option %q is read by LocalAI and has no %s flag, so it is not in the command", f.Option, cl.Binary))
+			}
+			continue
+		}
 		var v string
 		var ok bool
 		if f.Target == TargetOption {

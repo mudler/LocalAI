@@ -99,3 +99,37 @@
 .rt-unmapped__text { display: grid; gap: 2px; min-width: 0; }
 
 .rt-offscreen { position: fixed; top: 0; left: -9999px; opacity: 0; }
+
+/* Quick setup: the exclusive profiles of the engine as one choice, with a
+   row per profile that says what it does and what it costs in memory. */
+.rt-quick { display: grid; gap: var(--dk-space-3); min-width: 0; }
+.rt-quick__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2) var(--dk-space-3); }
+.rt-quick__list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-2); }
+.rt-quick__row {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--dk-space-1) var(--dk-space-3);
+  padding: var(--dk-space-2) var(--dk-space-3);
+  border-top: 1px solid var(--dk-edge);
+}
+.rt-quick__row:first-child { border-top: 0; }
+.rt-quick__row--current { background: var(--dk-accent-wash); }
+.rt-quick__name { font-weight: var(--dk-weight-semibold); }
+.rt-quick__text { color: var(--dk-muted); min-width: 0; }
+.rt-quick__mem { font: var(--dk-weight-semibold) var(--dk-text-12) / 1.5 var(--dk-font-mono); white-space: nowrap; color: var(--dk-muted); }
+.rt-quick__mem--more { color: var(--dk-warn-text); }
+.rt-quick__mem--less { color: var(--dk-ok-text); }
+.rt-quick__now { margin: 0; }
+
+@container (max-width: 520px) {
+  .rt-quick__row { grid-template-columns: minmax(0, 1fr) auto; }
+  .rt-quick__text { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* A collapsed group: rarely used or risky settings behind a disclosure. */
+.rt-group--fold { padding-bottom: 0; }
+.rt-group__summary { display: flex; align-items: center; gap: var(--dk-space-2); cursor: pointer; list-style: none; }
+.rt-group__summary::-webkit-details-marker { display: none; }
+.rt-group__chevron { transition: transform var(--dur-fast) var(--ease-out); }
+.rt-group--fold[open] > .rt-group__summary .rt-group__chevron { transform: rotate(90deg); }

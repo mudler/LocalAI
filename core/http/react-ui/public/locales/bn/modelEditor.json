@@ -54,7 +54,10 @@
       "memory": "মেমরি",
       "sampling": "ডিফল্ট স্যাম্পলিং",
       "template": "চ্যাট টেমপ্লেট",
-      "speed": "গতি"
+      "speed": "গতি",
+      "serving": "একসাথে পরিষেবা",
+      "speculative": "স্পেকুলেটিভ ডিকোডিং",
+      "engine_advanced": "llama.cpp-এর উন্নত অপশন"
     },
     "fields": {
       "context_size": "কনটেক্সটের আকার",
@@ -74,7 +77,78 @@
       "parameters_min_p": "Min-p",
       "options_use_jinja": "Jinja চ্যাট টেমপ্লেট",
       "load_mode": "লোড মোড",
-      "options_ubatch": "মাইক্রো-ব্যাচের আকার"
+      "options_ubatch": "মাইক্রো-ব্যাচের আকার",
+      "options_paged_kv": "পেজড পরিষেবা",
+      "options_paged_preempt": "ক্যাশ ভরলে বিরতি",
+      "options_prefill_budget": "প্রিফিল বাজেট",
+      "backend_sampling": "GPU-তে স্যাম্পলিং",
+      "options_kv_pool_tokens": "KV পুলের টোকেন",
+      "options_kv_output_reserve": "আউটপুট রিজার্ভ",
+      "options_cache_idle_slots": "নিষ্ক্রিয় স্লট ক্যাশ",
+      "options_n_cache_reuse": "ক্যাশ পুনর্ব্যবহারের খণ্ড",
+      "options_slot_prompt_similarity": "স্লট প্রম্পট সাদৃশ্য",
+      "options_kv_unified_per_slot": "প্রতি স্লটে টোকেন",
+      "options_cache_ram": "প্রম্পট ক্যাশের মেমরি (MiB)",
+      "options_mmproj_use_gpu": "GPU-তে ভিশন প্রজেক্টর",
+      "options_backend_sampling_min_slots": "GPU স্যাম্পলিংয়ের ন্যূনতম স্লট",
+      "options_context_shift": "কনটেক্সট শিফট",
+      "options_cont_batching": "অবিরাম ব্যাচিং",
+      "options_kv_unified": "একীভূত KV ক্যাশ",
+      "options_swa_full": "পূর্ণ স্লাইডিং-উইন্ডো ক্যাশ",
+      "options_fit_params_target": "ফিট মার্জিন (MiB)",
+      "options_fit_params_min_ctx": "ফিটের ন্যূনতম কনটেক্সট",
+      "options_n_cpu_ffn": "CPU-তে ঘন FFN লেয়ার",
+      "options_moe_cache_cpu_share": "MoE ক্যাশে CPU-র অংশ",
+      "options_lazy_mode": "অলস লোডিং",
+      "options_split_mode": "একাধিক GPU-তে ভাগ",
+      "options_device": "ডিভাইস",
+      "options_grpc_servers": "RPC ওয়ার্কার",
+      "options_check_tensors": "টেনসর যাচাই",
+      "options_warmup": "ওয়ার্মআপ",
+      "options_verbosity": "লগের বিস্তার",
+      "options_n_ctx_checkpoints": "কনটেক্সট চেকপয়েন্ট",
+      "options_checkpoint_min_step": "চেকপয়েন্টের ব্যবধান",
+      "options_n_rs_seq": "রিকারেন্ট অবস্থার স্ন্যাপশট",
+      "options_slot_save_path": "স্লট সংরক্ষণের ফোল্ডার",
+      "options_yarn_orig_ctx": "YaRN মূল কনটেক্সট",
+      "options_pooling_type": "এমবেডিং পুলিং",
+      "options_embd_normalize": "এমবেডিং নর্মালাইজেশন",
+      "options_image_min_tokens": "প্রতি ছবিতে ন্যূনতম ভিশন টোকেন",
+      "options_image_max_tokens": "প্রতি ছবিতে সর্বোচ্চ ভিশন টোকেন",
+      "options_reasoning_format": "রিজনিং ফরম্যাট",
+      "options_enable_reasoning": "চিন্তা",
+      "options_reasoning_budget": "রিজনিং বাজেট",
+      "options_prefill_assistant": "অ্যাসিস্ট্যান্ট আগে পূরণ",
+      "options_spec_type": "স্পেকুলেটিভ ধরন",
+      "options_spec_n_max": "সর্বোচ্চ ড্রাফট টোকেন",
+      "options_spec_n_min": "ন্যূনতম ড্রাফট টোকেন",
+      "options_spec_p_min": "ড্রাফটের ন্যূনতম সম্ভাবনা",
+      "options_spec_p_split": "শাখা ভাগের সম্ভাবনা",
+      "options_draft_gpu_layers": "GPU-তে ড্রাফট লেয়ার",
+      "options_draft_threads": "ড্রাফট থ্রেড",
+      "options_draft_threads_batch": "ড্রাফট ব্যাচ থ্রেড",
+      "options_draft_cache_type_k": "ড্রাফট KV ক্যাশের ধরন (K)",
+      "options_draft_cache_type_v": "ড্রাফট KV ক্যাশের ধরন (V)",
+      "options_spec_draft_n_ubatch": "ড্রাফট মাইক্রো-ব্যাচ",
+      "options_spec_draft_sampling": "ড্রাফট স্যাম্পলিং",
+      "options_spec_draft_device": "ড্রাফট ডিভাইস",
+      "options_draft_cpu_moe": "CPU-তে ড্রাফট MoE",
+      "options_draft_n_cpu_moe": "CPU-তে ড্রাফট MoE লেয়ার",
+      "options_draft_override_tensor": "ড্রাফট টেনসর ওভাররাইড",
+      "options_spec_ngram_size_n": "n-gram খোঁজার দৈর্ঘ্য",
+      "options_spec_ngram_size_m": "n-gram প্রস্তাবের দৈর্ঘ্য",
+      "options_spec_ngram_min_hits": "n-gram ন্যূনতম মিল",
+      "options_spec_ngram_mod_n_min": "ngram-mod ন্যূনতম",
+      "options_spec_ngram_mod_n_max": "ngram-mod সর্বোচ্চ",
+      "options_spec_ngram_mod_n_match": "ngram-mod মিলের দৈর্ঘ্য",
+      "options_spec_ngram_map_k_size_n": "ngram-map-k খোঁজার দৈর্ঘ্য",
+      "options_spec_ngram_map_k_size_m": "ngram-map-k প্রস্তাবের দৈর্ঘ্য",
+      "options_spec_ngram_map_k_min_hits": "ngram-map-k ন্যূনতম মিল",
+      "options_spec_ngram_map_k4v_size_n": "ngram-map-k4v খোঁজার দৈর্ঘ্য",
+      "options_spec_ngram_map_k4v_size_m": "ngram-map-k4v প্রস্তাবের দৈর্ঘ্য",
+      "options_spec_ngram_map_k4v_min_hits": "ngram-map-k4v ন্যূনতম মিল",
+      "options_spec_lookup_cache_static": "স্থির n-gram ক্যাশ ফাইল",
+      "options_spec_lookup_cache_dynamic": "পরিবর্তনশীল n-gram ক্যাশ ফাইল"
     },
     "choices": {
       "load_mode": {
@@ -84,10 +158,16 @@
         "mlock": "mlock",
         "mmap_mlock": "mmap + mlock",
         "direct_io": "ডিরেক্ট I/O"
+      },
+      "backend_sampling": {
+        "off": "বন্ধ",
+        "auto": "স্বয়ংক্রিয়",
+        "on": "চালু"
       }
     },
     "hints": {
-      "load_mode": "মডেল ফাইল কীভাবে পড়া হয়। mmap, mmlock এবং direct_io অপশন লেখে।"
+      "load_mode": "মডেল ফাইল কীভাবে পড়া হয়। mmap, mmlock এবং direct_io অপশন লেখে।",
+      "backend_sampling": "টোকেন কোথায় স্যাম্পল হয়। GPU স্যাম্পলিং ছাড়া ব্যাকএন্ড এই সেটিং উপেক্ষা করে।"
     },
     "errors": {
       "notInteger": "একটি পূর্ণসংখ্যা লিখুন।",
@@ -207,6 +287,44 @@
     "readOnly": {
       "title": "শুধু পড়া যাবে।",
       "body": "শুধু একজন অ্যাডমিনিস্ট্রেটর এই সেটিংস বদলাতে পারেন।"
-    }
+    },
+    "quick": {
+      "title": "দ্রুত সেটআপ",
+      "custom": "নিজস্ব",
+      "customText": "নিচের ঘরগুলো নিজে সেট করুন।",
+      "current": "আপনার সেটিংস",
+      "estimating": "অনুমান করা হচ্ছে...",
+      "noEstimate": "কোনো অনুমান নেই",
+      "same": "প্রায় একই মেমরি",
+      "more": "≈ {{size}} বেশি মেমরি",
+      "less": "≈ {{size}} কম মেমরি",
+      "now": "এখন: KV ক্যাশ ≈ {{kv}} এবং কম্পিউট বাফার ≈ {{compute}}, {{context}} টোকেনে, ওজনের বাইরে।",
+      "estimate": "এই সংখ্যাগুলো অনুমান।",
+      "approximate": "মোটামুটি অনুমান: মডেলের গঠন ফাইল থেকে পড়া হয়নি।",
+      "failed": "মেমরির অনুমান পাওয়া যাচ্ছে না।"
+    },
+    "profiles": {
+      "balanced": {
+        "name": "ভারসাম্যপূর্ণ",
+        "text": "ডিফল্ট: LocalAI আপনার GPU-র জন্য ব্যাচ ও স্লট বেছে নেয়, f16 KV ক্যাশ সহ।"
+      },
+      "longPrompts": {
+        "name": "দীর্ঘ প্রম্পট",
+        "text": "2048 এর ব্যাচ ও মাইক্রো-ব্যাচ। দীর্ঘ প্রম্পট অনেক দ্রুত পড়া হয়; কম্পিউট বাফার বেশি মেমরি নেয়।"
+      },
+      "concurrent": {
+        "name": "আরও বেশি ব্যবহারকারী একসাথে",
+        "text": "8-বিট KV ক্যাশ, পেজড পরিষেবা ও 8টি স্লট। একই মেমরিতে প্রায় দ্বিগুণ টোকেন ধরে, বেশি ব্যবহারকারী ভাগ করে নেয়, গুণমানে সামান্য ক্ষতি সহ।",
+        "note": "llama.cpp-এ দ্রুত কার্নেল না আসা পর্যন্ত কিছু অ্যাটেনশন পথে কোয়ান্টাইজড KV ক্যাশ ধীর হতে পারে। পেজড পরিষেবার জন্য এমন ব্যাকএন্ড বিল্ড দরকার যা এটি সমর্থন করে; অন্য বিল্ড এই অপশন উপেক্ষা করে।"
+      }
+    },
+    "choiceHints": {
+      "backend_sampling": {
+        "off": "CPU-তে টোকেন স্যাম্পল করে। ফাইলে কিছু লেখা হয় না।",
+        "auto": "মডেল যখন একাধিক সমান্তরাল অনুরোধসহ GPU-তে চলে এবং অনুরোধে গ্রামার বা logprobs লাগে না, তখন GPU স্যাম্পলিং ব্যবহার করে।",
+        "on": "GPU-তে টোকেন স্যাম্পল করে। অনেক সমান্তরাল অনুরোধে দ্রুত। গ্রামার, রিজনিং বাজেট বা logprobs ব্যবহার করা অনুরোধে নিজে থেকে বন্ধ হয়।"
+      }
+    },
+    "groupCount": "{{count}}টি সেটিং"
   }
 }

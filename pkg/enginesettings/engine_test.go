@@ -155,13 +155,48 @@ var _ = Describe("Engine.Validate", func() {
 			"special without parser": func(e *es.Engine) {
 				e.Command.Special = []es.SpecialFlag{{CLI: []string{"--x"}}}
 			},
-			"placement incomplete": func(e *es.Engine) { e.Placement = &es.TensorPlacement{Option: "-x", Group: "limits"} },
+			"placement incomplete":         func(e *es.Engine) { e.Placement = &es.TensorPlacement{Option: "-x", Group: "limits"} },
+			"LocalAI only with a spelling": func(e *es.Engine) { e.Flags[2].LocalAIOnly = true },
+			"LocalAI only config key": func(e *es.Engine) {
+				e.Flags[0].LocalAIOnly, e.Flags[0].CLI = true, nil
+			},
+			"collapsed unknown group": func(e *es.Engine) { e.Collapsed = []es.Group{"nope"} },
+			"estimate unknown field":  func(e *es.Engine) { e.Estimate = map[string]string{"nope": "max_model_len"} },
+			"estimate unknown key":    func(e *es.Engine) { e.Estimate = map[string]string{"context_size": "nope"} },
+			"profile with a placement": func(e *es.Engine) {
+				e.Presets = []es.Preset{{ID: "a", Profile: true, Settings: map[string]any{}, Placement: &es.Placement{Mode: es.ExpertsCPUAll}}}
+			},
 		}
 		for name, breakIt := range cases {
 			e := toyEngine()
 			breakIt(e)
 			Expect(e.Validate()).To(HaveOccurred(), name)
 		}
+	})
+
+	It("accepts nil preset values, LocalAI only options and profiles over the same keys", func() {
+		e := toyEngine()
+		e.Flags = append(e.Flags, es.Flag{
+			Key: "warmup", Target: es.TargetOption, Path: "options", Option: "warmup", LocalAIOnly: true,
+			Type: es.TypeBool, Group: "runtime", Doc: "Read by LocalAI only.",
+		})
+		e.Presets = []es.Preset{
+			{ID: "plain", Profile: true, Settings: map[string]any{"max_model_len": nil, "warmup": nil}},
+			{ID: "fast", Profile: true, Settings: map[string]any{"max_model_len": 4096, "warmup": true}},
+			{ID: "other", Settings: map[string]any{"eager": nil}},
+		}
+		Expect(e.Validate()).To(Succeed())
+
+		res, err := e.BuildCommand(es.Config{"options": []any{"warmup:true"}})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res.Command).To(Equal("toy-serve"))
+		Expect(res.Warnings).To(ConsistOf(ContainSubstring("read by LocalAI")))
+
+		raw, err := json.Marshal(e.Schema())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"localai_only":true`))
+		Expect(string(raw)).To(ContainSubstring(`"profile":true`))
+		Expect(string(raw)).To(ContainSubstring(`"max_model_len":null`))
 	})
 })
 

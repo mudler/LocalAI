@@ -18,7 +18,10 @@
             "memory": "Memoria",
             "sampling": "Muestreo predeterminado",
             "template": "Plantilla de chat",
-            "speed": "Velocidad"
+            "speed": "Velocidad",
+            "serving": "Servicio concurrente",
+            "speculative": "Decodificación especulativa",
+            "engine_advanced": "Opciones avanzadas de llama.cpp"
         },
         "fields": {
             "context_size": "Tamaño del contexto",
@@ -38,7 +41,78 @@
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Plantilla de chat Jinja",
             "load_mode": "Modo de carga",
-            "options_ubatch": "Tamaño del microlote"
+            "options_ubatch": "Tamaño del microlote",
+            "options_paged_kv": "Servicio paginado",
+            "options_paged_preempt": "Pausar con la caché llena",
+            "options_prefill_budget": "Presupuesto de prefill",
+            "backend_sampling": "Muestreo en GPU",
+            "options_kv_pool_tokens": "Tokens del pool KV",
+            "options_kv_output_reserve": "Reserva de salida",
+            "options_cache_idle_slots": "Caché de slots inactivos",
+            "options_n_cache_reuse": "Bloque de reutilización de caché",
+            "options_slot_prompt_similarity": "Similitud del prompt por slot",
+            "options_kv_unified_per_slot": "Tokens por slot",
+            "options_cache_ram": "Memoria de la caché de prompts (MiB)",
+            "options_mmproj_use_gpu": "Proyector de visión en GPU",
+            "options_backend_sampling_min_slots": "Slots mínimos para muestreo en GPU",
+            "options_context_shift": "Desplazamiento de contexto",
+            "options_cont_batching": "Batching continuo",
+            "options_kv_unified": "Caché KV unificada",
+            "options_swa_full": "Caché de ventana deslizante completa",
+            "options_fit_params_target": "Margen de ajuste (MiB)",
+            "options_fit_params_min_ctx": "Contexto mínimo de ajuste",
+            "options_n_cpu_ffn": "Capas FFN densas en CPU",
+            "options_moe_cache_cpu_share": "Parte de CPU de la caché MoE",
+            "options_lazy_mode": "Carga diferida",
+            "options_split_mode": "División entre varias GPU",
+            "options_device": "Dispositivos",
+            "options_grpc_servers": "Workers RPC",
+            "options_check_tensors": "Comprobar tensores",
+            "options_warmup": "Calentamiento",
+            "options_verbosity": "Detalle de los logs",
+            "options_n_ctx_checkpoints": "Checkpoints de contexto",
+            "options_checkpoint_min_step": "Distancia entre checkpoints",
+            "options_n_rs_seq": "Instantáneas del estado recurrente",
+            "options_slot_save_path": "Carpeta de guardado de slots",
+            "options_yarn_orig_ctx": "Contexto original de YaRN",
+            "options_pooling_type": "Pooling de embeddings",
+            "options_embd_normalize": "Normalización de embeddings",
+            "options_image_min_tokens": "Tokens de visión mínimos por imagen",
+            "options_image_max_tokens": "Tokens de visión máximos por imagen",
+            "options_reasoning_format": "Formato del razonamiento",
+            "options_enable_reasoning": "Razonamiento",
+            "options_reasoning_budget": "Presupuesto de razonamiento",
+            "options_prefill_assistant": "Prellenar el asistente",
+            "options_spec_type": "Tipo especulativo",
+            "options_spec_n_max": "Tokens de borrador máximos",
+            "options_spec_n_min": "Tokens de borrador mínimos",
+            "options_spec_p_min": "Probabilidad mínima del borrador",
+            "options_spec_p_split": "Probabilidad de ramificación",
+            "options_draft_gpu_layers": "Capas del borrador en GPU",
+            "options_draft_threads": "Hilos del borrador",
+            "options_draft_threads_batch": "Hilos de lote del borrador",
+            "options_draft_cache_type_k": "Tipo de caché KV del borrador (K)",
+            "options_draft_cache_type_v": "Tipo de caché KV del borrador (V)",
+            "options_spec_draft_n_ubatch": "Micro-batch del borrador",
+            "options_spec_draft_sampling": "Muestreo del borrador",
+            "options_spec_draft_device": "Dispositivos del borrador",
+            "options_draft_cpu_moe": "MoE del borrador en CPU",
+            "options_draft_n_cpu_moe": "Capas MoE del borrador en CPU",
+            "options_draft_override_tensor": "Override de tensores del borrador",
+            "options_spec_ngram_size_n": "Longitud de búsqueda n-gram",
+            "options_spec_ngram_size_m": "Longitud de propuesta n-gram",
+            "options_spec_ngram_min_hits": "Coincidencias mínimas n-gram",
+            "options_spec_ngram_mod_n_min": "Mínimo de ngram-mod",
+            "options_spec_ngram_mod_n_max": "Máximo de ngram-mod",
+            "options_spec_ngram_mod_n_match": "Longitud de coincidencia ngram-mod",
+            "options_spec_ngram_map_k_size_n": "Longitud de búsqueda ngram-map-k",
+            "options_spec_ngram_map_k_size_m": "Longitud de propuesta ngram-map-k",
+            "options_spec_ngram_map_k_min_hits": "Coincidencias mínimas ngram-map-k",
+            "options_spec_ngram_map_k4v_size_n": "Longitud de búsqueda ngram-map-k4v",
+            "options_spec_ngram_map_k4v_size_m": "Longitud de propuesta ngram-map-k4v",
+            "options_spec_ngram_map_k4v_min_hits": "Coincidencias mínimas ngram-map-k4v",
+            "options_spec_lookup_cache_static": "Archivo de caché n-gram estática",
+            "options_spec_lookup_cache_dynamic": "Archivo de caché n-gram dinámica"
         },
         "choices": {
             "load_mode": {
@@ -48,10 +122,16 @@
                 "mlock": "mlock",
                 "mmap_mlock": "mmap + mlock",
                 "direct_io": "E/S directa"
+            },
+            "backend_sampling": {
+                "off": "Desactivado",
+                "auto": "Automático",
+                "on": "Activado"
             }
         },
         "hints": {
-            "load_mode": "Cómo se lee el archivo del modelo. Escribe mmap, mmlock y la opción direct_io."
+            "load_mode": "Cómo se lee el archivo del modelo. Escribe mmap, mmlock y la opción direct_io.",
+            "backend_sampling": "Dónde se muestrean los tokens. Un backend sin muestreo en GPU ignora el ajuste."
         },
         "errors": {
             "notInteger": "Escribe un número entero.",
@@ -171,6 +251,44 @@
         "readOnly": {
             "title": "Solo lectura.",
             "body": "Solo un administrador puede cambiar estos ajustes."
-        }
+        },
+        "quick": {
+            "title": "Configuración rápida",
+            "custom": "Personalizada",
+            "customText": "Ajusta tú los campos de abajo.",
+            "current": "Tus ajustes",
+            "estimating": "Estimando...",
+            "noEstimate": "Sin estimación",
+            "same": "Más o menos la misma memoria",
+            "more": "≈ {{size}} más de memoria",
+            "less": "≈ {{size}} menos de memoria",
+            "now": "Ahora: caché KV ≈ {{kv}} y búferes de cálculo ≈ {{compute}} con {{context}} tokens, además de los pesos.",
+            "estimate": "Estas cifras son estimaciones.",
+            "approximate": "Estimaciones aproximadas: la estructura del modelo no se leyó del archivo.",
+            "failed": "La estimación de memoria no está disponible."
+        },
+        "profiles": {
+            "balanced": {
+                "name": "Equilibrada",
+                "text": "Los valores por defecto: LocalAI elige el batch y los slots para tu GPU, con caché KV f16."
+            },
+            "longPrompts": {
+                "name": "Prompts largos",
+                "text": "Batch y micro-batch de 2048. Los prompts largos se leen mucho más rápido; los búferes de cálculo usan más memoria."
+            },
+            "concurrent": {
+                "name": "Más usuarios a la vez",
+                "text": "Caché KV de 8 bits, servicio paginado y 8 slots. Caben unas dos veces más tokens en la misma memoria, compartidos por más usuarios, con una pequeña pérdida de calidad.",
+                "note": "Una caché KV cuantizada puede ser más lenta en algunas rutas de atención hasta que llama.cpp tenga un kernel rápido para ellas. El servicio paginado necesita una compilación del backend que lo admita; las demás ignoran la opción."
+            }
+        },
+        "choiceHints": {
+            "backend_sampling": {
+                "off": "Muestrea los tokens en la CPU. No se escribe nada en el archivo.",
+                "auto": "Usa el muestreo en GPU cuando el modelo se ejecuta en una GPU con varias peticiones en paralelo y la petición no necesita gramática ni logprobs.",
+                "on": "Muestrea los tokens en la GPU. Más rápido con muchas peticiones en paralelo. Se desactiva solo en las peticiones que usan una gramática, un presupuesto de razonamiento o logprobs."
+            }
+        },
+        "groupCount": "{{count}} ajustes"
     }
 }

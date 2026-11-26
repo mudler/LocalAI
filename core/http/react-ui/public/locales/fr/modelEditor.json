@@ -18,7 +18,10 @@
             "memory": "Mémoire",
             "sampling": "Échantillonnage par défaut",
             "template": "Modèle de chat",
-            "speed": "Vitesse"
+            "speed": "Vitesse",
+            "serving": "Service simultané",
+            "speculative": "Décodage spéculatif",
+            "engine_advanced": "Options avancées de llama.cpp"
         },
         "fields": {
             "context_size": "Taille du contexte",
@@ -38,7 +41,78 @@
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Modèle de chat Jinja",
             "load_mode": "Mode de chargement",
-            "options_ubatch": "Taille du micro-lot"
+            "options_ubatch": "Taille du micro-lot",
+            "options_paged_kv": "Service paginé",
+            "options_paged_preempt": "Pause quand le cache est plein",
+            "options_prefill_budget": "Budget de prefill",
+            "backend_sampling": "Échantillonnage sur GPU",
+            "options_kv_pool_tokens": "Tokens du pool KV",
+            "options_kv_output_reserve": "Réserve de sortie",
+            "options_cache_idle_slots": "Cache des slots inactifs",
+            "options_n_cache_reuse": "Bloc de réutilisation du cache",
+            "options_slot_prompt_similarity": "Similarité du prompt par slot",
+            "options_kv_unified_per_slot": "Tokens par slot",
+            "options_cache_ram": "Mémoire du cache de prompts (Mio)",
+            "options_mmproj_use_gpu": "Projecteur de vision sur GPU",
+            "options_backend_sampling_min_slots": "Slots minimum pour l'échantillonnage GPU",
+            "options_context_shift": "Décalage du contexte",
+            "options_cont_batching": "Batching continu",
+            "options_kv_unified": "Cache KV unifié",
+            "options_swa_full": "Cache à fenêtre glissante complet",
+            "options_fit_params_target": "Marge d'ajustement (Mio)",
+            "options_fit_params_min_ctx": "Contexte minimum d'ajustement",
+            "options_n_cpu_ffn": "Couches FFN denses sur CPU",
+            "options_moe_cache_cpu_share": "Part CPU du cache MoE",
+            "options_lazy_mode": "Chargement différé",
+            "options_split_mode": "Répartition multi-GPU",
+            "options_device": "Périphériques",
+            "options_grpc_servers": "Workers RPC",
+            "options_check_tensors": "Vérifier les tenseurs",
+            "options_warmup": "Préchauffage",
+            "options_verbosity": "Verbosité des logs",
+            "options_n_ctx_checkpoints": "Points de contrôle du contexte",
+            "options_checkpoint_min_step": "Écart entre points de contrôle",
+            "options_n_rs_seq": "Instantanés de l'état récurrent",
+            "options_slot_save_path": "Dossier de sauvegarde des slots",
+            "options_yarn_orig_ctx": "Contexte d'origine YaRN",
+            "options_pooling_type": "Pooling des embeddings",
+            "options_embd_normalize": "Normalisation des embeddings",
+            "options_image_min_tokens": "Tokens de vision min. par image",
+            "options_image_max_tokens": "Tokens de vision max. par image",
+            "options_reasoning_format": "Format du raisonnement",
+            "options_enable_reasoning": "Raisonnement",
+            "options_reasoning_budget": "Budget de raisonnement",
+            "options_prefill_assistant": "Préremplir l'assistant",
+            "options_spec_type": "Type spéculatif",
+            "options_spec_n_max": "Tokens de brouillon max.",
+            "options_spec_n_min": "Tokens de brouillon min.",
+            "options_spec_p_min": "Probabilité min. du brouillon",
+            "options_spec_p_split": "Probabilité de branchement",
+            "options_draft_gpu_layers": "Couches GPU du brouillon",
+            "options_draft_threads": "Threads du brouillon",
+            "options_draft_threads_batch": "Threads batch du brouillon",
+            "options_draft_cache_type_k": "Type de cache KV du brouillon (K)",
+            "options_draft_cache_type_v": "Type de cache KV du brouillon (V)",
+            "options_spec_draft_n_ubatch": "Micro-batch du brouillon",
+            "options_spec_draft_sampling": "Échantillonnage du brouillon",
+            "options_spec_draft_device": "Périphériques du brouillon",
+            "options_draft_cpu_moe": "MoE du brouillon sur CPU",
+            "options_draft_n_cpu_moe": "Couches MoE du brouillon sur CPU",
+            "options_draft_override_tensor": "Override des tenseurs du brouillon",
+            "options_spec_ngram_size_n": "Longueur de recherche n-gram",
+            "options_spec_ngram_size_m": "Longueur de proposition n-gram",
+            "options_spec_ngram_min_hits": "Correspondances min. n-gram",
+            "options_spec_ngram_mod_n_min": "Minimum ngram-mod",
+            "options_spec_ngram_mod_n_max": "Maximum ngram-mod",
+            "options_spec_ngram_mod_n_match": "Longueur de correspondance ngram-mod",
+            "options_spec_ngram_map_k_size_n": "Longueur de recherche ngram-map-k",
+            "options_spec_ngram_map_k_size_m": "Longueur de proposition ngram-map-k",
+            "options_spec_ngram_map_k_min_hits": "Correspondances min. ngram-map-k",
+            "options_spec_ngram_map_k4v_size_n": "Longueur de recherche ngram-map-k4v",
+            "options_spec_ngram_map_k4v_size_m": "Longueur de proposition ngram-map-k4v",
+            "options_spec_ngram_map_k4v_min_hits": "Correspondances min. ngram-map-k4v",
+            "options_spec_lookup_cache_static": "Fichier de cache n-gram statique",
+            "options_spec_lookup_cache_dynamic": "Fichier de cache n-gram dynamique"
         },
         "choices": {
             "load_mode": {
@@ -48,10 +122,16 @@
                 "mlock": "mlock",
                 "mmap_mlock": "mmap + mlock",
                 "direct_io": "E/S directes"
+            },
+            "backend_sampling": {
+                "off": "Désactivé",
+                "auto": "Auto",
+                "on": "Activé"
             }
         },
         "hints": {
-            "load_mode": "Comment le fichier du modèle est lu. Écrit mmap, mmlock et l'option direct_io."
+            "load_mode": "Comment le fichier du modèle est lu. Écrit mmap, mmlock et l'option direct_io.",
+            "backend_sampling": "Où les tokens sont échantillonnés. Un backend sans échantillonnage sur GPU ignore ce réglage."
         },
         "errors": {
             "notInteger": "Saisissez un nombre entier.",
@@ -171,6 +251,44 @@
         "readOnly": {
             "title": "Lecture seule.",
             "body": "Seul un administrateur peut modifier ces réglages."
-        }
+        },
+        "quick": {
+            "title": "Configuration rapide",
+            "custom": "Personnalisée",
+            "customText": "Réglez vous-même les champs ci-dessous.",
+            "current": "Vos réglages",
+            "estimating": "Estimation...",
+            "noEstimate": "Pas d'estimation",
+            "same": "À peu près la même mémoire",
+            "more": "≈ {{size}} de mémoire en plus",
+            "less": "≈ {{size}} de mémoire en moins",
+            "now": "Actuellement : cache KV ≈ {{kv}} et tampons de calcul ≈ {{compute}} pour {{context}} tokens, en plus des poids.",
+            "estimate": "Ces chiffres sont des estimations.",
+            "approximate": "Estimations grossières : la structure du modèle n'a pas été lue dans le fichier.",
+            "failed": "L'estimation de la mémoire n'est pas disponible."
+        },
+        "profiles": {
+            "balanced": {
+                "name": "Équilibrée",
+                "text": "Les valeurs par défaut : LocalAI choisit le batch et les slots pour votre GPU, avec un cache KV f16."
+            },
+            "longPrompts": {
+                "name": "Prompts longs",
+                "text": "Batch et micro-batch de 2048. Les prompts longs sont lus bien plus vite ; les tampons de calcul utilisent plus de mémoire."
+            },
+            "concurrent": {
+                "name": "Plus d'utilisateurs simultanés",
+                "text": "Cache KV 8 bits, service paginé et 8 slots. Environ deux fois plus de tokens tiennent dans la même mémoire, partagés par plus d'utilisateurs, avec une légère perte de qualité.",
+                "note": "Un cache KV quantifié peut être plus lent sur certains chemins d'attention tant que llama.cpp n'a pas de noyau rapide pour eux. Le service paginé demande une version du backend qui le prend en charge ; les autres ignorent l'option."
+            }
+        },
+        "choiceHints": {
+            "backend_sampling": {
+                "off": "Échantillonne les tokens sur le CPU. Rien n'est écrit dans le fichier.",
+                "auto": "Utilise l'échantillonnage sur GPU quand le modèle tourne sur un GPU avec plusieurs requêtes en parallèle et que la requête n'a besoin ni de grammaire ni de logprobs.",
+                "on": "Échantillonne les tokens sur le GPU. Plus rapide avec de nombreuses requêtes en parallèle. Désactivé automatiquement pour les requêtes avec une grammaire, un budget de raisonnement ou des logprobs."
+            }
+        },
+        "groupCount": "{{count}} réglages"
     }
 }

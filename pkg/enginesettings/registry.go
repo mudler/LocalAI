@@ -93,13 +93,17 @@ type PlacementSchema struct {
 type Schema struct {
 	Info
 	// Example is a sample command for the paste box (command-line only).
-	Example         string           `json:"example,omitempty"`
-	Flags           []Flag           `json:"flags"`
-	Groups          []Group          `json:"groups"`
+	Example string  `json:"example,omitempty"`
+	Flags   []Flag  `json:"flags"`
+	Groups  []Group `json:"groups"`
+	// Collapsed lists the groups a client draws closed.
+	Collapsed       []Group          `json:"collapsed_groups,omitempty"`
 	Combined        []Combined       `json:"combined"`
 	Presets         []Preset         `json:"presets"`
 	ReservedOptions []string         `json:"reserved_options"`
 	Placement       *PlacementSchema `json:"placement,omitempty"`
+	// Estimate maps VRAM estimate request fields to flag keys.
+	Estimate map[string]string `json:"estimate,omitempty"`
 }
 
 // Schema returns the settings schema of the engine.
@@ -108,9 +112,11 @@ func (e *Engine) Schema() Schema {
 		Info:            e.Info(),
 		Flags:           e.Flags,
 		Groups:          e.Groups,
+		Collapsed:       e.Collapsed,
 		Combined:        e.Combined,
 		Presets:         e.Presets,
 		ReservedOptions: e.ReservedOptions,
+		Estimate:        e.Estimate,
 	}
 	if s.Combined == nil {
 		s.Combined = []Combined{}
