@@ -107,31 +107,37 @@ inline bool pool_short(int64_t n_pool, int64_t n_used, int64_t n_demand) {
     return n_used + n_demand > n_pool;
 }
 
+// How many times one request may be preempted while another slot can be
+// preempted instead. Without a cap the youngest request can be preempted
+// again each time it resumes, and never finish while the pool stays full.
+constexpr int paged_max_preemptions = 2;
+
 struct victim_candidate {
-    int     id_slot   = -1;
-    int64_t age       = 0;     // larger is younger (the task id)
-    bool    resumable = false; // can be rebuilt by recomputing its tokens
+    int     id_slot     = -1;
+    int64_t age         = 0;     // larger is younger (the task id, given on arrival)
+    bool    resumable   = false; // can be rebuilt by recomputing its tokens
+    int     n_preempted = 0;     // times this request was preempted already
 };
 
 // Picks the slot to preempt when the pool is short.
 //
-// Returns an index into c, or -1 when nothing may be preempted. The youngest
-// resumable slot is chosen first. A slot that cannot be resumed (speculative
-// decoding, a multimodal prompt, a score fork, recurrent or hybrid memory) is
-// chosen only when no resumable slot exists: it fails with a retryable error.
+// Returns an index into c, or -1 when nothing may be preempted. In order:
+//   1. the youngest resumable slot preempted fewer than paged_max_preemptions times,
+//   2. the youngest resumable slot (the cap gives way only to avoid failing a request),
+//   3. the youngest slot that cannot be resumed (speculative decoding, a multimodal
+//      prompt, a score fork, recurrent or hybrid memory): it fails with a retryable error.
 // The only running slot is never preempted, so one request always makes progress.
 inline int pick_victim(const std::vector<victim_candidate> & c) {
     if (c.size() < 2) {
         return -1;
     }
     int best = -1;
-    for (int pass = 0; pass < 2 && best < 0; pass++) {
-        const bool want_resumable = pass == 0;
+    for (int pass = 0; pass < 3 && best < 0; pass++) {
         for (int i = 0; i < (int) c.size(); i++) {
-            if (c[i].resumable != want_resumable) {
-                continue;
-            }
-            if (best < 0 || c[i].age > c[best].age) {
+            const bool ok = pass == 0 ? c[i].resumable && c[i].n_preempted < paged_max_preemptions
+                          : pass == 1 ? c[i].resumable
+                                      : !c[i].resumable;
+            if (ok && (best < 0 || c[i].age > c[best].age)) {
                 best = i;
             }
         }

@@ -147,6 +147,32 @@ static void test_unique_cells() {
     EXPECT(unique_cells({{50, 7, 50}}) == 50, "out of range source is ignored");
 }
 
+static void test_preemption_cap() {
+    // The youngest request has been preempted twice: the next youngest goes instead.
+    std::vector<victim_candidate> c = {{0, 1, true, 0}, {1, 2, true, 0}, {2, 3, true, paged_max_preemptions}};
+    EXPECT(pick_victim(c) == 1, "a request at the cap is skipped");
+    // All at the cap: still preempt rather than fail a request.
+    c = {{0, 1, true, 2}, {1, 2, true, 2}};
+    EXPECT(pick_victim(c) == 1, "cap gives way when every slot reached it");
+    // A capped resumable slot still goes before a non-resumable one.
+    c = {{0, 1, true, 2}, {1, 9, false, 0}};
+    EXPECT(pick_victim(c) == 0, "capped resumable before non-resumable");
+}
+
+static void test_readmission() {
+    // A preempted request (old task id) waits: newer requests stay behind it.
+    pool_view v;
+    v.n_pool        = 2048;
+    v.n_active      = 2;
+    v.n_used        = 400;
+    v.older_waiting = true;
+    EXPECT(admit(v, 10) == admit_result::WAIT, "new arrivals wait behind a preempted request");
+    // The preempted request itself: it already generated past its reserve, so it
+    // needs only the cells of its tokens.
+    EXPECT(slot_claim(700, 256, 300) == 700, "a resumed request needs no reserve it has used up");
+    EXPECT(slot_claim(700, 256, 100) == 856, "and the rest of its reserve otherwise");
+}
+
 static void test_checks() {
     EXPECT(check_paged_options(true, false, true).empty(), "defaults are fine");
     EXPECT(check_paged_options(false, false, true).find("kv_unified") != std::string::npos, "kv_unified:false is an error");
@@ -164,6 +190,8 @@ int main() {
     test_pick_victim();
     test_checks();
     test_unique_cells();
+    test_preemption_cap();
+    test_readmission();
     if (failures > 0) {
         std::fprintf(stderr, "%d serving policy check(s) failed\n", failures);
         return 1;

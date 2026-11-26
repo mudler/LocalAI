@@ -29,7 +29,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
  #include <atomic>
  #include <thread>
  #include "base64.hpp"
-@@ -373,6 +374,13 @@ struct server_slot {
+@@ -373,6 +374,15 @@ struct server_slot {
      // state
      slot_state state = SLOT_STATE_IDLE;
  
@@ -39,11 +39,13 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +    bool         paged_cache_load = false; // load the RAM prompt cache at admission, not at launch
 +    int          paged_src   = -1;            // slot this one copied its prompt from
 +    int64_t      paged_src_n = 0;             // cells copied from it
++    int          paged_n_preempted = 0;       // times this request was preempted
++    int64_t      paged_t_preempted = 0;       // when it was last preempted (us)
 +
      server_prompt prompt;
  
      bool prompt_save(server_prompt_cache & prompt_cache) const {
-@@ -511,6 +519,12 @@ struct server_slot {
+@@ -511,6 +521,14 @@ struct server_slot {
          audio_commit_rows.clear();
          inp_embd.clear();
          rt.reset();
@@ -53,10 +55,12 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +        paged_cache_load = false;
 +        paged_src        = -1;
 +        paged_src_n      = 0;
++        paged_n_preempted = 0;
++        paged_t_preempted = 0;
      }
  
      void init_sampler() const {
-@@ -897,6 +911,8 @@ struct server_slot {
+@@ -897,6 +915,8 @@ struct server_slot {
          mem.seq_cp(id, other.id, -1, -1);
  
          other.prompt = prompt.clone();
@@ -65,7 +69,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
      }
  
      void copy_state_to(server_slot & other) const {
-@@ -910,6 +926,8 @@ struct server_slot {
+@@ -910,6 +930,8 @@ struct server_slot {
          other.stats = stats;
  
          other.prompt = prompt.clone();
@@ -74,7 +78,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
          other.init_sampler();
      }
  };
-@@ -1941,6 +1959,188 @@ private:
+@@ -1941,6 +1963,196 @@ private:
          return res;
      }
  
@@ -168,8 +172,14 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +                    v.older_waiting = true;
 +                }
 +            }
-+            const auto res = serving_policy::admit(v, n_tokens + paged_reserve(slot));
++            // a resumed request needs only the part of its reserve it has not generated yet
++            const int64_t n_need = serving_policy::slot_claim(n_tokens, paged_reserve(slot), slot.stats.n_gen);
++            const auto res = serving_policy::admit(v, n_need);
 +            if (res == serving_policy::admit_result::ADMIT) {
++                if (slot.paged_t_preempted > 0) {
++                    SLT_INF(slot, "paged: resuming after waiting %.1f s\n", (ggml_time_us() - slot.paged_t_preempted) / 1e6);
++                    slot.paged_t_preempted = 0;
++                }
 +                if (slot.paged_cache_load && prompt_cache) {
 +                    // the cache load was held back at launch, so a waiting request holds no cells
 +                    slot.paged_cache_load = false;
@@ -187,7 +197,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +            if (!slot.paged_wait) {
 +                slot.paged_wait = true;
 +                SLT_INF(slot, "paged: waiting for %" PRId64 " free cells (used = %" PRId64 ", pending = %" PRId64 ", pool = %" PRId64 ", waits = %" PRId64 ")\n",
-+                        n_tokens + paged_reserve(slot), v.n_used, v.n_pending, v.n_pool, ++n_paged_wait);
++                        n_need, v.n_used, v.n_pending, v.n_pool, ++n_paged_wait);
 +            }
 +            return false;
 +        }
@@ -208,7 +218,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +                n_demand += serving_policy::slot_demand(gen, gen && slot.can_speculate() ? std::min(slot.get_n_draft_max(), 64) : 0, paged_prompt_left(slot));
 +                const auto type = slot.task->type;
 +                if (type != SERVER_TASK_TYPE_TTS && type != SERVER_TASK_TYPE_REALTIME && type != SERVER_TASK_TYPE_TRANSCRIBE_RT) {
-+                    cands.push_back({ slot.id, slot.task->id, paged_resumable(slot) });
++                    cands.push_back({ slot.id, slot.task->id, paged_resumable(slot), slot.paged_n_preempted });
 +                }
 +            }
 +            if (!serving_policy::pool_short(llama_n_ctx(ctx_tgt), n_used, n_demand)) {
@@ -236,7 +246,9 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +            slot.prompt_clear();
 +            return;
 +        }
-+        SLT_INF(slot, "paged: KV pool full, preempting %d tokens for recompute (preemptions = %" PRId64 ")\n", slot.prompt.n_tokens(), ++n_paged_preempt);
++        SLT_INF(slot, "paged: KV pool full, preempting %d tokens for recompute (this request: %d, preemptions = %" PRId64 ")\n",
++                slot.prompt.n_tokens(), ++slot.paged_n_preempted, ++n_paged_preempt);
++        slot.paged_t_preempted = ggml_time_us();
 +        if (slot.state == SLOT_STATE_GENERATING) {
 +            // keep every decoded token, the sampler and the grammar keep their state
 +            slot.paged_resume = slot.prompt.tokens.get_text_tokens();
@@ -263,7 +275,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
      std::vector<common_adapter_lora_info> construct_lora_list(const std::map<int, float> & config) const {
          std::vector<common_adapter_lora_info> output = params_base.lora_adapters; // copy
          for (size_t i = 0; i < output.size(); ++i) {
-@@ -3299,7 +3499,15 @@ private:
+@@ -3299,7 +3511,15 @@ private:
  
                      // the task is not deferred past this point
                      if (plan.update_cache && prompt_cache) {
@@ -280,7 +292,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      }
  
                      if (task.is_parent()) {
-@@ -4071,6 +4279,11 @@ private:
+@@ -4071,6 +4291,11 @@ private:
          // start populating the batch for this iteration
          batch.clear();
  
@@ -292,7 +304,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
          // track if given slot can be batched with slots already in the batch
          auto & slot_batched = batch.slot_batched;
  
-@@ -4216,12 +4429,16 @@ private:
+@@ -4216,12 +4441,16 @@ private:
          auto & alora_scale       = batch.alora_scale;
          auto & alora_disabled_id = batch.alora_disabled_id;
  
@@ -310,7 +322,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      return; // batch is full, skip remaining slots
                  }
  
-@@ -4248,6 +4465,19 @@ private:
+@@ -4248,6 +4477,19 @@ private:
  
                  // this slot still has a prompt to be processed
                  if (slot.state == SLOT_STATE_PROCESSING_PROMPT || slot.state == SLOT_STATE_STARTED) {
@@ -330,7 +342,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      const auto & input_tokens = slot.task->tokens;
  
                      // used to determine the number of tokens added to the batch for the current slot
-@@ -4694,7 +4924,8 @@ private:
+@@ -4694,7 +4936,8 @@ private:
                      const int32_t n_decision_first = slot.task->type == SERVER_TASK_TYPE_DECISION ? slot.task->decision.pos_first() : -1;
  
                      // add prompt tokens for processing in the current batch
