@@ -16,7 +16,7 @@ diff --git a/common/common.h b/common/common.h
 +    bool    paged_serving       = false; // LocalAI: admission and pool accounting over the unified KV cache
 +    bool    paged_preempt       = false; // LocalAI: preempt the youngest request when the pool is short
 +    int32_t kv_output_reserve   = 256;   // LocalAI: free cells a request needs beyond its prompt to start
-+    int32_t prefill_budget      = 0;     // LocalAI: decode-first prompt tokens per step, 0 = off
++    int32_t prefill_budget      = 0;     // LocalAI: decode-first prompt tokens per step, 0 = off, < 0 = adaptive
      int32_t checkpoint_min_step = 8192;  // minimum spacing between context checkpoints
      int32_t cache_ram_mib       = 8192;  // -1 = no limit, 0 - disable, 1 = 1 MiB, etc.
      bool    cache_ram_explicit  = false; // set by --cache-ram, decision models disable the cache otherwise
@@ -304,13 +304,14 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
          // track if given slot can be batched with slots already in the batch
          auto & slot_batched = batch.slot_batched;
  
-@@ -4216,12 +4441,16 @@ private:
+@@ -4216,12 +4441,17 @@ private:
          auto & alora_scale       = batch.alora_scale;
          auto & alora_disabled_id = batch.alora_disabled_id;
  
-+        // LocalAI paged serving: decode-first prompt budget, n_batch when off
-+        const int32_t n_fill_max = params_base.prefill_budget <= 0 ? n_batch :
-+            std::min(n_batch, batch.size() + serving_policy::prefill_tokens_this_step(params_base.prefill_budget, batch.size(), n_batch));
++        // LocalAI paged serving: decode-first prompt budget (fixed, or adaptive to the decoding streams), n_batch when off
++        const int32_t prefill_budget = serving_policy::step_prefill_budget(params_base.prefill_budget, (int32_t) generating.size(), n_batch);
++        const int32_t n_fill_max = prefill_budget <= 0 ? n_batch :
++            std::min(n_batch, batch.size() + serving_policy::prefill_tokens_this_step(prefill_budget, batch.size(), n_batch));
 +
          // next, batch any pending prompts without exceeding n_batch
          if (params_base.cont_batching || batch.size() == 0) {
@@ -322,7 +323,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      return; // batch is full, skip remaining slots
                  }
  
-@@ -4248,6 +4477,19 @@ private:
+@@ -4248,6 +4478,19 @@ private:
  
                  // this slot still has a prompt to be processed
                  if (slot.state == SLOT_STATE_PROCESSING_PROMPT || slot.state == SLOT_STATE_STARTED) {
@@ -342,7 +343,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      const auto & input_tokens = slot.task->tokens;
  
                      // used to determine the number of tokens added to the batch for the current slot
-@@ -4694,7 +4936,8 @@ private:
+@@ -4694,7 +4937,8 @@ private:
                      const int32_t n_decision_first = slot.task->type == SERVER_TASK_TYPE_DECISION ? slot.task->decision.pos_first() : -1;
  
                      // add prompt tokens for processing in the current batch

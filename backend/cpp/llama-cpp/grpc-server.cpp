@@ -908,6 +908,9 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             } else {
                 SRV_WRN("paged_preempt: ignoring invalid value '%s' (expected true or false)\n", optval_str.c_str());
             }
+        } else if ((!strcmp(optname, "prefill_budget") || !strcmp(optname, "max_prefill_tokens")) &&
+                   (optval_str == "auto" || optval_str == "adaptive")) {
+            prefill_budget = serving_policy::prefill_budget_adaptive;
         } else if (!strcmp(optname, "kv_pool_tokens") || !strcmp(optname, "prefill_budget") ||
                    !strcmp(optname, "max_prefill_tokens") || !strcmp(optname, "kv_output_reserve")) {
             const auto n = llama_grpc::parse_non_negative_int(optval_str);
@@ -1975,7 +1978,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     }
 #else
     // Forks without the hooks: say so only when the model asked for the feature.
-    if (paged_kv.value_or(false) || prefill_budget.value_or(0) > 0) {
+    if (paged_kv.value_or(false) || prefill_budget.value_or(0) != 0) {
         SRV_WRN("%s", "paged_kv and prefill_budget: this llama.cpp build has no paged serving hooks, ignoring\n");
     }
     (void) paged_preempt;

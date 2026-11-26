@@ -40,6 +40,32 @@ inline int32_t prefill_tokens_this_step(int32_t budget, int32_t n_decode, int32_
     return std::clamp(n, (int32_t) 1, std::max((int32_t) 1, n_batch));
 }
 
+// prefill_budget value that asks for the adaptive budget below.
+constexpr int32_t prefill_budget_adaptive = -1;
+
+// Adaptive prefill budget: how many tokens one step may spend, given how many
+// streams are decoding. With no stream or one stream decoding a long prompt
+// may use the whole batch; as more streams decode, each step spends fewer
+// tokens on prompts, so every stream keeps a short gap between its tokens.
+// Non-increasing in n_decoding: n_batch for 0 and 1, then 2048 / n_decoding,
+// never below 128 and never above n_batch.
+inline int32_t adaptive_prefill_budget(int32_t n_decoding, int32_t n_batch) {
+    const int32_t hi = std::max((int32_t) 1, n_batch);
+    if (n_decoding <= 1) {
+        return hi;
+    }
+    return std::min(hi, std::max((int32_t) 128, (int32_t) (2048 / n_decoding)));
+}
+
+// The budget of this step for a prefill_budget option: a fixed value (> 0),
+// off (0), or adaptive (< 0).
+inline int32_t step_prefill_budget(int32_t option, int32_t n_decoding, int32_t n_batch) {
+    if (option < 0) {
+        return adaptive_prefill_budget(n_decoding, n_batch);
+    }
+    return option;
+}
+
 // Free cells a request must find beyond its prompt before it starts.
 // n_predict is the request's output limit, -1 when it has none: a request
 // that asks for fewer tokens than the reserve only needs room for those.

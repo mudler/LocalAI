@@ -38,6 +38,29 @@ static void test_prefill_budget() {
     EXPECT(prefill_tokens_this_step(256, 0, 0) == 1, "degenerate n_batch still adds one token");
 }
 
+static void test_adaptive_budget() {
+    EXPECT(adaptive_prefill_budget(0, 2048) == 2048, "no decoder: the whole batch");
+    EXPECT(adaptive_prefill_budget(1, 2048) == 2048, "one decoder: the whole batch");
+    EXPECT(adaptive_prefill_budget(2, 2048) == 1024, "two decoders");
+    EXPECT(adaptive_prefill_budget(4, 2048) == 512, "four decoders");
+    EXPECT(adaptive_prefill_budget(8, 2048) == 256, "eight decoders");
+    EXPECT(adaptive_prefill_budget(32, 2048) == 128, "floor at 128");
+    EXPECT(adaptive_prefill_budget(2, 512) == 512, "never above n_batch");
+    EXPECT(adaptive_prefill_budget(64, 64) == 64, "a tiny batch caps the floor");
+    for (int32_t n_batch : {64, 512, 2048, 8192}) {
+        int32_t prev = adaptive_prefill_budget(0, n_batch);
+        for (int32_t d = 1; d <= 128; d++) {
+            const int32_t b = adaptive_prefill_budget(d, n_batch);
+            EXPECT(b <= prev, "the budget never grows with more decoders");
+            EXPECT(b >= 1 && b <= n_batch, "the budget stays in [1, n_batch]");
+            prev = b;
+        }
+    }
+    EXPECT(step_prefill_budget(256, 8, 2048) == 256, "an explicit budget is fixed");
+    EXPECT(step_prefill_budget(0, 8, 2048) == 0, "0 is off");
+    EXPECT(step_prefill_budget(prefill_budget_adaptive, 8, 2048) == 256, "adaptive follows the decoders");
+}
+
 static void test_effective_reserve() {
     EXPECT(effective_reserve(256, -1) == 256, "unlimited output keeps the reserve");
     EXPECT(effective_reserve(256, 200) == 200, "reserve is capped at n_predict");
@@ -206,6 +229,7 @@ static void test_readmission() {
 
 int main() {
     test_prefill_budget();
+    test_adaptive_budget();
     test_effective_reserve();
     test_admit();
     test_claim();
