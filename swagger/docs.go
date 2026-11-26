@@ -29464,6 +29464,10 @@ const docTemplate = `{
                     "description": "OmitLANAddrs keeps the private addresses of this server out of the\nlink. By default the link carries them, so a device on the same network\ncan redeem it with no relay and no multicast discovery.",
                     "type": "boolean"
                 },
+                "omit_relay_hints": {
+                    "description": "OmitRelayHints keeps the public relays this server holds reservations\non out of the link. By default the link names up to two of them, so a\ndevice can reach this server for a hole punch; they never carry data.\nRelays \"none\" keeps them unless this is set.",
+                    "type": "boolean"
+                },
                 "relays": {
                     "description": "Relays is \"auto\", \"none\" or a list of relay IDs.",
                     "type": "string",
@@ -29480,6 +29484,10 @@ const docTemplate = `{
             "properties": {
                 "expires_at": {
                     "type": "string"
+                },
+                "hints": {
+                    "description": "Hints is the number of public relays the link names as relay hints:\nrelays that let a device reach this server for a hole punch only.",
+                    "type": "integer"
                 },
                 "id": {
                     "type": "string"
@@ -29498,6 +29506,7 @@ const docTemplate = `{
                     "$ref": "#/definitions/p2p.RelayPass"
                 },
                 "warnings": {
+                    "description": "Warnings are open_relay, no_relay, punch_only, relay_unreachable and\nno_public_addr.",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -29984,6 +29993,13 @@ const docTemplate = `{
                 "error": {
                     "description": "Error says why the host does not run although the mode asks for it.",
                     "type": "string"
+                },
+                "hint_relays": {
+                    "description": "HintRelays are the reservations on public relays: the relays that are\nnot in the relay settings. An invite names up to two of them as relay\nhints, so a device can reach this server for a hole punch.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "mode": {
                     "description": "Mode is the mode in effect: off, connect or share.",

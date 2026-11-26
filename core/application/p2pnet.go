@@ -23,6 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/p2psplit"
 	"github.com/mudler/LocalAI/core/services/tunnel"
 	"github.com/mudler/LocalAI/internal"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 // redeemPath is the one route an unpaired peer may call, over P2P only.
@@ -326,6 +327,7 @@ func (rt *p2pRuntime) startShare() error {
 		ServerPeer: rt.host.ID(),
 		Addrs:      rt.linkAddrs,
 		LANAddrs:   rt.lanAddrs,
+		Hints:      rt.relayHints,
 		Relays:     rt,
 		Limiter:    rt.limit,
 	}
@@ -431,6 +433,89 @@ func (rt *p2pRuntime) linkAddrs() []p2pnet.Multiaddr {
 		}
 	}
 	return out
+}
+
+// maxRelayHints is how many public relays an invite names for hole punch
+// coordination; the pairing service applies the same cap to its links.
+const maxRelayHints = 2
+
+// relayHints are the public relays on which the host holds a reservation,
+// for the h key of an invite: at most maxRelayHints, one address each. The
+// relays of the settings are left out, because an invite names them as
+// carriers. With the public DHT off, AutoRelay finds no public relay, and
+// there are none.
+func (rt *p2pRuntime) relayHints() []p2pnet.AddrInfo {
+	return rt.publicReservations(maxRelayHints)
+}
+
+// publicReservations lists the relays of the circuit addresses of the host
+// that are not relays of the settings, at most limit of them (all when limit
+// is zero or less).
+func (rt *p2pRuntime) publicReservations(limit int) []p2pnet.AddrInfo {
+	if rt.cfg.DisablePublicDHT {
+		return nil
+	}
+	carriers := map[string]bool{}
+	for _, r := range rt.relayList() {
+		carriers[r.ID] = true
+	}
+	return pickRelayHints(rt.host.Addrs(), carriers, limit)
+}
+
+// pickRelayHints reads the circuit addresses of addrs and returns their
+// relays in the order they first appear, without the relays whose peer ID
+// is in carriers and at most limit of them (all when limit is zero or
+// less). Each relay keeps one transport address, in this order of
+// preference: public IPv4 TCP, public IPv4 QUIC or other UDP, public IPv6,
+// then any other address. TCP comes first because some mobile and guest
+// networks block UDP.
+func pickRelayHints(addrs []p2pnet.Multiaddr, carriers map[string]bool, limit int) []p2pnet.AddrInfo {
+	var out []p2pnet.AddrInfo
+	rank := map[p2pnet.ID]int{}
+	for _, a := range addrs {
+		relay, _ := ma.SplitFunc(a, func(c ma.Component) bool { return c.Protocol().Code == p2pnet.ProtocolCircuit })
+		if len(relay) == 0 || len(relay) == len(a) {
+			continue
+		}
+		ai, err := p2pnet.ParsePeerAddr(relay.String())
+		if err != nil || len(ai.Addrs) != 1 || carriers[ai.ID.String()] {
+			continue
+		}
+		r := hintRank(ai.Addrs[0])
+		i := slices.IndexFunc(out, func(h p2pnet.AddrInfo) bool { return h.ID == ai.ID })
+		switch {
+		case i < 0:
+			out = append(out, *ai)
+			rank[ai.ID] = r
+		case r < rank[ai.ID]:
+			out[i].Addrs = ai.Addrs
+			rank[ai.ID] = r
+		}
+	}
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out
+}
+
+// hintRank orders the transport addresses of a relay hint: lower is better.
+func hintRank(a p2pnet.Multiaddr) int {
+	r := 4
+	if len(a) > 0 {
+		switch a[0].Protocol().Code {
+		case ma.P_IP4, ma.P_DNS4, ma.P_DNS:
+			r = 1
+			if _, err := a.ValueForProtocol(ma.P_TCP); err == nil {
+				r = 0
+			}
+		case ma.P_IP6, ma.P_DNS6:
+			r = 2
+		}
+	}
+	if !p2pnet.IsPublicAddr(a) {
+		r += 10
+	}
+	return r
 }
 
 // lanAddrs are the addresses of the local networks of the host: private,

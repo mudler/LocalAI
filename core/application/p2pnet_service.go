@@ -37,7 +37,7 @@ func (s p2pService) Status(ctx context.Context) (p2papi.Status, error) {
 	s.n.mu.Unlock()
 	st := p2papi.Status{
 		Mode: string(mode), Enabled: mode != config.P2PModeOff, Error: lastErr,
-		Addrs: []string{}, Reservations: []string{}, Reachability: "unknown",
+		Addrs: []string{}, Reservations: []string{}, HintRelays: []string{}, Reachability: "unknown",
 	}
 	if rt == nil {
 		return st, nil
@@ -56,6 +56,9 @@ func (s p2pService) Status(ctx context.Context) (p2papi.Status, error) {
 			reserved[r] = true
 			st.Reservations = append(st.Reservations, r)
 		}
+	}
+	for _, h := range rt.publicReservations(0) {
+		st.HintRelays = append(st.HintRelays, h.ID.String())
 	}
 	switch rt.host.Reachability() {
 	case p2pnet.ReachabilityPublic:
@@ -141,6 +144,7 @@ func (s p2pService) MintInvite(ctx context.Context, by string, req p2papi.MintRe
 		Scope:          p2ppair.Scope{Models: req.Models, AllModels: req.AllModels, Features: req.Features, Labels: req.Labels},
 		AllowOpenRelay: req.AllowOpenRelay,
 		OmitLANAddrs:   req.OmitLANAddrs,
+		OmitRelayHints: req.OmitRelayHints,
 	}
 	switch req.Relays.Mode {
 	case "", "auto":
@@ -159,6 +163,7 @@ func (s p2pService) MintInvite(ctx context.Context, by string, req p2papi.MintRe
 		ID: m.Invite.ID, Link: m.Link.String(), Kind: string(m.Invite.Kind), ExpiresAt: m.Invite.ExpiresAt,
 		QR:       m.Invite.Kind == p2ppair.KindDevice || m.Invite.Kind == p2ppair.KindRemote,
 		Relay:    p2papi.RelayPass{ID: m.Pass.RelayID, Label: m.Pass.Label, Pass: m.Pass.Registered, Open: m.Pass.Open, Reason: m.Pass.Reason},
+		Hints:    len(m.Link.Hints),
 		Warnings: []string{},
 	}
 	for _, w := range m.Warnings {

@@ -54,6 +54,10 @@ type Status struct {
 	// Reservations are the peer IDs of the relays that hold a reservation for
 	// this server.
 	Reservations []string `json:"reservations"`
+	// HintRelays are the reservations on public relays: the relays that are
+	// not in the relay settings. An invite names up to two of them as relay
+	// hints, so a device can reach this server for a hole punch.
+	HintRelays []string `json:"hint_relays"`
 	// RelayService says whether this server relays for its paired devices.
 	RelayService RelayServiceInfo `json:"relay_service"`
 	// PendingInvites is the number of invites that can still be redeemed.
@@ -99,6 +103,11 @@ type MintRequest struct {
 	// link. By default the link carries them, so a device on the same network
 	// can redeem it with no relay and no multicast discovery.
 	OmitLANAddrs bool `json:"omit_lan_addrs,omitempty"`
+	// OmitRelayHints keeps the public relays this server holds reservations
+	// on out of the link. By default the link names up to two of them, so a
+	// device can reach this server for a hole punch; they never carry data.
+	// Relays "none" keeps them unless this is set.
+	OmitRelayHints bool `json:"omit_relay_hints,omitempty"`
 }
 
 // RelayChoice is "auto", "none" or a list of relay IDs.
@@ -150,9 +159,14 @@ type MintResult struct {
 	ExpiresAt time.Time `json:"expires_at"`
 	// QR says whether the interface may show the link as a QR code (device
 	// and remote invites only).
-	QR       bool      `json:"qr"`
-	Relay    RelayPass `json:"relay"`
-	Warnings []string  `json:"warnings"`
+	QR    bool      `json:"qr"`
+	Relay RelayPass `json:"relay"`
+	// Hints is the number of public relays the link names as relay hints:
+	// relays that let a device reach this server for a hole punch only.
+	Hints int `json:"hints"`
+	// Warnings are open_relay, no_relay, punch_only, relay_unreachable and
+	// no_public_addr.
+	Warnings []string `json:"warnings"`
 }
 
 // RelayPass says which relay holds the pass of an invite, or why none does.

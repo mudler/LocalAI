@@ -103,14 +103,37 @@ The dialog shows what the link carries: the peer ID of your server, the relay
 it names, and whether a relay pass was registered on that relay. It also warns
 when the invite can pair only over a direct connection:
 
-- **No relay.** The server has no relay. A device behind a strict NAT cannot
-  connect. Add a relay, or run one.
+- **No relay.** The server has no relay and knows no public relay for hole
+  punching. A device behind a strict NAT cannot connect. Add a relay, or run
+  one.
+- **Hole punching only.** The server has no relay of its own, but the link names
+  public relays for hole punching. Devices can connect by hole punching. About
+  3 in 10 networks block it. Add a relay, or run one, so that every device can
+  connect.
 - **No relay pass.** The relay did not answer when the invite was made, so no
   pass is registered on it. Make the invite again when the relay is back.
 - **Open relay.** The link names a relay that anyone can use. It may limit the
   speed of each connection.
 
+When the server has no public address, the dialog also says so, and what that
+means for this invite: with public relays in the link, a device outside your
+network connects by hole punching; without them, only a device on the same
+network can pair until the server finds a public relay or you add one.
+
 The link is shown once. The list of pending invites does not show it again.
+
+**Public relays in the link.** A server behind a NAT holds reservations on
+public relays that it finds through the public DHT. The link names up to two
+of them (the dialog shows how many under **Hole punching**). A device uses such
+a relay only to reach the server and set up a hole punch. A public relay never
+carries your data and never gets the relay pass. Your own relays from the
+settings are never named this way: they go in the link as relays, with the
+pass. The link names public relays also with `"relays": "none"`. Pass
+`"omit_relay_hints": true` to `POST /api/p2p/invites` to leave them out, for
+example for a shorter QR code. With `p2p_public_dht` off the server finds no
+public relay, and the link names none. A public relay learns nothing more than
+that your server uses it; it does not see the address of your server in the
+link.
 
 **Addresses in the link.** The link carries up to four direct addresses of the
 server: public ones first, then the private addresses of its local networks
@@ -225,7 +248,7 @@ runtime settings: the names below are the keys of `/api/settings` and of
 | Setting | Default | Meaning |
 |---|---|---|
 | `p2p_mode` | `off` | `off`, `connect` or `share`. See [Turn on P2P](#turn-on-p2p). |
-| `p2p_public_dht` | on | Finds public relays for hole punching through the public DHT. The DHT uses about 0.5 to 0.9 MB per minute. |
+| `p2p_public_dht` | on | Finds public relays for hole punching through the public DHT. Invite links name up to two of them, so that a device can reach a server behind a NAT. Off, links name none. The DHT uses about 0.5 to 0.9 MB per minute. |
 | `p2p_bootstrap_peers` | empty | Your own list of bootstrap peers, addresses that end in `/p2p/<peer ID>`. Empty uses the public bootstrap peers while the public DHT is on. |
 | `p2p_relays` | empty | Your own relays: a list of `{id, addr, label}`, where `addr` ends in `/p2p/<relay peer ID>`. Manage them on the **Relays** page. |
 | `p2p_relay_paired` | on | "Via your server": this server relays for its paired devices. Mode `share` only. |
@@ -250,8 +273,8 @@ names the mode.
 
 | Route | What it does |
 |---|---|
-| `GET /api/p2p/status` | Mode, peer ID, addresses, reachability, relay reservations, whether the server relays for its devices, and the number of pending invites and devices. Works in every mode. |
-| `POST /api/p2p/invites` | Creates an invite: `{kind, label, ttl_seconds, models, all_models, relays, allow_open_relay, omit_lan_addrs}`. `kind` is `device`, `remote`, `worker` or `split`. `models` limits the key of a remote. `all_models: true` grants every model a client key may use, explicitly; it is refused (`400`) together with a non-empty `models`. With neither, the key may use every model a client key may use. A model that does not exist or has tools attached gets `400`. A remote invite made without a user account (the API key of `LOCALAI_API_KEY`) gets `409` with error type `needs_account`. `relays` is `"auto"`, `"none"` or a list of relay IDs. `omit_lan_addrs: true` keeps the private addresses of this server out of the link (see above). The answer has the link (shown once), whether a relay pass was registered, and warnings such as `no_relay` or `relay_unreachable`. |
+| `GET /api/p2p/status` | Mode, peer ID, addresses, reachability, relay reservations (`reservations`; `hint_relays` lists the ones on public relays, which invites name for hole punching), whether the server relays for its devices, and the number of pending invites and devices. Works in every mode. |
+| `POST /api/p2p/invites` | Creates an invite: `{kind, label, ttl_seconds, models, all_models, relays, allow_open_relay, omit_lan_addrs, omit_relay_hints}`. `kind` is `device`, `remote`, `worker` or `split`. `models` limits the key of a remote. `all_models: true` grants every model a client key may use, explicitly; it is refused (`400`) together with a non-empty `models`. With neither, the key may use every model a client key may use. A model that does not exist or has tools attached gets `400`. A remote invite made without a user account (the API key of `LOCALAI_API_KEY`) gets `409` with error type `needs_account`. `relays` is `"auto"`, `"none"` or a list of relay IDs. `omit_lan_addrs: true` keeps the private addresses of this server out of the link (see above). `omit_relay_hints: true` keeps the public relays for hole punching out of the link (see above). The answer has the link (shown once), whether a relay pass was registered, `hints` (how many public relays the link names), and the warnings: `no_relay`, `punch_only`, `relay_unreachable`, `open_relay` and `no_public_addr`. |
 | `GET /api/p2p/invites` | The invites and their state: `pending`, `used`, `expired` or `canceled`, and `relay_pass`, the relay that holds the pass. A used invite also has `device_peer_id` and `phrase`, the confirmation phrase the device was shown. A remote invite has `all_models` or `models`, what it grants. |
 | `DELETE /api/p2p/invites/{id}` | Cancels a pending invite and its relay pass. |
 | `GET /api/p2p/devices` | The devices, with the path of each one: `direct`, `hole_punched` or `relayed`, and the relay limits. A remote has `all_models` or `models`, what its key may use. |
