@@ -5518,6 +5518,32 @@ definitions:
       revoked:
         type: boolean
     type: object
+  p2p.Routes:
+    properties:
+      addrs:
+        description: 'Addrs are the direct addresses: public ones, then local network
+          ones.'
+        items:
+          type: string
+        type: array
+      hints:
+        description: |-
+          Hints are up to two public relays for hole punch coordination only,
+          each ending in /p2p/<relay peer ID>. They never carry data.
+        items:
+          type: string
+        type: array
+      relays:
+        description: |-
+          Relays are the gated relays that carry data for a paired device, each
+          ending in /p2p/<relay peer ID>.
+        items:
+          type: string
+        type: array
+      server:
+        description: Server is the peer ID of this server.
+        type: string
+    type: object
   p2p.ServerInfo:
     properties:
       name:
@@ -31595,6 +31621,36 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Sync a P2P relay
+      tags:
+      - p2p
+  /api/p2p/routes:
+    get:
+      description: 'Served only on the P2P protocol /localai/http/1, and only to a
+        paired device; the normal HTTP listener answers 404 and a peer that is not
+        paired gets 403. The answer has the lists of an invite link without the code
+        and the pass: the direct addresses, the gated relays and up to two public
+        relay hints. A device calls it while connected and stores the lists in place
+        of the ones of its invite.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/p2p.Routes'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Current routes to this server (over P2P only)
       tags:
       - p2p
   /api/p2p/split-workers:

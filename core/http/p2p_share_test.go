@@ -123,6 +123,8 @@ var _ = Describe("P2P sharing end to end", func() {
 		Expect(code).To(Equal(http.StatusForbidden))
 		code, _ = do(http.MethodPost, "/api/p2p/redeem", admin, map[string]any{"v": 1, "code": "AAAAAAAAAA"})
 		Expect(code).To(Equal(http.StatusNotFound))
+		code, _ = do(http.MethodGet, "/api/p2p/routes", admin, nil)
+		Expect(code).To(Equal(http.StatusNotFound), "the routes route exists over P2P only")
 
 		By("minting a device invite")
 		var minted struct {
@@ -156,6 +158,10 @@ var _ = Describe("P2P sharing end to end", func() {
 		Expect(err).NotTo(HaveOccurred())
 		_ = resp.Body.Close()
 		Expect(resp.StatusCode).To(Equal(http.StatusForbidden), "an unpaired peer may only redeem")
+		resp, err = client.Get(base + "/api/p2p/routes")
+		Expect(err).NotTo(HaveOccurred())
+		_ = resp.Body.Close()
+		Expect(resp.StatusCode).To(Equal(http.StatusForbidden), "an unpaired peer gets no routes")
 
 		inviteCode := linkCode(minted.Link)
 		reqBody, _ := json.Marshal(map[string]any{"v": 1, "code": inviteCode, "name": "laptop", "platform": "linux"})
@@ -183,6 +189,22 @@ var _ = Describe("P2P sharing end to end", func() {
 		Expect(err).NotTo(HaveOccurred())
 		_ = resp.Body.Close()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
+		By("giving the paired device its routes over P2P, with no sign-in")
+		resp, err = client.Get(base + "/api/p2p/routes")
+		Expect(err).NotTo(HaveOccurred())
+		var routes struct {
+			Server string   `json:"server"`
+			Addrs  []string `json:"addrs"`
+			Relays []string `json:"relays"`
+			Hints  []string `json:"hints"`
+		}
+		Expect(json.NewDecoder(resp.Body).Decode(&routes)).To(Succeed())
+		_ = resp.Body.Close()
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		Expect(routes.Server).To(Equal(st.PeerID))
+		Expect(routes.Relays).NotTo(BeNil())
+		Expect(routes.Hints).NotTo(BeNil())
 
 		By("listing the device as online")
 		code, body = do(http.MethodGet, "/api/p2p/devices", admin, nil)

@@ -50,6 +50,8 @@ func fail(c echo.Context, err error) error {
 		code, msg = http.StatusTooManyRequests, ErrRateLimited.Error()
 	case errors.Is(err, ErrNotFound):
 		code, msg = http.StatusNotFound, ErrNotFound.Error()
+	case errors.Is(err, ErrForbidden):
+		code, msg = http.StatusForbidden, err.Error()
 	case errors.Is(err, ErrInvalid):
 		code, msg = http.StatusBadRequest, err.Error()
 	case errors.Is(err, ErrConflict):
@@ -484,6 +486,34 @@ func RedeemEndpoint(svc Service) echo.HandlerFunc {
 			return err
 		}
 		res, err := svc.Redeem(c.Request().Context(), from, req)
+		if err != nil {
+			return fail(c, err)
+		}
+		c.Response().Header().Set("Cache-Control", "no-store")
+		return c.JSON(http.StatusOK, res)
+	}
+}
+
+// RoutesEndpoint answers a paired device with the current routes to this
+// server. Like the redeem route it is served only over P2P: a request that
+// did not arrive over P2P gets 404.
+//
+//	@Summary	Current routes to this server (over P2P only)
+//	@Description	Served only on the P2P protocol /localai/http/1, and only to a paired device; the normal HTTP listener answers 404 and a peer that is not paired gets 403. The answer has the lists of an invite link without the code and the pass: the direct addresses, the gated relays and up to two public relay hints. A device calls it while connected and stores the lists in place of the ones of its invite.
+//	@Tags		p2p
+//	@Produce	json
+//	@Success	200	{object}	Routes
+//	@Failure	403	{object}	schema.ErrorResponse
+//	@Failure	404	{object}	schema.ErrorResponse
+//	@Failure	409	{object}	schema.ErrorResponse
+//	@Router		/api/p2p/routes [get]
+func RoutesEndpoint(svc Service) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		from, ok := PeerFrom(c.Request().Context())
+		if !ok {
+			return fail(c, ErrNotFound)
+		}
+		res, err := svc.Routes(c.Request().Context(), from)
 		if err != nil {
 			return fail(c, err)
 		}

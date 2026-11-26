@@ -267,7 +267,7 @@ Command-line flags, read at start:
 
 ## HTTP API
 
-All routes but redeem are for administrators. The routes of invites, devices and
+All routes but redeem and routes are for administrators. The routes of invites, devices and
 relays need mode `share`. In another mode they answer 409 with a message that
 names the mode.
 
@@ -288,6 +288,7 @@ names the mode.
 | `GET`, `PUT /api/p2p/relays/{id}/limits` | Reads the limits of a relay (`circuit_bytes`, `circuit_seconds`, `rate_bps`; 0 is no limit) and whether this server may change them, or changes them: a field left out stays. A new data or time limit restarts the circuit service of the relay (`restarted` is `true`). `409` when this server is not an admin of the relay or the relay is open. |
 | `POST /api/p2p/identity/regenerate` | Makes a new identity. The body must be `{"confirm": true}`. Every device must pair again. |
 | `POST /api/p2p/redeem` | Redeems an invite: `{v: 1, code, name, platform}`. Served **only over P2P**; the normal HTTP listener answers 404. |
+| `GET /api/p2p/routes` | The current routes to this server, for a paired device: `{server, addrs, relays, hints}`. Served **only over P2P** and only to a paired device; the normal HTTP listener answers 404. |
 
 The redeem route takes the peer ID of the caller from the P2P connection. A
 wrong, used, canceled or expired code all get the same answer, 410, so the route
@@ -296,6 +297,19 @@ or 60 from all peers in a minute, it answers 429.
 
 While an invite is pending, a machine that is not paired may connect, but it may
 call only the redeem route. Every other request gets 403.
+
+The routes route has the lists of an invite link without the code and the pass:
+the direct addresses (public ones, then local network ones), the gated relays,
+and up to two public relays for hole punching (`hints`). A paired device asks
+for them while it is connected, so it still finds this server after a relay
+reservation moves or an address changes. The Android app and the desktop
+launcher (through `local-ai p2p forward`) ask when a connection opens and every
+10 minutes after, and keep the new lists for this server. A peer that is not
+paired gets 403.
+
+A device that was away too long can have routes that are all out of date. Send
+it a new invite: the app sees that it already has this server, saves the routes
+of the invite and does not redeem the code. Then cancel that invite.
 
 The LocalAI Assistant has the tools `get_p2p_status`, `list_p2p_devices`,
 `list_p2p_invites`, `list_p2p_relays`, `get_p2p_relay_limits`,

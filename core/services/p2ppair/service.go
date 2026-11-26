@@ -217,27 +217,10 @@ func (s *Service) Mint(ctx context.Context, req MintRequest) (*Minted, error) {
 		V: linkVersion, Kind: inv.Kind, Peer: s.cfg.ServerPeer, Code: code,
 		Expires: inv.ExpiresAt, Label: inv.Label, Pass: pass,
 	}
-	if s.cfg.Addrs != nil {
-		link.Addrs = slices.Clone(s.cfg.Addrs())
-		if len(link.Addrs) > maxPublicAddrs {
-			link.Addrs = link.Addrs[:maxPublicAddrs]
-		}
-	}
-	public := len(link.Addrs)
-	if s.cfg.LANAddrs != nil && !req.OmitLANAddrs {
-		link.Addrs = appendAddrs(link.Addrs, s.cfg.LANAddrs(), maxLinkAddrs)
-	}
+	var public int
+	link.Addrs, public = s.directAddrs(req.OmitLANAddrs)
 	var warns []Warning
-	for i, r := range relays {
-		ai, err := peer.AddrInfoFromP2pAddr(r.Addr)
-		if err != nil {
-			continue
-		}
-		link.Relays = append(link.Relays, *ai)
-		if r.Open {
-			link.Open = append(link.Open, i)
-		}
-	}
+	link.Relays, link.Open = relayInfos(relays)
 	if !req.OmitRelayHints {
 		link.Hints = s.relayHints(ctx, link.Relays)
 	}
@@ -261,6 +244,39 @@ func (s *Service) Mint(ctx context.Context, req MintRequest) (*Minted, error) {
 		warns = append(warns, WarnRelayUnreachable)
 	}
 	return &Minted{Invite: inv, Link: link, Pass: info, Warnings: warns}, nil
+}
+
+// directAddrs returns the direct addresses a link carries: at most
+// maxPublicAddrs public ones, then the local network ones unless omitLAN is
+// set, up to maxLinkAddrs in all. public is how many are public.
+func (s *Service) directAddrs(omitLAN bool) (addrs []ma.Multiaddr, public int) {
+	if s.cfg.Addrs != nil {
+		addrs = slices.Clone(s.cfg.Addrs())
+		if len(addrs) > maxPublicAddrs {
+			addrs = addrs[:maxPublicAddrs]
+		}
+	}
+	public = len(addrs)
+	if s.cfg.LANAddrs != nil && !omitLAN {
+		addrs = appendAddrs(addrs, s.cfg.LANAddrs(), maxLinkAddrs)
+	}
+	return addrs, public
+}
+
+// relayInfos converts relays to the relays of a link and the indexes of the
+// open ones among them. A relay whose address does not parse is left out.
+func relayInfos(relays []Relay) (infos []peer.AddrInfo, open []int) {
+	for _, r := range relays {
+		ai, err := peer.AddrInfoFromP2pAddr(r.Addr)
+		if err != nil {
+			continue
+		}
+		if r.Open {
+			open = append(open, len(infos))
+		}
+		infos = append(infos, *ai)
+	}
+	return infos, open
 }
 
 // relayHints returns the hints a link carries: at most maxLinkHints relays

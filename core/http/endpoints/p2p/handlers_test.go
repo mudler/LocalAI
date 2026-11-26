@@ -24,6 +24,7 @@ type fakeService struct {
 	mint     MintRequest
 	redeemBy string
 	redeem   RedeemRequest
+	routesBy string
 	renamed  [2]string
 	regen    int
 	limits   SetRelayLimitsRequest
@@ -78,6 +79,11 @@ func (f *fakeService) RegenerateIdentity(context.Context) (Status, error) {
 func (f *fakeService) Redeem(_ context.Context, from string, req RedeemRequest) (RedeemResult, error) {
 	f.redeemBy, f.redeem = from, req
 	return RedeemResult{DeviceID: "dev", Kind: "device", Phrase: "a b c d"}, f.err
+}
+
+func (f *fakeService) Routes(_ context.Context, from string) (Routes, error) {
+	f.routesBy = from
+	return Routes{Server: "srv", Addrs: []string{"/ip4/203.0.113.9/tcp/4001"}, Relays: []string{}, Hints: []string{}}, f.err
 }
 
 func call(h echo.HandlerFunc, method, body string, ctx context.Context, params ...string) *httptest.ResponseRecorder {
@@ -267,6 +273,30 @@ var _ = Describe("P2P handlers", func() {
 		It("refuses a body that is not JSON", func() {
 			rec := call(RedeemEndpoint(svc), http.MethodPost, `not json`, overP2P)
 			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		})
+	})
+
+	Describe("routes", func() {
+		overP2P := WithPeer(context.Background(), "12D3KooWpeer")
+
+		It("answers 404 to a request that did not arrive over P2P", func() {
+			rec := call(RoutesEndpoint(svc), http.MethodGet, "", context.Background())
+			Expect(rec.Code).To(Equal(http.StatusNotFound))
+			Expect(svc.routesBy).To(BeEmpty())
+		})
+
+		It("answers the caller of the connection with the routes", func() {
+			rec := call(RoutesEndpoint(svc), http.MethodGet, "", overP2P)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(svc.routesBy).To(Equal("12D3KooWpeer"))
+			Expect(rec.Body.String()).To(ContainSubstring(`"addrs":["/ip4/203.0.113.9/tcp/4001"]`))
+			Expect(rec.Header().Get("Cache-Control")).To(Equal("no-store"))
+		})
+
+		It("answers 403 to a peer that is not paired", func() {
+			svc.err = ErrForbidden
+			rec := call(RoutesEndpoint(svc), http.MethodGet, "", overP2P)
+			Expect(rec.Code).To(Equal(http.StatusForbidden))
 		})
 	})
 })

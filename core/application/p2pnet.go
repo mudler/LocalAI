@@ -29,6 +29,10 @@ import (
 // redeemPath is the one route an unpaired peer may call, over P2P only.
 const redeemPath = "/api/p2p/redeem"
 
+// routesPath gives a paired device the current routes to the server. It is
+// served over P2P only, like redeemPath.
+const routesPath = "/api/p2p/routes"
+
 // p2pReloadInterval is how often a running host reloads its allowlist and the
 // pending invites from the store. Another frontend may pair or revoke a
 // device, and an invite may expire; a broadcast makes most changes faster.
@@ -79,8 +83,9 @@ type p2pNet struct {
 
 // p2pHandlers are the HTTP handlers served over P2P.
 type p2pHandlers struct {
-	main   http.Handler
-	redeem http.Handler
+	main http.Handler
+	// only serves the routes that exist over P2P alone.
+	only http.Handler
 }
 
 // p2pRuntime is one running host and what hangs on it.
@@ -177,11 +182,12 @@ func (a *Application) IsWorkerPeer(_ context.Context, peer string) bool {
 }
 
 // ServeP2PHTTP sets the handlers served over P2P in mode share: main is the
-// application's HTTP handler, which only paired peers reach; redeem serves
-// POST /api/p2p/redeem to any admitted peer. Until it is called, requests
-// over P2P get 503.
-func (a *Application) ServeP2PHTTP(main, redeem http.Handler) {
-	a.p2p().handlers.Store(&p2pHandlers{main: main, redeem: redeem})
+// application's HTTP handler, which only paired peers reach; only serves the
+// routes that exist over P2P alone: POST /api/p2p/redeem, to any admitted
+// peer, and GET /api/p2p/routes, to paired peers. Until it is called,
+// requests over P2P get 503.
+func (a *Application) ServeP2PHTTP(main, only http.Handler) {
+	a.p2p().handlers.Store(&p2pHandlers{main: main, only: only})
 }
 
 // CheckP2PMode checks a requested p2p_mode against this server: share needs
@@ -701,7 +707,7 @@ func (rt *p2pRuntime) changed(op string) {
 
 // httpHandler serves the application over P2P. A peer that is not paired was
 // admitted only because an invite is pending: it may call the redeem route and
-// nothing else. The redeem route exists only here.
+// nothing else. The redeem and routes routes exist only here.
 func (rt *p2pRuntime) httpHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := rt.net.handlers.Load()
@@ -720,7 +726,7 @@ func (rt *p2pRuntime) httpHandler() http.Handler {
 				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 				return
 			}
-			h.redeem.ServeHTTP(w, r)
+			h.only.ServeHTTP(w, r)
 			return
 		}
 		if !rt.paired(p) {
@@ -728,6 +734,14 @@ func (rt *p2pRuntime) httpHandler() http.Handler {
 			return
 		}
 		rt.touch(p)
+		if r.URL.Path == routesPath {
+			if r.Method != http.MethodGet {
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			h.only.ServeHTTP(w, r)
+			return
+		}
 		h.main.ServeHTTP(w, r)
 	})
 }

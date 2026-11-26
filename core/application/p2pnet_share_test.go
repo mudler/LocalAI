@@ -32,11 +32,12 @@ func shareServer() (*Application, *p2pRuntime) {
 	db, err := auth.InitDB(filepath.Join(GinkgoT().TempDir(), "auth.db"))
 	Expect(err).ToNot(HaveOccurred())
 	a := newP2PTestApp("share", GinkgoT().TempDir(), db)
-	redeem := echo.New()
-	redeem.POST(redeemPath, p2papi.RedeemEndpoint(a.P2P()))
+	only := echo.New()
+	only.POST(redeemPath, p2papi.RedeemEndpoint(a.P2P()))
+	only.GET(routesPath, p2papi.RoutesEndpoint(a.P2P()))
 	a.ServeP2PHTTP(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = io.WriteString(w, "main")
-	}), redeem)
+	}), only)
 	Expect(a.StartP2PNet()).To(Succeed())
 	rt, _ := a.p2p().runtime()
 	Expect(rt).ToNot(BeNil())
@@ -178,6 +179,50 @@ var _ = Describe("P2P layer in mode share", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(res.Phrase).ToNot(BeEmpty())
 		Expect(res.Server.PeerID).To(Equal(server.host.ID().String()))
+	})
+
+	It("gives the routes of a link to a paired device only, over P2P", func() {
+		a, server := shareServer()
+		a.p2p().isLANAddr = func(m p2pnet.Multiaddr) bool {
+			ip, err := p2pnet.AddrIP(m)
+			return err == nil && ip.IsLoopback()
+		}
+		ctx := context.Background()
+		m, err := a.P2P().MintInvite(ctx, "admin", p2papi.MintRequest{Kind: "device", Label: "laptop", Relays: p2papi.RelayChoice{Mode: "none"}})
+		Expect(err).ToNot(HaveOccurred())
+		link, err := p2ppair.ParseLink(m.Link)
+		Expect(err).ToNot(HaveOccurred())
+		_, client := device(server)
+
+		By("refusing a peer that is admitted only to redeem")
+		code, _, err := get(client, server, routesPath)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(code).To(Equal(http.StatusForbidden))
+
+		status, _ := redeemCode(client, server, codeOf(m.Link))
+		Expect(status).To(Equal(http.StatusOK))
+
+		By("answering the paired device with the lists of a link, without code or pass")
+		code, body, err := get(client, server, routesPath)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(code).To(Equal(http.StatusOK), body)
+		var r p2papi.Routes
+		Expect(json.Unmarshal([]byte(body), &r)).To(Succeed())
+		Expect(r.Server).To(Equal(server.host.ID().String()))
+		Expect(r.Addrs).To(Equal(link.AddrStrings()))
+		Expect(r.Relays).To(BeEmpty())
+		Expect(r.Hints).To(BeEmpty(), "the public DHT is off: no public relay")
+		Expect(body).ToNot(ContainSubstring(link.Code))
+
+		By("refusing another method")
+		resp, err := client.Post("http://"+server.host.ID().String()+routesPath, "application/json", nil)
+		Expect(err).ToNot(HaveOccurred())
+		_ = resp.Body.Close()
+		Expect(resp.StatusCode).To(Equal(http.StatusMethodNotAllowed))
+
+		By("refusing the service call for a peer that is not paired")
+		_, err = a.P2P().Routes(ctx, hintPeer().String())
+		Expect(err).To(MatchError(p2papi.ErrForbidden))
 	})
 
 	It("leaves the local addresses out of an invite that asks for it", func() {

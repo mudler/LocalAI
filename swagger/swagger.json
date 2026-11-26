@@ -18139,6 +18139,44 @@
                 }
             }
         },
+        "/api/p2p/routes": {
+            "get": {
+                "description": "Served only on the P2P protocol /localai/http/1, and only to a paired device; the normal HTTP listener answers 404 and a peer that is not paired gets 403. The answer has the lists of an invite link without the code and the pass: the direct addresses, the gated relays and up to two public relay hints. A device calls it while connected and stores the lists in place of the ones of its invite.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Current routes to this server (over P2P only)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.Routes"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/p2p/split-workers": {
             "get": {
                 "description": "Lists the paired llama.cpp RPC and MLX workers that lend their memory to models that run on this server or, in a cluster, on the backend node each is attached to (node_id), with their state (online, offline, slow, limited, refused), the path that reaches them and the memory they add. A worker reached only through a relay is \"slow\" until allow_slow_path is set. A relay of the user (own_relay: a gated relay this server administers) may carry it even with a data or time limit, and then ends each connection at the limit; its limits change with PUT /api/p2p/relays/{relay_id}/limits. A public relay never carries model layers (\"limited\"). Needs P2P mode share. Admin only.",
@@ -29774,6 +29812,36 @@
             "properties": {
                 "revoked": {
                     "type": "boolean"
+                }
+            }
+        },
+        "p2p.Routes": {
+            "type": "object",
+            "properties": {
+                "addrs": {
+                    "description": "Addrs are the direct addresses: public ones, then local network ones.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "hints": {
+                    "description": "Hints are up to two public relays for hole punch coordination only,\neach ending in /p2p/\u003crelay peer ID\u003e. They never carry data.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "relays": {
+                    "description": "Relays are the gated relays that carry data for a paired device, each\nending in /p2p/\u003crelay peer ID\u003e.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "server": {
+                    "description": "Server is the peer ID of this server.",
+                    "type": "string"
                 }
             }
         },

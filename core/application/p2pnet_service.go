@@ -473,6 +473,46 @@ func (s p2pService) Redeem(ctx context.Context, from string, req p2papi.RedeemRe
 	return out, nil
 }
 
+// Routes answers a paired device with the current routes to this server.
+// httpHandler already refused a peer that is not paired; the check here
+// keeps the route safe if it is ever served from somewhere else.
+func (s p2pService) Routes(ctx context.Context, from string) (p2papi.Routes, error) {
+	rt, err := s.share()
+	if err != nil {
+		return p2papi.Routes{}, err
+	}
+	p, err := p2pnet.DecodePeerID(from)
+	if err != nil {
+		return p2papi.Routes{}, fmt.Errorf("%w: unknown peer", p2papi.ErrInvalid)
+	}
+	if !rt.paired(p) {
+		return p2papi.Routes{}, fmt.Errorf("%w: this peer is not paired", p2papi.ErrForbidden)
+	}
+	r, err := rt.pair.Routes(ctx)
+	if err != nil {
+		return p2papi.Routes{}, err
+	}
+	out := p2papi.Routes{Server: rt.host.ID().String(), Addrs: []string{}, Relays: []string{}, Hints: []string{}}
+	for _, a := range r.Addrs {
+		out.Addrs = append(out.Addrs, a.String())
+	}
+	out.Relays = append(out.Relays, p2pAddrs(r.Relays)...)
+	out.Hints = append(out.Hints, p2pAddrs(r.Hints)...)
+	return out, nil
+}
+
+// p2pAddrs writes each address of each relay with its /p2p/ part, as a link
+// does.
+func p2pAddrs(infos []p2pnet.AddrInfo) []string {
+	var out []string
+	for _, ai := range infos {
+		for _, a := range ai.Addrs {
+			out = append(out, a.String()+"/p2p/"+ai.ID.String())
+		}
+	}
+	return out
+}
+
 // sourceOf is the network source of a peer for the per-source limit of wrong
 // codes: the IP address of a direct connection, the relay of a relayed one.
 func (rt *p2pRuntime) sourceOf(p p2pnet.ID) string {

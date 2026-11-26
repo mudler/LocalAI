@@ -361,6 +361,55 @@ func serviceSpecs(newStore func() p2ppair.Store) {
 			})
 		})
 
+		Describe("Routes", func() {
+			It("lists the lists of a link without code or pass: public then local addresses, gated relays, at most two hints", func() {
+				lan, err := ma.NewMultiaddr("/ip4/192.168.1.5/tcp/4001")
+				Expect(err).NotTo(HaveOccurred())
+				g1, err := peer.AddrInfoFromP2pAddr(relays[0].Addr)
+				Expect(err).NotTo(HaveOccurred())
+				h := func(addr string, id peer.ID) peer.AddrInfo {
+					a, err := ma.NewMultiaddr(addr)
+					Expect(err).NotTo(HaveOccurred())
+					return peer.AddrInfo{ID: id, Addrs: []ma.Multiaddr{a}}
+				}
+				hints := []peer.AddrInfo{
+					h("/ip4/198.51.100.1/tcp/4001", g1.ID),
+					h("/ip4/192.0.2.10/tcp/4001", newPeer()),
+					h("/ip4/192.0.2.11/tcp/4001", newPeer()),
+					h("/ip4/192.0.2.12/tcp/4001", newPeer()),
+				}
+				svc, err = p2ppair.NewService(newStore(), p2ppair.Config{
+					ServerPeer: server, Addrs: func() []ma.Multiaddr { return addrs },
+					LANAddrs: func() []ma.Multiaddr { return []ma.Multiaddr{lan} },
+					Relays:   relays, Registrar: reg, Issuer: iss, Now: clk.Now,
+					Hints: func() []peer.AddrInfo { return hints },
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				r, err := svc.Routes(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(r.Addrs).To(Equal([]ma.Multiaddr{addrs[0], lan}))
+				var relayIDs []peer.ID
+				for _, ri := range r.Relays {
+					relayIDs = append(relayIDs, ri.ID)
+				}
+				Expect(relayIDs).To(HaveLen(2), "the open relay is left out")
+				Expect(relayIDs[0]).To(Equal(g1.ID))
+				Expect(r.Hints).To(Equal([]peer.AddrInfo{hints[1], hints[2]}), "a gated relay is never a hint")
+				Expect(reg.registers).To(BeEmpty(), "no pass is registered")
+			})
+
+			It("is empty when the server has no route to give", func() {
+				s, err := p2ppair.NewService(newStore(), p2ppair.Config{ServerPeer: server})
+				Expect(err).NotTo(HaveOccurred())
+				r, err := s.Routes(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(r.Addrs).To(BeEmpty())
+				Expect(r.Relays).To(BeEmpty())
+				Expect(r.Hints).To(BeEmpty())
+			})
+		})
+
 		It("refuses the remote kind with no key issuer", func() {
 			s, err := p2ppair.NewService(newStore(), p2ppair.Config{ServerPeer: server})
 			Expect(err).NotTo(HaveOccurred())
