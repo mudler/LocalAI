@@ -1364,7 +1364,14 @@ var _ = Describe("workflow policy", func() {
 		expect(mutate(`select(.status == "completed" and .conclusion == "success")`, `select(.status == "completed")`), "P_RELEASE_GATE")
 		expect(mutate(`select(.headSha == \"$SHA\")`, `select(.headSha != \"\")`), "P_RELEASE_GATE")
 		expect(mutate("    if: github.event_name == 'release' && needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''", "    if: always() && github.event_name == 'release' && needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''"), "P_TRUSTED_GATE")
-		expect(mutate("    needs: [plan, tag-run]\n    if: github.event_name == 'release' && !github.event.release.draft", "    needs: [plan]\n    if: github.event_name == 'release' && !github.event.release.draft"), "P_RELEASE_GATE")
+		expect(mutate("    needs: [plan, tag-run, promote-release]", "    needs: [plan, promote-release]"), "P_RELEASE_GATE")
+	})
+	It("rejects a release promotion of a digest that verify-published did not print", func() {
+		expect(mutate("          DIGEST: ${{ steps.published.outputs.digest }}", "          DIGEST: ${{ needs.plan.outputs.digest }}"), "P_DIGEST")
+		expect(mutate("        id: published\n", "        id: other\n"), "P_DIGEST")
+	})
+	It("rejects a catalog attached before the release indexes were verified", func() {
+		expect(mutate("    needs: [plan, tag-run, promote-release]", "    needs: [plan, tag-run]"), "P_RELEASE_GATE")
 	})
 	It("rejects a release promotion that does not verify the published index first", func() {
 		expect(mutate("          go run ./scripts/addons/cmd/addonpkg verify-published", "          go run ./scripts/addons/cmd/addonpkg target"), "P_SIGNER")

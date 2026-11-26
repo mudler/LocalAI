@@ -102,9 +102,8 @@ jobs:
     timeout-minutes: 300
     # The runs that push sha-<sha> tags of one commit (this workflow on master,
     # the add-on packages run of master, a dispatch) take turns, so the second
-    # one finds the tags of the first and reuses them. Tag pushes, release
-    # events and pull requests never push a sha-<sha> tag, so each has a group
-    # of its own. GitHub keeps one pending job per group: a third run of the
+    # one finds the tags of the first and reuses them. Tag pushes and pull
+    # requests never push a sha-<sha> tag, so each has a group of its own. GitHub keeps one pending job per group: a third run of the
     # same commit replaces a pending one.
     concurrency:
       group: ${{ (github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/tags/')) && format('sandbox-guest-sha-{0}-{1}', github.repository, github.sha) || format('sandbox-guest-run-{0}-{1}-{2}', github.workflow, github.run_id, github.run_attempt) }}

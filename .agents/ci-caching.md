@@ -463,8 +463,9 @@ These paths are under `docs/content/`. Gallery edits still run core gallery
 invariants. Host CSS does not trigger package publishing; the package workflow
 retains its original add-on inputs plus shared build and documentation inputs.
 Package pushes run on master, not every feature branch. Tags remain exempt
-from GitHub path filtering, and release events retain the original publishing
-jobs and failure dependencies. PR cancellation does not cancel master runs or
+from GitHub path filtering. A release event builds and publishes nothing: it
+waits for the tag push run of its commit, verifies the published indexes,
+promotes them and attaches the catalog. PR cancellation does not cancel master runs or
 replace the per-channel publishing locks.
 
 **Maintenance rule:** when adding or moving source, generated inputs, fixtures,

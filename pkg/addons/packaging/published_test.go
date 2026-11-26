@@ -42,17 +42,18 @@ var _ = Describe("the index a release promotes", func() {
 		DeferCleanup(func() { signatureTrust = previous })
 	})
 
-	// sign attaches a Sigstore bundle for digest, made for signer, as an OCI
-	// 1.1 referrer: what cosign --new-bundle-format pushes.
-	sign := func(digest, signer string) {
+	// signAs attaches to subjectDigest a Sigstore bundle over signedDigest,
+	// made for signer and issuer, as an OCI 1.1 referrer: what cosign
+	// --new-bundle-format pushes. A real signature has both digests equal.
+	signAs := func(subjectDigest, signedDigest, signer, issuer string) {
 		GinkgoHelper()
 		repo, err := name.NewRepository(repoName)
 		Expect(err).NotTo(HaveOccurred())
-		h, err := v1.NewHash(digest)
+		h, err := v1.NewHash(signedDigest)
 		Expect(err).NotTo(HaveOccurred())
-		subject, err := remote.Head(repo.Digest(digest))
+		subject, err := remote.Head(repo.Digest(subjectDigest))
 		Expect(err).NotTo(HaveOccurred())
-		blob, err := authority.Bundle(h.Hex, signer, OIDCIssuer)
+		blob, err := authority.Bundle(h.Hex, signer, issuer)
 		Expect(err).NotTo(HaveOccurred())
 		bundleType := types.MediaType("application/vnd.dev.sigstore.bundle.v0.3+json")
 		img, err := mutate.AppendLayers(empty.Image, static.NewLayer(blob, bundleType))
@@ -62,6 +63,10 @@ var _ = Describe("the index a release promotes", func() {
 		d, err := img.Digest()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(remote.Write(repo.Digest(d.String()), img)).To(Succeed())
+	}
+	sign := func(digest, signer string) {
+		GinkgoHelper()
+		signAs(digest, digest, signer, OIDCIssuer)
 	}
 	// publish pushes a release index of rev and returns its digest and the
 	// digests of its platform images.
@@ -125,6 +130,28 @@ var _ = Describe("the index a release promotes", func() {
 		_, err = verify(rev)
 		expectCode(err, "E_SIGNATURE")
 	})
+
+	DescribeTable("refuses a signature that is not exactly the one of the workflow of the tag",
+		func(signIndex func(index, child string)) {
+			index, children := publish(rev)
+			for _, d := range children {
+				sign(d, identity)
+			}
+			signIndex(index, children[0])
+			_, err := verify(rev)
+			expectCode(err, "E_SIGNATURE")
+			Expect(err).To(MatchError(ContainSubstring(index)))
+		},
+		Entry("another OIDC issuer", func(index, _ string) {
+			signAs(index, index, identity, "https://issuer.example")
+		}),
+		Entry("the workflow of another repository", func(index, _ string) {
+			signAs(index, index, "https://github.com/example/fork/.github/workflows/addons-package.yml@refs/tags/v1.2.3", OIDCIssuer)
+		}),
+		Entry("a valid bundle of another digest attached to the index", func(index, child string) {
+			signAs(index, child, identity, OIDCIssuer)
+		}),
+	)
 
 	It("refuses bad inputs before any request", func() {
 		for _, args := range [][]string{

@@ -828,9 +828,12 @@ jobs:
   release-index:
     name: attach the catalog to the release
     # The release is public from here on, so the asset can be attached whether
-    # or not the release was a draft when the tag was pushed.
-    needs: [plan, tag-run]
-    if: github.event_name == 'release' && !github.event.release.draft
+    # or not the release was a draft when the tag was pushed. The catalog is
+    # attached only after every promote-release leg verified its index. A
+    # pre-release skips promote-release, so a skipped job does not stop this
+    # one; a failed or cancelled one does.
+    needs: [plan, tag-run, promote-release]
+    if: ${{ !cancelled() && !failure() && github.event_name == 'release' && !github.event.release.draft && needs.tag-run.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:

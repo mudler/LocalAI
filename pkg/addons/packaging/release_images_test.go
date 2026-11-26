@@ -2,6 +2,7 @@
 package packaging
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -282,7 +283,11 @@ var _ = Describe("the release runs of the add-on package workflow", func() {
 		Expect(workflowStepScript(workflow, "promote-release", "Move the aliases")).To(ContainSubstring("--digest \"$DIGEST\""))
 		// The catalog comes from the same green tag push run.
 		ri := doc.Jobs["release-index"]
-		Expect(ri.Needs).To(ContainElement("tag-run"))
+		Expect(ri.Needs).To(ContainElements("tag-run", "promote-release"))
+		// A pre-release skips promote-release and still gets its catalog; a
+		// failed verification stops the catalog.
+		Expect(ri.If).To(ContainSubstring("!cancelled() && !failure()"))
+		Expect(ri.If).To(ContainSubstring("needs.tag-run.result == 'success'"))
 		Expect(workflowStepScript(workflow, "release-index", "Download the release index of the tag push run")).To(ContainSubstring(`gh run download "$RUN"`))
 		Expect(doc.Jobs["tag-run"].Outputs).To(HaveKey("run"))
 	})
@@ -298,32 +303,58 @@ while [ $# -gt 0 ]; do
 done
 printf '%s' "$FAKE_RUNS" | jq -c "$expr"
 `
-		find := func(runs string) (string, string, error) {
+		// fakeDate advances the clock by DATE_STEP seconds on every call, so
+		// the grace period and the deadline pass without waiting.
+		const fakeDate = `#!/bin/sh
+n=$(cat "$CLOCK" 2>/dev/null || echo 1000000)
+n=$((n + DATE_STEP))
+echo "$n" > "$CLOCK"
+echo "$n"
+`
+		find := func(runs string, step int) (string, string, error) {
 			GinkgoHelper()
 			dir := GinkgoT().TempDir()
 			bin := filepath.Join(dir, "bin")
 			Expect(os.MkdirAll(bin, 0o755)).To(Succeed())
 			Expect(os.WriteFile(filepath.Join(bin, "gh"), []byte(fakeGh), 0o755)).To(Succeed())
 			Expect(os.WriteFile(filepath.Join(bin, "sleep"), []byte("#!/bin/sh\nexit 0\n"), 0o755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(bin, "date"), []byte(fakeDate), 0o755)).To(Succeed())
 			output := filepath.Join(dir, "out")
 			Expect(os.WriteFile(output, nil, 0o644)).To(Succeed())
 			cmd := exec.Command("sh", "-c", workflowStepScript(workflow, "tag-run", "find"))
 			cmd.Env = append(os.Environ(), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"),
-				"TAG=v1.2.3", "SHA="+sha, "GITHUB_OUTPUT="+output, "FAKE_RUNS="+runs)
+				"TAG=v1.2.3", "SHA="+sha, "GITHUB_OUTPUT="+output, "FAKE_RUNS="+runs,
+				"CLOCK="+filepath.Join(dir, "clock"), fmt.Sprintf("DATE_STEP=%d", step))
 			log, err := cmd.CombinedOutput()
 			b, rerr := os.ReadFile(output)
 			Expect(rerr).NotTo(HaveOccurred())
 			return string(b), string(log), err
 		}
-		It("takes only a successful run of the same commit", func() {
+		BeforeEach(func() {
 			if _, err := exec.LookPath("jq"); err != nil {
 				Skip("jq is not installed")
 			}
-			out, log, err := find(`[{"databaseId":1,"headSha":"ffffffffffffffffffffffffffffffffffffffff","status":"completed","conclusion":"success"},` +
-				`{"databaseId":2,"headSha":"` + sha + `","status":"completed","conclusion":"failure"},` +
-				`{"databaseId":3,"headSha":"` + sha + `","status":"completed","conclusion":"success"}]`)
+		})
+		It("takes only a successful run of the same commit", func() {
+			out, log, err := find(`[{"databaseId":1,"headSha":"ffffffffffffffffffffffffffffffffffffffff","status":"completed","conclusion":"success"},`+
+				`{"databaseId":2,"headSha":"`+sha+`","status":"completed","conclusion":"failure"},`+
+				`{"databaseId":3,"headSha":"`+sha+`","status":"completed","conclusion":"success"}]`, 1)
 			Expect(err).NotTo(HaveOccurred(), log)
 			Expect(out).To(Equal("run=3\n"))
+		})
+		It("waits the grace period for a re-run of a failed run, then fails", func() {
+			out, log, err := find(`[{"databaseId":2,"headSha":"`+sha+`","status":"completed","conclusion":"failure"}]`, 300)
+			Expect(err).To(HaveOccurred())
+			Expect(log).To(ContainSubstring("waiting for a re-run"))
+			Expect(log).To(ContainSubstring("did not succeed"))
+			Expect(out).To(BeEmpty())
+		})
+		It("fails at the deadline when no tag push run ends", func() {
+			out, log, err := find(`[{"databaseId":2,"headSha":"`+sha+`","status":"in_progress","conclusion":""}]`, 600)
+			Expect(err).To(HaveOccurred())
+			Expect(log).To(ContainSubstring("still running"))
+			Expect(log).To(ContainSubstring("timed out waiting"))
+			Expect(out).To(BeEmpty())
 		})
 	})
 

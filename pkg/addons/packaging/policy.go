@@ -424,6 +424,9 @@ func checkReleaseEvent(job func(string) map[string]any, needs func(string) map[s
 			add("P_RELEASE_GATE", "%s must need plan and tag-run: it acts only after the tag push run ended green", n)
 		}
 	}
+	if !needs("release-index")["promote-release"] {
+		add("P_RELEASE_GATE", "release-index must need promote-release: the catalog is attached only after the indexes were verified")
+	}
 	pr := job("promote-release")
 	if pr == nil {
 		return out
@@ -471,6 +474,9 @@ func checkReleaseEvent(job func(string) map[string]any, needs func(string) map[s
 		r := fmt.Sprint(st["run"])
 		if strings.Contains(r, "addonpkg verify-published") && verified < 0 {
 			verified = i
+			if st["id"] != "published" {
+				add("P_DIGEST", "the verify-published step of promote-release must have the id published")
+			}
 			for _, need := range []string{"--version ", "--revision ", "--owner-repo ", "--config "} {
 				if !strings.Contains(r, need) {
 					add("P_SIGNER", "promote-release verify-published lacks %q", need)
@@ -479,6 +485,10 @@ func checkReleaseEvent(job func(string) map[string]any, needs func(string) map[s
 		}
 		if strings.Contains(r, "addonpkg promote") && promoted < 0 {
 			promoted = i
+			env, _ := st["env"].(map[string]any)
+			if fmt.Sprint(env["DIGEST"]) != "${{ steps.published.outputs.digest }}" {
+				add("P_DIGEST", "promote-release must promote the digest that verify-published printed (steps.published.outputs.digest), not %q", fmt.Sprint(env["DIGEST"]))
+			}
 		}
 	}
 	switch {
