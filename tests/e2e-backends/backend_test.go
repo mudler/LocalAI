@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -115,6 +116,14 @@ import (
 //	                         "grammar_stress" does the same with a large tool set
 //	                         (BACKEND_TEST_GRAMMAR_STRESS_TOOLS tools, default 48)
 //	                         and reports the time per token.
+//	                         "paged_overcommit", "paged_parity" and "paged_budget"
+//	                         exercise the llama.cpp paged serving mode and need
+//	                         BACKEND_TEST_OPTIONS with paged_kv and parallel (see
+//	                         the test-extra-backend-llama-cpp-paged target):
+//	                         more requests than the KV pool holds all complete,
+//	                         greedy output does not change when requests share
+//	                         the pool or are preempted, and decoding streams keep
+//	                         advancing while a long prompt is read.
 //	                         The "s2s" capability exercises AudioToAudioStream
 //	                         with BACKEND_TEST_AUDIO_* as the spoken input
 //	                         (a text turn with a tool, then its result).
@@ -150,6 +159,9 @@ const (
 	capTokenClassify  = "token_classify"
 	capGrammar        = "grammar"
 	capGrammarStress  = "grammar_stress"
+	capPagedOver      = "paged_overcommit"
+	capPagedParity    = "paged_parity"
+	capPagedBudget    = "paged_budget"
 
 	defaultPrompt             = "The capital of France is"
 	streamPrompt              = "Once upon a time"
@@ -1561,6 +1573,96 @@ var _ = Describe("Backend container", Ordered, func() {
 		Expect(rxFrames).To(BeNumerically(">=", nFrames),
 			"AudioTransformStream returned %d frames for %d sent", rxFrames, nFrames)
 		GinkgoWriter.Printf("AudioTransformStream: rx %d frames, %d bytes\n", rxFrames, rxBytes)
+	})
+
+	// Paged serving (llama.cpp paged_kv). The KV pool holds about two of these
+	// requests at once, so without admission control the server runs out of
+	// cells and fails every request with "Context size has been exceeded".
+	It("completes more concurrent requests than the KV pool holds", func() {
+		if !caps[capPagedOver] {
+			Skip("paged_overcommit capability not enabled")
+		}
+		ctxSize := int(envInt32("BACKEND_TEST_CTX_SIZE", 512))
+		prompts := make([]string, 8)
+		for i := range prompts {
+			prompts[i] = pagedPrompt(i, ctxSize/4)
+		}
+		res := pagedConcurrent(client, prompts, 64, 10*time.Minute)
+		for i, r := range res {
+			Expect(r.err).NotTo(HaveOccurred(), "request %d failed", i)
+			Expect(r.chunk).To(HaveLen(64), "request %d did not get all its tokens", i)
+		}
+	})
+
+	It("keeps greedy output when requests share the pool or are preempted", func() {
+		if !caps[capPagedParity] {
+			Skip("paged_parity capability not enabled")
+		}
+		ctxSize := int(envInt32("BACKEND_TEST_CTX_SIZE", 512))
+		prompts := make([]string, 6)
+		for i := range prompts {
+			// about 450 tokens each: four fit with the 16-token reserve of the
+			// make target, but not with their 96 output tokens, so some preempt
+			prompts[i] = pagedPrompt(100+i, ctxSize*2/9)
+		}
+		serial := make([]pagedStream, len(prompts))
+		for i, p := range prompts {
+			serial[i] = pagedPredict(client, p, 96, 5*time.Minute)
+			Expect(serial[i].err).NotTo(HaveOccurred())
+		}
+		together := pagedConcurrent(client, prompts, 96, 10*time.Minute)
+		same := 0
+		for i := range prompts {
+			Expect(together[i].err).NotTo(HaveOccurred(), "concurrent request %d failed", i)
+			if together[i].text == serial[i].text {
+				same++
+			} else {
+				GinkgoWriter.Printf("paged parity: request %d differs\n serial:     %q\n concurrent: %q\n", i, serial[i].text, together[i].text)
+			}
+		}
+		// A different batch composition can flip a near tie, so one stream may differ.
+		Expect(same).To(BeNumerically(">=", len(prompts)-1), "greedy output changed under paged serving")
+	})
+
+	It("keeps decoding while a long prompt is read with a prefill budget", func() {
+		if !caps[capPagedBudget] {
+			Skip("paged_budget capability not enabled")
+		}
+		budget := pagedOption(options, "prefill_budget", 0)
+		Expect(budget).To(BeNumerically(">", 0), "paged_budget needs prefill_budget in BACKEND_TEST_OPTIONS")
+		ctxSize := int(envInt32("BACKEND_TEST_CTX_SIZE", 512))
+		long := pagedPrompt(200, ctxSize/3)
+		tctx, tcancel := context.WithTimeout(context.Background(), time.Minute)
+		tok, err := client.TokenizeString(tctx, &pb.PredictOptions{Prompt: long})
+		tcancel()
+		Expect(err).NotTo(HaveOccurred())
+		nLong := len(tok.GetTokens())
+
+		chat := make([]pagedStream, 2)
+		var wg sync.WaitGroup
+		for i := range chat {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				chat[i] = pagedPredict(client, pagedPrompt(300+i, 20), 200, 10*time.Minute)
+			}(i)
+		}
+		time.Sleep(2 * time.Second) // let the two streams start decoding
+		lr := pagedPredict(client, long, 4, 10*time.Minute)
+		wg.Wait()
+		Expect(lr.err).NotTo(HaveOccurred())
+		Expect(lr.chunk).NotTo(BeEmpty())
+
+		// Without a budget the long prompt takes about nLong/n_batch steps; with it,
+		// at least nLong/budget steps, and each step gives every stream one token.
+		minSteps := nLong / budget
+		for i, c := range chat {
+			Expect(c.err).NotTo(HaveOccurred())
+			got := chunksBetween(c, lr.sent, lr.chunk[0])
+			GinkgoWriter.Printf("paged budget: stream %d got %d tokens while %d prompt tokens were read (budget %d)\n", i, got, nLong, budget)
+			Expect(got).To(BeNumerically(">=", minSteps/2),
+				"decoding stalled during the long prompt: the prefill budget is not applied")
+		}
 	})
 })
 

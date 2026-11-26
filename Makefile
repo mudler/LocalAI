@@ -919,6 +919,17 @@ test-extra-backend-llama-cpp: docker-build-llama-cpp
 	BACKEND_TEST_CAPS=health,load,predict,stream,logprobs,logit_bias,context_overflow \
 	$(MAKE) test-extra-backend
 
+## Paged serving (paged_kv): admission, preemption with resume by recompute,
+## and the prefill budget. The 2048-token pool holds about two of the
+## overcommit requests, and the small output reserve makes the parity requests
+## outgrow the pool, so both the waiting and the preemption paths run on CPU.
+test-extra-backend-llama-cpp-paged: docker-build-llama-cpp
+	BACKEND_IMAGE=local-ai-backend:llama-cpp \
+	BACKEND_TEST_CTX_SIZE=2048 \
+	BACKEND_TEST_OPTIONS=paged_kv,parallel:4,kv_output_reserve:16,prefill_budget:32 \
+	BACKEND_TEST_CAPS=health,load,paged_overcommit,paged_parity,paged_budget \
+	$(MAKE) test-extra-backend
+
 ## Raw llama.cpp embeddings are required by Go-side pooling. This exercises the
 ## real C++ backend and verifies that it marks the flattened matrix per-token.
 test-extra-backend-llama-cpp-embeddings: docker-build-llama-cpp
