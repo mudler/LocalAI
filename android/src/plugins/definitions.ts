@@ -36,13 +36,33 @@ export interface WebuiViewPlugin {
   addListener(e: 'openExternal', cb: (x: { url: string }) => void): Promise<PluginListenerHandle>
 }
 
-export interface P2PForwardInput { id: string; name: string; peer: string; host: string; port: number; addrs: string[]; relays: string[] }
+export interface P2PForwardInput {
+  id: string
+  name: string
+  peer: string
+  host: string
+  port: number
+  addrs: string[]
+  relays: string[]
+  /** Public relays of the invite that only help a hole punch: they never carry data. */
+  hints: string[]
+}
+
+/**
+ * A failed pairing. `code` is the stable code of the library (`needs_relay`,
+ * `gone`, `expired`, ...); `detail` is its error text, for logs.
+ */
+export interface P2PPairFailure {
+  ok: false
+  code?: string
+  detail: string
+}
 
 export interface P2PPlugin {
   version(): Promise<{ version: string }>
   deviceName(): Promise<{ name: string }>
   peerId(): Promise<{ peerId?: string }>
-  pair(o: { link: string; name: string; allowOpenRelay: boolean }): Promise<{ ok: true; json: string } | { ok: false; detail: string }>
+  pair(o: { link: string; name: string; allowOpenRelay: boolean }): Promise<{ ok: true; json: string } | P2PPairFailure>
   freePort(o: { host: string }): Promise<{ port: number }>
   setForwards(o: { forwards: P2PForwardInput[] }): Promise<void>
   statuses(): Promise<{ states: { id: string; line: string }[] }>

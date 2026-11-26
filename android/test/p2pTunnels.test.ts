@@ -209,6 +209,33 @@ describe('P2P in the client core', () => {
     expect(called(p, 'requestNotifications')).toEqual([])
   })
 
+  it('maps the needs_relay code to needs-relay, without the library text', async () => {
+    const p = withP2P()
+    const { core } = await start(p)
+    p.p2p.pairAnswers = [{ ok: false, code: 'needs_relay', detail: 'cannot connect directly' }, { ok: false, code: 'gone', detail: 'used' }]
+    expect(await core.servers.addServerByInvite({ link: invite(PEER) })).toEqual({ ok: false, reason: 'needs-relay', detail: '' })
+    expect(await core.servers.addServerByInvite({ link: invite(PEER) })).toEqual({ ok: false, reason: 'pair-failed', detail: 'used' })
+    expect(core.servers.serversView().rows).toEqual([])
+  })
+
+  it('saves the hints of the invite and passes them to the forwarder', async () => {
+    const p = withP2P()
+    const { core } = await start(p)
+    const hint = '/ip4/192.0.2.7/udp/4001/quic-v1/p2p/12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGo'
+    p.p2p.pairAnswers = [{ ok: true, json: pairJson(PEER) }]
+    const r = await core.servers.addServerByInvite({ link: `${invite(PEER)}&h=${encodeURIComponent(hint)}` })
+    expect(r.ok).toBe(true)
+    await flush()
+    const saved = remotes({ extra: JSON.parse(p.files.files.get(CONFIG_FILE) ?? '{}') } as never)
+    expect(saved.map((x) => x.p2p?.hints)).toEqual([[hint]])
+    const lists = p.p2p.forwardLists()
+    expect(lists[lists.length - 1]?.[0]?.hints).toEqual([hint])
+  })
+
+  it('keeps the needs_relay code of a down line', () => {
+    expect(mapForwardLine('{"state":"down","error":"no direct path","code":"needs_relay"}')).toEqual({ state: 'down', error: 'no direct path', code: 'needs_relay' })
+  })
+
   it('asks for the notification permission when a P2P server is added', async () => {
     const p = withP2P()
     const { core } = await start(p)
@@ -231,7 +258,7 @@ describe('P2P in the client core', () => {
     const { core } = await start(p)
     const names = p.p2p.calls.map((c) => c.name)
     expect(names.indexOf('statuses')).toBeLessThan(names.indexOf('setForwards'))
-    expect(p.p2p.forwardLists()[0]).toEqual([{ id: 'srv_00000001', name: 'Studio', peer: PEER, host: '127.0.0.2', port: 41001, addrs: [], relays: [] }])
+    expect(p.p2p.forwardLists()[0]).toEqual([{ id: 'srv_00000001', name: 'Studio', peer: PEER, host: '127.0.0.2', port: 41001, addrs: [], relays: [], hints: [] }])
     expect(core.servers.serversView().rows[0].p2p).toEqual({ state: 'up', path: 'direct' })
   })
 

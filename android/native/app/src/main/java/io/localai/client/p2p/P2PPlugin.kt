@@ -87,12 +87,17 @@ class P2PPlugin : Plugin() {
         val name = call.getString("name")?.trim()?.take(60)?.takeIf { it.isNotEmpty() } ?: defaultDeviceName()
         val allowOpenRelay = call.getBoolean("allowOpenRelay", false) == true
         background(call) {
-            val out = try {
-                JSObject().put("ok", true).put("json", P2PRuntime.engine.pair(P2PRuntime.identityPath, link, name, allowOpenRelay))
+            val answer = try {
+                parsePairAnswer(P2PRuntime.engine.pairJson(P2PRuntime.identityPath, link, name, allowOpenRelay))
             } catch (e: P2PUnavailableException) {
                 throw e
             } catch (e: Exception) {
-                JSObject().put("ok", false).put("detail", e.message ?: "pairing failed")
+                PairAnswer(ok = false, code = PAIR_FAILED, detail = e.message ?: "pairing failed")
+            }
+            val out = if (answer.ok) {
+                JSObject().put("ok", true).put("json", answer.json)
+            } else {
+                JSObject().put("ok", false).put("code", answer.code).put("detail", answer.detail)
             }
             call.resolve(out)
         }
@@ -223,9 +228,35 @@ internal fun parseForwards(arr: JSONArray): List<Forward> {
             port = o.optInt("port", 0),
             addrs = strings(o.optJSONArray("addrs")),
             relays = strings(o.optJSONArray("relays")),
+            hints = strings(o.optJSONArray("hints")),
         )
     }
     return out
+}
+
+/** The code of a pairing that failed for a reason the library has no code for. */
+internal const val PAIR_FAILED = "failed"
+
+/**
+ * A pairing answer as the plugin resolves it: [json] is the result object when [ok]; otherwise
+ * [code] is the library's stable error code (such as `needs_relay`) and [detail] its error text.
+ */
+internal data class PairAnswer(val ok: Boolean, val json: String = "", val code: String = "", val detail: String = "")
+
+/** Reads the answer of the library's PairJSON. An answer that is not the expected JSON is a failure. */
+internal fun parsePairAnswer(envelope: String): PairAnswer {
+    val o = try {
+        JSONObject(envelope)
+    } catch (e: org.json.JSONException) {
+        return PairAnswer(ok = false, code = PAIR_FAILED, detail = "unexpected answer from the P2P library")
+    }
+    if (o.optBoolean("ok", false)) {
+        val result = o.optJSONObject("result")
+            ?: return PairAnswer(ok = false, code = PAIR_FAILED, detail = "the P2P library answered no result")
+        return PairAnswer(ok = true, json = result.toString())
+    }
+    val code = o.optString("code").ifEmpty { PAIR_FAILED }
+    return PairAnswer(ok = false, code = code, detail = o.optString("detail").ifEmpty { "pairing failed" })
 }
 
 private fun strings(a: JSONArray?): List<String> {

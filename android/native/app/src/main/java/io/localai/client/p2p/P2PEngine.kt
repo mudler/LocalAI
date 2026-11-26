@@ -9,8 +9,12 @@ import java.lang.reflect.Proxy
 interface P2PEngine {
     fun version(): String
 
-    /** Redeems an invite; returns the library's JSON answer. Throws on failure. */
-    fun pair(identityPath: String, link: String, deviceName: String, allowOpenRelay: Boolean): String
+    /**
+     * Redeems an invite. Returns the library's answer, `{"ok":true,"result":{...}}` or
+     * `{"ok":false,"code":"...","detail":"..."}` (see [parsePairAnswer]). Throws only when the
+     * library is not available.
+     */
+    fun pairJson(identityPath: String, link: String, deviceName: String, allowOpenRelay: Boolean): String
 
     fun peerId(identityPath: String): String
 
@@ -21,6 +25,7 @@ interface P2PEngine {
         listenAddr: String,
         relaysJson: String,
         addrsJson: String,
+        hintsJson: String,
         onState: (String) -> Unit,
     ): Handle
 
@@ -35,7 +40,7 @@ interface P2PEngine {
  * still compile, and then reports P2P as unavailable.
  */
 class GoP2PEngine : P2PEngine {
-    private class Api(val pair: Method, val peerId: Method, val startForward: Method, val version: Method, val callback: Class<*>)
+    private class Api(val pairJson: Method, val peerId: Method, val startForward: Method, val version: Method, val callback: Class<*>)
 
     private val api: Api by lazy {
         try {
@@ -43,9 +48,9 @@ class GoP2PEngine : P2PEngine {
             val cb = Class.forName("io.localai.p2p.p2pmobile.StateCallback")
             val s = String::class.java
             Api(
-                pair = cls.getMethod("pair", s, s, s, java.lang.Boolean.TYPE),
+                pairJson = cls.getMethod("pairJSON", s, s, s, java.lang.Boolean.TYPE),
                 peerId = cls.getMethod("peerID", s),
-                startForward = cls.getMethod("startForward", s, s, s, s, s, cb),
+                startForward = cls.getMethod("startForward", s, s, s, s, s, s, cb),
                 version = cls.getMethod("version"),
                 callback = cb,
             )
@@ -58,8 +63,8 @@ class GoP2PEngine : P2PEngine {
 
     override fun version(): String = invoke(api.version) as String
 
-    override fun pair(identityPath: String, link: String, deviceName: String, allowOpenRelay: Boolean): String =
-        invoke(api.pair, identityPath, link, deviceName, allowOpenRelay) as String
+    override fun pairJson(identityPath: String, link: String, deviceName: String, allowOpenRelay: Boolean): String =
+        invoke(api.pairJson, identityPath, link, deviceName, allowOpenRelay) as String
 
     override fun peerId(identityPath: String): String = invoke(api.peerId, identityPath) as String
 
@@ -69,6 +74,7 @@ class GoP2PEngine : P2PEngine {
         listenAddr: String,
         relaysJson: String,
         addrsJson: String,
+        hintsJson: String,
         onState: (String) -> Unit,
     ): P2PEngine.Handle {
         val cb = Proxy.newProxyInstance(api.callback.classLoader, arrayOf(api.callback)) { proxy, m, args ->
@@ -88,7 +94,7 @@ class GoP2PEngine : P2PEngine {
                 else -> null
             }
         }
-        val fwd = invoke(api.startForward, identityPath, peer, listenAddr, relaysJson, addrsJson, cb)
+        val fwd = invoke(api.startForward, identityPath, peer, listenAddr, relaysJson, addrsJson, hintsJson, cb)
             ?: throw IllegalStateException("the P2P library returned no forwarder")
         val stop = fwd.javaClass.getMethod("stop")
         return object : P2PEngine.Handle {

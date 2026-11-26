@@ -16,7 +16,7 @@ import type { TunnelStatusView } from '@launcher/shared/types'
 import type { P2PForwardInput, P2PPlugin } from '../plugins/definitions'
 
 /** What `P2P.version()` answers when the native library loaded. */
-export const P2P_LIBRARY_VERSION = 'p2pmobile/1'
+export const P2P_LIBRARY_VERSION = 'p2pmobile/2'
 
 /** The host of a server over P2P saved without one (the desktop's). */
 const DEFAULT_HOST = '127.0.0.1'
@@ -160,7 +160,7 @@ export function androidP2PTunnels(o: AndroidTunnelsOptions): AndroidTunnels {
         setState(r.id, { state: 'failed', error: 'listen address must be loopback' })
         continue
       }
-      out.push({ id: r.id, name: r.name, peer: r.p2p.peer, host, port: r.p2p.port, addrs: [...r.p2p.addrs], relays: [...r.p2p.relays] })
+      out.push({ id: r.id, name: r.name, peer: r.p2p.peer, host, port: r.p2p.port, addrs: [...r.p2p.addrs], relays: [...r.p2p.relays], hints: [...(r.p2p.hints ?? [])] })
     }
     return out
   }
@@ -220,7 +220,15 @@ export function androidP2PTunnels(o: AndroidTunnelsOptions): AndroidTunnels {
       } catch (e) {
         return { ok: false, reason: 'pair-failed', detail: message(e) }
       }
-      if (!res.ok) return { ok: false, reason: 'pair-failed', detail: res.detail }
+      if (!res.ok) {
+        // The app has its own words for a server that needs a relay; the
+        // library's text goes to the log only.
+        if (res.code === 'needs_relay') {
+          log(`servers: pairing needs a relay: ${res.detail}`, 'warn')
+          return { ok: false, reason: 'needs-relay', detail: '' }
+        }
+        return { ok: false, reason: 'pair-failed', detail: res.detail }
+      }
       const result = parsePairJson(res.json)
       if (!result) return { ok: false, reason: 'pair-failed', detail: 'unexpected answer' }
       // A server over P2P is being added: the service notification (and its

@@ -38,7 +38,7 @@ class ManualScheduler : Scheduler {
 }
 
 class FakeEngine : P2PEngine {
-    class Start(val peer: String, val listenAddr: String, val relays: String, val addrs: String, val onState: (String) -> Unit) {
+    class Start(val peer: String, val listenAddr: String, val relays: String, val addrs: String, val hints: String, val onState: (String) -> Unit) {
         var stops = 0
         val handle = object : P2PEngine.Handle {
             override fun stop() { stops++ }
@@ -50,8 +50,8 @@ class FakeEngine : P2PEngine {
     val alwaysFail = mutableSetOf<String>()
     var emitReady = true
 
-    override fun version() = "p2pmobile/1"
-    override fun pair(identityPath: String, link: String, deviceName: String, allowOpenRelay: Boolean) = "{}"
+    override fun version() = "p2pmobile/2"
+    override fun pairJson(identityPath: String, link: String, deviceName: String, allowOpenRelay: Boolean) = """{"ok":true,"result":{}}"""
     override fun peerId(identityPath: String) = "12D3KooWExample"
 
     override fun startForward(
@@ -60,6 +60,7 @@ class FakeEngine : P2PEngine {
         listenAddr: String,
         relaysJson: String,
         addrsJson: String,
+        hintsJson: String,
         onState: (String) -> Unit,
     ): P2PEngine.Handle {
         if (listenAddr in alwaysFail) throw IllegalStateException("boom")
@@ -67,7 +68,7 @@ class FakeEngine : P2PEngine {
             failures--
             throw IllegalStateException("boom")
         }
-        val s = Start(peer, listenAddr, relaysJson, addrsJson, onState)
+        val s = Start(peer, listenAddr, relaysJson, addrsJson, hintsJson, onState)
         starts += s
         // The library sends "ready" before StartForward returns.
         if (emitReady) onState("""{"state":"ready","addr":"$listenAddr"}""")
@@ -84,7 +85,7 @@ class ForwarderSupervisorTest {
     private val lines = mutableListOf<Pair<String, String>>()
 
     private val a = Forward("a", "Home", "peerA", "127.0.0.2", 41001, listOf("/ip4/192.0.2.1/tcp/4001"), listOf("/dns4/relay.example.com/tcp/4001"))
-    private val b = Forward("b", "Office", "peerB", "127.0.0.3", 41002, emptyList(), emptyList())
+    private val b = Forward("b", "Office", "peerB", "127.0.0.3", 41002, emptyList(), emptyList(), listOf("/ip4/192.0.2.7/udp/4001/quic-v1/p2p/12D3KooWHint"))
 
     @Before
     fun setUp() {
@@ -104,6 +105,8 @@ class ForwarderSupervisorTest {
         assertEquals("""["/dns4/relay.example.com/tcp/4001"]""", engine.starts[0].relays)
         assertEquals("""["/ip4/192.0.2.1/tcp/4001"]""", engine.starts[0].addrs)
         assertEquals("[]", engine.starts[1].relays)
+        assertEquals("[]", engine.starts[0].hints)
+        assertEquals("""["/ip4/192.0.2.7/udp/4001/quic-v1/p2p/12D3KooWHint"]""", engine.starts[1].hints)
         assertTrue(stateOf("a")!!.contains("\"ready\""))
         assertTrue(lines.contains("a" to """{"state":"starting"}"""))
     }
@@ -295,6 +298,7 @@ class ForwarderSupervisorTest {
                 listenAddr: String,
                 relaysJson: String,
                 addrsJson: String,
+                hintsJson: String,
                 onState: (String) -> Unit,
             ): P2PEngine.Handle = throw IllegalStateException("bad \"quote\"\nline")
         }, "/id", sched) { id, line -> lines += id to line }
