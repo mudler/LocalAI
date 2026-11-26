@@ -114,3 +114,50 @@ func (g *rig) setPolicy(p policy.Policy) {
 	_, err := g.pol.Set(key, p)
 	Expect(err).NotTo(HaveOccurred())
 }
+
+func (g *rig) preview(op, tool string, args map[string]any) (contract.Preview, error) {
+	p, err := g.rt.Preview(ctx, g.env(op, tool, args))
+	if err != nil {
+		noLeak(err.Error())
+	} else {
+		noLeak(string(p.Summary))
+		Expect(len(p.Summary)).To(BeNumerically("<=", 12<<10))
+	}
+	return p, err
+}
+
+func (g *rig) apply(op, tool string, args map[string]any, p contract.Preview) (contract.Receipt, error) {
+	rc, err := g.rt.Apply(ctx, g.env(op, tool, args), p.Revision)
+	if err != nil {
+		noLeak(err.Error())
+	} else {
+		noLeak(string(rc.Result.Payload))
+	}
+	return rc, err
+}
+
+// run previews and applies a write, as the host does for a confirmed call and
+// for one the person lets run without a card.
+func (g *rig) run(op, tool string, args map[string]any) (contract.Receipt, map[string]any) {
+	p, err := g.preview(op, tool, args)
+	Expect(err).NotTo(HaveOccurred())
+	rc, err := g.apply(op, tool, args, p)
+	Expect(err).NotTo(HaveOccurred())
+	return rc, resultData(rc)
+}
+
+func resultData(rc contract.Receipt) map[string]any {
+	var r reply
+	if len(rc.Result.Payload) > 0 {
+		Expect(json.Unmarshal(rc.Result.Payload, &r)).To(Succeed())
+	}
+	return r.Data
+}
+
+func sampleOf(p contract.Preview) map[string]any {
+	var s struct {
+		Sample map[string]any `json:"sample"`
+	}
+	Expect(json.Unmarshal(p.Summary, &s)).To(Succeed())
+	return s.Sample
+}
