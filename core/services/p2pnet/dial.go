@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"slices"
 	"sync"
 	"time"
 
@@ -78,13 +79,52 @@ func (e *PathLimitedError) Error() string {
 // Is matches ErrPathLimited.
 func (e *PathLimitedError) Is(target error) bool { return target == ErrPathLimited }
 
+// DefaultPunchWait is how long Dial waits, through a hint relay, for a hole
+// punch to open a direct connection. The puncher makes three attempts with a
+// dial timeout of 10 s each.
+const DefaultPunchWait = 30 * time.Second
+
+// ErrNoDirectPath is matched by errors.Is for a NoDirectPathError.
+var ErrNoDirectPath = errors.New("p2pnet: no direct connection to the peer, and its hint relays carry no data")
+
+// NoDirectPathError is returned by Dial when the peer was reached only
+// through a hint relay and no hole punch opened a direct connection in time.
+// A hint relay never carries application data, so the peer needs a relay
+// that does (WithRelays). It is a final answer, not a transient failure.
+type NoDirectPathError struct {
+	// Peer is the peer that Dial tried to reach.
+	Peer peer.ID
+	// Relay is the hint relay through which the peer was reached.
+	Relay peer.ID
+	// Wait is how long Dial waited for the direct connection.
+	Wait time.Duration
+}
+
+func (e *NoDirectPathError) Error() string {
+	return fmt.Sprintf("p2pnet: no direct connection to %s after %s of hole punching through hint relay %s: a relay that carries data is needed",
+		e.Peer, e.Wait, e.Relay)
+}
+
+// Is matches ErrNoDirectPath.
+func (e *NoDirectPathError) Is(target error) bool { return target == ErrNoDirectPath }
+
 // DialOption configures Dial.
 type DialOption func(*dialOptions)
 
 type dialOptions struct {
-	addrs  []ma.Multiaddr
-	relays []peer.AddrInfo
-	need   Need
+	addrs     []ma.Multiaddr
+	relays    []peer.AddrInfo
+	hints     []peer.AddrInfo
+	need      Need
+	punchWait time.Duration
+}
+
+func newDialOptions(opts []DialOption) dialOptions {
+	o := dialOptions{punchWait: DefaultPunchWait}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	return o
 }
 
 // WithAddrs adds known addresses of the peer, such as those of an invite
@@ -94,9 +134,34 @@ func WithAddrs(addrs ...ma.Multiaddr) DialOption {
 }
 
 // WithRelays adds relays through which the peer may be reached. Dial adds a
-// circuit address through each relay; it does no lookup.
+// circuit address through each relay; it does no lookup. These relays may
+// carry application data, also when they limit the connection.
 func WithRelays(relays ...peer.AddrInfo) DialOption {
 	return func(o *dialOptions) { o.relays = append(o.relays, relays...) }
+}
+
+// WithHints adds hint relays: public relays on which the peer holds a
+// reservation. Dial uses them only after the direct addresses and the
+// relays of WithRelays failed, or at once when it has neither. Through a
+// hint, Dial opens no stream: it connects only so that the peers can run a
+// hole punch, waits for the direct connection (see WithPunchWait), and then
+// closes the connection through the hint. When no direct connection opens,
+// Dial returns a *NoDirectPathError. The host never sends application data
+// through a relay that a dial named as a hint, unless a later dial names it
+// with WithRelays.
+func WithHints(relays ...peer.AddrInfo) DialOption {
+	return func(o *dialOptions) { o.hints = append(o.hints, relays...) }
+}
+
+// WithPunchWait sets how long Dial waits for a direct connection through a
+// hint relay. Zero or less means DefaultPunchWait.
+func WithPunchWait(d time.Duration) DialOption {
+	return func(o *dialOptions) {
+		if d <= 0 {
+			d = DefaultPunchWait
+		}
+		o.punchWait = d
+	}
 }
 
 // WithNeed sets what the caller needs from the path. See Need.
@@ -104,19 +169,61 @@ func WithNeed(n Need) DialOption {
 	return func(o *dialOptions) { o.need = n }
 }
 
-// Dial opens a stream to p on proto and returns it as a *Conn. Limited
-// relayed connections are allowed; when the path's reported limits are
-// below the Need, Dial resets the stream and returns a *PathLimitedError.
+// Dial opens a stream to p on proto and returns it as a *Conn.
+//
+// Dial tries the paths in two phases. The first uses the known and direct
+// addresses and the relays of WithRelays; limited relayed connections are
+// allowed, and when the path's reported limits are below the Need, Dial
+// resets the stream and returns a *PathLimitedError. The second phase uses
+// the hint relays of WithHints (see there) and runs when the first one
+// failed, or at once when the caller gave hints and no address or relay.
 func (n *Host) Dial(ctx context.Context, p peer.ID, proto protocol.ID, opts ...DialOption) (net.Conn, error) {
-	var o dialOptions
-	for _, opt := range opts {
-		opt(&o)
-	}
+	o := newDialOptions(opts)
 	ps := n.h.Peerstore()
 	if len(o.addrs) > 0 {
 		ps.AddAddrs(p, o.addrs, peerstore.TempAddrTTL)
 	}
-	for _, r := range o.relays {
+	carriers, err := n.addCircuits(p, o.relays)
+	if err != nil {
+		return nil, err
+	}
+	n.hints.remove(carriers...)
+	var hints []peer.AddrInfo
+	for _, h := range o.hints {
+		if h.ID == p || h.ID == n.h.ID() || slices.Contains(carriers, h.ID) {
+			continue
+		}
+		hints = append(hints, h)
+		n.hints.add(h.ID)
+	}
+
+	var firstErr error
+	if len(hints) == 0 || len(o.addrs) > 0 || len(carriers) > 0 {
+		s, err := n.openStream(ctx, p, proto, o.punchWait)
+		if err == nil {
+			return n.checkNeed(s, o.need)
+		}
+		if len(hints) == 0 || ctx.Err() != nil {
+			return nil, err
+		}
+		firstErr = err
+	}
+	s, err := n.dialThroughHints(ctx, p, proto, hints, o.punchWait)
+	if err != nil {
+		if firstErr != nil && !errors.Is(err, ErrNoDirectPath) {
+			err = fmt.Errorf("%w; through the hint relays: %w", firstErr, err)
+		}
+		return nil, err
+	}
+	return n.checkNeed(s, o.need)
+}
+
+// addCircuits adds a circuit address of p through each relay to the
+// peerstore and returns the relay IDs.
+func (n *Host) addCircuits(p peer.ID, relays []peer.AddrInfo) ([]peer.ID, error) {
+	ps := n.h.Peerstore()
+	var ids []peer.ID
+	for _, r := range relays {
 		if r.ID == p || r.ID == n.h.ID() {
 			continue
 		}
@@ -128,14 +235,84 @@ func (n *Host) Dial(ctx context.Context, p peer.ID, proto protocol.ID, opts ...D
 		for _, a := range r.Addrs {
 			ps.AddAddr(p, a.Encapsulate(suffix), peerstore.TempAddrTTL)
 		}
+		ids = append(ids, r.ID)
 	}
-	s, err := n.h.NewStream(network.WithAllowLimitedConn(ctx, limitedConnReason), p, proto)
+	return ids, nil
+}
+
+// openStream opens a stream to p on any connection that does not go through
+// a hint relay. Limited connections are allowed.
+func (n *Host) openStream(ctx context.Context, p peer.ID, proto protocol.ID, punchWait time.Duration) (network.Stream, error) {
+	sctx := network.WithAllowLimitedConn(ctx, limitedConnReason)
+	if hints, other := n.hintConns(p); len(hints) > 0 && !other {
+		// Another dial waits for a hole punch on a connection through a
+		// hint. With limited connections allowed, libp2p would take that
+		// connection instead of dialling, so wait for the direct one too.
+		sctx = network.WithDialPeerTimeout(ctx, punchWait)
+	}
+	s, err := n.h.NewStream(sctx, p, proto)
 	if err != nil {
 		return nil, fmt.Errorf("p2pnet: dial %s on %s: %w", p, proto, err)
 	}
-	if path := n.pathOf(s.Conn()); !o.need.SatisfiedBy(path) {
+	if relay := n.hintRelayOf(s.Conn()); relay != "" {
+		// A connection through a hint opened between the check above and
+		// the stream. The stream carries no data yet: drop it.
 		_ = s.Reset()
-		return nil, &PathLimitedError{Path: path, Need: o.need}
+		return nil, &NoDirectPathError{Peer: p, Relay: relay}
+	}
+	return s, nil
+}
+
+// dialThroughHints connects to p through the hint relays and waits for a
+// hole punch to open a direct connection. It opens the stream only on that
+// direct connection.
+func (n *Host) dialThroughHints(ctx context.Context, p peer.ID, proto protocol.ID, hints []peer.AddrInfo, punchWait time.Duration) (network.Stream, error) {
+	done := n.hints.begin(p)
+	defer done()
+	if _, err := n.addCircuits(p, hints); err != nil {
+		return nil, err
+	}
+	// Without WithAllowLimitedConn, libp2p connects through the hint, waits
+	// for identify (which starts the hole punch on the peer's side), and
+	// then waits up to the dial peer timeout for a direct connection.
+	wctx, cancel := context.WithTimeout(ctx, 2*punchWait)
+	defer cancel()
+	s, err := n.h.NewStream(network.WithDialPeerTimeout(wctx, punchWait), p, proto)
+	if err == nil && n.hintRelayOf(s.Conn()) != "" {
+		_ = s.Reset()
+		s, err = nil, network.ErrLimitedConn
+	}
+	if err == nil {
+		done()
+		n.closeHintConns(p)
+		return s, nil
+	}
+	// Close the connections through the hints, unless another dial still
+	// waits on them.
+	hintConns, _ := n.hintConns(p)
+	var relay peer.ID
+	if len(hintConns) > 0 {
+		relay = n.hintRelayOf(hintConns[0])
+	}
+	if done() == 0 {
+		n.closeHintConns(p)
+	}
+	if ctx.Err() != nil && !errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return nil, ctx.Err()
+	}
+	if relay == "" {
+		// The host never reached the peer through a hint, so the hole punch
+		// never had a chance: report the dial error.
+		return nil, fmt.Errorf("p2pnet: dial %s through hint relays: %w", p, err)
+	}
+	return nil, &NoDirectPathError{Peer: p, Relay: relay, Wait: punchWait}
+}
+
+// checkNeed returns s as a *Conn when its path can carry need.
+func (n *Host) checkNeed(s network.Stream, need Need) (net.Conn, error) {
+	if path := n.pathOf(s.Conn()); !need.SatisfiedBy(path) {
+		_ = s.Reset()
+		return nil, &PathLimitedError{Path: path, Need: need}
 	}
 	return &Conn{Stream: s}, nil
 }

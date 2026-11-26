@@ -59,15 +59,33 @@ func IdentityPeerID(path string) (peer.ID, error) {
 // RelaysOption parses relay multiaddrs that end in /p2p/<relay ID> and
 // returns the WithRelays dial option for them.
 func RelaysOption(relays []string) (DialOption, error) {
-	ais := make([]peer.AddrInfo, 0, len(relays))
-	for _, r := range relays {
-		ai, err := ParseAddrInfo(r)
+	ais, err := parseAddrInfos(relays)
+	if err != nil {
+		return nil, err
+	}
+	return WithRelays(ais...), nil
+}
+
+// HintsOption parses hint relay multiaddrs that end in /p2p/<relay ID> and
+// returns the WithHints dial option for them.
+func HintsOption(hints []string) (DialOption, error) {
+	ais, err := parseAddrInfos(hints)
+	if err != nil {
+		return nil, err
+	}
+	return WithHints(ais...), nil
+}
+
+func parseAddrInfos(addrs []string) ([]peer.AddrInfo, error) {
+	ais := make([]peer.AddrInfo, 0, len(addrs))
+	for _, a := range addrs {
+		ai, err := ParseAddrInfo(a)
 		if err != nil {
 			return nil, err
 		}
 		ais = append(ais, ai)
 	}
-	return WithRelays(ais...), nil
+	return ais, nil
 }
 
 // AddrsOption parses multiaddrs and returns the WithAddrs dial option.

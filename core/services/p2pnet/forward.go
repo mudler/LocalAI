@@ -169,6 +169,11 @@ func (f *Forwarder) serve(local net.Conn) {
 }
 
 func (f *Forwarder) dial() (net.Conn, error) {
+	timeout := forwardDialTimeout
+	if o := newDialOptions(f.opts.dial); len(o.hints) > 0 {
+		// The wait for a hole punch comes on top of the dial itself.
+		timeout += 2 * o.punchWait
+	}
 	var err error
 	for attempt := range forwardDialAttempts {
 		if attempt > 0 {
@@ -178,15 +183,16 @@ func (f *Forwarder) dial() (net.Conn, error) {
 			case <-time.After(forwardRetryDelay << (attempt - 1)):
 			}
 		}
-		ctx, cancel := context.WithTimeout(f.ctx, forwardDialTimeout)
+		ctx, cancel := context.WithTimeout(f.ctx, timeout)
 		var c net.Conn
 		c, err = f.n.Dial(ctx, f.peer, f.proto, f.opts.dial...)
 		cancel()
 		if err == nil {
 			return c, nil
 		}
-		// A limited path is the caller's decision, not a transient failure.
-		if errors.Is(err, ErrPathLimited) || f.ctx.Err() != nil {
+		// A limited path is the caller's decision, and a peer reachable only
+		// through a hint relay needs a relay: neither is a transient failure.
+		if errors.Is(err, ErrPathLimited) || errors.Is(err, ErrNoDirectPath) || f.ctx.Err() != nil {
 			return nil, err
 		}
 	}

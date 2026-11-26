@@ -133,12 +133,20 @@ func (a *Allowlist) AdmitStream(p peer.ID, proto protocol.ID) bool {
 	return a.pairing && pairingProto
 }
 
-// connGater applies a Gate as the libp2p connection gater.
-type connGater struct{ gate Gate }
+// connGater applies a Gate as the libp2p connection gater. It also keeps
+// the host off hint relays outside a hole punch (see hintRelays).
+type connGater struct {
+	gate  Gate
+	hints *hintRelays
+}
 
-func (connGater) InterceptPeerDial(peer.ID) bool               { return true }
-func (connGater) InterceptAddrDial(peer.ID, ma.Multiaddr) bool { return true }
-func (connGater) InterceptAccept(network.ConnMultiaddrs) bool  { return true }
+func (connGater) InterceptPeerDial(peer.ID) bool { return true }
+
+func (g connGater) InterceptAddrDial(p peer.ID, a ma.Multiaddr) bool {
+	return g.hints == nil || g.hints.allowDial(p, a)
+}
+
+func (connGater) InterceptAccept(network.ConnMultiaddrs) bool { return true }
 
 func (g connGater) InterceptSecured(d network.Direction, p peer.ID, _ network.ConnMultiaddrs) bool {
 	if d == network.DirOutbound {

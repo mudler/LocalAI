@@ -99,6 +99,7 @@ type Host struct {
 	disco *mdnsRunner
 	addrs *addrWatcher
 	punch *punchTracer
+	hints *hintRelays
 	reach atomic.Int32
 	sub   event.Subscription
 	// redial is nil when the gate cannot name the paired peers.
@@ -145,6 +146,7 @@ func New(ctx context.Context, cfg Config) (*Host, error) {
 	n := &Host{
 		gate:      gate,
 		punch:     newPunchTracer(),
+		hints:     newHintRelays(),
 		static:    cfg.StaticRelays,
 		ctx:       hctx,
 		cancel:    cancel,
@@ -159,7 +161,7 @@ func New(ctx context.Context, cfg Config) (*Host, error) {
 		libp2p.Identity(key),
 		libp2p.UserAgent(ua),
 		libp2p.ConnectionManager(cm),
-		libp2p.ConnectionGater(connGater{gate: gate}),
+		libp2p.ConnectionGater(connGater{gate: gate, hints: n.hints}),
 		// The relay transport dials and accepts relayed connections.
 		// AutoRelay needs it set before the libp2p defaults are applied.
 		libp2p.EnableRelay(),

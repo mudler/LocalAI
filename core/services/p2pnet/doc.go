@@ -10,6 +10,11 @@
 // Need and PathLimitedError), so the caller decides what may use a limited
 // path.
 //
+// A hint relay (see WithHints) is a public relay on which the peer holds a
+// reservation. The host connects through it only to run a hole punch, and
+// sends no application data through it: when no direct connection opens,
+// Dial returns a NoDirectPathError.
+//
 // Only this package and the relay packages import libp2p. Other code uses the
 // types of this package and the peer.ID type.
 package p2pnet
