@@ -239,7 +239,9 @@ function Reasoning({ text, live }) {
 
 // A reasoning line of the transcript or of the live turn. Folded, it is one
 // line of its words (see thoughtGist); a thought that is still arriving shows
-// its latest line and is the one that shimmers.
+// its latest line and is the one that shimmers. The arriving thought stays one
+// line high (cx-step--live): a gist that wrapped to two lines and back as it
+// streamed would move everything under it, and the pinned thread with it.
 // eslint-disable-next-line no-unused-vars
 function ThoughtStep({ text, duration, live }) {
   const { t } = useTranslation('chat')
@@ -248,7 +250,7 @@ function ThoughtStep({ text, duration, live }) {
   return (
     <Step
       state="thought"
-      className="cx-step--thought"
+      className={`cx-step--thought${live ? ' cx-step--live' : ''}`}
       duration={duration}
       detail={more ? <Reasoning text={text} live={live} /> : null}
     >

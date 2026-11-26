@@ -230,3 +230,22 @@ test('chat steps: three calls in a group count as three steps', () => {
   assert.equal(turnFacts(live).steps, 3)
   assert.equal(groupSteps(liveSteps(live).steps)[0].tools.length, 3)
 })
+
+// The thought that is still arriving keeps one line of height while its words
+// stream. When it could wrap to two lines and back, the thread under it jumped
+// up and down on each token.
+test('chat steps: the live thought is one line high', async () => {
+  const { readFileSync } = await import('node:fs')
+  const css = readFileSync(new URL('../../src/pages/chat.css', import.meta.url), 'utf8')
+  const rule = (sel) => {
+    const at = css.indexOf(`${sel} {`)
+    assert.ok(at >= 0, `${sel} has a rule`)
+    return css.slice(at, css.indexOf('}', at))
+  }
+  const line = rule('.cx-step--thought.cx-step--live .cx-step__line')
+  assert.match(line, /white-space:\s*nowrap/)
+  assert.match(line, /display:\s*flex/)
+  assert.match(rule('.cx-step--thought.cx-step--live .cx-step__gist'), /overflow:\s*hidden/)
+  const jsx = readFileSync(new URL('../../src/components/chat/ActivityFold.jsx', import.meta.url), 'utf8')
+  assert.match(jsx, /cx-step--thought\$\{live \? ' cx-step--live' : ''\}/, 'ThoughtStep marks the live thought')
+})

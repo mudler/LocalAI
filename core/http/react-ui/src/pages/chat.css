@@ -493,6 +493,26 @@ button.cx-step__head:hover,
 }
 .cx-step--thought .cx-step__verb { margin-right: var(--sp-2); }
 .cx-step--thought .cx-step__gist { display: inline; overflow: visible; }
+/* A thought that is still arriving is one line, whatever its words: its height
+   must not change as they stream, or the thread under it jumps. The gist shows
+   its end, the latest words; what does not fit is cut on the left. The gist
+   is as wide as its words until the line is full, so a short one still sits
+   by the verb. */
+.cx-step--thought.cx-step--live .cx-step__line {
+  display: flex;
+  gap: 0;
+  -webkit-box-orient: horizontal;
+  -webkit-line-clamp: none;
+  line-clamp: none;
+  white-space: nowrap;
+}
+.cx-step--thought.cx-step--live .cx-step__gist {
+  display: flex;
+  flex: 0 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
+  overflow: hidden;
+}
 
 /* The running step: its label shimmers. One at a time. Under reduced motion it
    is plain text; the spinner and the dots still say that it runs. */
