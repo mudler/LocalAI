@@ -63,5 +63,11 @@ int main() {
     check(!llama_grpc::parse_draft_sampling("random"), "unknown sampling", "random");
     check(!llama_grpc::parse_draft_sampling(""), "empty sampling", "");
 
+    check(llama_grpc::parse_switch("true") == true, "switch true", "true");
+    check(llama_grpc::parse_switch("On") == true, "switch On", "On");
+    check(llama_grpc::parse_switch("disabled") == false, "switch disabled", "disabled");
+    check(llama_grpc::parse_switch("0") == false, "switch 0", "0");
+    check(!llama_grpc::parse_switch("maybe"), "unknown switch", "maybe");
+
     return failures == 0 ? 0 : 1;
 }

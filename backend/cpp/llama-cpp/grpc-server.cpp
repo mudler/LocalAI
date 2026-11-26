@@ -81,6 +81,7 @@
 #include "backend_sampling.h"
 #include "grammar_engine.h"
 #include "parallel_params.h"
+#include "serving_policy.h"
 #include "slot_cache.h"
 #include "message_content.h"
 #include "moe_cache_option.h"
@@ -720,6 +721,14 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     std::optional<int> parallel_option;
     // Initialize grpc_servers to empty (can be overridden by options)
     std::string grpc_servers_option = "";
+    // Paged serving (serving_policy.h, patches/0002-paged-serving.patch).
+    // Held here and applied after the loop, because paged_kv changes the
+    // default slot count and a fork without the hooks only warns.
+    bool paged_kv = false;
+    std::optional<bool> paged_preempt;
+    int kv_pool_tokens = 0;
+    int prefill_budget = 0;
+    int kv_output_reserve = 256;
 
     // Initialize fit_params options (can be overridden by options)
     // fit_params: whether to auto-adjust params to fit device memory (default: true as in llama.cpp)
@@ -877,6 +886,30 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 } catch (const std::exception& e) {
                     // If conversion fails, fall back to the environment/default
                 }
+            }
+        } else if (!strcmp(optname, "paged_kv") || !strcmp(optname, "paged_serving")) {
+            if (const auto v = llama_grpc::parse_switch(optval_str)) {
+                paged_kv = *v;
+            } else {
+                SRV_WRN("%s: ignoring invalid value '%s' (expected true or false)\n", optname, optval_str.c_str());
+            }
+        } else if (!strcmp(optname, "paged_preempt")) {
+            if (const auto v = llama_grpc::parse_switch(optval_str)) {
+                paged_preempt = *v;
+            } else {
+                SRV_WRN("paged_preempt: ignoring invalid value '%s' (expected true or false)\n", optval_str.c_str());
+            }
+        } else if (!strcmp(optname, "kv_pool_tokens") || !strcmp(optname, "prefill_budget") ||
+                   !strcmp(optname, "max_prefill_tokens") || !strcmp(optname, "kv_output_reserve")) {
+            const auto n = llama_grpc::parse_non_negative_int(optval_str);
+            if (!n) {
+                SRV_WRN("%s: ignoring invalid value '%s' (expected a non-negative integer)\n", optname, optval_str.c_str());
+            } else if (!strcmp(optname, "kv_pool_tokens")) {
+                kv_pool_tokens = *n;
+            } else if (!strcmp(optname, "kv_output_reserve")) {
+                kv_output_reserve = *n;
+            } else {
+                prefill_budget = *n;
             }
         } else if (!strcmp(optname, "grpc_servers") || !strcmp(optname, "rpc_servers")) {
             if (optval != NULL) {
@@ -1641,10 +1674,42 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // The model options win over LLAMACPP_PARALLEL, including an explicit
     // parallel:1 (previously indistinguishable from the default and replaced
     // by the environment value).
-    params.n_parallel = llama_grpc::resolve_n_parallel(parallel_option, std::getenv("LLAMACPP_PARALLEL"));
+    //
+    // paged_kv shares one KV pool between the slots, so with the default single
+    // slot it would do nothing: it defaults to more slots. An explicit parallel,
+    // in the options or in LLAMACPP_PARALLEL, always wins.
+#if LOCALAI_HAS_SERVING_POLICY
+    const bool paged_active = paged_kv;
+#else
+    const bool paged_active = false;
+#endif
+    const char * parallel_env = std::getenv("LLAMACPP_PARALLEL");
+    params.n_parallel = llama_grpc::resolve_n_parallel(parallel_option, parallel_env,
+                                                       paged_active ? serving_policy::paged_default_parallel : 1);
+    if (paged_active && !parallel_option && parallel_env == nullptr) {
+        SRV_INF("paged_kv: parallel is not set, using %d slots\n", params.n_parallel);
+    }
     if (params.n_parallel > 1) {
         params.cont_batching = true;
     }
+
+    // The total KV pool of paged serving. It is the context size, named for
+    // what it means when the slots share it.
+    if (kv_pool_tokens > 0) {
+        params.n_ctx = kv_pool_tokens;
+    }
+#if LOCALAI_HAS_SERVING_POLICY
+    params.paged_serving     = paged_kv;
+    params.paged_preempt     = paged_kv && paged_preempt.value_or(true);
+    params.prefill_budget    = prefill_budget;
+    params.kv_output_reserve = kv_output_reserve;
+#else
+    if (paged_kv || prefill_budget > 0) {
+        SRV_WRN("%s", "paged_kv and prefill_budget: this llama.cpp build has no paged serving hooks, ignoring\n");
+    }
+    (void) paged_preempt;
+    (void) kv_output_reserve;
+#endif
 
     // Add RPC devices from option or environment variable (fallback)
     if (!grpc_servers_option.empty()) {
@@ -2783,6 +2848,21 @@ public:
             result->set_message(error_msg);
             result->set_success(false);
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, error_msg);
+        }
+#endif
+
+#if LOCALAI_HAS_SERVING_POLICY
+        if (params.paged_serving) {
+            const std::string error_msg = serving_policy::check_paged_options(
+                params.kv_unified, params.ctx_shift, params.cont_batching);
+            if (!error_msg.empty()) {
+                result->set_message(error_msg);
+                result->set_success(false);
+                return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, error_msg);
+            }
+            if (params.n_parallel <= 1) {
+                SRV_WRN("%s", "paged_kv: parallel is 1, a single slot gets nothing from paged serving\n");
+            }
         }
 #endif
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #pragma once
 
 // Scheduling decisions of the paged serving mode (model options paged_kv,
@@ -14,6 +16,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace serving_policy {
@@ -51,7 +54,7 @@ inline int64_t effective_reserve(int64_t reserve, int64_t n_predict) {
 
 enum class admit_result {
     ADMIT,      // start (or resume) the prompt now
-    PURGE_IDLE, // drop the cached cells of one idle slot, then ask again
+    PURGE_IDLE, // drop the cached cells of one idle or waiting slot, then ask again
     WAIT,       // try again in a later step
 };
 
@@ -61,7 +64,7 @@ struct pool_view {
     int64_t n_used        = 0;     // cells held by every other slot (estimate, may count shared cells twice)
     int64_t n_pending     = 0;     // cells the other running slots still claim, see slot_claim()
     int32_t n_active      = 0;     // other slots that are admitted and still running
-    bool    idle_cells    = false; // an idle slot still holds cached cells
+    bool    idle_cells    = false; // an idle or waiting slot still holds cached cells it can drop
     bool    older_waiting = false; // an older request waits for admission (first come, first served)
 };
 
@@ -134,6 +137,26 @@ inline int pick_victim(const std::vector<victim_candidate> & c) {
         }
     }
     return best;
+}
+
+// Slot count when paged_kv is on and neither the model options nor the
+// environment set parallel: with one slot the pool has a single user and
+// the mode does nothing.
+constexpr int paged_default_parallel = 8;
+
+// Checks the options that paged serving cannot run with. Returns an empty
+// string when they are fine, otherwise the error for LoadModel.
+inline std::string check_paged_options(bool kv_unified, bool ctx_shift, bool cont_batching) {
+    if (!kv_unified) {
+        return "paged_kv needs the unified KV cache; remove kv_unified:false or paged_kv";
+    }
+    if (ctx_shift) {
+        return "paged_kv cannot be used with context_shift; remove context_shift or paged_kv";
+    }
+    if (!cont_batching) {
+        return "paged_kv needs continuous batching; remove cont_batching:false or paged_kv";
+    }
+    return "";
 }
 
 } // namespace serving_policy

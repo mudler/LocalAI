@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #include "serving_policy.h"
 
 #include <cstdio>
@@ -130,6 +132,14 @@ static void test_pick_victim() {
     EXPECT(pick_victim(mix) == 0, "old resumable before young non-resumable");
 }
 
+static void test_checks() {
+    EXPECT(check_paged_options(true, false, true).empty(), "defaults are fine");
+    EXPECT(check_paged_options(false, false, true).find("kv_unified") != std::string::npos, "kv_unified:false is an error");
+    EXPECT(check_paged_options(true, true, true).find("context_shift") != std::string::npos, "context_shift is an error");
+    EXPECT(check_paged_options(true, false, false).find("cont_batching") != std::string::npos, "cont_batching:false is an error");
+    EXPECT(paged_default_parallel == 8, "paged_kv defaults to 8 slots");
+}
+
 int main() {
     test_prefill_budget();
     test_effective_reserve();
@@ -137,6 +147,7 @@ int main() {
     test_claim();
     test_demand();
     test_pick_victim();
+    test_checks();
     if (failures > 0) {
         std::fprintf(stderr, "%d serving policy check(s) failed\n", failures);
         return 1;

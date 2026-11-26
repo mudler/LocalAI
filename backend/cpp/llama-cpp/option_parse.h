@@ -91,6 +91,18 @@ inline std::optional<int> parse_enable_reasoning(const std::string & value, bool
     return std::nullopt;
 }
 
+// parse_switch parses an on/off option. A bare option name arrives as "true".
+inline std::optional<bool> parse_switch(const std::string & value) {
+    const std::string v = option_parse_detail::lower(value);
+    if (v == "true" || v == "1" || v == "yes" || v == "on" || v == "enabled") {
+        return true;
+    }
+    if (v == "false" || v == "0" || v == "no" || v == "off" || v == "disabled") {
+        return false;
+    }
+    return std::nullopt;
+}
+
 enum class draft_sampling { greedy, probabilistic };
 
 // parse_draft_sampling parses spec_draft_sampling (upstream
