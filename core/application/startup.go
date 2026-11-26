@@ -34,6 +34,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
 	"github.com/mudler/LocalAI/pkg/signals"
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/vram"
 
 	"github.com/mudler/LocalAI/pkg/model"
@@ -185,6 +186,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		// it is recreated.
 		cosignverify.SetDefaultTUFCachePath(filepath.Join(options.DataPath, "cache", "sigstore"))
 	}
+	warnUnwritableFolders(options)
 	// Initialize auth database if auth is enabled
 	if options.Auth.Enabled {
 		// Auto-generate HMAC secret if not provided
@@ -916,4 +918,34 @@ func workspaceStartupCleanup(ctx context.Context, options *config.ApplicationCon
 			}
 		}
 	}
+}
+
+// containerPermissionsDocs is the docs section on the user a container runs
+// as and the folders it must be able to write.
+const containerPermissionsDocs = "https://localai.io/docs/start/install/containers/#container-user-and-permissions"
+
+// warnUnwritableFolders logs one warning that names every folder LocalAI
+// writes to but cannot. A folder that exists passes MkdirAll even when this
+// user cannot write it, so without this check the failure shows only at the
+// first install or upload. It never stops the start: a server that cannot
+// install can still serve the models it has.
+func warnUnwritableFolders(options *config.ApplicationConfig) {
+	home, _ := os.UserHomeDir()
+	folders := []system.Folder{
+		{Name: "models", Path: options.SystemState.Model.ModelsPath},
+		{Name: "backends", Path: options.SystemState.Backend.BackendsPath},
+		{Name: "data", Path: options.DataPath},
+		{Name: "config", Path: options.DynamicConfigsDir},
+		{Name: "generated", Path: options.GeneratedContentDir},
+		{Name: "upload", Path: options.UploadDir},
+		{Name: "staging", Path: options.SystemState.StagingPath},
+		{Name: "home", Path: home},
+		{Name: "temp", Path: os.TempDir()},
+	}
+	bad := system.CheckWritable(folders)
+	if len(bad) == 0 {
+		return
+	}
+	xlog.Warn("LocalAI cannot write to some of its folders; installs, uploads and caches that use them will fail. Give the folders to the user LocalAI runs as, or run it as their owner. See "+containerPermissionsDocs,
+		"folders", system.FormatUnwritable(bad), "uid", os.Getuid(), "gid", os.Getgid())
 }
