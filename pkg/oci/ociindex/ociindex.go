@@ -35,7 +35,7 @@ type Options struct {
 	CacheDir string
 
 	// CacheTTL is how long an unpacked copy is served without asking the
-	// registry again.
+	// registry again. Zero or less means that every fetch asks the registry.
 	CacheTTL time.Duration
 
 	// MaxLayers and MaxBytes cap what a hostile or mistaken publisher can
@@ -159,7 +159,9 @@ func readCached(o Options) ([]byte, bool) {
 	if err != nil || !info.IsDir() {
 		return nil, false
 	}
-	if time.Since(info.ModTime()) > o.CacheTTL {
+	// A zero TTL is checked on its own: with a coarse clock (Windows), a
+	// copy written in the same tick is zero seconds old, and 0 > 0 is false.
+	if o.CacheTTL <= 0 || time.Since(info.ModTime()) > o.CacheTTL {
 		return nil, false
 	}
 	// #nosec G304 -- CacheDir is the caller's own construction and the file

@@ -100,6 +100,26 @@ var _ = Describe("Fetch", func() {
 		Expect(requests.Load()).To(BeZero(), "the registry was contacted although the cache was fresh")
 	})
 
+	It("asks the registry on every fetch when the TTL is zero", func() {
+		srv, requests := countingRegistry()
+		ref := push(srv.URL, "libs/zero", testType, "index.yaml", testIndex)
+		o := options()
+		o.CacheTTL = 0
+		_, err := ociindex.Fetch(context.Background(), ref, o)
+		Expect(err).ToNot(HaveOccurred())
+
+		// On a coarse clock the copy can be zero seconds old at the next
+		// fetch. A modification time a little ahead of the clock makes that
+		// case certain here, so only the TTL can send the fetch on.
+		soon := time.Now().Add(time.Second)
+		Expect(os.Chtimes(o.CacheDir, soon, soon)).To(Succeed())
+		requests.Store(0)
+		body, err := ociindex.Fetch(context.Background(), ref, o)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(body)).To(Equal(testIndex))
+		Expect(requests.Load()).ToNot(BeZero(), "a copy was served without asking the registry although the TTL is zero")
+	})
+
 	It("refreshes a stale cache entry", func() {
 		srv, requests := countingRegistry()
 		ref := push(srv.URL, "libs/stale", testType, "index.yaml", testIndex)
