@@ -1224,7 +1224,7 @@ agent-worker-1:
     - agent_worker_1_data:/data
 ```
 
-The container does not run LocalAI as root. Its entrypoint adds the group that owns `/var/run/docker.sock` to the user of LocalAI, so the agent worker can use the socket. Access to the Docker socket is equal to root access on the host. See [Container user and permissions]({{% relref "/start/install/containers#container-user-and-permissions" %}}).
+The container does not run LocalAI as root. Its entrypoint adds the group that owns `/var/run/docker.sock` to the user of LocalAI, so the agent worker can use the socket. Access to the Docker socket is equal to root access on the host. When root owns the socket with group `root`, as on Docker Desktop, the user cannot join that group: set `LOCALAI_RUN_AS_ROOT=true` there. See [Container user and permissions]({{% relref "/start/install/containers#container-user-and-permissions" %}}).
 
 Backend workers also install backends. Mount a volume on `/backends` of each worker, so that a recreated container does not download them again.
 

@@ -590,7 +590,7 @@ volumes:
   configuration:
 ```
 
-LocalAI does not run as root in the container. The entrypoint adds the group that owns `/var/run/docker.sock` to the user of LocalAI, so the MCP servers can use the socket. Access to the Docker socket is equal to root access on the host. Use it only on a host that you trust. See [Container user and permissions]({{% relref "/start/install/containers#container-user-and-permissions" %}}).
+LocalAI does not run as root in the container. The entrypoint adds the group that owns `/var/run/docker.sock` to the user of LocalAI, so the MCP servers can use the socket. Access to the Docker socket is equal to root access on the host. Use it only on a host that you trust. When root owns the socket with group `root`, as on Docker Desktop, the user cannot join that group: set `LOCALAI_RUN_AS_ROOT=true` there. See [Container user and permissions]({{% relref "/start/install/containers#container-user-and-permissions" %}}).
 
 To use a Docker-in-Docker (`docker:dind`) service instead of the socket, set `DOCKER_HOST`, `DOCKER_TLS_VERIFY` and `DOCKER_CERT_PATH` and mount its client certificates. The user of LocalAI must be able to read the certificate files.
 

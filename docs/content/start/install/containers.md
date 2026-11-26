@@ -269,18 +269,35 @@ to the selected user, so the entrypoint does not change them. When the image
 has no user for the selected uid, the entrypoint adds one.
 
 The entrypoint also adds the groups that own `/dev/kvm`, `/dev/kfd`, `/dev/dri/*`
-and `/var/run/docker.sock` when you pass them to the container. Access to the
-Docker socket is equal to root access on the host, so mount it only when you
-need it.
+and `/var/run/docker.sock` when you pass them to the container. It never adds
+group 0 (root).
+
+{{% callout style="warning" %}}
+Access to the Docker socket is equal to root access on the host. Mount
+`/var/run/docker.sock` only into a container that needs it, and only on a host
+that you trust.
+{{% /callout %}}
+
+When root owns the socket with group `root`, as on Docker Desktop, the
+entrypoint cannot give the user access to it. To use the socket there, set
+`LOCALAI_RUN_AS_ROOT=true`.
 
 The home folder of the user is `/data/home`. The backends keep their caches
 there, for example the caches of the Python backends. LocalAI keeps the
 Sigstore trust data, which verifies signed add-ons and backends, in
 `/data/cache/sigstore`. These caches stay when you recreate the container.
 
-At startup, LocalAI logs one `WARN` line that names each folder it cannot
-write, with the user it runs as. If you see this line, use the list below to
-correct the setup.
+At startup, LocalAI checks that it can write to its folders: models, backends,
+data, configuration, generated content, uploads, download staging, the home
+folder and the temporary folder. If it cannot write to one of them, it logs one
+line and continues to start:
+
+```
+WARN LocalAI cannot write to some of its folders; installs, uploads and caches that use them will fail. Give the folders to the user LocalAI runs as, or run it as their owner. See https://localai.io/docs/start/install/containers/#container-user-and-permissions folders="..." uid=... gid=...
+```
+
+`folders` names each folder and its owner. `uid` and `gid` are the user that
+LocalAI runs as. If you see this line, use the list below to correct the setup.
 
 Select the setup that matches your installation:
 
@@ -300,9 +317,12 @@ Select the setup that matches your installation:
   belong to a known user, for example the user of a NAS share. This setting
   always has priority. The entrypoint gives the data folders to that user.
 - **`docker run --user`, Compose `user:`, Kubernetes `runAsUser`.** The
-  entrypoint then does nothing: it changes no owner and adds no group. The data
-  folders must already be writable by that user. Add the groups of the GPU
-  devices yourself with `--group-add` (Compose `group_add:`).
+  entrypoint then changes no owner and adds no group. The data folders must
+  already be writable by that user. Add the groups of the GPU devices yourself
+  with `--group-add` (Compose `group_add:`). When the home folder of that user
+  is missing or not writable, the entrypoint uses `/data/home`. When `/data`
+  is not writable either, it uses a folder in `/tmp`, and the caches are lost
+  when the container stops.
 - **Rootless Podman.** Map your host user to uid 10001 in the container, so
   that the folders on the host stay owned by you:
 
@@ -321,7 +341,7 @@ Select the setup that matches your installation:
   host get a uid from the subordinate range of your user, not your own uid.
 - **Read-only root file system.** All data that LocalAI writes goes to the four
   volumes. Backends and some features also need a temporary folder, so mount
-  `/tmp` as a `tmpfs`:
+  `/tmp` as a `tmpfs`. This setup should work, but it is not tested in CI yet:
 
   ```yaml
   services:
@@ -343,7 +363,8 @@ Select the setup that matches your installation:
 {{% callout style="note" %}}
 LocalAI 5.0.1 and earlier always run as uid 10001 unless `LOCALAI_UID` is set,
 use `/home/localai` as the home folder, keep generated content and uploads
-under `/tmp`, and do not add the group of the Docker socket.
+under `/tmp`, do not add the group of the Docker socket, and do not log the
+`WARN` line about folders. Later images do all of this as described above.
 {{% /callout %}}
 
 ## Next Steps
@@ -414,11 +435,11 @@ This indicates a Docker/NVIDIA Container Toolkit configuration issue. The contai
 ### An add-on install fails with "invalid or unverified addon package"
 
 LocalAI checks the signature of each add-on with Sigstore. It downloads the
-Sigstore trust data once and keeps it in a cache in `/data/cache/sigstore`
-(in the home folder on LocalAI 5.0.1). The log line after the error names the
-check that failed.
+Sigstore trust data once and keeps it in a cache in `/data/cache/sigstore`.
+The log line after the error names the check that failed.
 
-On LocalAI 5.0.1, these causes are frequent:
+The causes below occur on LocalAI 5.0.1, which keeps the cache in the home
+folder `/home/localai`. They are fixed in later images. On 5.0.1:
 
 - **A failed download of the trust data.** LocalAI 5.0.1 does not try the
   download again until it restarts. Restart the container
@@ -426,8 +447,8 @@ On LocalAI 5.0.1, these causes are frequent:
   the add-on again.
 - **`LOCALAI_UID` or `LOCALAI_GID` is set.** The home folder `/home/localai`
   stays owned by uid 10001, so LocalAI cannot write its cache. Remove the two
-  variables and recreate the container. Or give the home folder to your user
-  and restart. This lasts until the container is recreated:
+  variables and recreate the container. Or, on 5.0.1, chown `/home/localai` to
+  your user and restart. This lasts until the container is recreated:
 
   ```bash
   docker compose exec -u 0 localai chown -R <uid>:<gid> /home/localai

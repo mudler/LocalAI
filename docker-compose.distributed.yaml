@@ -313,7 +313,8 @@ services:
     # The Docker socket is mounted from the host so that MCP stdio servers
     # using "docker run" commands can spawn containers on the host Docker.
     # The entrypoint adds the group that owns the socket to the unprivileged
-    # user. Access to the socket is equal to root access on the host.
+    # user. Access to the socket is equal to root access on the host. A socket
+    # owned by root:root (Docker Desktop) needs LOCALAI_RUN_AS_ROOT=true.
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |

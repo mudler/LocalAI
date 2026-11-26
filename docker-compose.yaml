@@ -70,8 +70,9 @@ services:
     # devices:
     #   - /dev/dri
 
-    # The container starts as root, gives the data folders to uid 10001 and
-    # runs LocalAI as that user, with the groups of the GPU devices above.
+    # The container starts as root, then runs LocalAI as uid 10001, or as the
+    # owner of bind-mounted ./data and ./models, with the groups of the GPU
+    # devices above. See "Container user and permissions" in the docs.
 
   ## PostgreSQL for the knowledge base (collections). Uncomment this service,
   ## the postgres_data volume below, and these lines in `environment`:
