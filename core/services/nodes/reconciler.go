@@ -1242,12 +1242,10 @@ func (rc *ReplicaReconciler) scaleUp(ctx context.Context, cfg ModelSchedulingCon
 	results := make([]outcome, count)
 	var wg sync.WaitGroup
 	for i := range count {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			node, err := rc.scheduler.ScheduleAndLoadModel(ctx, model, candidateNodeIDs)
 			results[i] = outcome{node, err}
-		}()
+		})
 	}
 	wg.Wait()
 

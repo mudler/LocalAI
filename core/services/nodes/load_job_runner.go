@@ -94,7 +94,7 @@ func (r *SmartRouter) joinOrStartLoad(ctx context.Context, att *routeAttempt) (L
 		return LoadJobRef{}, nil, fmt.Errorf("reading the loads of model %s: %w", att.trackingKey, err)
 	}
 	now := time.Now()
-	live := r.matchingLiveJobs(att, jobs, now)
+	live := matchingLiveJobs(att, jobs, now)
 	if target := MostAdvancedLoadJob(r.progressingJobs(live, now)); target != nil {
 		xlog.Info("Model is already loading; waiting for it",
 			"model", att.trackingKey, "state", target.State, "node", target.NodeName, "owner", target.OwnerReplica)
@@ -151,13 +151,19 @@ func liveLoadJob(job *ModelLoadJob, now time.Time) bool {
 	return job.State != LoadJobStateFailed && job.LeaseUntil != nil && job.LeaseUntil.After(now)
 }
 
+// holdsNode reports whether job is a failed load whose stop window has not
+// passed yet, so its node is still held for it.
+func holdsNode(job *ModelLoadJob, now time.Time) bool {
+	return job.State == LoadJobStateFailed && (job.StopDeadline == nil || job.StopDeadline.After(now))
+}
+
 // heldLoadJob returns the failed job that still holds its node the longest, or
 // nil.
 func heldLoadJob(jobs []ModelLoadJob, now time.Time) *ModelLoadJob {
 	var held []ModelLoadJob
-	for _, j := range jobs {
-		if j.State == LoadJobStateFailed && (j.StopDeadline == nil || j.StopDeadline.After(now)) {
-			held = append(held, j)
+	for i := range jobs {
+		if holdsNode(&jobs[i], now) {
+			held = append(held, jobs[i])
 		}
 	}
 	return MostAdvancedLoadJob(held)
@@ -174,7 +180,7 @@ func busyLoadNodes(jobs []ModelLoadJob, now time.Time) []string {
 		if j.NodeID == "" {
 			continue
 		}
-		if liveLoadJob(j, now) || j.State == LoadJobStateFailed && (j.StopDeadline == nil || j.StopDeadline.After(now)) {
+		if liveLoadJob(j, now) || holdsNode(j, now) {
 			out = append(out, j.NodeID)
 		}
 	}
@@ -184,7 +190,7 @@ func busyLoadNodes(jobs []ModelLoadJob, now time.Time) []string {
 // matchingLiveJobs returns the live jobs that load on a node the request may
 // use. A load on a node the rule excludes cannot serve this request, so it is
 // not waited on. A job with no node yet (an older binary) is kept.
-func (r *SmartRouter) matchingLiveJobs(att *routeAttempt, jobs []ModelLoadJob, now time.Time) []ModelLoadJob {
+func matchingLiveJobs(att *routeAttempt, jobs []ModelLoadJob, now time.Time) []ModelLoadJob {
 	var out []ModelLoadJob
 	for i := range jobs {
 		j := &jobs[i]
