@@ -42,6 +42,10 @@ The image builds link llguidance (`LLGUIDANCE=ON` in `.docker/llama-cpp-compile.
 - Uses shared server infrastructure: `server-context.cpp`, `server-task.cpp`, `server-queue.cpp`, `server-common.cpp`
 - The gRPC server mirrors the HTTP server's functionality but uses gRPC instead of HTTP
 
+## Patches to llama.cpp
+
+`prepare.sh` applies `backend/cpp/llama-cpp/patches/*.patch` to the pinned checkout: the score task (0001) and the paged serving hooks (0002: admission, preemption with resume by recompute, prefill budget; options `paged_kv`, `prefill_budget`, `kv_output_reserve`, `paged_preempt`, `kv_pool_tokens`). Read [backend/cpp/llama-cpp/PATCHES.md](../backend/cpp/llama-cpp/PATCHES.md) before you bump llama.cpp or touch a patch: it lists each hook, the upstream invariants it relies on, the re-porting steps and the upstream changes to watch (`upstream-watch.sh`). The paged serving policy is in `serving_policy.h`, tested by `serving_policy_test.cpp`.
+
 ## Common Issues When Updating llama.cpp
 
 When fixing compilation errors after upstream changes:

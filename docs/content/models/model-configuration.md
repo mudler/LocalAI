@@ -857,6 +857,11 @@ These llama.cpp options are passed through the `options:` array.
 | `n_cpu_moe` | int | 0 | Keep MoE expert weights of the first N main-model layers on CPU (upstream `--n-cpu-moe`). |
 | `n_cpu_ffn` | int | 0 | Keep the dense FFN weights of the first N main-model layers on CPU (upstream `--n-cpu-ffn`). The counterpart of `n_cpu_moe` for dense models. A negative or non-numeric value is ignored with a warning. |
 | `kv_unified_per_slot` | int | 0 (unset) | Context limit per parallel slot (upstream `--kv-unified-per-slot`). Without `context_size`, the shared KV cache is sized to `parallel` times this value. |
+| `paged_kv` / `paged_serving` | bool | `false` | Paged serving: admission control and preemption over the shared KV pool, see [Paged serving]({{%relref "/models/capabilities/text/text-generation#paged-serving" %}}). Sets `parallel` to 8 when it is not set. Cannot be combined with `kv_unified:false`, `context_shift` or `cont_batching:false`. |
+| `kv_pool_tokens` | int | `context_size` | Total KV pool in tokens for paged serving. Sets the context size. |
+| `prefill_budget` / `max_prefill_tokens` | int | `0` (off) | Prompt tokens read per step while other requests generate. Works without `paged_kv`. |
+| `kv_output_reserve` | int | `256` | With `paged_kv`: free cells a request needs beyond its prompt to start, capped at its max tokens. |
+| `paged_preempt` | bool | `true` with `paged_kv` | With `paged_kv`: preempt the youngest request when the pool runs out. |
 | `yarn_orig_ctx` | int | 0 (model value) | Original context size of the model for YaRN scaling (upstream `--yarn-orig-ctx`). |
 
 #### Generic option passthrough
