@@ -96,6 +96,10 @@ var _ = Describe("the text index of the GORM store on SQLite", func() {
 		db := openSQLite(filepath.Join(GinkgoT().TempDir(), "studio.db"))
 		s, err := store.NewGORM(db)
 		Expect(err).NotTo(HaveOccurred())
+		// A backfill that starts late can index the chat again after the
+		// delete; searches ignore that row and the backfill drops it at the
+		// end. Let it finish first, so the count is about the delete only.
+		waitIndexed(s)
 		ctx := context.Background()
 		Expect(s.CreateChat(ctx, session.ChatRecord{ID: "c1", Principal: "alice", Title: "t", Created: time.Now(), Updated: time.Now()})).To(Succeed())
 		_, err = s.AppendEntry(ctx, "c1", session.Entry{Role: session.RoleUser, Text: "hello"})
