@@ -338,7 +338,7 @@ var _ = Describe("Load job generation fencing", func() {
 			waitCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
 			defer cancel()
 			waiter := router.loadWaiterChan(loadWaiterKey(job.Ref()))
-			served, err := router.waitForLoadJob(waitCtx, &routeAttempt{trackingKey: "leaving"}, job.Ref(), waiter)
+			served, err := router.waitForLoadJob(waitCtx, &routeAttempt{trackingKey: "leaving"}, waitTargetOf(job), waiter)
 			Expect(served).To(BeNil())
 			Expect(err).To(HaveOccurred())
 			router.loadWaitersMu.Lock()

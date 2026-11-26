@@ -49,7 +49,7 @@ func (r *SmartRouter) routeViaLoadJob(ctx context.Context, att *routeAttempt) (*
 	}
 
 	for range maxColdLoadRounds {
-		ref, served, err := r.joinOrStartLoad(ctx, att)
+		target, served, err := r.joinOrStartLoad(ctx, att)
 		if served != nil || err != nil {
 			return served, err
 		}
@@ -57,8 +57,8 @@ func (r *SmartRouter) routeViaLoadJob(ctx context.Context, att *routeAttempt) (*
 		// The waiter is keyed by the generation it waits for, so the end of an
 		// older attempt can never wake it. A job that ended before this
 		// registration is caught by the authority check inside waitForLoadJob.
-		waiter := r.loadWaiterChan(loadWaiterKey(ref))
-		served, err = r.waitForLoadJob(waitCtx, att, ref, waiter)
+		waiter := r.loadWaiterChan(loadWaiterKey(target.ref))
+		served, err = r.waitForLoadJob(waitCtx, att, target, waiter)
 		if served != nil {
 			return served, nil
 		}
@@ -80,25 +80,36 @@ func (r *SmartRouter) routeViaLoadJob(ctx context.Context, att *routeAttempt) (*
 	return nil, fmt.Errorf("loading model %s: the load finished but the model is not available", att.trackingKey)
 }
 
+// loadWaitTarget is the attempt a request waits on, and its node. The node
+// finds a row that has no generation yet (see jobOfWait).
+type loadWaitTarget struct {
+	ref    LoadJobRef
+	nodeID string
+}
+
+func waitTargetOf(job *ModelLoadJob) loadWaitTarget {
+	return loadWaitTarget{ref: job.Ref(), nodeID: job.NodeID}
+}
+
 // joinOrStartLoad picks the load this request waits on: a live load of the
 // model on a matching node, or a new one it claims and starts. It returns the
 // attempt to wait on, a route when the model turned out to be loaded already,
 // or the error to answer with.
-func (r *SmartRouter) joinOrStartLoad(ctx context.Context, att *routeAttempt) (LoadJobRef, *RouteResult, error) {
+func (r *SmartRouter) joinOrStartLoad(ctx context.Context, att *routeAttempt) (loadWaitTarget, *RouteResult, error) {
 	jobs, err := r.registry.ListLoadJobs(ctx, att.trackingKey)
 	if err != nil {
 		// Without the job rows nothing fences this load, so a load without
 		// them would publish replicas nobody can cancel. Fail the request.
 		// Models that are already loaded keep serving: the warm path does not
 		// read the job table.
-		return LoadJobRef{}, nil, fmt.Errorf("reading the loads of model %s: %w", att.trackingKey, err)
+		return loadWaitTarget{}, nil, fmt.Errorf("reading the loads of model %s: %w", att.trackingKey, err)
 	}
 	now := time.Now()
 	live := matchingLiveJobs(att, jobs, now)
 	if target := MostAdvancedLoadJob(r.progressingJobs(live, now)); target != nil {
 		xlog.Info("Model is already loading; waiting for it",
 			"model", att.trackingKey, "state", target.State, "node", target.NodeName, "owner", target.OwnerReplica)
-		return target.Ref(), nil, nil
+		return waitTargetOf(target), nil, nil
 	}
 
 	// No live load that makes progress on a matching node: start one on a
@@ -110,24 +121,24 @@ func (r *SmartRouter) joinOrStartLoad(ctx context.Context, att *routeAttempt) (L
 		if target := MostAdvancedLoadJob(live); target != nil {
 			xlog.Info("No other node can take the model; waiting for the running load",
 				"model", att.trackingKey, "state", target.State, "node", target.NodeName, "reason", perr)
-			return target.Ref(), nil, nil
+			return waitTargetOf(target), nil, nil
 		}
 		if held := heldLoadJob(jobs, now); held != nil {
-			return LoadJobRef{}, nil, NewLoadHeldError(held)
+			return loadWaitTarget{}, nil, NewLoadHeldError(held)
 		}
 		if errors.Is(perr, ErrLoadInProgress) {
 			// Every node the model may use loads it already, but none of
 			// those loads is one this request can wait on (the rule changed
 			// under it, for example). Nothing failed: the HTTP layer answers
 			// 503 with Retry-After for ErrNoAvailableNodes, not 500.
-			return LoadJobRef{}, nil, fmt.Errorf("%w: %w", perr, ErrNoAvailableNodes)
+			return loadWaitTarget{}, nil, fmt.Errorf("%w: %w", perr, ErrNoAvailableNodes)
 		}
-		return LoadJobRef{}, nil, perr
+		return loadWaitTarget{}, nil, perr
 	}
 
 	job, claimed, err := r.registry.ClaimLoadJobOn(ctx, att.trackingKey, placed.node.ID, ReplicaID())
 	if err != nil {
-		return LoadJobRef{}, nil, fmt.Errorf("claiming the load of model %s on node %s: %w", att.trackingKey, placed.node.Name, err)
+		return loadWaitTarget{}, nil, fmt.Errorf("claiming the load of model %s on node %s: %w", att.trackingKey, placed.node.Name, err)
 	}
 	switch {
 	case claimed:
@@ -136,7 +147,7 @@ func (r *SmartRouter) joinOrStartLoad(ctx context.Context, att *routeAttempt) (L
 		// second copy of a model that is already up.
 		if result := r.tryWarmPath(ctx, att); result != nil {
 			_ = r.finishLoadJob(ctx, job.Ref()) // already logged; the warm result stands
-			return LoadJobRef{}, result, nil
+			return loadWaitTarget{}, result, nil
 		}
 		// The placement evicts only now, when this load is ours and still
 		// needed. A failure releases the claim instead of failing the job:
@@ -144,19 +155,19 @@ func (r *SmartRouter) joinOrStartLoad(ctx context.Context, att *routeAttempt) (L
 		// failed row would hold the node for its report window.
 		if err := r.makeRoom(ctx, att.trackingKey, placed); err != nil {
 			_ = r.finishLoadJob(ctx, job.Ref())
-			return LoadJobRef{}, nil, err
+			return loadWaitTarget{}, nil, err
 		}
 		r.startLoadJob(ctx, att, job.Ref(), placed)
 	case job.State == LoadJobStateFailed:
 		// Inside the failure grace window of that node: report the real cause
 		// rather than silently starting a fresh load of a model that just
 		// failed there.
-		return LoadJobRef{}, nil, NewLoadHeldError(job)
+		return loadWaitTarget{}, nil, NewLoadHeldError(job)
 	default:
 		xlog.Info("Model is already loading on another replica; waiting for it",
 			"model", att.trackingKey, "state", job.State, "node", job.NodeName, "owner", job.OwnerReplica)
 	}
-	return job.Ref(), nil, nil
+	return waitTargetOf(job), nil, nil
 }
 
 // liveLoadJob reports whether job is a running attempt whose owner still holds
@@ -554,12 +565,13 @@ func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, ref LoadJobR
 // running, for example one the reconciler loaded, or a faster node. The request
 // is served from it at once and the job keeps running. Without this a request
 // waited for the slowest load in the cluster, not the first ready replica.
-func (r *SmartRouter) waitForLoadJob(ctx context.Context, att *routeAttempt, ref LoadJobRef, waiter <-chan struct{}) (*RouteResult, error) {
+func (r *SmartRouter) waitForLoadJob(ctx context.Context, att *routeAttempt, target loadWaitTarget, waiter <-chan struct{}) (*RouteResult, error) {
+	ref := target.ref
 	defer r.releaseLoadWaiter(loadWaiterKey(ref), waiter)
 
 	// The registration may have come after the job ended; ask the authority
 	// before sleeping on the hint.
-	if done, err := r.checkLoadWait(ctx, ref); done {
+	if done, err := r.checkLoadWait(ctx, target); done {
 		return nil, err
 	}
 
@@ -570,7 +582,7 @@ func (r *SmartRouter) waitForLoadJob(ctx context.Context, att *routeAttempt, ref
 		select {
 		case <-waiter:
 			waiter = nil // closed: do not spin on it
-			if done, err := r.checkLoadWait(ctx, ref); done {
+			if done, err := r.checkLoadWait(ctx, target); done {
 				return nil, err
 			}
 		case <-ctx.Done():
@@ -583,7 +595,7 @@ func (r *SmartRouter) waitForLoadJob(ctx context.Context, att *routeAttempt, ref
 					"model", ref.TrackingKey, "node", result.Node.Name)
 				return result, nil
 			}
-			if done, err := r.checkLoadWait(ctx, ref); done {
+			if done, err := r.checkLoadWait(ctx, target); done {
 				return nil, err
 			}
 		}
@@ -591,10 +603,10 @@ func (r *SmartRouter) waitForLoadJob(ctx context.Context, att *routeAttempt, ref
 }
 
 // checkLoadWait reads the job row and reports whether the wait is over.
-func (r *SmartRouter) checkLoadWait(ctx context.Context, ref LoadJobRef) (bool, error) {
-	job, err := r.registry.GetLoadJobByRef(ctx, ref)
+func (r *SmartRouter) checkLoadWait(ctx context.Context, target loadWaitTarget) (bool, error) {
+	job, err := r.jobOfWait(ctx, target)
 	if err != nil {
-		xlog.Debug("Polling the model load job failed", "model", ref.TrackingKey, "error", err)
+		xlog.Debug("Polling the model load job failed", "model", target.ref.TrackingKey, "error", err)
 		return false, nil
 	}
 	if job == nil {
@@ -606,6 +618,26 @@ func (r *SmartRouter) checkLoadWait(ctx context.Context, ref LoadJobRef) (bool, 
 		return true, NewLoadHeldError(job)
 	}
 	return false, nil
+}
+
+// jobOfWait reads the row of the attempt a request waits on, or nil when it is
+// over. A row with no generation (written before a frontend backfilled it)
+// cannot be read by its generation, so it is read by its model and node; once
+// the row has a generation, it is another attempt, and this one is over.
+func (r *SmartRouter) jobOfWait(ctx context.Context, target loadWaitTarget) (*ModelLoadJob, error) {
+	if target.ref.owned() {
+		return r.registry.GetLoadJobByRef(ctx, target.ref)
+	}
+	jobs, err := r.registry.ListLoadJobs(ctx, target.ref.TrackingKey)
+	if err != nil {
+		return nil, err
+	}
+	for i := range jobs {
+		if jobs[i].NodeID == target.nodeID && !jobs[i].Ref().owned() {
+			return &jobs[i], nil
+		}
+	}
+	return nil, nil
 }
 
 // loadWaiter is the shared wake-up channel for one generation, with a count of
