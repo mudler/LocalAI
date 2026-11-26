@@ -257,25 +257,96 @@ CUDNN9_SUBLIBS=(
     libcudnn_ops
 )
 
+# Sublibraries that only exist from some cuDNN 9 minor version on, keyed by
+# name, valued by that minor. libcudnn_engines_tensor_ir first ships in 9.21.0
+# (its release notes introduce the Tensor IR sub-library, and the
+# nvidia-cudnn-cu12 9.20.0.48 wheel has no such file while 9.21.0.82 does).
+# Older families are complete without it, for example cuDNN 9.3.0 on JetPack
+# r36.4 and the pip cuDNN in the venv of several Python backends.
+declare -gA CUDNN9_SUBLIB_SINCE_MINOR=(
+    [libcudnn_engines_tensor_ir]=21
+)
+
+# Print the cuDNN 9 minor version of the family in a directory, or nothing when
+# it cannot be told. An apt install, and anything copy_lib bundled from one,
+# keeps the version in the real file name (libcudnn.so.9 -> libcudnn.so.9.3.0).
+# pip ships plain .so.9 files, so for a venv the version comes from the header
+# or the dist-info next to the library directory instead.
+cudnn_family_minor() {
+    local dir="$1" f real ver
+
+    for f in "$dir"/libcudnn*.so.9; do
+        [ -e "$f" ] || continue
+        real=$(basename "$(readlink -f "$f")")
+        ver="${real##*.so.}"
+        case "$ver" in
+            9.*)
+                ver="${ver#9.}"
+                echo "${ver%%.*}"
+                return 0
+                ;;
+        esac
+    done
+
+    local header="$dir/../include/cudnn_version.h"
+    if [ -f "$header" ] && grep -Eq '^#define CUDNN_MAJOR 9$' "$header"; then
+        ver=$(sed -n 's/^#define CUDNN_MINOR \([0-9][0-9]*\)$/\1/p' "$header")
+        if [ -n "$ver" ]; then
+            echo "$ver"
+            return 0
+        fi
+    fi
+
+    # site-packages/nvidia/cudnn/lib -> site-packages/nvidia_cudnn_cuXX-9.Y.*.dist-info
+    for f in "$dir"/../../../nvidia_cudnn_cu*-9.*.dist-info; do
+        [ -d "$f" ] || continue
+        ver="${f##*-9.}"
+        echo "${ver%%.*}"
+        return 0
+    done
+}
+
+# Print the cuDNN 9 sonames (without .so.9) a complete family in a directory
+# must have: the dispatcher plus every sublibrary its version ships. When the
+# version cannot be told, every sublibrary is required, so an unknown family is
+# never let off with less than the newest set.
+cudnn9_required_libs() {
+    local minor name since
+    minor=$(cudnn_family_minor "$1")
+
+    echo libcudnn
+    for name in "${CUDNN9_SUBLIBS[@]}"; do
+        since="${CUDNN9_SUBLIB_SINCE_MINOR[$name]:-}"
+        if [ -n "$since" ] && [ -n "$minor" ] && [ "$minor" -lt "$since" ]; then
+            continue
+        fi
+        echo "$name"
+    done
+}
+
 # Classify the cuDNN 9 install in a directory: "complete", "partial" or
 # "absent". Works for both layouts we care about - apt ships versioned real
 # files behind .so.9 symlinks, pip ships plain .so.9 files - because it only
-# ever looks for the .so.9 sonames the loader actually resolves.
+# ever looks for the .so.9 sonames the loader actually resolves. "complete" is
+# relative to what that cuDNN version ships (see cudnn9_required_libs).
 cudnn_family_state() {
     local dir="$1"
     local present=0 missing=0 name
 
     for name in libcudnn "${CUDNN9_SUBLIBS[@]}"; do
-        if [ -e "$dir/${name}.so.9" ]; then
-            present=$((present + 1))
-        else
-            missing=$((missing + 1))
-        fi
+        [ -e "$dir/${name}.so.9" ] && present=$((present + 1))
     done
 
     if [ "$present" -eq 0 ]; then
         echo absent
-    elif [ "$missing" -eq 0 ]; then
+        return 0
+    fi
+
+    for name in $(cudnn9_required_libs "$dir"); do
+        [ -e "$dir/${name}.so.9" ] || missing=$((missing + 1))
+    done
+
+    if [ "$missing" -eq 0 ]; then
         echo complete
     else
         echo partial
@@ -308,7 +379,7 @@ cudnn_is_referenced() {
 # Copy any missing member of the cuDNN 9 family into the target dir.
 #
 # Only the dispatcher is ever a DT_NEEDED, so the sweep can discover it but
-# never the seven sublibraries it dlopen()s. Once anything has pulled cuDNN in,
+# never the sublibraries it dlopen()s. Once anything has pulled cuDNN in,
 # the rest of the family has to be completed by hand or the backend ships the
 # partial set behind issue #10905.
 # Args: $1 = target dir, $2.. = source lib dirs
@@ -326,10 +397,19 @@ complete_cudnn_family() {
                 break
             fi
         done
-        if [ "$found" = false ]; then
+        if [ "$found" = false ] && cudnn9_requires "$dir" "$name"; then
             echo "WARNING: cuDNN is in use but ${name}.so.9 was not found in ${search[*]}" >&2
         fi
     done
+}
+
+# Whether a complete cuDNN 9 family in a directory must have the given soname.
+cudnn9_requires() {
+    local dir="$1" want="$2" name
+    for name in $(cudnn9_required_libs "$dir"); do
+        [ "$name" = "$want" ] && return 0
+    done
+    return 1
 }
 
 # Whether this backend has a Python venv at all, which is what separates the
@@ -423,7 +503,7 @@ verify_cudnn_bundle() {
 
     if [ "$bundle_state" = partial ]; then
         local missing=() sublib
-        for sublib in libcudnn "${CUDNN9_SUBLIBS[@]}"; do
+        for sublib in $(cudnn9_required_libs "$dir"); do
             [ -e "$dir/${sublib}.so.9" ] || missing+=("${sublib}.so.9")
         done
         echo "ERROR: incomplete cuDNN 9 bundle in $dir, missing: ${missing[*]}" >&2
@@ -486,7 +566,7 @@ package_cuda_libs() {
     #
     # Patterns are deliberately per *family* (libfoo*.so*) rather than per
     # soname. Several CUDA components split into sublibraries that the main
-    # library dlopen()s at runtime - cuDNN 9 into eight, TensorRT into
+    # library dlopen()s at runtime - cuDNN 9 into seven or eight, TensorRT into
     # libnvinfer_plugin/libnvinfer_builder_resource, nvRTC into
     # libnvrtc-builtins. dlopen leaves no DT_NEEDED entry, so
     # sweep_transitive_deps cannot find them and every one of them has to be
@@ -1019,6 +1099,9 @@ export -f copy_elf_deps
 export -f sweep_transitive_deps
 export -f copy_rocm_data_dir
 export -f rocm_dep_search_path
+export -f cudnn_family_minor
+export -f cudnn9_required_libs
+export -f cudnn9_requires
 export -f cudnn_family_state
 export -f cudnn_is_referenced
 export -f complete_cudnn_family
