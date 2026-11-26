@@ -99,6 +99,8 @@ type Runtime struct {
 	Admin Admin
 	// Now is the clock; a test fixes it.
 	Now func() time.Time
+	// Sleep waits between the checks of a drain; a test moves the clock.
+	Sleep func(ctx context.Context, d time.Duration) error
 
 	applyMu sync.Mutex
 	jmu     sync.Mutex
