@@ -48,6 +48,8 @@ paired with SRV2), `ROGUE` (peer a, paired with nobody).
 | `limits_live` | An admin changes the circuit limits through the admin protocol; a member can read but not change them; the next circuit reports the new limits and a transfer above them is cut. |
 | `invite_redeem` | A device with only an invite link redeems it through the relay pass; the link works once. |
 | `invite_without_pass` | A link minted without a relay pass does not get a stranger through a gated relay. |
+| `invite_public_hint` | Behind cone NATs, an invite whose only route is a public relay (an open relay with 128 KiB per circuit, named as a hint `h=`) pairs over a hole-punched path; 50 MiB then arrive directly, and no stream uses the relay. |
+| `invite_public_hint_symmetric` | Behind symmetric NATs the same invite fails with "needs a relay" before the code is sent; the invite stays pending, and the same link works after the NATs change to cone. |
 
 ## The commands of the lab binary
 
@@ -61,8 +63,8 @@ of the case, and the harness reads its banner (`PEERID`, `RELAY_ADDR`, `mode:`,
 | Command | Meaning |
 |---|---|
 | `keygen --key F` | Create an identity file if missing, print the peer ID. |
-| `serve --key F [--allow ID]... [--relay ADDR]... [--bootstrap ADDR]... [--listen ADDR]... [--relay-sync] [--relay-backoff D] [--revoke-after D [--revoke-relay-only]] [--invite [--invite-pass=false]]` | A server behind a NAT. Prints `PEERID`, `FIRST_RELAY_ADDR <duration> <addr>`, `REVOKED`, `REDEEMED` and `INVITE <link>`. It serves a small HTTP service (hello, download, SSE, websocket, a half-close protocol) and `POST /api/p2p/redeem`. `--relay-sync` runs the real relay manager: it adds the first `--relay`, pushes the `--allow` set as admin and keeps it in sync. `--invite` mints a link with a relay pass registered through the manager. |
-| `dial PEER --key F [--hint ADDR]... [--relay ADDR --pass CODE] [--mb N] [--quick] [--warmup D] [--wait-direct D] [--timeout D]` | Connect and run checks. Prints `RESULT connect=ok\|fail`, `PATH <kind>`, `PATH_FINAL` and `TEST` lines. A limited relayed path shows the limits that the relay reported. |
+| `serve --key F [--allow ID]... [--relay ADDR]... [--public-relay ADDR]... [--bootstrap ADDR]... [--listen ADDR]... [--relay-sync] [--relay-backoff D] [--revoke-after D [--revoke-relay-only]] [--invite [--invite-pass=false]] [--pair-dir DIR]` | A server behind a NAT. Prints `PEERID`, `FIRST_RELAY_ADDR <duration> <addr>`, `REVOKED`, `REDEEMED`, `INVITE_WARNINGS <list>` and `INVITE <link>`, and an `INVITE_STATUS <id> <status>` line for each invite when it gets `SIGUSR1`. It serves a small HTTP service (hello, download, SSE, websocket, a half-close protocol) and `POST /api/p2p/redeem`. `--relay-sync` runs the real relay manager: it adds the first `--relay`, pushes the `--allow` set as admin and keeps it in sync. `--public-relay` holds a reservation on a relay that the manager does not own, as AutoRelay does with a public relay. `--invite` mints a link through the real pairing service: the manager's relay is its carrier (with a relay pass unless `--invite-pass=false`), the `--public-relay` relays are its hints. `--pair-dir` keeps the invites and devices on disk, so a restarted server still knows a pending invite. |
+| `dial PEER --key F [--hint ADDR]... [--relay-hint ADDR]... [--relay ADDR --pass CODE] [--mb N] [--quick] [--warmup D] [--wait-direct D] [--timeout D]` | Connect and run checks. Prints `RESULT connect=ok\|fail`, `PATH <kind>`, `PATH_FINAL` and `TEST` lines. A limited relayed path shows the limits that the relay reported. `--relay-hint` names a public relay of the peer, like the `h` key of a link: it is used only to set up a hole punch and never carries a stream. |
 | `redeem --link L --key F` | Redeem an invite link with the real pairing client, then connect to the server. Prints `REDEEM ok\|fail`. |
 | `relay-admin --key F --relay ADDR status\|list\|add ID\|remove ID\|pass --code C --ttl D\|limits [--bytes N --seconds N --rate N]\|check [--expect ID]` | The admin protocol client. `check` runs the manager's relay check and prints `CHECK` lines and a `STATE` line. |
 | `observer [--listen ADDR]...` | A public peer that admits every connection. Peers connect to four of them to learn their public address. |
@@ -85,6 +87,8 @@ s before it dials.
   case starts with `LAB_NATS` again.
 - A hole punch needs `observers` (four public peers) and a `--warmup` on the
   dialer, and `dial --wait-direct` to wait for the direct path.
+- A redeem or dial through a hint alone waits up to two hole-punch windows of
+  30 s before it gives up, so give it a `--timeout` of 90 s or more.
 - The pairing, pass and limit calls run in the `serve` process on purpose: the
   real server is the admin of its relay, and a limit change keeps that admin's
   own reservation alive only because the server re-reserves itself.

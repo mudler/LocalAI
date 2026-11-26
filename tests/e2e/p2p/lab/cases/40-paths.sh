@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Cases of the paths between two peers: hole punching, revoke by the server,
-# live limit changes and an invite that carries a relay pass.
+# live limit changes, an invite that carries a relay pass and invites whose
+# only route is a public-relay hint.
 # shellcheck shell=bash
 
 register hole_punch "two peers behind cone NATs connect through the relay, then punch a direct path"
@@ -101,4 +102,87 @@ case_invite_without_pass() {
   keygen a STRANGER1 >/dev/null
   out=$(ex a "$X redeem --link '$link' --key /root/STRANGER1.key $NODE --timeout 30s" 2>&1 | tee "$CASE_LOGS/redeem.log")
   expect_match "the redeem fails" 'REDEEM fail' "$out"
+}
+
+# public_hint_setup: the relay of the lab plays a public relay (open, with the
+# small limits of public relays) and the server holds a reservation on it
+# without managing it, so the invite names it as a hint only. The server has
+# no relay of its own. Its store of invites lives in /root/SRV-pair and starts
+# empty. Sets LINK.
+public_hint_setup() {
+  ex b "rm -rf /root/SRV-pair"
+  observers
+  relay_start --open --circuit-max-bytes 131072 --circuit-max-duration 2m
+  bg b SRV "$X serve --key /root/SRV.key $NODE $BOOT --public-relay $RELAY --pair-dir /root/SRV-pair $SX --invite"
+  waitfor b SRV.out '^INVITE ' 90 || fail "the server minted no invite: $(get b SRV.err | tail -3)"
+  LINK=$(get b SRV.out | awk '/^INVITE /{print $2; exit}')
+}
+
+# redeem_hint <key name> [extra]: redeem LINK from peer a with a new identity
+# of that name. A hole punch needs
+# the public address of the device, hence the observers and the warmup; a
+# redeem through a hint alone can wait two punch windows of 30 s.
+redeem_hint() {
+  local k=$1
+  shift
+  ex a "$X redeem --link '$LINK' --key /root/$k.key $NODE $BOOT --warmup 20s --timeout 100s $*" 2>&1
+}
+
+# invite_status: the state of the invite in the server's store.
+invite_status() {
+  ex b 'kill -USR1 "$(cat /root/SRV.pid)"' >/dev/null 2>&1
+  sleep 1
+  get b SRV.out | grep '^INVITE_STATUS' | tail -1
+}
+
+# new_key <node> <name>: a new identity, unknown to every server.
+new_key() { ex "$1" "rm -f /root/$2.key"; keygen "$1" "$2" >/dev/null; }
+
+register invite_public_hint "an invite whose only route is a public-relay hint pairs over a hole-punched path, and no data goes over the relay"
+case_invite_public_hint() {
+  set_nats cone cone
+  public_hint_setup
+  expect_match "the link carries a hint" '[?&]h=' "$LINK"
+  expect_nomatch "the link names no carrier relay" '[?&]r=' "$LINK"
+  expect_nomatch "the link has no relay pass" '[?&]x=' "$LINK"
+  expect_match "the server warns that the invite needs a hole punch" '^INVITE_WARNINGS .*punch_only' "$(get b SRV.out)"
+  new_key a HINT1
+  local out
+  out=$(redeem_hint HINT1 | tee "$CASE_LOGS/redeem.log")
+  expect_match "the redeem works" '^REDEEM ok' "$out"
+  expect_match "the device connects after the redeem" 'RESULT connect=ok' "$out"
+  expect_match "the path is hole punched" '^PATH (hole-punched|direct)' "$out"
+  expect_match "the server paired the device" '^REDEEMED' "$(get b SRV.out)"
+  # The relay allows 128 KiB per circuit at 64 KiB/s: 50 MiB arrive only on
+  # a direct path, and the dial never opens a stream on the relayed one.
+  out=$(ex a "$X dial $SRV --key /root/HINT1.key $NODE $BOOT --relay-hint $RELAY --warmup 20s --mb 50 --timeout 120s" 2>&1 | tee "$CASE_LOGS/dial.log")
+  expect_match "the paired device connects through the hint" 'RESULT connect=ok' "$out"
+  expect_match "all 50 MiB arrive" '^TEST transfer 52428800/52428800 bytes .* err=<nil>' "$out"
+  expect_match "the path stays direct to the end" '^PATH_FINAL (hole-punched|direct)' "$out"
+  expect_nomatch "no stream went over the relay" 'relayed' "$out"
+}
+
+register invite_public_hint_symmetric "behind symmetric NATs a hint-only invite fails with 'needs a relay' and stays pending"
+case_invite_public_hint_symmetric() {
+  set_nats sym sym
+  public_hint_setup
+  expect_match "the link carries a hint" '[?&]h=' "$LINK"
+  new_key a HINT2
+  local out start
+  start=$(date +%s)
+  out=$(redeem_hint HINT2 | tee "$CASE_LOGS/redeem.log")
+  echo "  redeem took $(($(date +%s) - start)) s"
+  expect_match "the redeem fails" '^REDEEM fail' "$out"
+  expect_match "the error says that the server needs a relay" 'needs a relay' "$out"
+  expect_nomatch "the server paired nobody" '^REDEEMED' "$(get b SRV.out)"
+  expect_match "the invite is still pending" 'pending$' "$(invite_status)"
+  # The same link works once the networks allow a hole punch: the invite was
+  # kept, not used. The server restarts on the same store behind the new NATs.
+  stop b SRV
+  set_nats cone cone
+  bg b SRV "$X serve --key /root/SRV.key $NODE $BOOT --public-relay $RELAY --pair-dir /root/SRV-pair $SX"
+  waitfor b SRV.out FIRST_RELAY_ADDR 60 || fail "SRV: no relay address after 60 s"
+  out=$(redeem_hint HINT2 | tee "$CASE_LOGS/redeem-later.log")
+  expect_match "the same link redeems later" '^REDEEM ok' "$out"
+  expect_match "the invite is used now" 'used$' "$(invite_status)"
 }
