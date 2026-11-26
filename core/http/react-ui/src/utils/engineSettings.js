@@ -103,7 +103,11 @@ export function itemId(item) {
  * The settings-schema answer as a model the section can draw:
  *
  *   { id, name, binary, example, capabilities, groups, items, combined,
- *     presets, reserved, placement, aliases }
+ *     presets, profiles, estimate, reserved, placement, aliases }
+ *
+ * `presets` are the one-shot setups and `profiles` the exclusive quick setups
+ * (presets with `profile: true`). `estimate` maps the fields of the VRAM
+ * estimate request to setting ids.
  *
  * Each item is { id, name, key, option, names, type, enum, default, min, max,
  * doc, group, flag, composite }: `name` is the flag key of the server's table,
@@ -140,6 +144,8 @@ export function normalizeSchema(raw) {
       group: groupId(f.group) || 'general',
       flag: Array.isArray(f.cli) && f.cli.length ? String(f.cli[0]) : (f.flag ? String(f.flag) : undefined),
       cli: Array.isArray(f.cli) ? f.cli.map(String) : [],
+      // An option LocalAI's backend reads that the engine's command line lacks.
+      localAIOnly: Boolean(f.localai_only),
     }
     item.type = item.enum ? 'enum' : (TYPE_ALIASES[String(f.type || '').toLowerCase()] || 'string')
     item.id = itemId(item)
@@ -185,7 +191,9 @@ export function normalizeSchema(raw) {
       doc: c.doc ? String(c.doc) : '',
       keys: c.keys.map(idOf).filter(Boolean),
       unset: mapKeys(c.unset),
-      choices: (Array.isArray(c.choices) ? c.choices : []).map(ch => ({ value: String(ch.value), label: ch.label ? String(ch.label) : String(ch.value), set: mapKeys(ch.set) })),
+      choices: (Array.isArray(c.choices) ? c.choices : []).map(ch => ({
+        value: String(ch.value), label: ch.label ? String(ch.label) : String(ch.value), set: mapKeys(ch.set), doc: ch.doc ? String(ch.doc) : '',
+      })),
     }
   })
 
@@ -194,7 +202,8 @@ export function normalizeSchema(raw) {
     name: p.name ? String(p.name) : String(p.id),
     description: p.description ? String(p.description) : '',
     settings: mapKeys(p.settings),
-    placement: placement && p.placement ? p.placement : undefined,
+    placement: placement && p.placement && !p.profile ? p.placement : undefined,
+    profile: Boolean(p.profile),
   }))
 
   const groups = Array.isArray(raw?.groups) ? raw.groups.map(groupId).filter(Boolean) : []
@@ -209,7 +218,10 @@ export function normalizeSchema(raw) {
     groups,
     items,
     combined,
-    presets,
+    presets: presets.filter(p => !p.profile),
+    profiles: presets.filter(p => p.profile),
+    // VRAM estimate request field -> setting id.
+    estimate: Object.fromEntries(Object.entries(raw?.estimate || {}).filter(([, k]) => idOf(k)).map(([f, k]) => [f, idOf(k)])),
     reserved: new Set(Array.isArray(raw?.reserved_options) ? raw.reserved_options.map(String) : []),
     placement,
     aliases,
@@ -498,7 +510,7 @@ export function rawOptionFor({ flag, value }) {
 /**
  * Writes a preset into a draft. `placementEntry` is the entry the server
  * built for the preset's placement, when it has one. A setting the schema
- * does not have is skipped.
+ * does not have is skipped, and a null value unsets the setting.
  */
 export function applyPreset(schema, draft, preset, placementEntry) {
   for (const [id, value] of Object.entries(preset.settings)) {
@@ -509,6 +521,37 @@ export function applyPreset(schema, draft, preset, placementEntry) {
     const next = writeEntry(draft.options, schema.placement.names, placementEntry)
     if (next) draft.options = next
   }
+}
+
+// --- quick setup profiles -------------------------------------------------------------------
+
+// The id of the quick setup choice that keeps the fields as they are.
+export const CUSTOM_PROFILE = 'custom'
+
+/**
+ * The profile a value map holds: the first one whose every setting has its
+ * value (unset for null), else CUSTOM_PROFILE. Numbers and booleans are
+ * compared as written, so "2048" in a file matches 2048.
+ */
+export function readProfile(schema, values) {
+  for (const p of schema?.profiles || []) {
+    const fits = Object.entries(p.settings).every(([id, want]) => {
+      const item = itemById(schema, id)
+      if (!item) return true
+      const got = readItem(values, item)
+      if (want === null || want === undefined) return got === undefined
+      return got !== undefined && String(got) === String(want)
+    })
+    if (fits) return p.id
+  }
+  return CUSTOM_PROFILE
+}
+
+/** The value map a profile would give: a copy of the values with it applied. */
+export function withProfile(schema, values, profile) {
+  const draft = { ...values }
+  if (profile) applyPreset(schema, draft, profile)
+  return draft
 }
 
 // --- a parsed command --------------------------------------------------------------------

@@ -19,6 +19,8 @@ import TensorPlacement from './TensorPlacement'
 import RawOptions from './RawOptions'
 // eslint-disable-next-line no-unused-vars
 import { CommandPreview, PasteCommand } from './CommandTools'
+// eslint-disable-next-line no-unused-vars
+import QuickSetup from './QuickSetup'
 import './engine-settings.css'
 
 const humanize = (id) => id.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
@@ -56,13 +58,14 @@ function changeLabel(t, change) {
 // command-line, the placement block for tensor-placement).
 //
 //   engine          the engine summary of GET /api/engines ({ id, name, binary })
+//   model           the model name, for the memory figures of the quick setup
 //   values          the editor's flat values (dotted paths, `options` list)
 //   onChange        (path, value) => void; undefined unsets the key
 //   readOnly        draw the settings without any way to change them
 //   onOpenYaml      switches the editor to the YAML tab (the fallback when the
 //                   schema cannot be read)
 //   onValidity      (ok) => void; false while a field holds text that does not validate
-export default function EngineRuntimeSection({ engine, values, onChange, readOnly = false, onOpenYaml, onValidity }) {
+export default function EngineRuntimeSection({ engine, model, values, onChange, readOnly = false, onOpenYaml, onValidity }) {
   const { t } = useTranslation('modelEditor')
   const state = useEngineSchema(engine.id)
   const schema = state.schema
@@ -115,7 +118,8 @@ export default function EngineRuntimeSection({ engine, values, onChange, readOnl
     }
     const { draft } = commit(d => applyPreset(schema, d, preset, entry))
     const changes = describeChanges(schema, values, draft)
-    setApplied({ kind: 'preset', name: t(`engineSettings.presets.${preset.id}.name`, { defaultValue: preset.name }), changes })
+    const ns = preset.profile ? 'profiles' : 'presets'
+    setApplied({ kind: 'preset', name: t(`engineSettings.${ns}.${preset.id}.name`, { defaultValue: preset.name }), changes })
   }
 
   const writePlacement = useCallback((entry) => commit(d => {
@@ -203,6 +207,10 @@ export default function EngineRuntimeSection({ engine, values, onChange, readOnl
         </Callout>
       )}
 
+      {schema.profiles.length > 0 && (
+        <QuickSetup schema={schema} model={model} values={values} onPick={runPreset} readOnly={readOnly} />
+      )}
+
       {!readOnly && schema.presets.length > 0 && (
         <div className="rt__presets" role="group" aria-labelledby="rt-presets-label" data-testid="rt-presets">
           <span className="dk-eyebrow" id="rt-presets-label">{t('engineSettings.presets.title')}</span>
@@ -268,6 +276,8 @@ export default function EngineRuntimeSection({ engine, values, onChange, readOnl
                   ))}
                   {g.combined.map(c => {
                     const id = testIdOf(c.id)
+                    const chosen = readCombined(schema, values, c)
+                    const chosenDoc = c.choices.find(ch => ch.value === chosen)?.doc
                     return (
                       <div className="dk-field rt-field" key={c.id} data-testid={`${id}-field`}>
                         <label className="dk-label" htmlFor={id}>{combinedLabel(t, c)}</label>
@@ -275,7 +285,7 @@ export default function EngineRuntimeSection({ engine, values, onChange, readOnl
                           <select
                             id={id}
                             className="dk-select"
-                            value={readCombined(schema, values, c)}
+                            value={chosen}
                             disabled={readOnly}
                             aria-describedby={`${id}-hint`}
                             onChange={e => commit(d => writeCombined(schema, d, c, e.target.value))}
@@ -287,6 +297,9 @@ export default function EngineRuntimeSection({ engine, values, onChange, readOnl
                         <p className="dk-hint rt-field__hint" id={`${id}-hint`}>
                           {c.flag && <code className="rt-flag">{c.flag}</code>}
                           <span>{t(`engineSettings.hints.${c.id}`, { defaultValue: c.doc })}</span>
+                          {chosenDoc && (
+                            <span data-testid={`${id}-choice-hint`}>{t(`engineSettings.choiceHints.${c.id}.${chosen}`, { defaultValue: chosenDoc })}</span>
+                          )}
                         </p>
                       </div>
                     )

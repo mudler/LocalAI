@@ -18,7 +18,8 @@
             "memory": "Memoria",
             "sampling": "Muestreo predeterminado",
             "template": "Plantilla de chat",
-            "speed": "Velocidad"
+            "speed": "Velocidad",
+            "serving": "Servicio concurrente"
         },
         "fields": {
             "context_size": "Tamaño del contexto",
@@ -38,7 +39,11 @@
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Plantilla de chat Jinja",
             "load_mode": "Modo de carga",
-            "options_ubatch": "Tamaño del microlote"
+            "options_ubatch": "Tamaño del microlote",
+            "options_paged_kv": "Servicio paginado",
+            "options_paged_preempt": "Pausar con la caché llena",
+            "options_prefill_budget": "Presupuesto de prefill",
+            "backend_sampling": "Muestreo en GPU"
         },
         "choices": {
             "load_mode": {
@@ -48,10 +53,16 @@
                 "mlock": "mlock",
                 "mmap_mlock": "mmap + mlock",
                 "direct_io": "E/S directa"
+            },
+            "backend_sampling": {
+                "off": "Desactivado",
+                "auto": "Automático",
+                "on": "Activado"
             }
         },
         "hints": {
-            "load_mode": "Cómo se lee el archivo del modelo. Escribe mmap, mmlock y la opción direct_io."
+            "load_mode": "Cómo se lee el archivo del modelo. Escribe mmap, mmlock y la opción direct_io.",
+            "backend_sampling": "Dónde se muestrean los tokens. Un backend sin muestreo en GPU ignora el ajuste."
         },
         "errors": {
             "notInteger": "Escribe un número entero.",
@@ -171,6 +182,43 @@
         "readOnly": {
             "title": "Solo lectura.",
             "body": "Solo un administrador puede cambiar estos ajustes."
+        },
+        "quick": {
+            "title": "Configuración rápida",
+            "custom": "Personalizada",
+            "customText": "Ajusta tú los campos de abajo.",
+            "current": "Tus ajustes",
+            "estimating": "Estimando...",
+            "noEstimate": "Sin estimación",
+            "same": "Más o menos la misma memoria",
+            "more": "≈ {{size}} más de memoria",
+            "less": "≈ {{size}} menos de memoria",
+            "now": "Ahora: caché KV ≈ {{kv}} y búferes de cálculo ≈ {{compute}} con {{context}} tokens, además de los pesos.",
+            "estimate": "Estas cifras son estimaciones.",
+            "approximate": "Estimaciones aproximadas: la estructura del modelo no se leyó del archivo.",
+            "failed": "La estimación de memoria no está disponible."
+        },
+        "profiles": {
+            "balanced": {
+                "name": "Equilibrada",
+                "text": "Los valores por defecto: LocalAI elige el batch y los slots para tu GPU, con caché KV f16."
+            },
+            "longPrompts": {
+                "name": "Prompts largos",
+                "text": "Batch y micro-batch de 2048. Los prompts largos se leen mucho más rápido; los búferes de cálculo usan más memoria."
+            },
+            "concurrent": {
+                "name": "Más usuarios a la vez",
+                "text": "Caché KV de 8 bits, servicio paginado y 8 slots. Caben unas dos veces más tokens en la misma memoria, compartidos por más usuarios, con una pequeña pérdida de calidad.",
+                "note": "Una caché KV cuantizada puede ser más lenta en algunas rutas de atención hasta que llama.cpp tenga un kernel rápido para ellas. El servicio paginado necesita una compilación del backend que lo admita; las demás ignoran la opción."
+            }
+        },
+        "choiceHints": {
+            "backend_sampling": {
+                "off": "Muestrea los tokens en la CPU. No se escribe nada en el archivo.",
+                "auto": "Usa el muestreo en GPU cuando el modelo se ejecuta en una GPU con varias peticiones en paralelo y la petición no necesita gramática ni logprobs.",
+                "on": "Muestrea los tokens en la GPU. Más rápido con muchas peticiones en paralelo. Se desactiva solo en las peticiones que usan una gramática, un presupuesto de razonamiento o logprobs."
+            }
         }
     }
 }

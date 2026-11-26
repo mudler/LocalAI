@@ -18,7 +18,8 @@
             "memory": "Speicher",
             "sampling": "Standardwerte für das Sampling",
             "template": "Chat-Vorlage",
-            "speed": "Geschwindigkeit"
+            "speed": "Geschwindigkeit",
+            "serving": "Gleichzeitige Anfragen"
         },
         "fields": {
             "context_size": "Kontextgröße",
@@ -38,7 +39,11 @@
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Jinja-Chat-Vorlage",
             "load_mode": "Lademodus",
-            "options_ubatch": "Micro-Batch-Größe"
+            "options_ubatch": "Micro-Batch-Größe",
+            "options_paged_kv": "Seitenbasiertes Serving",
+            "options_paged_preempt": "Bei vollem Cache pausieren",
+            "options_prefill_budget": "Prefill-Budget",
+            "backend_sampling": "Sampling auf der GPU"
         },
         "choices": {
             "load_mode": {
@@ -48,10 +53,16 @@
                 "mlock": "mlock",
                 "mmap_mlock": "mmap + mlock",
                 "direct_io": "Direkte E/A"
+            },
+            "backend_sampling": {
+                "off": "Aus",
+                "auto": "Automatisch",
+                "on": "An"
             }
         },
         "hints": {
-            "load_mode": "Wie die Modelldatei gelesen wird. Schreibt mmap, mmlock und die Option direct_io."
+            "load_mode": "Wie die Modelldatei gelesen wird. Schreibt mmap, mmlock und die Option direct_io.",
+            "backend_sampling": "Wo Tokens gesampelt werden. Ein Backend ohne GPU-Sampling ignoriert die Einstellung."
         },
         "errors": {
             "notInteger": "Geben Sie eine ganze Zahl ein.",
@@ -171,6 +182,43 @@
         "readOnly": {
             "title": "Nur lesen.",
             "body": "Nur ein Administrator kann diese Einstellungen ändern."
+        },
+        "quick": {
+            "title": "Schnelleinrichtung",
+            "custom": "Eigene",
+            "customText": "Stellen Sie die Felder unten selbst ein.",
+            "current": "Ihre Einstellungen",
+            "estimating": "Wird geschätzt...",
+            "noEstimate": "Keine Schätzung",
+            "same": "Etwa gleich viel Speicher",
+            "more": "≈ {{size}} mehr Speicher",
+            "less": "≈ {{size}} weniger Speicher",
+            "now": "Jetzt: KV-Cache ≈ {{kv}} und Rechenpuffer ≈ {{compute}} bei {{context}} Tokens, zusätzlich zu den Gewichten.",
+            "estimate": "Diese Werte sind Schätzungen.",
+            "approximate": "Grobe Schätzungen: Der Aufbau des Modells wurde nicht aus der Datei gelesen.",
+            "failed": "Die Speicherschätzung ist nicht verfügbar."
+        },
+        "profiles": {
+            "balanced": {
+                "name": "Ausgewogen",
+                "text": "Die Standardwerte: LocalAI wählt Batch und Slots für Ihre GPU, mit einem f16-KV-Cache."
+            },
+            "longPrompts": {
+                "name": "Lange Prompts",
+                "text": "Batch und Micro-Batch von 2048. Lange Prompts werden viel schneller gelesen; die Rechenpuffer brauchen mehr Speicher."
+            },
+            "concurrent": {
+                "name": "Mehr gleichzeitige Nutzer",
+                "text": "8-Bit-KV-Cache, seitenbasiertes Serving und 8 Slots. Etwa doppelt so viele Tokens passen in denselben Speicher, geteilt von mehr Nutzern, bei leicht geringerer Qualität.",
+                "note": "Ein quantisierter KV-Cache kann auf manchen Attention-Pfaden langsamer sein, bis llama.cpp einen schnellen Kernel dafür hat. Seitenbasiertes Serving braucht einen Backend-Build, der es unterstützt; andere Builds ignorieren die Option."
+            }
+        },
+        "choiceHints": {
+            "backend_sampling": {
+                "off": "Tokens auf der CPU sampeln. In die Datei wird nichts geschrieben.",
+                "auto": "GPU-Sampling nutzen, wenn das Modell auf einer GPU mit mehreren parallelen Anfragen läuft und die Anfrage keine Grammatik und keine Logprobs braucht.",
+                "on": "Tokens auf der GPU sampeln. Schneller bei vielen parallelen Anfragen. Wird für Anfragen mit Grammatik, Reasoning-Budget oder Logprobs automatisch abgeschaltet."
+            }
         }
     }
 }

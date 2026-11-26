@@ -54,7 +54,8 @@
             "memory": "Memori",
             "sampling": "Sampling bawaan",
             "template": "Templat chat",
-            "speed": "Kecepatan"
+            "speed": "Kecepatan",
+            "serving": "Layanan serentak"
         },
         "fields": {
             "context_size": "Ukuran konteks",
@@ -74,7 +75,11 @@
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Templat chat Jinja",
             "load_mode": "Mode muat",
-            "options_ubatch": "Ukuran micro-batch"
+            "options_ubatch": "Ukuran micro-batch",
+            "options_paged_kv": "Layanan berhalaman",
+            "options_paged_preempt": "Jeda saat cache penuh",
+            "options_prefill_budget": "Anggaran prefill",
+            "backend_sampling": "Sampling di GPU"
         },
         "choices": {
             "load_mode": {
@@ -84,10 +89,16 @@
                 "mlock": "mlock",
                 "mmap_mlock": "mmap + mlock",
                 "direct_io": "I/O langsung"
+            },
+            "backend_sampling": {
+                "off": "Mati",
+                "auto": "Otomatis",
+                "on": "Nyala"
             }
         },
         "hints": {
-            "load_mode": "Cara file model dibaca. Menulis mmap, mmlock, dan opsi direct_io."
+            "load_mode": "Cara file model dibaca. Menulis mmap, mmlock, dan opsi direct_io.",
+            "backend_sampling": "Tempat token di-sampling. Backend tanpa sampling GPU mengabaikan pengaturan ini."
         },
         "errors": {
             "notInteger": "Ketik bilangan bulat.",
@@ -207,6 +218,43 @@
         "readOnly": {
             "title": "Hanya baca.",
             "body": "Hanya administrator yang dapat mengubah pengaturan ini."
+        },
+        "quick": {
+            "title": "Pengaturan cepat",
+            "custom": "Kustom",
+            "customText": "Atur sendiri kolom di bawah.",
+            "current": "Pengaturan Anda",
+            "estimating": "Memperkirakan...",
+            "noEstimate": "Tidak ada perkiraan",
+            "same": "Memori kurang lebih sama",
+            "more": "≈ {{size}} memori lebih banyak",
+            "less": "≈ {{size}} memori lebih sedikit",
+            "now": "Sekarang: cache KV ≈ {{kv}} dan buffer komputasi ≈ {{compute}} pada {{context}} token, di luar bobot.",
+            "estimate": "Angka-angka ini adalah perkiraan.",
+            "approximate": "Perkiraan kasar: susunan model tidak dibaca dari file.",
+            "failed": "Perkiraan memori tidak tersedia."
+        },
+        "profiles": {
+            "balanced": {
+                "name": "Seimbang",
+                "text": "Bawaan: LocalAI memilih batch dan slot untuk GPU Anda, dengan cache KV f16."
+            },
+            "longPrompts": {
+                "name": "Prompt panjang",
+                "text": "Batch dan micro-batch 2048. Prompt panjang dibaca jauh lebih cepat; buffer komputasi memakai lebih banyak memori."
+            },
+            "concurrent": {
+                "name": "Lebih banyak pengguna serentak",
+                "text": "Cache KV 8-bit, layanan berhalaman, dan 8 slot. Sekitar dua kali lipat token muat di memori yang sama, dibagi oleh lebih banyak pengguna, dengan sedikit penurunan kualitas.",
+                "note": "Cache KV terkuantisasi bisa lebih lambat pada beberapa jalur atensi sampai llama.cpp punya kernel cepat untuknya. Layanan berhalaman butuh build backend yang mendukungnya; build lain mengabaikan opsi ini."
+            }
+        },
+        "choiceHints": {
+            "backend_sampling": {
+                "off": "Sampling token di CPU. Tidak ada yang ditulis ke file.",
+                "auto": "Gunakan sampling GPU saat model berjalan di GPU dengan beberapa permintaan paralel dan permintaan tidak butuh grammar atau logprobs.",
+                "on": "Sampling token di GPU. Lebih cepat dengan banyak permintaan paralel. Dimatikan otomatis untuk permintaan yang memakai grammar, anggaran penalaran, atau logprobs."
+            }
         }
     }
 }

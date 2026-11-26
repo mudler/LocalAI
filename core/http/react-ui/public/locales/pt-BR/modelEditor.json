@@ -54,7 +54,8 @@
       "memory": "Memória",
       "sampling": "Amostragem padrão",
       "template": "Modelo de chat",
-      "speed": "Velocidade"
+      "speed": "Velocidade",
+      "serving": "Atendimento simultâneo"
     },
     "fields": {
       "context_size": "Tamanho do contexto",
@@ -74,7 +75,11 @@
       "parameters_min_p": "Min-p",
       "options_use_jinja": "Modelo de chat Jinja",
       "load_mode": "Modo de carregamento",
-      "options_ubatch": "Tamanho do microlote"
+      "options_ubatch": "Tamanho do microlote",
+      "options_paged_kv": "Atendimento paginado",
+      "options_paged_preempt": "Pausar com o cache cheio",
+      "options_prefill_budget": "Orçamento de prefill",
+      "backend_sampling": "Amostragem na GPU"
     },
     "choices": {
       "load_mode": {
@@ -84,10 +89,16 @@
         "mlock": "mlock",
         "mmap_mlock": "mmap + mlock",
         "direct_io": "E/S direta"
+      },
+      "backend_sampling": {
+        "off": "Desligada",
+        "auto": "Automática",
+        "on": "Ligada"
       }
     },
     "hints": {
-      "load_mode": "Como o arquivo do modelo é lido. Grava mmap, mmlock e a opção direct_io."
+      "load_mode": "Como o arquivo do modelo é lido. Grava mmap, mmlock e a opção direct_io.",
+      "backend_sampling": "Onde os tokens são amostrados. Um backend sem amostragem na GPU ignora a configuração."
     },
     "errors": {
       "notInteger": "Digite um número inteiro.",
@@ -207,6 +218,43 @@
     "readOnly": {
       "title": "Somente leitura.",
       "body": "Só um administrador pode mudar estas configurações."
+    },
+    "quick": {
+      "title": "Configuração rápida",
+      "custom": "Personalizada",
+      "customText": "Ajuste você mesmo os campos abaixo.",
+      "current": "Suas configurações",
+      "estimating": "Estimando...",
+      "noEstimate": "Sem estimativa",
+      "same": "Mais ou menos a mesma memória",
+      "more": "≈ {{size}} a mais de memória",
+      "less": "≈ {{size}} a menos de memória",
+      "now": "Agora: cache KV ≈ {{kv}} e buffers de cálculo ≈ {{compute}} com {{context}} tokens, além dos pesos.",
+      "estimate": "Estes valores são estimativas.",
+      "approximate": "Estimativas aproximadas: a estrutura do modelo não foi lida do arquivo.",
+      "failed": "A estimativa de memória não está disponível."
+    },
+    "profiles": {
+      "balanced": {
+        "name": "Equilibrada",
+        "text": "Os padrões: o LocalAI escolhe o batch e os slots para sua GPU, com cache KV f16."
+      },
+      "longPrompts": {
+        "name": "Prompts longos",
+        "text": "Batch e micro-batch de 2048. Prompts longos são lidos muito mais rápido; os buffers de cálculo usam mais memória."
+      },
+      "concurrent": {
+        "name": "Mais usuários ao mesmo tempo",
+        "text": "Cache KV de 8 bits, atendimento paginado e 8 slots. Cabem cerca de duas vezes mais tokens na mesma memória, divididos entre mais usuários, com uma pequena perda de qualidade.",
+        "note": "Um cache KV quantizado pode ser mais lento em alguns caminhos de atenção até o llama.cpp ter um kernel rápido para eles. O atendimento paginado precisa de uma versão do backend que o suporte; as outras ignoram a opção."
+      }
+    },
+    "choiceHints": {
+      "backend_sampling": {
+        "off": "Amostra os tokens na CPU. Nada é escrito no arquivo.",
+        "auto": "Usa a amostragem na GPU quando o modelo roda em uma GPU com várias requisições em paralelo e a requisição não precisa de gramática nem de logprobs.",
+        "on": "Amostra os tokens na GPU. Mais rápido com muitas requisições em paralelo. Desligada automaticamente para requisições com gramática, orçamento de raciocínio ou logprobs."
+      }
     }
   }
 }

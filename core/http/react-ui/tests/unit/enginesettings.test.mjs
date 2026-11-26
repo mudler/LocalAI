@@ -5,7 +5,7 @@ import {
   readEntry, readCombined, writeCombined, placementRequest, placementModes, choiceFromPlacement, patternOf,
   validateOverride, ownedOptionNames, rawOptions, replaceRawOptions, validateRawOption,
   rawOptionFor, applyPreset, applyParsed, describeChanges, undoChanges, diffPaths, unflatten,
-  optionNames, hasCapability,
+  optionNames, hasCapability, readProfile, withProfile, CUSTOM_PROFILE,
 } from '../../src/utils/engineSettings.js'
 import { isAllLayers } from '../../src/utils/placement.js'
 // The answers of the real handlers (pkg/enginesettings), saved for the specs.
@@ -63,8 +63,9 @@ test('engine settings: the list form and messy entries still read', () => {
 
 test('engine settings: blocks follow the schema groups; composite settings are left out', () => {
   const blocks = groupItems(schema)
-  assert.deepEqual(blocks.map(g => g.id), ['memory', 'speed', 'placement', 'sampling', 'template'])
-  assert.equal(blocks[2].placement, true)
+  assert.deepEqual(blocks.map(g => g.id), ['memory', 'speed', 'serving', 'placement', 'sampling', 'template'])
+  assert.equal(blocks[3].placement, true)
+  assert.deepEqual(blocks[2].items.map(i => i.id), ['options.parallel', 'options.paged_kv', 'options.paged_preempt', 'options.prefill_budget'])
   const memory = blocks[0].items.map(i => i.id)
   assert.ok(memory.includes('context_size'))
   assert.ok(!memory.includes('mmap'))
@@ -241,6 +242,71 @@ test('engine settings: a preset fills settings, lists them and undoes them', () 
   const bare = {}
   applyPreset({ ...schema, items: [byId.context_size] }, bare, preset('lowVram'))
   assert.deepEqual(bare, { context_size: 4096 })
+})
+
+test('engine settings: the quick setup profiles are apart from the presets', () => {
+  assert.deepEqual(schema.profiles.map(p => p.id), ['balanced', 'longPrompts', 'concurrent'])
+  assert.deepEqual(schema.presets.map(p => p.id), ['bigMoe', 'maxContext', 'lowVram'])
+  assert.ok(schema.profiles.every(p => p.profile && p.placement === undefined))
+  assert.deepEqual(schema.estimate, {
+    batch: 'parameters.batch', ubatch: 'options.ubatch', cache_type_k: 'cache_type_k', cache_type_v: 'cache_type_v',
+    context_size: 'context_size', gpu_layers: 'gpu_layers',
+  })
+  // The paged serving options have no llama-server flag.
+  for (const id of ['options.paged_kv', 'options.paged_preempt', 'options.prefill_budget']) {
+    assert.equal(byId[id].localAIOnly, true, id)
+    assert.equal(byId[id].flag, undefined, id)
+    assert.equal(byId[id].group, 'serving', id)
+  }
+  assert.equal(byId['options.parallel'].group, 'serving')
+  // GPU sampling: a three-way choice over one plain options entry, Off writing none.
+  const gpu = byId['options.backend_sampling']
+  assert.equal(gpu.localAIOnly, true)
+  assert.equal(gpu.flag, undefined)
+  assert.ok(!groupItems(schema).flatMap(g => g.items).includes(gpu))
+  const sampling = schema.combined.find(c => c.id === 'backend_sampling')
+  assert.equal(sampling.group, 'speed')
+  assert.deepEqual(sampling.choices.map(c => c.value), ['off', 'auto', 'on'])
+  assert.match(sampling.choices[1].doc, /^Use GPU sampling when the model runs on a GPU/)
+  assert.match(sampling.choices[2].doc, /^Sample tokens on the GPU\. Faster with many parallel requests\./)
+  assert.equal(readCombined(schema, {}, sampling), 'off')
+  assert.equal(readCombined(schema, { options: ['backend_sampling:auto'] }, sampling), 'auto')
+  const draft = { options: ['context_shift:true'] }
+  writeCombined(schema, draft, sampling, 'on')
+  assert.deepEqual(draft.options, ['context_shift:true', 'backend_sampling:on'])
+  writeCombined(schema, draft, sampling, 'auto')
+  assert.deepEqual(draft.options, ['context_shift:true', 'backend_sampling:auto'])
+  writeCombined(schema, draft, sampling, 'off')
+  assert.deepEqual(draft.options, ['context_shift:true'])
+  // No profile touches it.
+  assert.ok(schema.profiles.every(p => !('options.backend_sampling' in p.settings)))
+})
+
+test('engine settings: a profile is read back from the values, else custom', () => {
+  const prof = (id) => schema.profiles.find(p => p.id === id)
+  assert.equal(readProfile(schema, {}), 'balanced')
+  // Settings no profile lists do not matter.
+  assert.equal(readProfile(schema, { context_size: 8192, options: ['use_jinja:true'] }), 'balanced')
+  const long = withProfile(schema, { context_size: 8192, options: ['use_jinja:true'] }, prof('longPrompts'))
+  assert.equal(long['parameters.batch'], 2048)
+  assert.deepEqual(long.options, ['use_jinja:true', 'ubatch:2048'])
+  assert.equal(readProfile(schema, long), 'longPrompts')
+  // A value written as text in the file still matches.
+  assert.equal(readProfile(schema, { 'parameters.batch': '2048', options: ['ubatch:2048'] }), 'longPrompts')
+  const many = withProfile(schema, long, prof('concurrent'))
+  assert.equal(readProfile(schema, many), 'concurrent')
+  assert.equal(many['parameters.batch'], undefined)
+  assert.equal(many.cache_type_k, 'q8_0')
+  assert.equal(many.flash_attention, 'on')
+  assert.deepEqual(many.options, ['use_jinja:true', 'paged_kv:true', 'parallel:8'])
+  // Back to Balanced unsets everything a profile set and keeps the rest.
+  const back = withProfile(schema, many, prof('balanced'))
+  assert.deepEqual(back, { context_size: 8192, options: ['use_jinja:true'] })
+  // A setting off every profile is custom.
+  assert.equal(readProfile(schema, { 'parameters.batch': 1024 }), CUSTOM_PROFILE)
+  assert.equal(readProfile(schema, { ...many, options: ['paged_kv:true', 'parallel:4'] }), CUSTOM_PROFILE)
+  // withProfile leaves its input alone.
+  assert.equal(long.cache_type_k, undefined)
 })
 
 test('engine settings: the Inkling command fills every field', () => {

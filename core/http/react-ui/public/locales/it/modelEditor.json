@@ -18,7 +18,8 @@
             "memory": "Memoria",
             "sampling": "Campionamento predefinito",
             "template": "Template della chat",
-            "speed": "Velocità"
+            "speed": "Velocità",
+            "serving": "Servizio concorrente"
         },
         "fields": {
             "context_size": "Dimensione del contesto",
@@ -38,7 +39,11 @@
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Template di chat Jinja",
             "load_mode": "Modalità di caricamento",
-            "options_ubatch": "Dimensione del micro-batch"
+            "options_ubatch": "Dimensione del micro-batch",
+            "options_paged_kv": "Servizio a pagine",
+            "options_paged_preempt": "Pausa a cache piena",
+            "options_prefill_budget": "Budget di prefill",
+            "backend_sampling": "Campionamento su GPU"
         },
         "choices": {
             "load_mode": {
@@ -48,10 +53,16 @@
                 "mlock": "mlock",
                 "mmap_mlock": "mmap + mlock",
                 "direct_io": "I/O diretto"
+            },
+            "backend_sampling": {
+                "off": "Disattivato",
+                "auto": "Automatico",
+                "on": "Attivo"
             }
         },
         "hints": {
-            "load_mode": "Come viene letto il file del modello. Scrive mmap, mmlock e l'opzione direct_io."
+            "load_mode": "Come viene letto il file del modello. Scrive mmap, mmlock e l'opzione direct_io.",
+            "backend_sampling": "Dove vengono campionati i token. Un backend senza campionamento su GPU ignora l'impostazione."
         },
         "errors": {
             "notInteger": "Inserisci un numero intero.",
@@ -171,6 +182,43 @@
         "readOnly": {
             "title": "Sola lettura.",
             "body": "Solo un amministratore può cambiare queste impostazioni."
+        },
+        "quick": {
+            "title": "Configurazione rapida",
+            "custom": "Personalizzata",
+            "customText": "Imposta tu i campi qui sotto.",
+            "current": "Le tue impostazioni",
+            "estimating": "Stima in corso...",
+            "noEstimate": "Nessuna stima",
+            "same": "Circa la stessa memoria",
+            "more": "≈ {{size}} di memoria in più",
+            "less": "≈ {{size}} di memoria in meno",
+            "now": "Ora: cache KV ≈ {{kv}} e buffer di calcolo ≈ {{compute}} a {{context}} token, oltre ai pesi.",
+            "estimate": "Questi valori sono stime.",
+            "approximate": "Stime approssimative: la struttura del modello non è stata letta dal file.",
+            "failed": "La stima della memoria non è disponibile."
+        },
+        "profiles": {
+            "balanced": {
+                "name": "Bilanciata",
+                "text": "I valori predefiniti: LocalAI sceglie batch e slot per la tua GPU, con cache KV f16."
+            },
+            "longPrompts": {
+                "name": "Prompt lunghi",
+                "text": "Batch e micro-batch da 2048. I prompt lunghi vengono letti molto più in fretta; i buffer di calcolo usano più memoria."
+            },
+            "concurrent": {
+                "name": "Più utenti insieme",
+                "text": "Cache KV a 8 bit, servizio a pagine e 8 slot. Nella stessa memoria entrano circa il doppio dei token, condivisi da più utenti, con una piccola perdita di qualità.",
+                "note": "Una cache KV quantizzata può essere più lenta su alcuni percorsi di attenzione finché llama.cpp non ha un kernel veloce per loro. Il servizio a pagine richiede una build del backend che lo supporta; le altre build ignorano l'opzione."
+            }
+        },
+        "choiceHints": {
+            "backend_sampling": {
+                "off": "Campiona i token sulla CPU. Nel file non viene scritto nulla.",
+                "auto": "Usa il campionamento su GPU quando il modello gira su una GPU con più richieste in parallelo e la richiesta non usa una grammatica o i logprobs.",
+                "on": "Campiona i token sulla GPU. Più veloce con molte richieste in parallelo. Si disattiva da solo per le richieste con una grammatica, un budget di ragionamento o i logprobs."
+            }
         }
     }
 }

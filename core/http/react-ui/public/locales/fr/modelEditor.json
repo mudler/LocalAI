@@ -18,7 +18,8 @@
             "memory": "Mémoire",
             "sampling": "Échantillonnage par défaut",
             "template": "Modèle de chat",
-            "speed": "Vitesse"
+            "speed": "Vitesse",
+            "serving": "Service simultané"
         },
         "fields": {
             "context_size": "Taille du contexte",
@@ -38,7 +39,11 @@
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Modèle de chat Jinja",
             "load_mode": "Mode de chargement",
-            "options_ubatch": "Taille du micro-lot"
+            "options_ubatch": "Taille du micro-lot",
+            "options_paged_kv": "Service paginé",
+            "options_paged_preempt": "Pause quand le cache est plein",
+            "options_prefill_budget": "Budget de prefill",
+            "backend_sampling": "Échantillonnage sur GPU"
         },
         "choices": {
             "load_mode": {
@@ -48,10 +53,16 @@
                 "mlock": "mlock",
                 "mmap_mlock": "mmap + mlock",
                 "direct_io": "E/S directes"
+            },
+            "backend_sampling": {
+                "off": "Désactivé",
+                "auto": "Auto",
+                "on": "Activé"
             }
         },
         "hints": {
-            "load_mode": "Comment le fichier du modèle est lu. Écrit mmap, mmlock et l'option direct_io."
+            "load_mode": "Comment le fichier du modèle est lu. Écrit mmap, mmlock et l'option direct_io.",
+            "backend_sampling": "Où les tokens sont échantillonnés. Un backend sans échantillonnage sur GPU ignore ce réglage."
         },
         "errors": {
             "notInteger": "Saisissez un nombre entier.",
@@ -171,6 +182,43 @@
         "readOnly": {
             "title": "Lecture seule.",
             "body": "Seul un administrateur peut modifier ces réglages."
+        },
+        "quick": {
+            "title": "Configuration rapide",
+            "custom": "Personnalisée",
+            "customText": "Réglez vous-même les champs ci-dessous.",
+            "current": "Vos réglages",
+            "estimating": "Estimation...",
+            "noEstimate": "Pas d'estimation",
+            "same": "À peu près la même mémoire",
+            "more": "≈ {{size}} de mémoire en plus",
+            "less": "≈ {{size}} de mémoire en moins",
+            "now": "Actuellement : cache KV ≈ {{kv}} et tampons de calcul ≈ {{compute}} pour {{context}} tokens, en plus des poids.",
+            "estimate": "Ces chiffres sont des estimations.",
+            "approximate": "Estimations grossières : la structure du modèle n'a pas été lue dans le fichier.",
+            "failed": "L'estimation de la mémoire n'est pas disponible."
+        },
+        "profiles": {
+            "balanced": {
+                "name": "Équilibrée",
+                "text": "Les valeurs par défaut : LocalAI choisit le batch et les slots pour votre GPU, avec un cache KV f16."
+            },
+            "longPrompts": {
+                "name": "Prompts longs",
+                "text": "Batch et micro-batch de 2048. Les prompts longs sont lus bien plus vite ; les tampons de calcul utilisent plus de mémoire."
+            },
+            "concurrent": {
+                "name": "Plus d'utilisateurs simultanés",
+                "text": "Cache KV 8 bits, service paginé et 8 slots. Environ deux fois plus de tokens tiennent dans la même mémoire, partagés par plus d'utilisateurs, avec une légère perte de qualité.",
+                "note": "Un cache KV quantifié peut être plus lent sur certains chemins d'attention tant que llama.cpp n'a pas de noyau rapide pour eux. Le service paginé demande une version du backend qui le prend en charge ; les autres ignorent l'option."
+            }
+        },
+        "choiceHints": {
+            "backend_sampling": {
+                "off": "Échantillonne les tokens sur le CPU. Rien n'est écrit dans le fichier.",
+                "auto": "Utilise l'échantillonnage sur GPU quand le modèle tourne sur un GPU avec plusieurs requêtes en parallèle et que la requête n'a besoin ni de grammaire ni de logprobs.",
+                "on": "Échantillonne les tokens sur le GPU. Plus rapide avec de nombreuses requêtes en parallèle. Désactivé automatiquement pour les requêtes avec une grammaire, un budget de raisonnement ou des logprobs."
+            }
         }
     }
 }

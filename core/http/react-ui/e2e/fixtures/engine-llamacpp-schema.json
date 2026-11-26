@@ -75,7 +75,7 @@
       "type": "int",
       "min": 1,
       "default": "backend default",
-      "doc": "Logical batch size: the most prompt tokens processed in one step.",
+      "doc": "Logical batch size: the most prompt tokens processed in one step. Larger values read long prompts faster and use more compute memory.",
       "group": "speed"
     },
     {
@@ -117,7 +117,7 @@
         "q5_1"
       ],
       "default": "f16",
-      "doc": "Data type of the K half of the KV cache. Smaller types save memory at some cost in quality.",
+      "doc": "Data type of the K half of the KV cache. q8_0 holds about twice the tokens of f16 in the same memory, at a small cost in quality. A quantized cache can be slower on some attention paths until llama.cpp has a fast kernel for them.",
       "group": "memory"
     },
     {
@@ -207,9 +207,9 @@
       ],
       "type": "int",
       "min": -1,
-      "default": "1",
-      "doc": "Number of requests served at the same time (server slots). The context is shared between the slots.",
-      "group": "speed"
+      "default": "LocalAI default for the GPU",
+      "doc": "Number of requests served at the same time (server slots). The slots share the context, so long requests leave less room for the others.",
+      "group": "serving"
     },
     {
       "key": "ubatch",
@@ -226,8 +226,64 @@
       "type": "int",
       "min": 1,
       "default": "same as the batch size",
-      "doc": "Physical batch size: the most tokens one compute step handles. Smaller values use less memory.",
+      "doc": "Physical batch size: the most tokens one compute step handles. Larger values prefill faster and use more compute memory; smaller values use less.",
       "group": "speed"
+    },
+    {
+      "key": "backend_sampling",
+      "target": "option",
+      "path": "options",
+      "option": "backend_sampling",
+      "type": "enum",
+      "enum": [
+        "off",
+        "auto",
+        "on"
+      ],
+      "default": "off",
+      "doc": "Sample tokens on the GPU. off: on the CPU. auto: on the GPU when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs. on: always on the GPU, turned off for a request with a grammar, a reasoning budget or logprobs.",
+      "group": "speed",
+      "localai_only": true
+    },
+    {
+      "key": "paged_kv",
+      "target": "option",
+      "path": "options",
+      "option": "paged_kv",
+      "option_aliases": [
+        "paged_serving"
+      ],
+      "type": "bool",
+      "default": "backend default",
+      "doc": "Paged serving: start a request only when the shared KV cache has room for it, and pause the newest one when it runs out, so many users share the cache without failing. It needs more than one slot.",
+      "group": "serving",
+      "localai_only": true
+    },
+    {
+      "key": "paged_preempt",
+      "target": "option",
+      "path": "options",
+      "option": "paged_preempt",
+      "type": "bool",
+      "default": "on",
+      "doc": "With paged serving: pause the newest request when the KV cache is full and resume it later. Off makes new requests wait instead.",
+      "group": "serving",
+      "localai_only": true
+    },
+    {
+      "key": "prefill_budget",
+      "target": "option",
+      "path": "options",
+      "option": "prefill_budget",
+      "option_aliases": [
+        "max_prefill_tokens"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "backend default",
+      "doc": "Prompt tokens read per step while other requests generate, so a long prompt does not stall them. 0 turns it off.",
+      "group": "serving",
+      "localai_only": true
     },
     {
       "key": "threads_batch",
@@ -383,6 +439,7 @@
   "groups": [
     "memory",
     "speed",
+    "serving",
     "placement",
     "sampling",
     "template"
@@ -459,9 +516,91 @@
           }
         }
       ]
+    },
+    {
+      "id": "backend_sampling",
+      "group": "speed",
+      "doc": "Where tokens are sampled. A backend without GPU sampling ignores the setting.",
+      "keys": [
+        "backend_sampling"
+      ],
+      "unset": {
+        "backend_sampling": "off"
+      },
+      "choices": [
+        {
+          "value": "off",
+          "label": "Off",
+          "set": {
+            "backend_sampling": null
+          },
+          "doc": "Sample tokens on the CPU. Nothing is written to the file."
+        },
+        {
+          "value": "auto",
+          "label": "Auto",
+          "set": {
+            "backend_sampling": "auto"
+          },
+          "doc": "Use GPU sampling when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs."
+        },
+        {
+          "value": "on",
+          "label": "On",
+          "set": {
+            "backend_sampling": "on"
+          },
+          "doc": "Sample tokens on the GPU. Faster with many parallel requests. Turned off automatically for requests that use a grammar, a reasoning budget or logprobs."
+        }
+      ]
     }
   ],
   "presets": [
+    {
+      "id": "balanced",
+      "name": "Balanced",
+      "description": "The defaults: LocalAI picks the batch and the slots for the GPU, with an f16 KV cache.",
+      "settings": {
+        "batch": null,
+        "cache_type_k": null,
+        "cache_type_v": null,
+        "flash_attention": null,
+        "paged_kv": null,
+        "parallel": null,
+        "ubatch": null
+      },
+      "profile": true
+    },
+    {
+      "id": "longPrompts",
+      "name": "Long prompts",
+      "description": "Batch and micro-batch of 2048: long prompts are read much faster, and the compute buffers grow.",
+      "settings": {
+        "batch": 2048,
+        "cache_type_k": null,
+        "cache_type_v": null,
+        "flash_attention": null,
+        "paged_kv": null,
+        "parallel": null,
+        "ubatch": 2048
+      },
+      "profile": true
+    },
+    {
+      "id": "concurrent",
+      "name": "More concurrent users",
+      "description": "8-bit KV cache, paged serving and 8 slots: about twice the tokens fit, shared by more users, at a small cost in quality.",
+      "settings": {
+        "batch": null,
+        "cache_type_k": "q8_0",
+        "cache_type_v": "q8_0",
+        "flash_attention": "on",
+        "paged_kv": true,
+        "parallel": 8,
+        "ubatch": null
+      },
+      "profile": true
+    },
     {
       "id": "bigMoe",
       "name": "Big MoE on a small GPU",
@@ -522,5 +661,13 @@
       "experts_cpu_layers",
       "first_layers_gpu"
     ]
+  },
+  "estimate": {
+    "batch": "batch",
+    "cache_type_k": "cache_type_k",
+    "cache_type_v": "cache_type_v",
+    "context_size": "context_size",
+    "gpu_layers": "gpu_layers",
+    "ubatch": "ubatch"
   }
 }

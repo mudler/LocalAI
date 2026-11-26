@@ -748,6 +748,7 @@ export default function ModelEditor() {
                   <div className="card pad-md" data-testid="editor-runtime">
                     <EngineRuntimeSection
                       engine={runtimeEngine}
+                      model={name}
                       values={values}
                       onChange={handlePlacementChange}
                       readOnly={!isAdmin}

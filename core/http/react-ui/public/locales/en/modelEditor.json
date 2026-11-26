@@ -54,7 +54,8 @@
             "memory": "Memory",
             "sampling": "Sampling defaults",
             "template": "Chat template",
-            "speed": "Speed"
+            "speed": "Speed",
+            "serving": "Concurrent serving"
         },
         "fields": {
             "context_size": "Context size",
@@ -74,7 +75,11 @@
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Jinja chat template",
             "load_mode": "Load mode",
-            "options_ubatch": "Micro-batch size"
+            "options_ubatch": "Micro-batch size",
+            "options_paged_kv": "Paged serving",
+            "options_paged_preempt": "Pause on a full cache",
+            "options_prefill_budget": "Prefill budget",
+            "backend_sampling": "GPU sampling"
         },
         "choices": {
             "load_mode": {
@@ -84,10 +89,16 @@
                 "mlock": "mlock",
                 "mmap_mlock": "mmap + mlock",
                 "direct_io": "Direct I/O"
+            },
+            "backend_sampling": {
+                "off": "Off",
+                "auto": "Auto",
+                "on": "On"
             }
         },
         "hints": {
-            "load_mode": "How the model file is read. Writes mmap, mmlock and the direct_io option."
+            "load_mode": "How the model file is read. Writes mmap, mmlock and the direct_io option.",
+            "backend_sampling": "Where tokens are sampled. A backend without GPU sampling ignores the setting."
         },
         "errors": {
             "notInteger": "Type a whole number.",
@@ -207,6 +218,43 @@
         "readOnly": {
             "title": "Read only.",
             "body": "Only an administrator can change these settings."
+        },
+        "quick": {
+            "title": "Quick setup",
+            "custom": "Custom",
+            "customText": "Set the fields below yourself.",
+            "current": "Your settings",
+            "estimating": "Estimating...",
+            "noEstimate": "No estimate",
+            "same": "About the same memory",
+            "more": "≈ {{size}} more memory",
+            "less": "≈ {{size}} less memory",
+            "now": "Now: KV cache ≈ {{kv}} and compute buffers ≈ {{compute}} at {{context}} tokens, beside the weights.",
+            "estimate": "These figures are estimates.",
+            "approximate": "Rough estimates: the model layout was not read from the file.",
+            "failed": "The memory estimate is not available."
+        },
+        "profiles": {
+            "balanced": {
+                "name": "Balanced",
+                "text": "The defaults: LocalAI picks the batch and the slots for your GPU, with an f16 KV cache."
+            },
+            "longPrompts": {
+                "name": "Long prompts",
+                "text": "Batch and micro-batch of 2048. Long prompts are read much faster; the compute buffers use more memory."
+            },
+            "concurrent": {
+                "name": "More concurrent users",
+                "text": "8-bit KV cache, paged serving and 8 slots. About twice the tokens fit in the same memory, shared by more users, at a small cost in quality.",
+                "note": "A quantized KV cache can be slower on some attention paths until llama.cpp has a fast kernel for them. Paged serving needs a backend build that supports it; other builds ignore the option."
+            }
+        },
+        "choiceHints": {
+            "backend_sampling": {
+                "off": "Sample tokens on the CPU. Nothing is written to the file.",
+                "auto": "Use GPU sampling when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs.",
+                "on": "Sample tokens on the GPU. Faster with many parallel requests. Turned off automatically for requests that use a grammar, a reasoning budget or logprobs."
+            }
         }
     }
 }
