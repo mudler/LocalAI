@@ -263,6 +263,104 @@ func serviceSpecs(newStore func() p2ppair.Store) {
 			Expect(m.Warnings).To(ConsistOf(p2ppair.WarnNoRelay, p2ppair.WarnNoPublicAddr))
 		})
 
+		Context("with relay hints", func() {
+			var hints []peer.AddrInfo
+			hint := func(addr string, id peer.ID) peer.AddrInfo {
+				a, err := ma.NewMultiaddr(addr)
+				Expect(err).NotTo(HaveOccurred())
+				return peer.AddrInfo{ID: id, Addrs: []ma.Multiaddr{a}}
+			}
+			withHints := func(src func() []peer.AddrInfo) {
+				var err error
+				svc, err = p2ppair.NewService(newStore(), p2ppair.Config{
+					ServerPeer: server, Addrs: func() []ma.Multiaddr { return addrs },
+					Relays: relays, Registrar: reg, Issuer: iss, Now: clk.Now, Hints: src,
+				})
+				Expect(err).NotTo(HaveOccurred())
+			}
+			hintIDs := func(l *p2ppair.Link) []peer.ID {
+				var out []peer.ID
+				for _, h := range l.Hints {
+					out = append(out, h.ID)
+				}
+				return out
+			}
+			BeforeEach(func() {
+				hints = []peer.AddrInfo{
+					hint("/ip4/192.0.2.10/tcp/4001", newPeer()),
+					hint("/ip4/192.0.2.11/udp/4001/quic-v1", newPeer()),
+					hint("/ip4/192.0.2.12/tcp/4001", newPeer()),
+				}
+				withHints(func() []peer.AddrInfo { return hints })
+			})
+
+			It("puts at most two in the link, which parses with them", func() {
+				m := mint(p2ppair.MintRequest{})
+				Expect(hintIDs(m.Link)).To(Equal([]peer.ID{hints[0].ID, hints[1].ID}))
+				parsed, err := p2ppair.ParseLink(m.Link.String())
+				Expect(err).NotTo(HaveOccurred())
+				Expect(parsed.HintAddrStrings()).To(Equal(m.Link.HintAddrStrings()))
+				Expect(m.Link.Pass).To(Equal("pass-g1"), "the pass stays on the gated relay")
+				Expect(m.Invite.RelayIDs).To(Equal([]string{"g1", "g2"}), "the invite row never keeps a hint")
+			})
+
+			It("leaves out a relay the server knows, the server itself and a repeat", func() {
+				g1, err := peer.AddrInfoFromP2pAddr(relays[0].Addr)
+				Expect(err).NotTo(HaveOccurred())
+				open, err := peer.AddrInfoFromP2pAddr(relays[2].Addr)
+				Expect(err).NotTo(HaveOccurred())
+				hints = []peer.AddrInfo{
+					hint("/ip4/198.51.100.1/tcp/4001", g1.ID),
+					hint("/ip4/198.51.100.3/tcp/4001", open.ID),
+					hint("/ip4/192.0.2.20/tcp/4001", server),
+					hints[0], hints[0],
+					{ID: newPeer()},
+				}
+				m := mint(p2ppair.MintRequest{Relays: p2ppair.RelayNone})
+				Expect(hintIDs(m.Link)).To(Equal([]peer.ID{hints[3].ID}),
+					"a gated or open relay of the settings goes in r with its pass, never as a hint")
+				_, err = p2ppair.ParseLink(m.Link.String())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("keeps the hints in mode none, and drops them when the request says so", func() {
+				m := mint(p2ppair.MintRequest{Relays: p2ppair.RelayNone})
+				Expect(m.Link.Relays).To(BeEmpty())
+				Expect(m.Link.Hints).To(HaveLen(2))
+				m = mint(p2ppair.MintRequest{OmitRelayHints: true})
+				Expect(m.Link.Hints).To(BeEmpty())
+				Expect(m.Link.String()).NotTo(ContainSubstring("&h="))
+			})
+
+			It("has none when the source is nil or empty", func() {
+				withHints(nil)
+				Expect(mint(p2ppair.MintRequest{}).Link.Hints).To(BeEmpty())
+				withHints(func() []peer.AddrInfo { return nil })
+				Expect(mint(p2ppair.MintRequest{}).Link.Hints).To(BeEmpty())
+			})
+
+			It("warns punch_only instead of no_relay when the link has hints and no carrier", func() {
+				m := mint(p2ppair.MintRequest{Relays: p2ppair.RelayNone})
+				Expect(m.Warnings).To(Equal([]p2ppair.Warning{p2ppair.WarnPunchOnly}))
+				addrs = nil
+				m = mint(p2ppair.MintRequest{Relays: p2ppair.RelayNone})
+				Expect(m.Warnings).To(ConsistOf(p2ppair.WarnPunchOnly, p2ppair.WarnNoPublicAddr))
+				m = mint(p2ppair.MintRequest{Relays: p2ppair.RelayNone, OmitRelayHints: true})
+				Expect(m.Warnings).To(ConsistOf(p2ppair.WarnNoRelay, p2ppair.WarnNoPublicAddr))
+			})
+
+			It("does not change the warnings when a carrier relay is in the link", func() {
+				addrs = nil
+				m := mint(p2ppair.MintRequest{})
+				Expect(m.Link.Hints).To(HaveLen(2))
+				Expect(m.Warnings).To(BeEmpty())
+				reg.fail["g1"] = errors.New("down")
+				reg.fail["g2"] = errors.New("down")
+				m = mint(p2ppair.MintRequest{})
+				Expect(m.Warnings).To(Equal([]p2ppair.Warning{p2ppair.WarnRelayUnreachable}))
+			})
+		})
+
 		It("refuses the remote kind with no key issuer", func() {
 			s, err := p2ppair.NewService(newStore(), p2ppair.Config{ServerPeer: server})
 			Expect(err).NotTo(HaveOccurred())
