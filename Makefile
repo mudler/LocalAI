@@ -916,6 +916,11 @@ test-extra-backend-llama-cpp-embeddings: docker-build-llama-cpp
 	BACKEND_TEST_EMBEDDING_LAYOUT=per_token \
 	$(MAKE) test-extra-backend
 
+## RPC mode: llama-cpp-grpc loads the model and offloads it to llama-cpp-rpc-server,
+## both started from the image through run.sh, as a LocalAI worker does.
+test-extra-backend-llama-cpp-rpc: docker-build-llama-cpp
+	bash scripts/ci/llama-cpp-rpc-smoke.sh local-ai-backend:llama-cpp
+
 test-extra-backend-ik-llama-cpp: docker-build-ik-llama-cpp
 	BACKEND_IMAGE=local-ai-backend:ik-llama-cpp $(MAKE) test-extra-backend
 
