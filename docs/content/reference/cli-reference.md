@@ -341,7 +341,7 @@ The token-based P2P mode, federation and the Explorer were removed. A server tha
 | `local-ai p2p relays add\|remove\|list\|check` | Manage the relays of a running server (`--target`, `--api-key`, `--json`) |
 | `local-ai p2p id` and `local-ai p2p status` | Show the peer ID, addresses, reachability and paths of a running server |
 | `local-ai p2p pair --invite <link>` | Redeem an invite on this machine |
-| `local-ai p2p forward --peer <id> --listen <addr>` | Forward a local port to a paired peer |
+| `local-ai p2p forward --peer <id> --listen <addr>` | Forward a local port to a paired peer. `--relay`, `--addr` and `--hint` (a public relay that only helps a hole punch) are repeatable. With `--json` it prints one status line per state change, and a `routes` line with the current routes of the server while connected |
 
 ## Library sources
 

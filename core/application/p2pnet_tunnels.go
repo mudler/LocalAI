@@ -141,6 +141,13 @@ func (t *p2pTunnels) startLocked(tn remotes.Tunnel) (int, error) {
 		}
 		dial = append(dial, o)
 	}
+	if len(tn.Hints) > 0 {
+		o, err := p2pnet.HintsOption(tn.Hints)
+		if err != nil {
+			return fail(err)
+		}
+		dial = append(dial, o)
+	}
 	if t.gate != nil {
 		// The server may redial this host after its own address changed.
 		t.gate.AllowConn(peerID)
@@ -320,7 +327,7 @@ func (t *p2pTunnels) Pair(ctx context.Context, link string, allowOpenRelay bool)
 	}
 	return remotes.Pairing{
 		Peer: l.Peer.String(), ServerName: res.Server.Name, Phrase: res.Phrase, Key: res.ClientKey.Secret,
-		Addrs: l.AddrStrings(), Relays: l.RelayAddrStrings(),
+		Addrs: l.AddrStrings(), Relays: l.RelayAddrStrings(), Hints: l.HintAddrStrings(),
 	}, nil
 }
 

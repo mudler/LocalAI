@@ -174,9 +174,12 @@ type Tunnel struct {
 	ID   string
 	Peer string
 	// Addrs are direct multiaddrs of the peer and Relays relay multiaddrs
-	// ending in /p2p/<relay ID>, both from the invite link.
+	// ending in /p2p/<relay ID>, both from the invite link. Hints are the
+	// public relays of the link (key h), also ending in /p2p/<relay ID>:
+	// they only help a hole punch and never carry data.
 	Addrs  []string
 	Relays []string
+	Hints  []string
 	// Port is the loopback port. Zero picks a free port.
 	Port int
 }
@@ -191,6 +194,7 @@ type Pairing struct {
 	Key    string
 	Addrs  []string
 	Relays []string
+	Hints  []string
 }
 
 // Tunnels pairs with remotes over P2P and runs their forwarders. The

@@ -46,7 +46,7 @@ func (f *fakeTunnels) Pair(_ context.Context, link string, allowOpen bool) (remo
 		return remotes.Pairing{}, f.pairErr
 	}
 	return remotes.Pairing{Peer: serverPeer, ServerName: "Studio", Phrase: "apple river stone cloud", Key: secret,
-		Relays: []string{"/ip4/192.0.2.1/tcp/4001/p2p/12D3KooWRelay"}}, nil
+		Relays: []string{"/ip4/192.0.2.1/tcp/4001/p2p/12D3KooWRelay"}, Hints: []string{"/ip4/192.0.2.7/tcp/4001/p2p/12D3KooWHint"}}, nil
 }
 
 func (f *fakeTunnels) Open(t remotes.Tunnel) (int, error) {
@@ -243,6 +243,7 @@ var _ = Describe("Remotes over P2P", func() {
 		Expect(t.Port).To(Equal(tun.port))
 		Expect(t.Peer).To(Equal(serverPeer))
 		Expect(t.Relays).To(Equal([]string{"/ip4/192.0.2.1/tcp/4001/p2p/12D3KooWRelay"}))
+		Expect(t.Hints).To(Equal([]string{"/ip4/192.0.2.7/tcp/4001/p2p/12D3KooWHint"}), "the hints of the invite are saved too")
 	})
 
 	It("keeps the newest address that worked, first and without repeats", func() {
@@ -294,6 +295,7 @@ var _ = Describe("Remotes over P2P", func() {
 		remotes.StartTunnels(ctx, newSvc(fresh))
 		Expect(fresh.opened[id].Addrs).To(Equal(stored()))
 		Expect(fresh.opened[id].Relays).To(Equal([]string{"/ip4/192.0.2.1/tcp/4001/p2p/12D3KooWRelay"}))
+		Expect(fresh.opened[id].Hints).To(Equal([]string{"/ip4/192.0.2.7/tcp/4001/p2p/12D3KooWHint"}))
 	})
 
 	It("does not learn an address for a remote that is not over P2P or is gone", func() {

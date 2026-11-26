@@ -114,7 +114,7 @@ func (s *service) createP2P(ctx context.Context, r CreateRequest) (Result, error
 		}
 	}
 	id := s.newID()
-	port, err := s.o.Tunnels.Open(Tunnel{ID: id, Peer: pairing.Peer, Addrs: pairing.Addrs, Relays: pairing.Relays})
+	port, err := s.o.Tunnels.Open(Tunnel{ID: id, Peer: pairing.Peer, Addrs: pairing.Addrs, Relays: pairing.Relays, Hints: pairing.Hints})
 	if err != nil {
 		return Result{}, fmt.Errorf("the invite was redeemed, but the local port could not be opened; remove this server on the other side and use a new invite: %w", err)
 	}
@@ -126,7 +126,7 @@ func (s *service) createP2P(ctx context.Context, r CreateRequest) (Result, error
 	rec := record{
 		ID: id, Name: name, Kind: KindLocalAI, URL: p2pScheme + pairing.Peer, Status: StatusNever,
 		Created: s.now(), Sealed: sealed, Transport: TransportP2P,
-		P2P: &p2pRecord{Peer: pairing.Peer, Addrs: pairing.Addrs, Relays: pairing.Relays, Port: port},
+		P2P: &p2pRecord{Peer: pairing.Peer, Addrs: pairing.Addrs, Relays: pairing.Relays, Hints: pairing.Hints, Port: port},
 	}
 	if err := s.o.Store.Create(ctx, rec); err != nil {
 		s.o.Tunnels.Close(id)

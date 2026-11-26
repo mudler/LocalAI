@@ -9,11 +9,14 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/services/p2pnet"
+	"github.com/mudler/LocalAI/core/services/p2ppair/pairclient"
 	"github.com/mudler/LocalAI/pkg/logsetup"
+	"github.com/mudler/xlog"
 )
 
 // P2PIdentityFlags name the identity file of this machine.
@@ -53,14 +56,44 @@ func (c *P2PIDCMD) Run(_ *cliContext.Context) error {
 
 // P2PForwardCMD forwards a local port to a peer. The desktop launcher
 // supervises it: it keeps one port, re-dials by itself and exits cleanly on
-// SIGTERM.
+// SIGTERM. While a connection is up it asks the server for its current
+// routes and prints them, so the supervisor can save them.
 type P2PForwardCMD struct {
 	P2PIdentityFlags `embed:""`
 	Peer             string   `required:"" help:"Peer ID to forward to"`
 	Listen           string   `required:"" help:"Local loopback address to listen on, for example 127.0.0.1:8080"`
 	Relay            []string `help:"Relay multiaddr to try, ending in /p2p/<relay ID> (repeatable)"`
 	Addr             []string `help:"Known multiaddr of the peer (repeatable)"`
+	Hint             []string `help:"Public relay of the invite that only helps a hole punch and never carries data, ending in /p2p/<relay ID> (repeatable)"`
 	JSON             bool     `help:"Print one JSON status line per state change on stderr, for a supervisor"`
+}
+
+// routesLine is the status line with the routes the server gave.
+type routesLine struct {
+	State  string   `json:"state"`
+	Addrs  []string `json:"addrs"`
+	Relays []string `json:"relays"`
+	Hints  []string `json:"hints"`
+}
+
+// dialOptions are the dial options of the relays, addresses and hints of the
+// flags.
+func (c *P2PForwardCMD) dialOptions() ([]p2pnet.DialOption, error) {
+	var dial []p2pnet.DialOption
+	for _, f := range []struct {
+		vals []string
+		opt  func([]string) (p2pnet.DialOption, error)
+	}{{c.Relay, p2pnet.RelaysOption}, {c.Addr, p2pnet.AddrsOption}, {c.Hint, p2pnet.HintsOption}} {
+		if len(f.vals) == 0 {
+			continue
+		}
+		o, err := f.opt(f.vals)
+		if err != nil {
+			return nil, err
+		}
+		dial = append(dial, o)
+	}
+	return dial, nil
 }
 
 type forwardLine struct {
@@ -83,27 +116,22 @@ func (c *P2PForwardCMD) Run(cctx *cliContext.Context) error {
 	if err != nil {
 		return err
 	}
-	var dial []p2pnet.DialOption
-	if len(c.Relay) > 0 {
-		o, err := p2pnet.RelaysOption(c.Relay)
-		if err != nil {
-			return err
-		}
-		dial = append(dial, o)
-	}
-	if len(c.Addr) > 0 {
-		o, err := p2pnet.AddrsOption(c.Addr)
-		if err != nil {
-			return err
-		}
-		dial = append(dial, o)
+	dial, err := c.dialOptions()
+	if err != nil {
+		return err
 	}
 	identity := c.path()
 	if _, err := p2pnet.IdentityPeerID(identity); err != nil {
 		return fmt.Errorf("%w; pair this machine first with `local-ai p2p pair --invite <link> --identity %s`", err, identity)
 	}
-	// No listener: this machine only dials out.
-	h, err := p2pnet.New(ctx, p2pnet.Config{IdentityPath: identity, ListenAddrs: []string{}})
+	// Without hints this machine only dials out. With hints it listens on
+	// ports that the system picks, so that a hole punch can reach it; its
+	// empty allowlist refuses every inbound connection.
+	cfg := p2pnet.Config{IdentityPath: identity, ListenAddrs: []string{}}
+	if len(c.Hint) > 0 {
+		cfg.ListenAddrs = nil
+	}
+	h, err := p2pnet.New(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -126,6 +154,24 @@ func (c *P2PForwardCMD) Run(cctx *cliContext.Context) error {
 		}
 		_, _ = fmt.Fprintln(os.Stderr, line)
 	}
+	var mu sync.Mutex
+	client := h.HTTPClient(peerID, dial...)
+	routes := pairclient.WatchRoutes(ctx,
+		func(ctx context.Context) (pairclient.Routes, error) {
+			return pairclient.FetchRoutes(ctx, client, peerID)
+		},
+		0,
+		func(r pairclient.Routes) {
+			mu.Lock()
+			defer mu.Unlock()
+			if c.JSON {
+				_ = json.NewEncoder(os.Stderr).Encode(routesLine{State: "routes", Addrs: r.Addrs, Relays: r.Relays, Hints: r.Hints})
+				return
+			}
+			_, _ = fmt.Fprintf(os.Stderr, "forward routes: %d addresses, %d relays, %d hints\n", len(r.Addrs), len(r.Relays), len(r.Hints))
+		},
+		func(err error) { xlog.Debug("p2p forward: could not read the routes of the server", "error", err) })
+	defer routes.Stop()
 	f, err := h.Forward(ctx, peerID, p2pnet.ProtoHTTP, c.Listen,
 		p2pnet.WithDialOptions(dial...),
 		p2pnet.WithStatus(func(st p2pnet.ForwardStatus) {
@@ -136,12 +182,17 @@ func (c *P2PForwardCMD) Run(cctx *cliContext.Context) error {
 			if st.Err != nil {
 				l.Error = st.Err.Error()
 			}
+			mu.Lock()
 			report(l)
+			mu.Unlock()
+			routes.Connected(st.State == p2pnet.ForwardUp)
 		}))
 	if err != nil {
 		return err
 	}
+	mu.Lock()
 	report(forwardLine{State: "ready", Addr: f.Addr().String()})
+	mu.Unlock()
 	<-ctx.Done()
 	return f.Close()
 }

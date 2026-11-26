@@ -46,13 +46,14 @@ type p2pRecord struct {
 	Peer   string   `json:"peer"`
 	Addrs  []string `json:"addrs,omitempty"`
 	Relays []string `json:"relays,omitempty"`
+	Hints  []string `json:"hints,omitempty"`
 	// Port is the loopback port of the forwarder, kept so that the
 	// upstream address of the entries never changes.
 	Port int `json:"port"`
 }
 
 func (r record) tunnel() Tunnel {
-	return Tunnel{ID: r.ID, Peer: r.P2P.Peer, Addrs: slices.Clone(r.P2P.Addrs), Relays: slices.Clone(r.P2P.Relays), Port: r.P2P.Port}
+	return Tunnel{ID: r.ID, Peer: r.P2P.Peer, Addrs: slices.Clone(r.P2P.Addrs), Relays: slices.Clone(r.P2P.Relays), Hints: slices.Clone(r.P2P.Hints), Port: r.P2P.Port}
 }
 
 func (r record) clone() record {
@@ -62,7 +63,7 @@ func (r record) clone() record {
 	r.Sealed = slices.Clone(r.Sealed)
 	if r.P2P != nil {
 		p := *r.P2P
-		p.Addrs, p.Relays = slices.Clone(p.Addrs), slices.Clone(p.Relays)
+		p.Addrs, p.Relays, p.Hints = slices.Clone(p.Addrs), slices.Clone(p.Relays), slices.Clone(p.Hints)
 		r.P2P = &p
 	}
 	if r.LastRefresh != nil {

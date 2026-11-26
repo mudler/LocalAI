@@ -374,4 +374,25 @@ var _ = Describe("local-ai p2p forward", func() {
 		_, err := runP2P("forward", "--peer", "nope", "--listen", "127.0.0.1:0")
 		Expect(err).To(MatchError(ContainSubstring("not a peer ID")))
 	})
+
+	forwardCmd := func(args ...string) *P2PForwardCMD {
+		ctx, err := parseCLI(append([]string{"p2p", "forward", "--peer", newPeerIDText(), "--listen", "127.0.0.1:0"}, args...)...)
+		Expect(err).ToNot(HaveOccurred())
+		return ctx.Selected().Target.Addr().Interface().(*P2PForwardCMD)
+	}
+
+	It("takes repeated --hint flags as dial hints", func() {
+		h1 := "/ip4/192.0.2.10/tcp/4001/p2p/" + newPeerIDText()
+		h2 := "/ip4/192.0.2.11/udp/4001/quic-v1/p2p/" + newPeerIDText()
+		cmd := forwardCmd("--hint", h1, "--hint", h2, "--relay", "/ip4/198.51.100.1/tcp/4001/p2p/"+newPeerIDText())
+		Expect(cmd.Hint).To(Equal([]string{h1, h2}))
+		dial, err := cmd.dialOptions()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(dial).To(HaveLen(2), "one option for the relays and one for the hints")
+	})
+
+	It("rejects a hint without the peer ID of its relay", func() {
+		_, err := forwardCmd("--hint", "/ip4/192.0.2.10/tcp/4001").dialOptions()
+		Expect(err).To(HaveOccurred())
+	})
 })
