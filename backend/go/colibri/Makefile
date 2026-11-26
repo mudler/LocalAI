@@ -97,6 +97,11 @@ ifeq ($(BUILD_TYPE),cublas)
   ENGINE_CUDA:=engine-cuda
 endif
 COLIBRI_SRC=sources/colibri
+# Parallel jobs for the CUDA engines. One nvcc job for the fat binaries can use
+# several GB, and -j$(nproc) on a runner with little RAM per core gets killed by
+# the OOM killer. The default is one job per 4 GiB of available memory, at least
+# one and at most nproc.
+COLIBRI_CUDA_JOBS?=$(shell awk -v n=$$(nproc) '/^MemAvailable:/ { j = int($$2 / 4194304); if (j < 1) j = 1; if (j > n) j = n; print j }' /proc/meminfo 2>/dev/null)
 
 .PHONY: colibri engine engine-dist engine-python engine-cuda build package test clean purge check-pins print-asset
 
@@ -179,11 +184,12 @@ engine-cuda: engine-dist
 	  cd "$(CURDIR)"; \
 	fi; \
 	"$(CUDA_HOME)/bin/nvcc" --version | tail -n 2; \
+	echo "==> $(COLIBRI_CUDA_JOBS) parallel jobs (COLIBRI_CUDA_JOBS)"; \
 	echo "==> building the CUDA engines: $(COLIBRI_CUDA_ENGINES) deepseek_v4"; \
 	for t in $(COLIBRI_CUDA_ENGINES); do \
-	  make -C $(COLIBRI_SRC)/c -j"$$(nproc)" $$t CUDA=1 CUDA_HOME=$(CUDA_HOME) $(COLIBRI_CUDA_MAKE_ARGS); \
+	  make -C $(COLIBRI_SRC)/c -j"$(COLIBRI_CUDA_JOBS)" $$t CUDA=1 CUDA_HOME=$(CUDA_HOME) $(COLIBRI_CUDA_MAKE_ARGS); \
 	done; \
-	make -C $(COLIBRI_SRC)/c -j"$$(nproc)" deepseek-v4 CUDA=1 CUDA_HOME=$(CUDA_HOME) $(COLIBRI_CUDA_MAKE_ARGS); \
+	make -C $(COLIBRI_SRC)/c -j"$(COLIBRI_CUDA_JOBS)" deepseek-v4 CUDA=1 CUDA_HOME=$(CUDA_HOME) $(COLIBRI_CUDA_MAKE_ARGS); \
 	for t in $(COLIBRI_CUDA_ENGINES) deepseek_v4; do \
 	  ldd $(COLIBRI_SRC)/c/$$t | grep -q libcudart || { echo "colibri: $$t does not link the CUDA runtime" >&2; exit 1; }; \
 	  cp -f $(COLIBRI_SRC)/c/$$t colibri-dist/$$t; \
