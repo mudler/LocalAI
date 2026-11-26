@@ -265,7 +265,7 @@ export default function ThreeDGen() {
             onToggle={() => setShowAdvanced(v => !v)}
             id="threed-advanced-options"
           >
-            <div className="ws-grid">
+            <div className="studio-ws-grid">
               <Field label={t('threed.labels.steps')} htmlFor="threed-steps"><input id="threed-steps" className="dk-input" type="number" min="1" value={steps} onChange={(e) => setSteps(e.target.value)} placeholder="12" /></Field>
               <Field label={t('threed.labels.textureSteps')} htmlFor="threed-texture-steps"><input id="threed-texture-steps" className="dk-input" type="number" min="1" value={textureSteps} onChange={(e) => setTextureSteps(e.target.value)} placeholder="12" /></Field>
               <Field label={t('threed.labels.guidance')} htmlFor="threed-guidance"><input id="threed-guidance" className="dk-input" type="number" step="0.1" value={guidance} onChange={(e) => setGuidance(e.target.value)} placeholder="7.5" /></Field>
@@ -276,11 +276,11 @@ export default function ThreeDGen() {
         submit={{ label: t('threed.actions.generate'), busyLabel: t('threed.actions.generating'), busy: loading, disabled: !model || noModel || (!animation && !image?.base64), why, icon: 'cube' }}
       >
         {animation ? (
-          <div className="ws-inputs ws-inputs--one">
+          <div className="studio-ws-inputs studio-ws-inputs--one">
             <AnimationOptions key={model} operation={animation} inputs={animationInputs} onInputsChange={setAnimationInputs} params={animationParams} onParamsChange={setAnimationParams} />
           </div>
         ) : (
-          <div className="ws-inputs ws-inputs--one">
+          <div className="studio-ws-inputs studio-ws-inputs--one">
             <MediaInput
               mode="image"
               label={t('threed.labels.image')}
@@ -308,7 +308,7 @@ export default function ThreeDGen() {
             download={{ href: downloadUrl, name: active.name || `3d-${model || 'model'}.glb`, testId: 'glb-download' }}
             onRerun={() => {}}
           >
-            <div className="ws-viewer">
+            <div className="studio-ws-viewer">
               {active.outputType === 'skeleton_animation' ? <AnimationViewer blob={active.blob} /> : <GlbViewer blob={active.blob} />}
               {canRemesh && <div className="threed-remesh-controls">
                 <div className="threed-remesh-heading">

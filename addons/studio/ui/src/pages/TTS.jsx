@@ -196,7 +196,7 @@ export default function TTS() {
         submit={{ label: t('tts.actions.generate'), busyLabel: t('tts.actions.generating'), busy: loading, disabled: !model || !text.trim() || noModel, why, icon: 'headphones' }}
       >
         <textarea
-          className="ws-prompt textarea"
+          className="studio-ws-prompt textarea"
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder={t('tts.labels.inputPlaceholder')}
@@ -206,26 +206,26 @@ export default function TTS() {
         />
         {!text && <Starters type="tts" onPick={setText} />}
         {supportsVoiceProfiles && (
-          <div className="ws-voicebar" data-testid="ws-voicebar">
+          <div className="studio-ws-voicebar" data-testid="ws-voicebar">
             <span className="dk-badge dk-badge--ok">{t('tts.voiceLibrary.cloningReady')}</span>
             {selectedProfile && (
-              <span className="ws-voicebar__who">
-                <span className="ws-avatar">{selectedProfile.name.slice(0, 2).toUpperCase()}</span>
+              <span className="studio-ws-voicebar__who">
+                <span className="studio-ws-avatar">{selectedProfile.name.slice(0, 2).toUpperCase()}</span>
                 <strong>{selectedProfile.name}</strong>
                 <small>{selectedProfile.language || t('voiceLibrary.metadata.languageUnknown')} · {formatProfileDuration(selectedProfile.audio?.duration_ms)}</small>
               </span>
             )}
             {!profilesLoading && profiles.length === 0 && (
-              <span className="ws-hint">
+              <span className="studio-ws-hint">
                 {t('tts.voiceLibrary.empty')}{' '}
-                {isAdmin && <Link className="ws-link" to="/app/voice-library/new">{t('tts.voiceLibrary.create')}</Link>}
+                {isAdmin && <Link className="studio-ws-link" to="/app/voice-library/new">{t('tts.voiceLibrary.create')}</Link>}
               </span>
             )}
-            {profilesError && <span className="ws-hint ws-hint--error" role="alert">{profilesError}</span>}
-            {isAdmin && profiles.length > 0 && <Link className="ws-link" to="/app/voice-library">{t('tts.voiceLibrary.manage')} <Icon name="arrow-right" /></Link>}
+            {profilesError && <span className="studio-ws-hint studio-ws-hint--error" role="alert">{profilesError}</span>}
+            {isAdmin && profiles.length > 0 && <Link className="studio-ws-link" to="/app/voice-library">{t('tts.voiceLibrary.manage')} <Icon name="arrow-right" /></Link>}
           </div>
         )}
-        {!supportsVoiceProfiles && <p className="ws-hint">{t('tts.voiceLibrary.namedVoiceHint')}</p>}
+        {!supportsVoiceProfiles && <p className="studio-ws-hint">{t('tts.voiceLibrary.namedVoiceHint')}</p>}
       </ComposeCard>
 
       <RunArea>
@@ -242,9 +242,9 @@ export default function TTS() {
             download={{ href: shownSrc, name: `tts-${(item?.model || model)}-${new Date().toISOString().slice(0, 10)}.mp3` }}
             onRerun={rerun}
           >
-            <div className="ws-audio">
+            <div className="studio-ws-audio">
               <WaveformPlayer src={shownSrc} height={96} audioTestId={selectedEntry ? 'history-audio' : undefined} />
-              <p className="ws-quote">&ldquo;{selectedEntry ? selectedEntry.prompt : text}&rdquo;</p>
+              <p className="studio-ws-quote">&ldquo;{selectedEntry ? selectedEntry.prompt : text}&rdquo;</p>
             </div>
           </ResultCard>
         ) : (

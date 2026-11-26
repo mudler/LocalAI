@@ -20,7 +20,7 @@ test.describe('Studio workbench', () => {
   test('fields are labelled in caps', async ({ page }) => {
     await page.goto('/app/addons/studio/studio/images')
     await page.getByRole('button', { name: /Advanced Settings/ }).click()
-    const label = page.locator('[data-testid="ws-compose"] .ws-label').first()
+    const label = page.locator('[data-testid="ws-compose"] .studio-ws-label').first()
     await expect(label).toBeVisible()
     const cs = await label.evaluate(el => getComputedStyle(el).textTransform)
     expect(cs).toBe('uppercase')

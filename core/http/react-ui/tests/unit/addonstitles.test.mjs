@@ -42,7 +42,7 @@ test('addon titles: no add-on style sheet sets the size of its page title', () =
       for (const m of readFileSync(f, 'utf8').matchAll(/([^{}]*(?:title|__title|-hd__title)[^{}]*)\{([^}]*)\}/g)) {
         const selector = m[1].trim()
         // Only the rules for the page's own title: the three that used to resize it.
-        if (/^(\.tbl-title|\.talk-hd__title|\.ws-title\b.*)$/.test(selector) && /font-size|font:/.test(m[2]) && selector !== '.ws-title') {
+        if (/^(\.tbl-title|\.talk-hd__title|\.studio-ws-title\b.*)$/.test(selector) && /font-size|font:/.test(m[2]) && selector !== '.studio-ws-title') {
           bad.push(`${id}: ${selector}`)
         }
       }
@@ -53,7 +53,7 @@ test('addon titles: no add-on style sheet sets the size of its page title', () =
 
 test('addon titles: the Studio card heading is a section, and Studio draws the one page title', () => {
   const workspace = readFileSync(join(addons, 'studio/ui/src/components/studio/Workspace.jsx'), 'utf8')
-  assert.match(workspace, /<h2 className="ws-title">/)
+  assert.match(workspace, /<h2 className="studio-ws-title">/)
   const studio = readFileSync(join(addons, 'studio/ui/src/pages/Studio.jsx'), 'utf8')
   assert.match(studio, /<PageHeader/)
 })

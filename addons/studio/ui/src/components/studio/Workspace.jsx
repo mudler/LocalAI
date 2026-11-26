@@ -39,10 +39,10 @@ export function Workspace({ type, children }) {
 // it away from the take it started from.
 export function Field({ label, htmlFor, changed, hint, children, className = '' }) {
   return (
-    <div className={`ws-field ${className}`.trim()} data-changed={changed || undefined}>
-      {label && <label className="ws-label" htmlFor={htmlFor}>{label}</label>}
+    <div className={`studio-ws-field ${className}`.trim()} data-changed={changed || undefined}>
+      {label && <label className="studio-ws-label" htmlFor={htmlFor}>{label}</label>}
       {children}
-      {hint && <p className="ws-hint">{hint}</p>}
+      {hint && <p className="studio-ws-hint">{hint}</p>}
     </div>
   )
 }
@@ -51,7 +51,7 @@ export function Field({ label, htmlFor, changed, hint, children, className = '' 
 export function ChipSelect({ label, value, onChange, options, changed, mono = true, testId, disabled, id }) {
   const items = options.map(o => (typeof o === 'object' ? o : { value: o, label: o }))
   return (
-    <span className="dk-select-wrap ws-chip" data-changed={changed || undefined}>
+    <span className="dk-select-wrap studio-ws-chip" data-changed={changed || undefined}>
       <select
         id={id}
         className={`dk-select${mono ? ' dk-input--mono' : ''}`}
@@ -70,7 +70,7 @@ export function ChipSelect({ label, value, onChange, options, changed, mono = tr
 // An on/off option drawn as a chip. Pressed shows the kit's check mark.
 export function ToggleChip({ label, on, onChange, changed, testId }) {
   return (
-    <button type="button" className="dk-chip ws-toggle" aria-pressed={on} data-changed={changed || undefined} data-testid={testId} onClick={() => onChange(!on)}>
+    <button type="button" className="dk-chip studio-ws-toggle" aria-pressed={on} data-changed={changed || undefined} data-testid={testId} onClick={() => onChange(!on)}>
       {label}
     </button>
   )
@@ -82,11 +82,11 @@ export function ChipInput({ label, value, onChange, placeholder, type = 'text', 
   const generated = useId()
   const id = given || generated
   return (
-    <label className="ws-chip ws-chip--input" htmlFor={id} data-changed={changed || undefined}>
+    <label className="studio-ws-chip studio-ws-chip--input" htmlFor={id} data-changed={changed || undefined}>
       <span>{label}</span>
       <input
         id={id}
-        className="ws-chip__input"
+        className="studio-ws-chip__input"
         type={type}
         step={step}
         min={min}
@@ -104,7 +104,7 @@ export function ChipInput({ label, value, onChange, placeholder, type = 'text', 
 // (search, last model remembered); the fit sits in the estimate line.
 export function ModelChip({ value, onChange, capability, options, loading, disabled, changed }) {
   return (
-    <span className="ws-chip ws-chip--model" data-changed={changed || undefined}>
+    <span className="studio-ws-chip studio-ws-chip--model" data-changed={changed || undefined}>
       <ModelSelector
         value={value}
         onChange={onChange}
@@ -112,7 +112,7 @@ export function ModelChip({ value, onChange, capability, options, loading, disab
         options={options}
         loading={loading}
         disabled={disabled}
-        triggerClassName="ws-model"
+        triggerClassName="studio-ws-model"
       />
     </span>
   )
@@ -125,7 +125,7 @@ export function Starters({ type, onPick }) {
   const list = t(`studio.starters.${type}`, { returnObjects: true })
   if (!Array.isArray(list) || list.length === 0) return null
   return (
-    <div className="ws-starters" data-testid="ws-starters">
+    <div className="studio-ws-starters" data-testid="ws-starters">
       <span className="studio-eyebrow">{t('studio.composer.starters')}</span>
       {list.map(s => <button key={s.label} type="button" className="dk-chip dk-chip--sm" onClick={() => onPick(s.text)}>{s.label}</button>)}
     </div>
@@ -138,17 +138,17 @@ export function SourceChip({ label, accept, multiple = false, name, count = 0, p
   const id = useId()
   const filled = !!name || count > 0
   return (
-    <span className={`ws-source${filled ? ' ws-source--filled' : ''}`} data-testid={testId}>
-      <label className="ws-source__pick" htmlFor={id}>
+    <span className={`studio-ws-source${filled ? ' studio-ws-source--filled' : ''}`} data-testid={testId}>
+      <label className="studio-ws-source__pick" htmlFor={id}>
         {preview ? <img src={preview} alt="" /> : <Icon name={filled ? 'check' : 'plus'} />}
-        <span className="ws-source__text">
+        <span className="studio-ws-source__text">
           <b>{label}</b>
           {filled && <small>{name || String(count)}</small>}
         </span>
       </label>
       <input
         id={id}
-        className="ws-source__input"
+        className="studio-ws-source__input"
         type="file"
         accept={accept}
         multiple={multiple}
@@ -156,7 +156,7 @@ export function SourceChip({ label, accept, multiple = false, name, count = 0, p
         onChange={(e) => { if (e.target.files?.length) onFiles(multiple ? [...e.target.files] : e.target.files[0]); e.target.value = '' }}
       />
       {filled && onClear && (
-        <button type="button" className="ws-source__x" aria-label={`${label}: remove`} onClick={onClear}><Icon name="close" /></button>
+        <button type="button" className="studio-ws-source__x" aria-label={`${label}: remove`} onClick={onClear}><Icon name="close" /></button>
       )}
     </span>
   )
@@ -173,27 +173,27 @@ export function SourceDrop({ label, accept, file, onFile, hint, testId, inputId 
   const size = !file ? '' : kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(kb))} KB`
   return (
     <div
-      className={`ws-drop${file ? ' ws-drop--filled' : ''}${hover ? ' ws-drop--hover' : ''}`}
+      className={`studio-ws-drop${file ? ' studio-ws-drop--filled' : ''}${hover ? ' studio-ws-drop--hover' : ''}`}
       data-testid={testId}
       onDragOver={(e) => { e.preventDefault(); setHover(true) }}
       onDragLeave={() => setHover(false)}
       onDrop={(e) => { e.preventDefault(); setHover(false); const f = e.dataTransfer.files?.[0]; if (f) onFile(f) }}
     >
       <Icon name={file ? 'check' : 'upload'} />
-      <span className="ws-drop__text">
+      <span className="studio-ws-drop__text">
         <b>{file ? file.name : label}</b>
         <small>{file ? size : (hint || t('studio.workspace.dropHint'))}</small>
       </span>
       <label className="dk-btn dk-btn--secondary dk-btn--sm" htmlFor={id}>{file ? t('studio.workspace.replace') : t('studio.workspace.choose')}</label>
       <input
         id={id}
-        className="ws-source__input"
+        className="studio-ws-source__input"
         type="file"
         accept={accept}
         aria-label={label}
         onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = '' }}
       />
-      {file && <button type="button" className="ws-source__x" aria-label={`${label}: remove`} onClick={() => onFile(null)}><Icon name="close" /></button>}
+      {file && <button type="button" className="studio-ws-source__x" aria-label={`${label}: remove`} onClick={() => onFile(null)}><Icon name="close" /></button>}
     </div>
   )
 }
@@ -201,10 +201,10 @@ export function SourceDrop({ label, accept, file, onFile, hint, testId, inputId 
 // A source chip that opens a panel with its own input (record, paste).
 export function PanelChip({ label, open, onToggle, filled, controls }) {
   return (
-    <button type="button" className={`ws-source ws-source--btn${filled ? ' ws-source--filled' : ''}`} aria-expanded={open} aria-controls={controls} onClick={onToggle}>
-      <span className="ws-source__pick">
+    <button type="button" className={`studio-ws-source studio-ws-source--btn${filled ? ' studio-ws-source--filled' : ''}`} aria-expanded={open} aria-controls={controls} onClick={onToggle}>
+      <span className="studio-ws-source__pick">
         <Icon name={filled ? 'check' : 'plus'} />
-        <span className="ws-source__text"><b>{label}</b></span>
+        <span className="studio-ws-source__text"><b>{label}</b></span>
       </span>
     </button>
   )
@@ -216,13 +216,13 @@ export function Fold({ label, summary, open, onToggle, id, children }) {
   const body = useId()
   const bodyId = id || body
   return (
-    <div className="ws-fold" data-open={open || undefined}>
-      <button type="button" className="ws-fold__bar" aria-expanded={open} aria-controls={bodyId} onClick={onToggle}>
+    <div className="studio-ws-fold" data-open={open || undefined}>
+      <button type="button" className="studio-ws-fold__bar" aria-expanded={open} aria-controls={bodyId} onClick={onToggle}>
         <b>{label}</b>
-        {summary && <span className="ws-fold__sum">{summary}</span>}
+        {summary && <span className="studio-ws-fold__sum">{summary}</span>}
         <Icon name={open ? 'chevron-up' : 'chevron-down'} />
       </button>
-      {open && <div id={bodyId} className="ws-fold__body">{children}</div>}
+      {open && <div id={bodyId} className="studio-ws-fold__body">{children}</div>}
     </div>
   )
 }
@@ -235,9 +235,9 @@ function Estimate({ model }) {
   const { resources } = useResources(30000)
   const need = useModelNeed(model)
   const fit = need ? fitFor(need, modelBudget(resources)) : null
-  if (!fit) return <span className="ws-estimate" data-testid="ws-estimate" />
+  if (!fit) return <span className="studio-ws-estimate" data-testid="ws-estimate" />
   return (
-    <span className="ws-estimate" data-testid="ws-estimate" data-fit={fit.state}>
+    <span className="studio-ws-estimate" data-testid="ws-estimate" data-fit={fit.state}>
       <Icon name="memory" />
       {fit.state === 'fits' && t('studio.composer.fit.fits', { need: gbLabel(fit.need), amount: gbNumber(fit.amount) })}
       {fit.state === 'spill' && t('studio.composer.fit.spill', { need: gbLabel(fit.need), amount: gbNumber(fit.amount) })}
@@ -264,31 +264,31 @@ export function ComposeCard({
 }) {
   const { t } = useTranslation('media')
   return (
-    <form className="ws-compose" onSubmit={onSubmit} ref={ws?.composeRef} data-testid="ws-compose" data-rerun={ws?.rerunning || undefined} noValidate>
-      <header className="ws-compose__head">
-        <h2 className="ws-title">{icon && <Icon name={icon} />}{title}</h2>
-        {lede && <span className="ws-lede">{lede}</span>}
+    <form className="studio-ws-compose" onSubmit={onSubmit} ref={ws?.composeRef} data-testid="ws-compose" data-rerun={ws?.rerunning || undefined} noValidate>
+      <header className="studio-ws-compose__head">
+        <h2 className="studio-ws-title">{icon && <Icon name={icon} />}{title}</h2>
+        {lede && <span className="studio-ws-lede">{lede}</span>}
       </header>
       {handoff}
-      {sources && <div className="ws-sources" role="group" aria-label={t('studio.workspace.sourcesLabel')}>{sources}</div>}
+      {sources && <div className="studio-ws-sources" role="group" aria-label={t('studio.workspace.sourcesLabel')}>{sources}</div>}
       {panels}
       {children}
       {noModel && (
-        <InstallNote key={noModel.type} type={noModel.type} typeLabel={noModel.label} onChanged={noModel.onChanged} className="ws-note" />
+        <InstallNote key={noModel.type} type={noModel.type} typeLabel={noModel.label} onChanged={noModel.onChanged} className="studio-ws-note" />
       )}
-      {options && <div className="ws-options">{options}</div>}
+      {options && <div className="studio-ws-options">{options}</div>}
       {fold}
-      <footer className="ws-foot">
+      <footer className="studio-ws-foot">
         <Estimate model={model} />
         {changes.length > 0 && (
-          <span className="ws-changes" data-testid="ws-changes">
+          <span className="studio-ws-changes" data-testid="ws-changes">
             <span>{t('studio.workspace.changedFrom')}</span>
             {changes.map(c => <code key={c.key}>{c.text}{c.long ? ` ${t('studio.workspace.edited')}` : ''}</code>)}
           </span>
         )}
-        <span className="ws-go">
-          {submit.why && <span className="ws-go__why" data-testid="ws-why">{submit.why}</span>}
-          <button type="submit" className="dk-btn dk-btn--primary ws-go__btn" disabled={submit.disabled || submit.busy} aria-busy={submit.busy || undefined}>
+        <span className="studio-ws-go">
+          {submit.why && <span className="studio-ws-go__why" data-testid="ws-why">{submit.why}</span>}
+          <button type="submit" className="dk-btn dk-btn--primary studio-ws-go__btn" disabled={submit.disabled || submit.busy} aria-busy={submit.busy || undefined}>
             {!submit.busy && <Icon name={submit.icon || 'sparkles'} />}
             {submit.busy ? submit.busyLabel : (ws?.rerunning ? t('studio.workspace.runAgain') : submit.label)}
           </button>
@@ -301,12 +301,12 @@ export function ComposeCard({
 // --- The run area -------------------------------------------------------------
 
 export function RunArea({ children }) {
-  return <section className="media-result ws-run" data-testid="ws-run">{children}</section>
+  return <section className="media-result studio-ws-run" data-testid="ws-run">{children}</section>
 }
 
 export function EmptyRun({ icon, text }) {
   return (
-    <div className="ws-empty" data-testid="ws-empty">
+    <div className="studio-ws-empty" data-testid="ws-empty">
       <Icon name={icon} />
       <p>{text}</p>
     </div>
@@ -333,15 +333,15 @@ export function JobCard({ label, detail, tiles = 0, ratio = 1 }) {
   const elapsed = useElapsed()
   const n = Math.min(Math.max(tiles, 0), 4)
   return (
-    <div className="ws-job" role="status" aria-live="polite" data-testid="ws-job">
-      <div className="ws-job__text">
-        <p className="ws-job__title"><Icon name="spinner" spin /> <span>{label}</span> <span className="ws-job__time">{elapsed}</span></p>
-        <span className="dk-progress ws-job__bar" role="progressbar" aria-label={label} data-indeterminate><span className="dk-progress-bar" /></span>
-        {detail && <p className="ws-job__detail">{detail}</p>}
+    <div className="studio-ws-job" role="status" aria-live="polite" data-testid="ws-job">
+      <div className="studio-ws-job__text">
+        <p className="studio-ws-job__title"><Icon name="spinner" spin /> <span>{label}</span> <span className="studio-ws-job__time">{elapsed}</span></p>
+        <span className="dk-progress studio-ws-job__bar" role="progressbar" aria-label={label} data-indeterminate><span className="dk-progress-bar" /></span>
+        {detail && <p className="studio-ws-job__detail">{detail}</p>}
       </div>
       {n > 0 && (
-        <div className={`ws-job__tiles ws-job__tiles--n${n}`} aria-hidden="true">
-          {Array.from({ length: n }, (_, i) => <span key={i} className="dk-skeleton dk-skeleton--block ws-job__tile" style={cssVars({ '--ratio': ratio })} />)}
+        <div className={`studio-ws-job__tiles studio-ws-job__tiles--n${n}`} aria-hidden="true">
+          {Array.from({ length: n }, (_, i) => <span key={i} className="dk-skeleton dk-skeleton--block studio-ws-job__tile" style={cssVars({ '--ratio': ratio })} />)}
         </div>
       )}
     </div>
@@ -353,15 +353,15 @@ export function JobCard({ label, detail, tiles = 0, ratio = 1 }) {
 export function FailedCard({ message, onRetry, retryLabel }) {
   const { t } = useTranslation('media')
   return (
-    <div className="ws-failed" role="alert" data-testid="ws-failed">
+    <div className="studio-ws-failed" role="alert" data-testid="ws-failed">
       <Icon name="alert-circle" />
-      <div className="ws-failed__body">
+      <div className="studio-ws-failed__body">
         <h3>{t('studio.workspace.failed.title')}</h3>
-        <p className="ws-failed__message">{message}</p>
-        <p className="ws-failed__note">{t('studio.workspace.failed.note')}</p>
-        <div className="ws-failed__row">
+        <p className="studio-ws-failed__message">{message}</p>
+        <p className="studio-ws-failed__note">{t('studio.workspace.failed.note')}</p>
+        <div className="studio-ws-failed__row">
           {onRetry && <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" onClick={onRetry}><Icon name="repeat" /> {retryLabel || t('studio.workspace.failed.retry')}</button>}
-          <a className="ws-link" href="/app/traces?tab=backend">{t('studio.workspace.failed.traces')}</a>
+          <a className="studio-ws-link" href="/app/traces?tab=backend">{t('studio.workspace.failed.traces')}</a>
         </div>
       </div>
     </div>
@@ -400,21 +400,21 @@ function UseInMenu({ ws, item }) {
         <Icon name="arrow-right" /> {t('studio.workspace.useIn')}
       </button>
       {open && (
-        <div className="dk-menu dk-menu--end ws-menu" role="menu" aria-label={t('studio.workspace.useIn')}>
-          {none && <p className="ws-menu__none">{t('studio.lineage.noBranch', { type: t(`studio.tabs.${ws.type}`) })}</p>}
+        <div className="dk-menu dk-menu--end studio-ws-menu" role="menu" aria-label={t('studio.workspace.useIn')}>
+          {none && <p className="studio-ws-menu__none">{t('studio.lineage.noBranch', { type: t(`studio.tabs.${ws.type}`) })}</p>}
           {steps.map(step => (
             <button
               key={step.edge}
               type="button"
               role="menuitem"
-              className="dk-menu-item ws-menu__item"
+              className="dk-menu-item studio-ws-menu__item"
               disabled={step.blocked}
               data-testid={`use-in-${step.edge}`}
               data-state={step.blocked ? 'unsupported' : step.missingModel ? 'missing' : 'ready'}
               onClick={() => { setOpen(false); ws.sendTo(item, step) }}
             >
               <Icon name={TYPE_ICON[step.to]} />
-              <span className="ws-menu__text">
+              <span className="studio-ws-menu__text">
                 <b>{step.title}</b>
                 <small>
                   {step.blocked
@@ -446,20 +446,20 @@ export function ResultCard({ ws, item, title, meta = [], download, onRerun, acti
   const heading = title || item?.title || t(`studio.work.untitled.${ws.type}`)
   const edgeLabel = item?.edge ? t(`studio.edges.${item.edge}`, { defaultValue: item.edge }) : ''
   return (
-    <article className="ws-result" data-testid={testId} data-id={item?.id}>
-      <header className="ws-result__head">
-        <div className="ws-result__who">
+    <article className="studio-ws-result" data-testid={testId} data-id={item?.id}>
+      <header className="studio-ws-result__head">
+        <div className="studio-ws-result__who">
           <h2 title={heading}>{heading}</h2>
           <p>{[t(`studio.tabs.${ws.type}`), item ? relativeTime(item.createdAt) : ''].filter(Boolean).join(' · ')}</p>
         </div>
-        <div className="ws-result__tools" role="toolbar" aria-label={t('studio.workspace.tools')}>
+        <div className="studio-ws-result__tools" role="toolbar" aria-label={t('studio.workspace.tools')}>
           {item && (
-            <button type="button" className="ws-tool" aria-pressed={item.favourite} aria-label={t('studio.work.favourite')} title={t('studio.work.favourite')} data-testid="ws-favourite" onClick={() => ws.toggleFavourite(item.id)}>
+            <button type="button" className="studio-ws-tool" aria-pressed={item.favourite} aria-label={t('studio.work.favourite')} title={t('studio.work.favourite')} data-testid="ws-favourite" onClick={() => ws.toggleFavourite(item.id)}>
               <StarGlyph />
             </button>
           )}
           {download && (
-            <a className="ws-tool" href={download.href} download={download.name} aria-label={t('studio.workspace.download')} title={t('studio.workspace.download')} data-testid={download.testId || 'ws-download'}>
+            <a className="studio-ws-tool" href={download.href} download={download.name} aria-label={t('studio.workspace.download')} title={t('studio.workspace.download')} data-testid={download.testId || 'studio-ws-download'}>
               <Icon name="download" />
             </a>
           )}
@@ -471,14 +471,14 @@ export function ResultCard({ ws, item, title, meta = [], download, onRerun, acti
             </button>
           )}
           {item && (
-            <button type="button" className="ws-tool" aria-label={t('studio.workspace.lineage')} title={t('studio.workspace.lineage')} data-testid="ws-lineage" onClick={() => ws.openLineage(item)}>
+            <button type="button" className="studio-ws-tool" aria-label={t('studio.workspace.lineage')} title={t('studio.workspace.lineage')} data-testid="ws-lineage" onClick={() => ws.openLineage(item)}>
               <Icon name="git-branch" />
             </button>
           )}
         </div>
       </header>
-      <div className="ws-result__view">{children}</div>
-      <footer className="ws-result__meta">
+      <div className="studio-ws-result__view">{children}</div>
+      <footer className="studio-ws-result__meta">
         {meta.filter(Boolean).map((m, i) => <span key={i}>{m}</span>)}
         {item?.parentId && (
           parent
@@ -495,14 +495,14 @@ export function ResultCard({ ws, item, title, meta = [], download, onRerun, acti
 // audio you chose, waiting to be transformed.
 export function ViewCard({ title, sub, children, testId = 'ws-view' }) {
   return (
-    <article className="ws-result" data-testid={testId}>
-      <header className="ws-result__head">
-        <div className="ws-result__who">
+    <article className="studio-ws-result" data-testid={testId}>
+      <header className="studio-ws-result__head">
+        <div className="studio-ws-result__who">
           <h2 title={title}>{title}</h2>
           {sub && <p>{sub}</p>}
         </div>
       </header>
-      <div className="ws-result__view">{children}</div>
+      <div className="studio-ws-result__view">{children}</div>
     </article>
   )
 }
@@ -519,40 +519,40 @@ export function ResultsStrip({ ws, selectedId, activeId, onSelect, onDelete, onC
   const favouriteCount = ws.items.filter(i => i.favourite).length
   const shown = (filter === 'favourites' ? ws.items.filter(i => i.favourite) : ws.items).slice(0, STRIP_MAX)
   return (
-    <section className="ws-strip media-history" data-testid="media-history" aria-label={t('studio.workspace.strip.title')}>
-      <header className="ws-strip__head">
+    <section className="studio-ws-strip media-history" data-testid="media-history" aria-label={t('studio.workspace.strip.title')}>
+      <header className="studio-ws-strip__head">
         <h2>{t('studio.workspace.strip.title')}</h2>
-        <span className="ws-strip__count">{t('studio.work.results', { count: ws.items.length })}</span>
-        <div className="ws-strip__tools">
-          <div className="studio-filters ws-strip__filters" role="tablist" aria-label={t('studio.work.filters')}>
+        <span className="studio-ws-strip__count">{t('studio.work.results', { count: ws.items.length })}</span>
+        <div className="studio-ws-strip__tools">
+          <div className="studio-filters studio-ws-strip__filters" role="tablist" aria-label={t('studio.work.filters')}>
             <button type="button" role="tab" className="studio-filter" aria-selected={filter === 'all'} onClick={() => setFilter('all')}>{t('studio.work.all')}</button>
             <button type="button" role="tab" className="studio-filter" aria-selected={filter === 'favourites'} onClick={() => setFilter('favourites')}>
               {t('studio.work.favourites')} <span className="studio-filter__n">{favouriteCount}</span>
             </button>
           </div>
           {ws.items.length > 0 && (
-            <button type="button" className="media-history-clear-btn ws-strip__clear" title={t('history.clearTitle')} aria-label={t('history.clearTitle')} onClick={onClear}>
+            <button type="button" className="media-history-clear-btn studio-ws-strip__clear" title={t('history.clearTitle')} aria-label={t('history.clearTitle')} onClick={onClear}>
               <Icon name="trash" />
             </button>
           )}
-          <Link className="ws-link" to="/app/studio">{t('studio.workspace.strip.allWork')} <Icon name="arrow-right" /></Link>
+          <Link className="studio-ws-link" to="/app/studio">{t('studio.workspace.strip.allWork')} <Icon name="arrow-right" /></Link>
         </div>
       </header>
       {shown.length === 0 ? (
-        <p className="ws-strip__empty media-history-empty">{filter === 'favourites' ? t('studio.workspace.strip.noFavourites') : t('history.empty')}</p>
+        <p className="studio-ws-strip__empty media-history-empty">{filter === 'favourites' ? t('studio.workspace.strip.noFavourites') : t('history.empty')}</p>
       ) : (
-        <ul className="ws-strip__list">
+        <ul className="studio-ws-strip__list">
           {shown.map(item => (
-            <li key={item.id} className="ws-tile" data-testid="media-history-item" data-id={item.id} data-active={item.id === activeId || undefined}>
-              <button type="button" className="ws-tile__open" aria-pressed={item.id === selectedId} aria-label={item.title || t(`studio.work.untitled.${ws.type}`)} onClick={() => onSelect(item.id)}>
+            <li key={item.id} className="studio-ws-tile" data-testid="media-history-item" data-id={item.id} data-active={item.id === activeId || undefined}>
+              <button type="button" className="studio-ws-tile__open" aria-pressed={item.id === selectedId} aria-label={item.title || t(`studio.work.untitled.${ws.type}`)} onClick={() => onSelect(item.id)}>
                 <WorkThumb item={item} compact />
-                <span className="ws-tile__cap">
-                  <span className="ws-tile__title">{item.title || t(`studio.work.untitled.${ws.type}`)}</span>
+                <span className="studio-ws-tile__cap">
+                  <span className="studio-ws-tile__title">{item.title || t(`studio.work.untitled.${ws.type}`)}</span>
                   <small>{relativeTime(item.createdAt)}</small>
                 </span>
               </button>
-              {item.favourite && <span className="ws-tile__star" aria-hidden="true"><StarGlyph /></span>}
-              <button type="button" className="ws-tile__del" aria-label={t('history.deleteEntry')} title={t('history.deleteEntry')} data-testid="media-history-delete" onClick={() => onDelete(item.id)}>
+              {item.favourite && <span className="studio-ws-tile__star" aria-hidden="true"><StarGlyph /></span>}
+              <button type="button" className="studio-ws-tile__del" aria-label={t('history.deleteEntry')} title={t('history.deleteEntry')} data-testid="media-history-delete" onClick={() => onDelete(item.id)}>
                 <Icon name="close" />
               </button>
             </li>

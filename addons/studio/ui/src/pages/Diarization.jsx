@@ -36,7 +36,7 @@ function ExportButton({ label, build, name, type }) {
     a.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
-  return <button type="button" className="ws-tool ws-tool--text" onClick={save} data-testid={`export-${label.toLowerCase()}`}>{label}</button>
+  return <button type="button" className="studio-ws-tool studio-ws-tool--text" onClick={save} data-testid={`export-${label.toLowerCase()}`}>{label}</button>
 }
 
 export default function Diarization() {
@@ -179,15 +179,15 @@ export default function Diarization() {
         handoff={<HandoffNote source={source} handoff={handoff} wanted={wantsSource} onClear={() => { invalidate(); setFile(null) }} />}
         model={model}
         noModel={noModel ? { type: 'diarization', label: t('studio.tabs.diarization'), onChanged: ws.installed.refetch } : null}
-        options={<span role="group" aria-label={text('model')} className="ws-chip-group">
+        options={<span role="group" aria-label={text('model')} className="studio-ws-chip-group">
           <ModelChip value={model} capability={CAP_DIARIZATION} onChange={value => { if (value !== model) { invalidate(); setModel(value) } }} />
         </span>}
         submit={{ label: text('run'), busyLabel: text('running'), busy, disabled: !file || !model || noModel, why, icon: 'users' }}
       >
         <SourceDrop inputId="diarization-file" label={text('recording')} accept="audio/*,video/*" file={file} hint={t('studio.workspace.diarization.hint')} onFile={f => { invalidate(); setFile(f) }} />
-        {canRemember && <div className="ws-optin">
-          <label className="ws-check"><input type="checkbox" checked={optIn} onChange={e => { invalidate(); setOptIn(e.target.checked) }} /> <span>{text('optIn')}</span></label>
-          <p className="ws-hint">{text('warning')} <Link className="ws-link" to="/app/voice">{text('manage')}</Link></p>
+        {canRemember && <div className="studio-ws-optin">
+          <label className="studio-ws-check"><input type="checkbox" checked={optIn} onChange={e => { invalidate(); setOptIn(e.target.checked) }} /> <span>{text('optIn')}</span></label>
+          <p className="studio-ws-hint">{text('warning')} <Link className="studio-ws-link" to="/app/voice">{text('manage')}</Link></p>
         </div>}
       </ComposeCard>
 
@@ -209,20 +209,20 @@ export default function Diarization() {
             </>}
             onRerun={() => {}}
           >
-            <div className="ws-diar">
+            <div className="studio-ws-diar">
               {length > 0 && <Timeline rows={rows} length={length} />}
-              {url && <audio ref={audio} src={url} controls preload="metadata" className="ws-diar__audio" onTimeUpdate={() => { if (end.current !== null && audio.current.currentTime >= end.current) stop() }} />}
-              <div className="hstack ws-diar__head"><h3>{text('speakers')}</h3>
+              {url && <audio ref={audio} src={url} controls preload="metadata" className="studio-ws-diar__audio" onTimeUpdate={() => { if (end.current !== null && audio.current.currentTime >= end.current) stop() }} />}
+              <div className="hstack studio-ws-diar__head"><h3>{text('speakers')}</h3>
                 {canRemember && result.speaker_profiles && <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={stop}>{text('stop')}</button>}
               </div>
-              <ul className="lanes ws-speakers">
+              <ul className="lanes studio-ws-speakers">
                 {rows.map(row => {
                   const profile = result.speaker_profiles?.speakers.find(p => String(p.speaker) === String(row.label))
                   const usable = profile?.embedding?.length > 0 && !profile.unavailable_reason
-                  return <li className="ws-speaker" key={row.label} data-testid={`speaker-${row.label}`} data-speaker={row.index % 6}>
+                  return <li className="studio-ws-speaker" key={row.label} data-testid={`speaker-${row.label}`} data-speaker={row.index % 6}>
                     <h4><i aria-hidden="true" />{row.name || row.id}</h4>
-                    <p className="ws-speaker__talk">{t('studio.workspace.diarization.talk', { seconds: Math.round(row.seconds), percent: Math.round(row.share * 100) })}</p>
-                    <span className="ws-speaker__bar" aria-hidden="true"><b style={cssVars({ '--w': `${Math.round(row.share * 100)}%` })} /></span>
+                    <p className="studio-ws-speaker__talk">{t('studio.workspace.diarization.talk', { seconds: Math.round(row.seconds), percent: Math.round(row.share * 100) })}</p>
+                    <span className="studio-ws-speaker__bar" aria-hidden="true"><b style={cssVars({ '--w': `${Math.round(row.share * 100)}%` })} /></span>
                     {profile && canRemember && <>
                       <p>{text('duration', { seconds: profile.clean_duration })}</p>
                       <div className="hstack">{profile.intervals.map((interval, i) => <button key={i} type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => preview(interval)}>{text('preview', { number: i + 1 })}</button>)}</div>
@@ -233,13 +233,13 @@ export default function Diarization() {
                 })}
               </ul>
               <h3>{text('segments')}</h3>
-              <ol data-testid="segments" className="lanes ws-segments">
+              <ol data-testid="segments" className="lanes studio-ws-segments">
                 {result.segments?.map((segment, i) => {
                   const row = rows.find(r => r.label === String(segment.label ?? segment.speaker))
                   return <li key={segment.id ?? i} data-speaker={(row?.index ?? 0) % 6}>
-                    <span className="ws-segments__time">{clock(segment.start)}</span>
+                    <span className="studio-ws-segments__time">{clock(segment.start)}</span>
                     <strong>{segment.name || segment.speaker}</strong>
-                    <span className="ws-segments__range">{segment.start}–{segment.end}s</span>
+                    <span className="studio-ws-segments__range">{segment.start}–{segment.end}s</span>
                     {segment.text && <p>{segment.text}</p>}
                   </li>
                 })}
@@ -254,7 +254,7 @@ export default function Diarization() {
             meta={[selectedEntry.model, selectedEntry.params?.speakers ? t('studio.lineage.speakers', { count: selectedEntry.params.speakers }) : '', selectedEntry.params?.seconds ? clock(selectedEntry.params.seconds) : '']}
             onRerun={() => {}}
           >
-            <p className="ws-quote">{t('studio.workspace.diarization.notKept')}</p>
+            <p className="studio-ws-quote">{t('studio.workspace.diarization.notKept')}</p>
           </ResultCard>
         ) : (
           <EmptyRun icon="users" text={t('studio.workspace.diarization.empty')} />

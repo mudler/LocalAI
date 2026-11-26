@@ -98,7 +98,7 @@ test('the Studio voice field shows its whole placeholder and stays inside a phon
     const voice = page.getByTestId('ws-voice')
     await expect(voice).toBeVisible({ timeout: 15_000 })
     const box = await voice.boundingBox()
-    const chip = await page.locator('.ws-chip--input').filter({ has: voice }).boundingBox()
+    const chip = await page.locator('.studio-ws-chip--input').filter({ has: voice }).boundingBox()
     const viewport = page.viewportSize().width
     expect(chip.x + chip.width).toBeLessThanOrEqual(viewport)
     if (width === 1440) expect(box.width).toBeGreaterThan(200)

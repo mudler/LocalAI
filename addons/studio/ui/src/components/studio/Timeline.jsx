@@ -12,14 +12,14 @@ export default function Timeline({ rows, length }) {
   const { t } = useTranslation('media')
   const ticks = axisTicks(length)
   return (
-    <div className="ws-timeline" role="img" aria-label={t('studio.workspace.diarization.timeline', { count: rows.length, length: clock(length) })} data-testid="ws-timeline">
-      <div className="ws-timeline__axis" aria-hidden="true">
+    <div className="studio-ws-timeline" role="img" aria-label={t('studio.workspace.diarization.timeline', { count: rows.length, length: clock(length) })} data-testid="ws-timeline">
+      <div className="studio-ws-timeline__axis" aria-hidden="true">
         {ticks.map(tick => <span key={tick.at} style={cssVars({ '--at': `${tick.pct}%` })}>{clock(tick.at)}</span>)}
       </div>
       {rows.map(row => (
-        <div key={row.label} className="ws-timeline__lane" data-speaker={row.index % 6} aria-hidden="true">
-          <span className="ws-timeline__who"><i />{row.name || row.id}</span>
-          <span className="ws-timeline__track">
+        <div key={row.label} className="studio-ws-timeline__lane" data-speaker={row.index % 6} aria-hidden="true">
+          <span className="studio-ws-timeline__who"><i />{row.name || row.id}</span>
+          <span className="studio-ws-timeline__track">
             {row.segments.map((seg, i) => (
               <b key={seg.id ?? i} style={cssVars({ '--from': `${(Number(seg.start) / length) * 100}%`, '--len': `${Math.max(0.4, ((Number(seg.end) - Number(seg.start)) / length) * 100)}%` })} />
             ))}

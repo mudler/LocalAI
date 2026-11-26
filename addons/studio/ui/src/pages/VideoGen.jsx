@@ -170,7 +170,7 @@ export default function VideoGen() {
           <PanelChip label={t('video.labels.avatarAudio')} open={showAvatar} onToggle={() => setShowAvatar(v => !v)} filled={!!audioInput?.base64} controls="video-avatar-panel" />
         </>}
         panels={showAvatar && (
-          <div id="video-avatar-panel" className="ws-panel">
+          <div id="video-avatar-panel" className="studio-ws-panel">
             <MediaInput mode="audio" label={t('video.labels.avatarAudio')} value={audioInput} onChange={setAudioInput} idPrefix="video-avatar" />
           </div>
         )}
@@ -193,7 +193,7 @@ export default function VideoGen() {
             <Field label={t('image.labels.negativePrompt')} htmlFor="video-negative" changed={changed.has('negative')}>
               <textarea id="video-negative" className="textarea" value={negativePrompt} onChange={(e) => setNegativePrompt(e.target.value)} rows={2} />
             </Field>
-            <div className="ws-grid">
+            <div className="studio-ws-grid">
               <Field label={t('image.labels.steps')} htmlFor="video-steps" changed={changed.has('steps')}><input id="video-steps" className="dk-input" type="number" value={steps} onChange={(e) => setSteps(e.target.value)} /></Field>
               <Field label={t('video.labels.seed')} htmlFor="video-seed" changed={changed.has('seed')}><input id="video-seed" className="dk-input" type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder={t('video.labels.seedPlaceholder')} /></Field>
               <Field label="CFG Scale" htmlFor="video-cfg" changed={changed.has('cfg')}><input id="video-cfg" className="dk-input" type="number" step="0.1" value={cfgScale} onChange={(e) => setCfgScale(e.target.value)} /></Field>
@@ -205,7 +205,7 @@ export default function VideoGen() {
         submit={{ label: t('video.actions.generate'), busyLabel: t('video.actions.generating'), busy: loading, disabled: !model || !prompt.trim() || noModel, why, icon: 'video' }}
       >
         <textarea
-          className="ws-prompt textarea"
+          className="studio-ws-prompt textarea"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder={t('video.labels.promptPlaceholder')}
