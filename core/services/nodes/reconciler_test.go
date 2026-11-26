@@ -34,12 +34,22 @@ type scheduleCall struct {
 	candidateIDs []string
 }
 
-func (f *fakeScheduler) ScheduleAndLoadModel(_ context.Context, modelName string, candidateNodeIDs []string) (*BackendNode, error) {
+// PrepareReplica records the call. The prepared replica's Load answers with
+// scheduleNode and scheduleErr, so a failure counts as a failed load.
+func (f *fakeScheduler) PrepareReplica(_ context.Context, modelName string, candidateNodeIDs []string) (PreparedReplica, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.scheduleCalls = append(f.scheduleCalls, scheduleCall{modelName, candidateNodeIDs})
-	return f.scheduleNode, f.scheduleErr
+	return fakePrepared{node: f.scheduleNode, err: f.scheduleErr}, nil
 }
+
+type fakePrepared struct {
+	node *BackendNode
+	err  error
+}
+
+func (p fakePrepared) Node() *BackendNode                         { return p.node }
+func (p fakePrepared) Load(context.Context) (*BackendNode, error) { return p.node, p.err }
 
 func mustGetSched(r *NodeRegistry, model string) ModelSchedulingConfig {
 	cfg, err := r.GetModelScheduling(context.Background(), model)

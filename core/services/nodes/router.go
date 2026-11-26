@@ -712,15 +712,29 @@ func (r *SmartRouter) reapAbandonedLoad(node *BackendNode, trackingKey string, r
 	}
 }
 
-// ScheduleAndLoadModel implements ModelScheduler for the reconciler.
-// It retrieves stored model options from an existing replica and performs the
-// full load sequence (stage files, LoadModel, SetNodeModel) on a new node.
+// ScheduleAndLoadModel prepares one new replica (PrepareReplica) and loads it.
 //
 // A non-empty candidateNodeIDs restricts the new replica to those nodes, on
 // top of the model's own selector. The reconciler counts replicas only on the
 // nodes it passes here, so a replica placed anywhere else would not count and
 // the floor would never be met.
 func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string, candidateNodeIDs []string) (*BackendNode, error) {
+	prepared, err := r.PrepareReplica(ctx, modelName, candidateNodeIDs)
+	if err != nil {
+		return nil, err
+	}
+	return prepared.Load(ctx)
+}
+
+// PrepareReplica implements ModelScheduler for the reconciler. It chooses the
+// node of a new replica, claims the load job of the model on that node and
+// makes room there. It runs nothing else on the node: the returned
+// PreparedReplica loads the model.
+//
+// The claim is what spreads the replicas of one scale-up: a second
+// PrepareReplica for the same model skips the node, because it already has a
+// live load of the model.
+func (r *SmartRouter) PrepareReplica(ctx context.Context, modelName string, candidateNodeIDs []string) (PreparedReplica, error) {
 	// Get load info from an existing replica (stored when Route() first loaded the model)
 	backendType, revision, optsBlob, err := r.registry.GetModelLoadInfoRevision(ctx, modelName)
 	if err != nil {
@@ -765,11 +779,30 @@ func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string
 		_ = r.finishLoadJob(ctx, job.Ref()) // release the claim; already logged
 		return nil, err
 	}
+	return &preparedReplica{r: r, model: modelName, backendType: backendType, revision: revision,
+		opts: &modelOpts, placed: placed, ref: job.Ref()}, nil
+}
 
+// preparedReplica is a claimed load of a new replica on a chosen node.
+type preparedReplica struct {
+	r           *SmartRouter
+	model       string
+	backendType string
+	revision    string
+	opts        *pb.ModelOptions
+	placed      *replicaPlacement
+	ref         LoadJobRef
+}
+
+func (p *preparedReplica) Node() *BackendNode { return p.placed.node }
+
+// Load runs the claimed load under the job's owner loop and returns the node
+// the replica loaded on.
+func (p *preparedReplica) Load(ctx context.Context) (*BackendNode, error) {
 	var node *BackendNode
-	err = r.runLoadOwner(ctx, job.Ref(), func(ownerCtx context.Context) error {
+	err := p.r.runLoadOwner(ctx, p.ref, func(ownerCtx context.Context) error {
 		// initialInFlight=0: reconciler is pre-loading, not serving a request.
-		result, err := r.scheduleAndLoad(ownerCtx, backendType, modelName, modelName, revision, &modelOpts, false, 0, nil, placed)
+		result, err := p.r.scheduleAndLoad(ownerCtx, p.backendType, p.model, p.model, p.revision, p.opts, false, 0, nil, p.placed)
 		if err != nil {
 			return err
 		}

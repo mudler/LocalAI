@@ -211,9 +211,20 @@ func scaleUpBackoffDelay(failures int) time.Duration {
 // ModelScheduler abstracts the scheduling logic needed by the reconciler.
 // SmartRouter implements this interface.
 type ModelScheduler interface {
-	// ScheduleAndLoadModel picks a node (optionally from candidateNodeIDs),
-	// installs the backend, and loads the model. Returns the node used.
-	ScheduleAndLoadModel(ctx context.Context, modelName string, candidateNodeIDs []string) (*BackendNode, error)
+	// PrepareReplica picks a node for a new replica of the model (optionally
+	// from candidateNodeIDs) and claims the load of the model there. It does
+	// not load: PreparedReplica.Load does. While a prepared load is pending,
+	// the next PrepareReplica for the model does not pick its node.
+	PrepareReplica(ctx context.Context, modelName string, candidateNodeIDs []string) (PreparedReplica, error)
+}
+
+// PreparedReplica is a new replica whose node is chosen and claimed.
+type PreparedReplica interface {
+	// Node is the node chosen for the replica.
+	Node() *BackendNode
+	// Load installs the backend and loads the model on the node. It returns
+	// the node used.
+	Load(ctx context.Context) (*BackendNode, error)
 }
 
 // ReplicaReconcilerOptions holds configuration for creating a ReplicaReconciler.
@@ -1231,23 +1242,37 @@ func (rc *ReplicaReconciler) scaleUp(ctx context.Context, cfg ModelSchedulingCon
 		return false
 	}
 
-	// The loads run in parallel, each on its own node: every load claims the
-	// job of the model on the node it chose, and the next one skips nodes
-	// that already have a load of the model. A slow load on one node then
-	// does not delay the replicas the floor needs on the others.
+	// The nodes are chosen one after the other, and the loads then run in
+	// parallel. Each choice claims the job of the model on its node, so the
+	// next choice skips that node; choosing all of them from one snapshot
+	// picked the same node for every load, and all but one met
+	// ErrLoadInProgress. A slow load on one node does not delay the replicas
+	// the floor needs on the others.
 	type outcome struct {
 		node *BackendNode
 		err  error
 	}
-	results := make([]outcome, count)
+	var results []outcome
+	var prepared []PreparedReplica
+	for range count {
+		p, err := rc.scheduler.PrepareReplica(ctx, model, candidateNodeIDs)
+		if err != nil {
+			// The next choice would meet the same answer in this tick.
+			results = append(results, outcome{nil, err})
+			break
+		}
+		prepared = append(prepared, p)
+	}
+	loads := make([]outcome, len(prepared))
 	var wg sync.WaitGroup
-	for i := range count {
+	for i, p := range prepared {
 		wg.Go(func() {
-			node, err := rc.scheduler.ScheduleAndLoadModel(ctx, model, candidateNodeIDs)
-			results[i] = outcome{node, err}
+			node, err := p.Load(ctx)
+			loads[i] = outcome{node, err}
 		})
 	}
 	wg.Wait()
+	results = append(results, loads...)
 
 	scheduled := 0
 	var failure error
