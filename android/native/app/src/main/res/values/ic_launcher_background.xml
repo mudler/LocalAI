@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#FFFFFF</color>
+    <!-- Background of the LocalAI mark (core/http/static/favicon.svg). -->
+    <color name="ic_launcher_background">#005B69</color>
 </resources>
