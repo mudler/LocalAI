@@ -4,6 +4,8 @@ import { changeValue, changeView, deliveryModeKey } from '../../utils/chatPropos
 import Icon from '../Icon'
 import { Button } from '../ui'
 // eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
+import ReminderChangeCard from './ReminderChangeCard'
+// eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
 import { EventSentence } from './EventHook'
 
 const fmtDate = (iso) => {
@@ -82,6 +84,20 @@ export default function TriggerChangeCard({ id, t, tick = 0 }) {
     )
   }
   if (view.kind === 'removed') return wrap(<div className="cx-change" data-testid={testid} data-state="removed">{t('change.removed')}</div>)
+
+  if (view.reminder) {
+    const title = view.reminder.title || ''
+    return wrap(
+      <ReminderChangeCard
+        view={view}
+        busy={busy}
+        alert={alert}
+        apply={() => act('apply', () => chatTriggersApi.applyChange(id), t('watch.change.announce.applied', { title }))}
+        dismiss={() => act('dismiss', () => chatTriggersApi.dismissChange(id), t('watch.change.announce.dismissed', { title }))}
+        undo={() => act('undo', () => chatTriggersApi.undoChange(id), t('watch.change.announce.undone', { title }))}
+      />
+    )
+  }
 
   const { op, before, after } = view
   const name = before.name || after?.name || ''
@@ -175,7 +191,7 @@ export default function TriggerChangeCard({ id, t, tick = 0 }) {
         ))}
         <button type="button" className="cx-btn" disabled={!!busy}
           onClick={() => act('dismiss', () => chatTriggersApi.dismissChange(id), t(isDelete ? 'change.announce.kept' : 'change.announce.dismissed', { name }))}
-        >{t(isDelete ? 'change.keep' : 'proposal.dismiss')}</button>
+        >{t(isDelete ? 'change.keep' : 'proposal.notNow')}</button>
       </span>
       {alert}
     </div>

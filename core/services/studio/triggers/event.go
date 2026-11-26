@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +25,12 @@ type Event struct {
 	Type      string
 	DedupeKey string
 	Payload   []byte
+	// Actor is who caused the event, as the host set it. The hook of an event
+	// trigger leaves it zero.
+	Actor Actor
+	// Thing is what an add-on event is about, read with the add-on's
+	// declaration; nil for an event of the hook.
+	Thing *Thing
 }
 
 // MatchesEvent tells whether the event starts this trigger. Source and
@@ -35,6 +42,9 @@ func (t Trigger) MatchesEvent(ev Event) bool {
 		return false
 	}
 	if t.EventType != "" && !strings.EqualFold(t.EventType, ev.Type) {
+		return false
+	}
+	if t.Watch != nil && len(t.Watch.Types) > 0 && !slices.ContainsFunc(t.Watch.Types, func(ty string) bool { return strings.EqualFold(ty, ev.Type) }) {
 		return false
 	}
 	if len(t.Matches) == 0 {
@@ -68,24 +78,9 @@ func (t Trigger) MatchesEvent(ev Event) bool {
 // its decimal index. It returns the scalar as text, or false when the path is
 // missing or ends at an object, an array or null.
 func lookupPath(doc any, path string) (string, bool) {
-	cur := doc
-	for _, seg := range strings.Split(path, ".") {
-		switch v := cur.(type) {
-		case map[string]any:
-			next, ok := v[seg]
-			if !ok {
-				return "", false
-			}
-			cur = next
-		case []any:
-			i, err := strconv.Atoi(seg)
-			if err != nil || i < 0 || i >= len(v) {
-				return "", false
-			}
-			cur = v[i]
-		default:
-			return "", false
-		}
+	cur, ok := walkPath(doc, strings.Split(path, "."))
+	if !ok {
+		return "", false
 	}
 	switch v := cur.(type) {
 	case string:
@@ -98,6 +93,52 @@ func lookupPath(doc any, path string) (string, bool) {
 		return strconv.FormatFloat(v, 'f', -1, 64), true
 	}
 	return "", false
+}
+
+// walkPath follows the segments of a dot path through a decoded payload: a
+// segment is the key of an object or the index of an array. It gives the
+// value at the end, and false for a path that is not there.
+func walkPath(doc any, segs []string) (any, bool) {
+	cur := doc
+	for _, seg := range segs {
+		switch v := cur.(type) {
+		case map[string]any:
+			next, ok := v[seg]
+			if !ok {
+				return nil, false
+			}
+			cur = next
+		case []any:
+			i, err := strconv.Atoi(seg)
+			if err != nil || i < 0 || i >= len(v) {
+				return nil, false
+			}
+			cur = v[i]
+		default:
+			return nil, false
+		}
+	}
+	return cur, true
+}
+
+// DropPath takes the value at a dot path out of a decoded payload, in place:
+// the key of an object is deleted, and the element of an array becomes null
+// so the others keep their places. A path that is not there changes nothing.
+func DropPath(doc any, path string) {
+	segs := strings.Split(path, ".")
+	parent, ok := walkPath(doc, segs[:len(segs)-1])
+	if !ok {
+		return
+	}
+	last := segs[len(segs)-1]
+	switch v := parent.(type) {
+	case map[string]any:
+		delete(v, last)
+	case []any:
+		if i, err := strconv.Atoi(last); err == nil && i >= 0 && i < len(v) {
+			v[i] = nil
+		}
+	}
 }
 
 // TrimPayload makes the text of a payload for a run and its prompt. Valid JSON
@@ -257,4 +298,50 @@ func joinMerged(events []mergedEvent, dropped, budget int) string {
 	}
 	b.WriteByte(']')
 	return b.String()
+}
+
+// DecodePayload reads a JSON payload for LookupPath. Numbers keep their
+// text, so a large id loses no digits.
+func DecodePayload(raw []byte) (any, error) {
+	var doc any
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	if err := dec.Decode(&doc); err != nil {
+		return nil, err
+	}
+	if _, err := dec.Token(); err != io.EOF {
+		return nil, fmt.Errorf("trailing data after the payload")
+	}
+	return doc, nil
+}
+
+// LookupPath follows a dot path through a decoded payload and gives the
+// scalar there as text; false for a missing path or one that ends at an
+// object, an array or null.
+func LookupPath(doc any, path string) (string, bool) { return lookupPath(doc, path) }
+
+// LookupTimes reads a list of RFC 3339 times at a dot path of a decoded
+// payload, at most max of them; an entry that is not such a time is passed
+// over.
+func LookupTimes(doc any, path string, max int) []time.Time {
+	cur, ok := walkPath(doc, strings.Split(path, "."))
+	if !ok {
+		return nil
+	}
+	list, ok := cur.([]any)
+	if !ok {
+		return nil
+	}
+	var out []time.Time
+	for _, v := range list {
+		if len(out) == max {
+			break
+		}
+		if s, ok := v.(string); ok {
+			if t, err := time.Parse(time.RFC3339, s); err == nil {
+				out = append(out, t.UTC())
+			}
+		}
+	}
+	return out
 }

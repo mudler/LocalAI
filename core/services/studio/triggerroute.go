@@ -459,7 +459,8 @@ func (h *Triggers) report(ctx context.Context, t triggers.Trigger, run triggers.
 		}
 	}
 	if t.Route.TargetOrDefault() == triggers.TargetChannel {
-		return h.deliverChannel(ctx, t, t.Name+"\n\n"+reportText(text), func() {
+		actions, hint := h.reminderActions(ctx, t, run)
+		return h.deliverChannelWith(ctx, t, t.Name+"\n\n"+reportText(text), actions, hint, func() {
 			h.tell(context.WithoutCancel(ctx), t, run.ChatID, notify.KindRunEnded, notify.StatusOK, t.Name+" finished", text)
 		})
 	}

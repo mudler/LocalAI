@@ -11228,6 +11228,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/triggers/reminders": {
+            "get": {
+                "description": "The page of an add-on marks its items that have a reminder (the bell of the calendar). source is the add-on ID; it is required.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the reminders for the items of an add-on.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the add-on ID",
+                        "name": "source",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The reminders",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSourceReminders"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/triggers/sources": {
+            "get": {
+                "description": "An add-on that reports changes (a calendar, say) declares its event types. A watch takes one of these sources and keeps reminders for its items. The list is empty when no installed add-on reports changes. lang (or Accept-Language) chooses the language of the labels.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the add-ons a watch can watch.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "language of the labels",
+                        "name": "lang",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The sources",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsWatchSources"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/triggers/{id}": {
             "get": {
                 "tags": [
@@ -11414,6 +11465,131 @@ const docTemplate = `{
                             "additionalProperties": {
                                 "type": "string"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/triggers/{id}/reminders": {
+            "get": {
+                "description": "Soonest first. A reminder whose item has begun has no due time and comes last. 400 when the trigger is not a watch.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the reminders of a watch.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the watch's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The reminders",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsReminderList"
+                        }
+                    },
+                    "404": {
+                        "description": "No such watch",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/triggers/{id}/reminders/{rid}": {
+            "delete": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Cancel a reminder of a watch.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the watch's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the reminder's id",
+                        "name": "rid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Cancelled"
+                    },
+                    "404": {
+                        "description": "No such watch or reminder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Each field that is set applies. snooze_minutes moves the reminder to now plus that much (at most a day); snoozed_to sets a time or, empty, takes the snooze back; skip true skips the coming time and false takes the skip back; at (2026-11-26 14:45 in the watch's time zone, or RFC 3339) or offset_minutes re-time it; task changes what the run does. The page undoes a change by sending the old values back.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Snooze, skip, re-time or change the task of a reminder.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the watch's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the reminder's id",
+                        "name": "rid",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the add-on whose page asks; a reminder of a watch on another add-on is not found",
+                        "name": "source",
+                        "in": "query"
+                    },
+                    {
+                        "description": "the change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsReminderPatch"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The reminder after the change",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsReminder"
+                        }
+                    },
+                    "400": {
+                        "description": "The change is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such watch or reminder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -31390,6 +31566,14 @@ const docTemplate = `{
                 },
                 "time_zone": {
                     "type": "string"
+                },
+                "watch": {
+                    "description": "Watch is the reminder rule of a watch; absent on any other trigger.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsWatchRule"
+                        }
+                    ]
                 }
             }
         },
@@ -34153,6 +34337,10 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "incognito": {
+                    "description": "Incognito is the privacy level of an incognito chat (memory-off or\nzero-retention), empty for any other chat. An incognito chat lives in\nthe memory of the server only and is never listed.",
+                    "type": "string"
+                },
                 "kind": {
                     "description": "chat or subagent",
                     "type": "string"
@@ -34273,6 +34461,10 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "incognito": {
+                    "description": "Incognito is the privacy level of an incognito chat (memory-off or\nzero-retention), empty for any other chat. An incognito chat lives in\nthe memory of the server only and is never listed.",
+                    "type": "string"
+                },
                 "jobs": {
                     "description": "Jobs are the background jobs of the chat and of its sub-agents, running\nones first (POST /api/chats/{id}/jobs/{job}/kill stops one).",
                     "type": "array",
@@ -34376,6 +34568,14 @@ const docTemplate = `{
                 "image_model": {
                     "description": "ImageModel is the model that describes the images of a chat whose own\nmodel cannot look at them. It is empty when no model can.",
                     "type": "string"
+                },
+                "incognito": {
+                    "description": "Incognito is the server's incognito setting, so the page knows whether\nto offer incognito chats and up to which level.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsIncognito"
+                        }
+                    ]
                 },
                 "persistent": {
                     "description": "Persistent is false when conversations live in memory and are lost when\nthe server restarts.",
@@ -35525,6 +35725,17 @@ const docTemplate = `{
                 },
                 "model": {
                     "description": "Model replaces the model of the file. It is needed when the file names none.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsIncognito": {
+            "type": "object",
+            "properties": {
+                "max_level": {
+                    "type": "string"
+                },
+                "policy": {
                     "type": "string"
                 }
             }
@@ -37187,6 +37398,118 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsReminder": {
+            "type": "object",
+            "properties": {
+                "adjusted": {
+                    "type": "string"
+                },
+                "all_day": {
+                    "type": "boolean"
+                },
+                "at": {
+                    "description": "At is a time the reminder was set to, SnoozedTo a time the owner\nsnoozed it to.",
+                    "type": "string"
+                },
+                "due": {
+                    "description": "Due is when the owner hears; Start is when the run starts (Due minus\nthe lead). Both are absent when the item has begun.",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "item_time": {
+                    "description": "ItemTime is the time of the item, absent for an item with no time.",
+                    "type": "string"
+                },
+                "lead_minutes": {
+                    "type": "integer"
+                },
+                "link": {
+                    "description": "Link opens the item in its add-on.",
+                    "type": "string"
+                },
+                "offset_minutes": {
+                    "type": "integer"
+                },
+                "skipped": {
+                    "description": "Skipped says the owner skipped the coming time. Adjusted is quiet or\nall_day when the rule moved the time.",
+                    "type": "boolean"
+                },
+                "snoozable": {
+                    "type": "boolean"
+                },
+                "snoozed_to": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "string"
+                },
+                "task": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsReminderChange": {
+            "type": "object",
+            "properties": {
+                "after": {
+                    "$ref": "#/definitions/schema.ChatsReminder"
+                },
+                "before": {
+                    "$ref": "#/definitions/schema.ChatsReminder"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "watch_id": {
+                    "type": "string"
+                },
+                "watch_name": {
+                    "type": "string"
+                },
+                "watch_zone": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsReminderList": {
+            "type": "object",
+            "properties": {
+                "reminders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsReminder"
+                    }
+                }
+            }
+        },
+        "schema.ChatsReminderPatch": {
+            "type": "object",
+            "properties": {
+                "at": {
+                    "type": "string"
+                },
+                "offset_minutes": {
+                    "type": "integer"
+                },
+                "skip": {
+                    "type": "boolean"
+                },
+                "snooze_minutes": {
+                    "type": "integer"
+                },
+                "snoozed_to": {
+                    "type": "string"
+                },
+                "task": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsSandboxProfile": {
             "type": "object",
             "properties": {
@@ -37792,6 +38115,78 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsSourceReminder": {
+            "type": "object",
+            "properties": {
+                "adjusted": {
+                    "type": "string"
+                },
+                "all_day": {
+                    "type": "boolean"
+                },
+                "at": {
+                    "description": "At is a time the reminder was set to, SnoozedTo a time the owner\nsnoozed it to.",
+                    "type": "string"
+                },
+                "due": {
+                    "description": "Due is when the owner hears; Start is when the run starts (Due minus\nthe lead). Both are absent when the item has begun.",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "item_id": {
+                    "type": "string"
+                },
+                "item_time": {
+                    "description": "ItemTime is the time of the item, absent for an item with no time.",
+                    "type": "string"
+                },
+                "lead_minutes": {
+                    "type": "integer"
+                },
+                "link": {
+                    "description": "Link opens the item in its add-on.",
+                    "type": "string"
+                },
+                "offset_minutes": {
+                    "type": "integer"
+                },
+                "skipped": {
+                    "description": "Skipped says the owner skipped the coming time. Adjusted is quiet or\nall_day when the rule moved the time.",
+                    "type": "boolean"
+                },
+                "snoozable": {
+                    "type": "boolean"
+                },
+                "snoozed_to": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "string"
+                },
+                "task": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "watch_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSourceReminders": {
+            "type": "object",
+            "properties": {
+                "reminders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSourceReminder"
+                    }
+                }
+            }
+        },
         "schema.ChatsSubAgent": {
             "type": "object",
             "properties": {
@@ -38345,6 +38740,14 @@ const docTemplate = `{
                 },
                 "time_zone": {
                     "type": "string"
+                },
+                "watch": {
+                    "description": "Watch is the reminder rule of a watch; absent on any other trigger.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsWatchRule"
+                        }
+                    ]
                 }
             }
         },
@@ -38377,6 +38780,14 @@ const docTemplate = `{
                 },
                 "op": {
                     "type": "string"
+                },
+                "reminder": {
+                    "description": "Reminder is set on a change of a reminder of a watch, which a chat\nproposed; before is then the watch.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsReminderChange"
+                        }
+                    ]
                 },
                 "stale": {
                     "type": "boolean"
@@ -38556,6 +38967,14 @@ const docTemplate = `{
                 },
                 "time_zone": {
                     "type": "string"
+                },
+                "watch": {
+                    "description": "Watch is the reminder rule of a watch; absent on any other trigger.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsWatchRule"
+                        }
+                    ]
                 }
             }
         },
@@ -38908,6 +39327,14 @@ const docTemplate = `{
                 },
                 "time_zone": {
                     "type": "string"
+                },
+                "watch": {
+                    "description": "Watch makes an event trigger of an add-on a watch. Left out on an\nupdate, a watch keeps its rule.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsWatchRule"
+                        }
+                    ]
                 }
             }
         },
@@ -39045,6 +39472,83 @@ const docTemplate = `{
                 "source_kind": {
                     "description": "SourceKind is \"tool\", \"url\", \"script\", \"job\" or \"agent\". Source is the\nname of the tool, the host and path of the URL without the query, \"a\nscript\", the id and label of the job, or the id of the background\nsub-agent: the text of a command is never in this object.",
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsWatchEventType": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "description": "Label is the name of the event in the language of the request.",
+                    "type": "string"
+                },
+                "lifecycle": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsWatchRule": {
+            "type": "object",
+            "properties": {
+                "all_day": {
+                    "description": "AllDay is morning (the default: 08:00 on the day) or none.",
+                    "type": "string"
+                },
+                "no_default": {
+                    "type": "boolean"
+                },
+                "offset_minutes": {
+                    "description": "OffsetMinutes is the default reminder time relative to the item's time:\n-15 is 15 minutes before. NoDefault sets no reminder unless the task\ndefaults call for one.",
+                    "type": "integer"
+                },
+                "quiet_from": {
+                    "description": "QuietFrom and QuietTo are quiet hours (HH:MM, in the watch's time zone).",
+                    "type": "string"
+                },
+                "quiet_to": {
+                    "type": "string"
+                },
+                "tasks": {
+                    "description": "Tasks are the task defaults in the owner's words.",
+                    "type": "string"
+                },
+                "types": {
+                    "description": "Types are the event types the watch takes; empty is every type of the\nsource.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ChatsWatchSource": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsWatchEventType"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsWatchSources": {
+            "type": "object",
+            "properties": {
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsWatchSource"
+                    }
                 }
             }
         },

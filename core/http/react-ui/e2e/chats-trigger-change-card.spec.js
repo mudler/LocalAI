@@ -114,7 +114,7 @@ test('an edit of the time limit shows it before and after', async ({ page }) => 
 
 test('a dismissed edit leaves a quiet line', async ({ page }) => {
   const s = await open(page)
-  await card(page).getByRole('button', { name: 'Dismiss' }).click()
+  await card(page).getByRole('button', { name: 'Not now' }).click()
   await expect(card(page)).toHaveAttribute('data-state', 'dismissed')
   await expect(card(page)).toContainText('Change dismissed:')
   expect(s.calls).toContain('DELETE')
@@ -163,7 +163,7 @@ test('a change the Triggers page overtook offers only Dismiss', async ({ page })
   await open(page, { stale: true })
   await expect(card(page)).toContainText('cannot apply')
   await expect(card(page).getByRole('button', { name: 'Apply' })).toHaveCount(0)
-  await expect(card(page).getByRole('button', { name: 'Dismiss' })).toBeVisible()
+  await expect(card(page).getByRole('button', { name: 'Not now' })).toBeVisible()
 })
 
 test('a change the server no longer keeps reads as removed', async ({ page }) => {

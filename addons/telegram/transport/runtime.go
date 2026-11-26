@@ -79,7 +79,7 @@ func (p platform) Send(ctx context.Context, req contract.ConnectorRequest) (stri
 	if err != nil {
 		return "", err
 	}
-	id, err := p.api.Send(ctx, req.Token, chat, thread, req.Text)
+	id, err := p.api.Send(ctx, req.Token, chat, thread, req.Text, req.Actions...)
 	return messageRef(id), err
 }
 
@@ -114,7 +114,7 @@ func (p platform) SendRich(ctx context.Context, req contract.ConnectorRequest) (
 	if err != nil {
 		return "", err
 	}
-	id, err := p.api.SendMarkdown(ctx, req.Token, chat, thread, req.Text)
+	id, err := p.api.SendMarkdown(ctx, req.Token, chat, thread, req.Text, req.Actions...)
 	return messageRef(id), err
 }
 

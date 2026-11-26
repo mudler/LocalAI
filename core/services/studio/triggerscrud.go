@@ -79,6 +79,9 @@ type TriggerInput struct {
 	// triggers.Trigger). The secret is not an input: the host makes it.
 	Source, EventType string
 	Matches           []string
+	// Watch makes an event trigger a watch: its reminder rule. Nil on an
+	// update keeps the rule the watch has.
+	Watch *triggers.WatchRule
 }
 
 // newEventSecret makes the secret of an event trigger: 32 random bytes as
@@ -222,7 +225,9 @@ func (h *Triggers) pendingProposal(ctx context.Context, user, id string) (trigge
 func countLive(ts []triggers.Trigger) int {
 	n := 0
 	for _, t := range ts {
-		if !t.Answered() && !t.IsChange() {
+		// A reminder belongs to its watch: it counts as part of it, not as a
+		// trigger of its own.
+		if !t.Answered() && !t.IsChange() && !t.IsReminder() {
 			n++
 		}
 	}
@@ -236,6 +241,14 @@ func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (tr
 		TZ: in.TZ, Quiet: in.Quiet, DailyCap: in.DailyCap, RunLimit: in.RunLimit, AgentID: in.AgentID, Model: in.Model, SourceChatID: in.SourceChatID,
 		MinGap: in.MinGap, Reads: strings.TrimSpace(in.Reads), Widget: in.Widget, EstTokens: in.EstTokens, Route: in.Route,
 		Source: strings.TrimSpace(in.Source), EventType: strings.TrimSpace(in.EventType), Matches: in.Matches}
+	if in.Watch != nil {
+		w := *in.Watch
+		w.Types = slices.Clone(w.Types)
+		t.Watch = &w
+		if err := h.checkWatchSource(ctx, t); err != nil {
+			return t, err
+		}
+	}
 	acts, err := cleanActs(in.Acts)
 	if err != nil {
 		return t, err
@@ -388,6 +401,10 @@ func (h *Triggers) UpdateTrigger(ctx context.Context, user, id string, in Trigge
 		return triggers.Trigger{}, err
 	}
 	in = keepPlan(old, in)
+	if in.Watch == nil && old.Watch != nil && in.Kind == triggers.KindEvent {
+		w := *old.Watch
+		in.Watch = &w
+	}
 	// A form that sends back the default it was shown has not chosen it.
 	if old.DailyCap == 0 && in.DailyCap == old.EffectiveCap(h.o.Clock()) {
 		in.DailyCap = 0
@@ -467,6 +484,9 @@ func (h *Triggers) SetTriggerEnabled(ctx context.Context, user, id string, on bo
 	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
 		return triggers.Trigger{}, err
 	}
+	if old.Enabled && !on && t.IsWatch() {
+		h.holdReminders(ctx, t)
+	}
 	h.Notify()
 	return t, nil
 }
@@ -503,13 +523,14 @@ func (h *Triggers) GetTrigger(ctx context.Context, user, id string) (triggers.Tr
 	return h.owned(ctx, user, id)
 }
 
-// ListTriggers returns the user's triggers sorted by name, without proposals.
+// ListTriggers returns the user's triggers sorted by name, without proposals
+// and without reminders, which show under their watch.
 func (h *Triggers) ListTriggers(ctx context.Context, user string) ([]triggers.Trigger, error) {
 	all, err := h.o.Store.ListTriggers(ctx, principal(user))
 	if err != nil {
 		return nil, err
 	}
-	return slices.DeleteFunc(all, func(t triggers.Trigger) bool { return t.Proposed }), nil
+	return slices.DeleteFunc(all, func(t triggers.Trigger) bool { return t.Proposed || t.IsReminder() }), nil
 }
 
 // HasProposal says whether a trigger the chat proposed, or a change of one it
@@ -835,6 +856,11 @@ func (h *Triggers) DeleteTrigger(ctx context.Context, user, id string) error {
 		return err
 	}
 	h.wmu.Unlock()
+	if t.IsWatch() {
+		if err := h.dropReminders(ctx, t); err != nil {
+			return fmt.Errorf("studio: remove the reminders of the watch: %w", err)
+		}
+	}
 
 	runs, err := h.o.Store.ListRuns(ctx, id, 0)
 	if err != nil {

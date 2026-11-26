@@ -11,6 +11,8 @@ import (
 	_ "time/tzdata" // zone data in the binary: the image and a plain host may have none
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // Kind is the kind of a trigger.
@@ -43,7 +45,7 @@ const (
 
 // Final tells whether the status is an end state.
 func (s Status) Final() bool {
-	return s == StatusDone || s == StatusFailed || s == StatusSkipped || s == StatusBlocked
+	return s == StatusDone || s == StatusFailed || s == StatusSkipped || s == StatusBlocked || s == StatusHandled
 }
 
 // Defaults and limits.
@@ -81,8 +83,9 @@ const (
 	// MaxEventSecret is the longest secret of an event trigger, in bytes. The
 	// size tag of the Secret column in gorm.go is the same number.
 	MaxEventSecret = 255
-	// MaxEventBody is the largest request body the hook reads, in bytes.
-	MaxEventBody = 262144
+	// MaxEventBody is the largest request body the hook reads, in bytes: the
+	// payload limit of events.emit too.
+	MaxEventBody = contract.MaxEventPayload
 	// MaxMatches is the most matches an event trigger has.
 	MaxMatches = 8
 	// MaxEventField is the longest Source, EventType or match, in bytes.
@@ -181,6 +184,12 @@ type Trigger struct {
 	EventType string
 	Matches   []string
 	Secret    string
+	// Watch is the reminder rule of an event trigger that is a watch; nil on
+	// every other trigger.
+	Watch *WatchRule
+	// Reminder holds the fields of a reminder (KindReminder); nil on every
+	// other trigger.
+	Reminder *Reminder
 }
 
 // String describes the trigger without its prompt and without its Secret, so
@@ -400,6 +409,9 @@ const (
 	ChangeDelete = "delete"
 	ChangePause  = "pause"
 	ChangeResume = "resume"
+	// ChangeCreate is a change that adds a reminder to a watch; only a
+	// change record of kind reminder has it.
+	ChangeCreate = "create"
 )
 
 // IsChange says whether t is a change record, not a trigger or a proposal.
@@ -502,6 +514,14 @@ func (t Trigger) Location() (*time.Location, error) {
 	return loc, nil
 }
 
+// LocationOrUTC is Location, or UTC for a zone that is not known.
+func (t Trigger) LocationOrUTC() *time.Location {
+	if loc, err := t.Location(); err == nil {
+		return loc
+	}
+	return time.UTC
+}
+
 // Validate checks the fields of a trigger. The error text is meant for a
 // person: it names the field.
 func (t Trigger) Validate() error {
@@ -574,9 +594,25 @@ func (t Trigger) Validate() error {
 			return fmt.Errorf("quiet period must be 0 to %s", MaxQuiet)
 		}
 	case KindEvent:
+		if t.Reminder != nil {
+			return errors.New("an event trigger is not a reminder")
+		}
+		if t.Watch != nil {
+			if err := t.Watch.Validate(); err != nil {
+				return err
+			}
+		}
 		return t.validateEvent()
+	case KindReminder:
+		if _, err := t.Location(); err != nil {
+			return err
+		}
+		return t.validateReminder()
 	default:
-		return fmt.Errorf("kind must be %q, %q or %q", KindSchedule, KindFile, KindEvent)
+		return fmt.Errorf("kind must be %q, %q, %q or %q", KindSchedule, KindFile, KindEvent, KindReminder)
+	}
+	if t.Watch != nil || t.Reminder != nil {
+		return errors.New("a reminder rule belongs to a watch")
 	}
 	if t.Source != "" || t.EventType != "" || len(t.Matches) > 0 || t.Secret != "" {
 		return errors.New("source, event type, matches and secret belong to an event trigger")
@@ -690,11 +726,7 @@ const (
 // CutReason cuts s to ReasonLen characters.
 func CutReason(s string) string {
 	s = strings.TrimSpace(s)
-	if utf8.RuneCountInString(s) <= ReasonLen {
-		return s
-	}
-	r := []rune(s)
-	return string(r[:ReasonLen])
+	return CutText(s, ReasonLen)
 }
 
 // SkipError is an error from Options.Start that makes the run skipped, not

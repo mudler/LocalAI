@@ -9,7 +9,7 @@
   "api": {"min": 2, "max": 2},
   "protocol": { "min": 1, "max": 1 },
   "dataFormat": { "min": 1, "max": 1 },
-  "featureLevel": 4,
+  "featureLevel": 12,
   "capabilities": {
     "hostOperations": {
       "optional": ["connector.file.get", "connector.file.put"]
@@ -23,6 +23,7 @@
           "setup": "a bot token from @BotFather",
           "senderHint": "A chat ID, a user ID or an @username",
           "delivery": "pull",
+          "actions": true,
           "files": {
             "receive": { "maxBytes": 20971520 },
             "send": { "maxBytes": 52428800 }

@@ -29,6 +29,36 @@ export function createAddon(sdk) {
   const monthLabel = (date) => fmt({ month: 'long', year: 'numeric' }, date)
   const shortWeekday = (date) => fmt({ weekday: 'short' }, date)
   const when = (o) => (o.allDay ? t('calendar.allDay') : `${timePart(o.start)}${timePart(o.end) ? `–${timePart(o.end)}` : ''}`)
+  // The time of a reminder, in the zone of the calendar: "Thu 15:45". h23,
+  // not hour12: false, which some engines write as 24:05 after midnight.
+  const bellTime = (iso, zone) => {
+    try { return new Intl.DateTimeFormat(lang(), { weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: zone || undefined }).format(new Date(iso)) } catch { return iso }
+  }
+  // The day of an instant in a zone: "2026-11-12".
+  const dayIn = (iso, zone) => {
+    try {
+      const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: zone || undefined, year: 'numeric', month: '2-digit', day: '2-digit' })
+        .formatToParts(new Date(iso)).map((x) => [x.type, x.value]))
+      return `${p.year}-${p.month}-${p.day}`
+    } catch { return '' }
+  }
+  // The bell of one occurrence. The reminder of a repeating event is for one
+  // occurrence, the one at its item time; the others have no bell.
+  const bellOf = (bells, o, zone) => {
+    const b = bells && bells[o.id]
+    if (!b || !b.itemTime) return b || null
+    return dayIn(b.itemTime, o.zone || zone) === (o.occurrence || String(o.start || '').slice(0, 10)) ? b : null
+  }
+  // The reminders of the owner's watches, by event ID. A host without watches
+  // gives none, and the page shows no bell.
+  const readBells = async () => {
+    try {
+      const rows = sdk.reminders && typeof sdk.reminders.list === 'function' ? await sdk.reminders.list() : []
+      const m = {}
+      for (const r of rows) if (r.due && !r.skipped && (!m[r.itemId] || r.due < m[r.itemId].due)) m[r.itemId] = r
+      return m
+    } catch { return {} }
+  }
   const refused = (out) => (out && out.ok === false ? out.error || t('calendar.failed') : '')
 
   function Field({ label, children, id }) {
@@ -83,16 +113,36 @@ export function createAddon(sdk) {
         h('button', { type: 'button', className: 'btn btn-secondary', onClick: onCancel, disabled: busy, 'data-testid': 'calendar-cancel' }, t('calendar.form.cancel'))))
   }
 
-  function EventLine({ o, onOpen }) {
+  function EventLine({ o, onOpen, bell, zone }) {
     return h('li', { className: 'cal-line', 'data-testid': 'calendar-event' },
       h('button', { type: 'button', className: 'cal-line__btn', onClick: () => onOpen(o) },
         h('span', { className: 'cal-line__when' }, when(o)),
         h('span', { className: 'cal-line__title' }, o.title),
+        bell ? h('span', { className: 'cal-line__bell', 'data-testid': 'calendar-bell', title: t('calendar.reminder.at', { when: bellTime(bell.due, zone) }) },
+          '🔔 ', h('span', { className: 'cal-line__bell-time' }, bellTime(bell.due, zone))) : null,
         o.place ? h('span', { className: 'cal-line__place' }, o.place) : null,
         o.repeat ? h('span', { className: 'cal-line__repeat', title: t('calendar.repeats') }, '↻') : null))
   }
 
-  function Detail({ o, onEdit, onDeleted, onClose }) {
+  // The reminder of an event: its time, Skip, and the watch, where it can be
+  // re-timed.
+  function Bell({ bell, zone, onChanged }) {
+    const { useState } = React
+    const [busy, setBusy] = useState(false)
+    const [error, setError] = useState('')
+    const skip = async () => {
+      setBusy(true)
+      setError('')
+      try { await sdk.reminders.skip(bell.watchId, bell.id); onChanged() } catch { setError(t('calendar.failed')) } finally { setBusy(false) }
+    }
+    return h('div', { className: 'cal-actions cal-reminder', 'data-testid': 'calendar-reminder' },
+      h('span', null, '🔔 ', t('calendar.reminder.at', { when: bellTime(bell.due, zone) })),
+      h('button', { type: 'button', className: 'btn btn-secondary', disabled: busy, onClick: skip, 'data-testid': 'calendar-reminder-skip' }, t('calendar.reminder.skip')),
+      h('button', { type: 'button', className: 'btn btn-secondary', onClick: () => sdk.navigation.openApp(`/app/triggers/${encodeURIComponent(bell.watchId)}`), 'data-testid': 'calendar-reminder-watch' }, t('calendar.reminder.change')),
+      error ? h('p', { className: 'cal-error', role: 'alert' }, error) : null)
+  }
+
+  function Detail({ o, onEdit, onDeleted, onClose, bell, zone, onBellChanged }) {
     const { useState } = React
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState('')
@@ -113,6 +163,7 @@ export function createAddon(sdk) {
       o.attendees ? h('p', null, `${t('calendar.form.attendees')}: ${o.attendees}`) : null,
       o.notes ? h('p', { className: 'cal-notes' }, o.notes) : null,
       o.repeat ? h('p', null, t(`calendar.repeat.${o.repeat.freq}`)) : null,
+      bell ? h(Bell, { bell, zone, onChanged: onBellChanged }) : null,
       error ? h('p', { className: 'cal-error', role: 'alert' }, error) : null,
       confirm ? h('div', { className: 'cal-actions', role: 'group', 'aria-label': t('calendar.confirm') },
         h('span', null, t('calendar.confirm')),
@@ -176,12 +227,12 @@ export function createAddon(sdk) {
           (days[d] || []).length > 3 ? h('button', { type: 'button', className: 'cal-day__more', onClick: () => onDay(d) }, t('calendar.more', { count: days[d].length - 3 })) : null)))))
   }
 
-  function Agenda({ occurrences, onPick }) {
+  function Agenda({ occurrences, onPick, bells, zone }) {
     const groups = agenda(occurrences)
     if (groups.length === 0) return h('p', { className: 'cal-empty', 'data-testid': 'calendar-empty' }, t('calendar.agenda.empty', { days: AGENDA_DAYS }))
     return h('div', { className: 'cal-agenda', 'data-testid': 'calendar-agenda' }, groups.map((g) => h('section', { key: g.date, className: 'cal-agenda__day' },
       h('h3', null, dayLabel(g.date)),
-      h('ul', null, g.items.map((o, i) => h(EventLine, { key: `${o.id}${o.occurrence}${i}`, o, onOpen: onPick }))))))
+      h('ul', null, g.items.map((o, i) => h(EventLine, { key: `${o.id}${o.occurrence}${i}`, o, onOpen: onPick, bell: bellOf(bells, o, zone), zone }))))))
   }
 
   function Component({ page }) {
@@ -200,6 +251,7 @@ export function createAddon(sdk) {
     const [phase, setPhase] = useState('loading')
     const [form, setForm] = useState(null)
     const [picked, setPicked] = useState(null)
+    const [bells, setBells] = useState({})
     const [zones] = useState(() => { try { return Intl.supportedValuesOf('timeZone') } catch { return [] } })
 
     // The first call learns today's date and the zone of the owner.
@@ -223,6 +275,7 @@ export function createAddon(sdk) {
         const out = await call('events-list', { from: r.from, to: r.to })
         if (refused(out)) { setPhase('error'); return }
         setOcc(out.events || [])
+        setBells(await readBells())
         setMore(!!out.more)
         setPhase('ready')
       } catch { setPhase('error') }
@@ -257,10 +310,10 @@ export function createAddon(sdk) {
           h('button', { type: 'button', className: 'btn btn-primary', onClick: () => create(), 'data-testid': 'calendar-new' }, t('calendar.new')))),
       more ? h('p', { className: 'cal-hint', role: 'status' }, t('calendar.truncated')) : null,
       form ? h(EventForm, { key: form.id || 'new', initial: form, zone, onSaved: reload, onCancel: () => setForm(null) }) : null,
-      picked ? h(Detail, { key: picked.id + picked.occurrence, o: picked, onEdit: edit, onDeleted: reload, onClose: () => setPicked(null) }) : null,
+      picked ? h(Detail, { key: picked.id + picked.occurrence, o: picked, onEdit: edit, onDeleted: reload, onClose: () => setPicked(null), bell: bellOf(bells, picked, zone), zone, onBellChanged: async () => setBells(await readBells()) }) : null,
       view === 'month'
         ? h(Month, { cursor, today, occurrences: occ, onPick: setPicked, onDay: create })
-        : h(Agenda, { occurrences: occ, onPick: setPicked }),
+        : h(Agenda, { occurrences: occ, onPick: setPicked, bells, zone }),
       h(Settings, { zone, zones, onChanged: setZone }))
   }
 

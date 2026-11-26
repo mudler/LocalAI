@@ -175,7 +175,7 @@ test('a trigger the model proposes shows a card that creates it', async ({ page 
   await card.getByRole('button', { name: 'Save' }).click()
   await expect.poll(async () => (await api(page.request, '/api/chats/triggers/proposals')).triggers.find(t => t.id === proposal.id)?.schedule).toBe('weekdays 09:30')
   await page.screenshot({ path: 'test-results/wiring-proposal.png' })
-  await card.getByRole('button', { name: 'Create trigger' }).click()
+  await card.getByRole('button', { name: 'Approve' }).click()
   // The card turns into a receipt in place, and the server keeps the answer.
   await expect(card).toHaveAttribute('data-state', 'accepted')
   await expect(card).toContainText('Scheduled:')
@@ -197,7 +197,7 @@ test('a trigger the model proposes shows a card that creates it', async ({ page 
   await expect(page.getByTestId('trigger-proposal').first()).toHaveAttribute('data-state', 'proposed')
 
   // Once the trigger has run or been edited, the server refuses the undo.
-  await page.getByTestId('trigger-proposal').first().getByRole('button', { name: 'Create trigger' }).click()
+  await page.getByTestId('trigger-proposal').first().getByRole('button', { name: 'Approve' }).click()
   await expect(page.getByTestId('trigger-proposal').first()).toHaveAttribute('data-state', 'accepted')
   const cur = (await api(page.request, '/api/chats/triggers')).triggers.find(t => t.id === proposal.id)
   const edited = await page.request.put(`/api/chats/triggers/${proposal.id}`, { data: { ...cur, name: `${name} edited`, enabled: true } })

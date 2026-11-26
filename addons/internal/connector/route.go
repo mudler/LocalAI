@@ -287,9 +287,13 @@ func send(ctx context.Context, p Platform, req contract.ConnectorRequest) (strin
 	last := ""
 	replace, stale := req.MessageID, ""
 	req.MessageID = ""
-	for _, part := range parts(p, req.Text) {
+	all := parts(p, req.Text)
+	for i, part := range all {
 		r := req
 		r.Text = part
+		if i < len(all)-1 {
+			r.Actions = nil // the buttons go under the last part only
+		}
 		if replace != "" {
 			e := r
 			e.MessageID = replace

@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import i18next from 'i18next'
 import {
   badgeText, sourceOf, toneOf, iconOf, targetOf, reasonText, bodyOf, dayOf, groupByDay, filterItems,
-  hasUnreadFailure, entryVisible, inboxOff, streamWanted, textOf, linkDisabled, runProgressOf, runItemKind,
+  hasUnreadFailure, entryVisible, inboxOff, streamWanted, textOf, WATCH_CODES, linkDisabled, runProgressOf, runItemKind,
 } from '../../src/utils/inbox.js'
 
 const note = (extra = {}) => ({ id: 1, kind: 'run_ended', status: 'ok', title: 'T', body: '', link: '', read: false, created: '', ...extra })
@@ -365,5 +365,27 @@ test('inbox: the update run items are worded in every language', async () => {
       assert.notEqual(t(key), key, `${l}: ${key}`)
     }
     assert.ok(t('inbox.updatesPending', { count: 3 }).includes('3'), l)
+  }
+})
+
+test('inbox: the lines of a watch are worded from their code, in the language of the person', async () => {
+  const line = (code, params) => note({ code: `watch.${code}`, title: 'My calendar', body: 'stored English line', params })
+  const en = await translator('en')
+  const set = textOf(line('set', { title: 'Dentist', at: '2026-11-26T08:45:00Z', zone: 'UTC' }), en)
+  assert.equal(set.title, 'My calendar', 'the watch keeps its name, so its lines group together')
+  assert.match(set.body, /^Set the reminder for "Dentist": .*08:45( UTC)?\.$/)
+  assert.equal(textOf(line('missed', { title: 'Dentist' }), en).body, 'Missed: Dentist. The server was down at the reminder time.')
+  const it = await translator('it')
+  assert.equal(textOf(line('cancelled', { title: 'Dentista' }), it).body, 'Promemoria per "Dentista" annullato.')
+  const itSet = textOf(line('set', { title: 'Dentista', at: '2026-11-26T08:45:00Z', zone: 'UTC' }), it, 'it').body
+  assert.match(itSet, /gio/i, `the time is written in the locale of the page: ${itSet}`)
+  assert.equal(textOf(line('moved', { title: 'Dentist' }), en).body, 'stored English line', 'a timed line without its time keeps the stored line')
+  assert.equal(textOf(line('unknown', { title: 'Dentist' }), en).body, 'stored English line')
+  for (const lng of LOCALES) {
+    const t = await translator(lng)
+    for (const code of WATCH_CODES) {
+      const out = textOf(line(code, { title: 'X', at: '2026-11-26T08:45:00Z' }), t)
+      assert.ok(out.body && !out.body.includes('inbox.codes'), `${lng} ${code}: ${out.body}`)
+    }
   }
 })

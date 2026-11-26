@@ -109,3 +109,35 @@ var _ = Describe("TrimPayload limits", func() {
 		Expect(TrimPayload([]byte("hello"), -1)).To(Equal(TrimPayload([]byte("hello"), 0)))
 	})
 })
+
+var _ = Describe("the paths of a payload", func() {
+	doc := func() any {
+		d, err := DecodePayload([]byte(`{"items":[{"start":"2026-11-26T09:00:00Z","next":["2026-11-27T09:00:00Z","bad","2026-11-28T09:00:00Z"]},{"start":"x"}],"title":"T"}`))
+		Expect(err).NotTo(HaveOccurred())
+		return d
+	}
+
+	It("reads a list of times through an array, as a scalar path does", func() {
+		got := LookupTimes(doc(), "items.0.next", 5)
+		Expect(got).To(Equal([]time.Time{time.Date(2026, 11, 27, 9, 0, 0, 0, time.UTC), time.Date(2026, 11, 28, 9, 0, 0, 0, time.UTC)}))
+		v, ok := LookupPath(doc(), "items.0.start")
+		Expect(ok).To(BeTrue())
+		Expect(v).To(Equal("2026-11-26T09:00:00Z"))
+		Expect(LookupTimes(doc(), "items.5.next", 5)).To(BeEmpty())
+	})
+
+	It("drops a value through an array and keeps the other elements in place", func() {
+		d := doc()
+		DropPath(d, "items.0.start")
+		DropPath(d, "items.1")
+		DropPath(d, "missing.path")
+		_, ok := LookupPath(d, "items.0.start")
+		Expect(ok).To(BeFalse())
+		Expect(LookupTimes(d, "items.0.next", 5)).To(HaveLen(2))
+		list, _ := d.(map[string]any)["items"].([]any)
+		Expect(list).To(HaveLen(2))
+		Expect(list[1]).To(BeNil())
+		title, _ := LookupPath(d, "title")
+		Expect(title).To(Equal("T"))
+	})
+})

@@ -58,5 +58,8 @@
   "calendar.view": "View",
   "calendar.view.agenda": "Agenda",
   "calendar.view.month": "Month",
-  "calendar.yes": "Yes"
+  "calendar.yes": "Yes",
+  "calendar.reminder.at": "알림 {{when}}",
+  "calendar.reminder.skip": "알림 건너뛰기",
+  "calendar.reminder.change": "시간 변경…"
 }

@@ -89,6 +89,8 @@ export function changeView(res, err) {
     canUndo: !!res.can_undo,
     blocked: res.undo_blocked || '',
     lastRun: res.last_run || null,
+    // Set on a change of a reminder of a watch: { watch_id, watch_name, title, before, after }.
+    reminder: res.reminder || null,
   }
 }
 

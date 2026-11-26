@@ -84,6 +84,8 @@ var _ = Describe("Chats feature registration", func() {
 			"POST /api/chats/triggers",
 			"GET /api/chats/triggers/preview",
 			"GET /api/chats/triggers/destinations",
+			"GET /api/chats/triggers/sources",
+			"GET /api/chats/triggers/reminders",
 			"GET /api/chats/triggers/proposals",
 			"GET /api/chats/triggers/proposals/:id",
 			"POST /api/chats/triggers/proposals/:id/undo",
@@ -103,6 +105,9 @@ var _ = Describe("Chats feature registration", func() {
 			"POST /api/chats/triggers/:id/enable",
 			"POST /api/chats/triggers/:id/disable",
 			"GET /api/chats/triggers/:id/runs",
+			"GET /api/chats/triggers/:id/reminders",
+			"PATCH /api/chats/triggers/:id/reminders/:rid",
+			"DELETE /api/chats/triggers/:id/reminders/:rid",
 		))
 		Expect(AgentFeatures).To(ContainElement(FeatureTriggers))
 		Expect(APIFeatures).NotTo(ContainElement(FeatureTriggers))

@@ -78,6 +78,7 @@ var _ = Describe("the studio endpoint helpers", func() {
 			{"a server that does not share agents", failFor, fmt.Errorf("%w: no policy", studiosvc.ErrAgentSharingOff), 409, "sharing_disabled", "agents cannot be shared on this server"},
 			{"a project that changed during its rewrite", failProject, fmt.Errorf("saving: %w", projects.ErrConflict), 409, "conflict", "the project changed while it was saved; try again"},
 			{"a missing trigger", failTrigger, triggers.ErrNotFound, 404, "not_found", "trigger not found"},
+			{"a reminder another writer changed", failTrigger, triggers.ErrConflict, 409, "conflict", "the reminder changed meanwhile; try again"},
 			{"a bad trigger says why", failTrigger, fmt.Errorf("%w: the schedule is empty", studiosvc.ErrBadTrigger), 400, "invalid_request_error", "the schedule is empty"},
 			{"triggers off", failTrigger, studiosvc.ErrTriggersOff, 409, "triggers_off", studiosvc.ErrTriggersOff.Error()},
 			{"a trigger error falls to the chat table", failTrigger, session.ErrNotFound, 404, "not_found", "conversation not found"},

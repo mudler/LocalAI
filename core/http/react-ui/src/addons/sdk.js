@@ -442,6 +442,28 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
       },
       t: translate,
     }),
+    // The reminders of the person's watches for the items of this add-on, so
+    // its page can mark them. The add-on reads only its own items: the host
+    // asks for this add-on's ID, never one the add-on names.
+    reminders: Object.freeze({
+      async list() {
+        alive()
+        if (typeof host.reminders !== 'function') return []
+        const rows = await host.reminders(addonId)
+        return (Array.isArray(rows) ? rows : []).map((r) => Object.freeze({
+          id: String(r.id || ''), itemId: String(r.item_id || ''), watchId: String(r.watch_id || ''),
+          due: typeof r.due === 'string' ? r.due : null, itemTime: typeof r.item_time === 'string' ? r.item_time : null,
+          skipped: r.skipped === true,
+        }))
+      },
+      async skip(watchId, id) {
+        alive()
+        if (typeof host.skipReminder !== 'function') throw new AddonSdkError('unavailable', 'This host has no reminders')
+        // The host names the add-on, so the server refuses a reminder of a
+        // watch on another add-on's items.
+        return host.skipReminder(addonId, String(watchId), String(id))
+      },
+    }),
     navigation: Object.freeze({
       navigate(subpath, options) {
         alive()

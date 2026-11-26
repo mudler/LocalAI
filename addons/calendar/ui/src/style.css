@@ -20,6 +20,8 @@
 .cal-line__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1 1 auto; }
 .cal-month .cal-line__place { display: none; }
 .cal-line__when, .cal-line__place, .cal-line__repeat { color: var(--dk-muted); flex: none; }
+.cal-line__bell { color: var(--dk-accent, inherit); flex: none; font-size: 0.85em; }
+.cal-reminder { flex-wrap: wrap; align-items: center; }
 .cal-agenda { display: flex; flex-direction: column; gap: var(--dk-space-4, 1rem); }
 .cal-agenda__day h3 { margin: 0 0 var(--dk-space-2, 0.5rem); text-transform: capitalize; font-size: var(--dk-text-15, 15px); }
 .cal-agenda .cal-line__btn { font-size: var(--dk-text-15, 15px); padding: 6px 8px; }

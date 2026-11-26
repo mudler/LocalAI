@@ -75,6 +75,9 @@ type TriggerOptions struct {
 	Lead func(ctx context.Context) bool
 	// Logger; nil means slog.Default.
 	Logger *slog.Logger
+	// Sources lists the add-ons whose events a watch can take. Nil: no
+	// add-ons, so no watch can be made.
+	Sources func(ctx context.Context) ([]WatchSource, error)
 }
 
 // Triggers runs the triggers of the chats. A run is a chat of the trigger's
@@ -278,7 +281,7 @@ func (h *Triggers) ensureRunner() (*triggers.Runner, error) {
 func (h *Triggers) newRunner() (*triggers.Runner, error) {
 	opts := triggers.Options{
 		Store: h.o.Store, Admin: h.svc.admin,
-		Start: h.start, Stop: h.stopRun, Live: h.live, Clock: h.o.Clock, Tick: h.o.Tick, Interrupted: h.tellInterrupted, Pause: h.switchOff,
+		Start: h.start, Stop: h.stopRun, Live: h.live, Clock: h.o.Clock, Tick: h.o.Tick, Interrupted: h.tellInterrupted, Pause: h.switchOff, Missed: h.tellMissed, Advanced: h.tellAdvanced,
 		Retention: h.o.Retention, MaxDailyCap: func() int { return h.Limits().MaxDailyCap },
 		Logf: func(format string, args ...any) { h.log.Warn("studio: " + fmt.Sprintf(format, args...)) },
 	}
@@ -645,6 +648,14 @@ func (h *Triggers) runMessage(ctx context.Context, t triggers.Trigger, run trigg
 		}
 		parts = append(parts, "A new file arrived: "+name(run.File))
 	}
+	switch {
+	case t.IsReminder():
+		parts = append(parts, h.reminderBrief(ctx, t, run))
+		return strings.Join(parts, "\n\n"), nil
+	case t.IsWatch() && len(factsOf(run.Payload)) > 0:
+		parts = append(parts, watchBrief(t, run))
+		return strings.Join(parts, "\n\n"), nil
+	}
 	if run.Payload != "" {
 		parts = append(parts, eventBlock(run.Payload))
 	}
@@ -717,6 +728,12 @@ func (h *Triggers) Publish(ctx context.Context, triggerID string, ev triggers.Ev
 // the run it made, the queued run it merged into, or the run of the same
 // dedupe key.
 func (h *Triggers) PublishRun(ctx context.Context, triggerID string, ev triggers.Event) (triggers.Run, error) {
+	return h.publish(ctx, triggerID, ev, false)
+}
+
+// publish is PublishRun, or with wake the early run of a reminder
+// (Runner.Wake), on the leader or queued for it.
+func (h *Triggers) publish(ctx context.Context, triggerID string, ev triggers.Event, wake bool) (triggers.Run, error) {
 	var err error
 	var run triggers.Run
 	// A caller that is gone gets no run. Once the call starts, the store
@@ -738,13 +755,21 @@ func (h *Triggers) PublishRun(ctx context.Context, triggerID string, ev triggers
 		if r, err = h.newRunner(); err != nil {
 			return triggers.Run{}, err
 		}
-		run, err = r.FireQueued(ctx, triggerID, ev)
+		if wake {
+			run, err = r.WakeQueued(ctx, triggerID, ev)
+		} else {
+			run, err = r.FireQueued(ctx, triggerID, ev)
+		}
 	} else {
 		var r *triggers.Runner
 		if r, err = h.ensureRunner(); err != nil {
 			return triggers.Run{}, err
 		}
-		run, err = r.Fire(ctx, triggerID, ev)
+		if wake {
+			run, err = r.Wake(ctx, triggerID, ev)
+		} else {
+			run, err = r.Fire(ctx, triggerID, ev)
+		}
 	}
 	if errors.Is(err, triggers.ErrStopped) {
 		return triggers.Run{}, ErrTriggersClosed
@@ -769,6 +794,9 @@ func (h *Triggers) switchOff(t triggers.Trigger, why string) {
 	if err := h.o.Store.PutTrigger(ctx, cur); err != nil {
 		h.log.Warn("studio: could not switch off a trigger", "trigger", t.ID, "error", err)
 		return
+	}
+	if cur.IsWatch() {
+		h.holdReminders(ctx, cur)
 	}
 	h.tell(ctx, t, "", notify.KindNeedsAttention, notify.StatusFailed, t.Name+" was switched off", "It was switched off because "+why+".")
 }
@@ -890,6 +918,17 @@ func (h *Triggers) finishRun(run triggers.Run, t triggers.Trigger, chatID string
 		h.log.Warn("studio: could not record the end of a run", "run", run.ID, "error", err)
 		return
 	}
+	if status == triggers.StatusFailed && t.IsReminder() && strings.HasPrefix(cur.DueKey, triggers.ReminderPrefix) {
+		// A reminder is never silently missed: when its task fails or runs
+		// out of time, the owner still gets the reminder itself.
+		plain := h.plainReminder(ctx, t)
+		always := t
+		always.Route.Mode = triggers.ModeAlways
+		if !h.report(ctx, always, cur, plain) {
+			h.tell(ctx, t, chatID, notify.KindRunEnded, notify.StatusOK, t.Name, plain)
+		}
+		return
+	}
 	if status == triggers.StatusFailed {
 		h.tell(ctx, t, chatID, notify.KindRunFailed, notify.StatusFailed, t.Name+" failed", reason)
 		h.reportFailure(ctx, t, reason)
@@ -905,7 +944,11 @@ func (h *Triggers) finishRun(run triggers.Run, t triggers.Trigger, chatID string
 		}
 	}
 	if !h.report(ctx, t, cur, body) {
-		h.tell(ctx, t, chatID, notify.KindRunEnded, notify.StatusOK, t.Name+" finished", body)
+		title := t.Name + " finished"
+		if t.IsReminder() {
+			title = t.Name // the reminder speaks for itself
+		}
+		h.tell(ctx, t, chatID, notify.KindRunEnded, notify.StatusOK, title, body)
 	}
 	h.retire(ctx, t)
 }

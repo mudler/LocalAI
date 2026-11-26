@@ -59,6 +59,7 @@ func triggerOut(ctx context.Context, host *studiosvc.Triggers, t triggers.Trigge
 			out.HookPath = hookPath(t.ID)
 		}
 	}
+	out.Watch = watchRuleOut(t.Watch)
 	if t.Kind == triggers.KindFile || t.Kind == triggers.KindEvent {
 		out.MinGapSeconds = int(t.GapOrDefault() / time.Second)
 	}
@@ -99,7 +100,7 @@ func triggerIn(req schema.ChatsTriggerWrite) (studiosvc.TriggerInput, error) {
 	in := studiosvc.TriggerInput{Name: req.Name, Prompt: req.Prompt, Kind: triggers.Kind(req.Kind), Schedule: req.Schedule, TZ: req.TimeZone,
 		Folder: req.Folder, Quiet: time.Duration(req.QuietSeconds) * time.Second, DailyCap: req.DailyCap, RunLimit: runLimit,
 		AgentID: req.AgentID, Model: req.Model, SourceChatID: req.SourceChatID, Enabled: req.Enabled,
-		Source: req.Source, EventType: req.EventType, Matches: req.Matches}
+		Source: req.Source, EventType: req.EventType, Matches: req.Matches, Watch: watchRuleIn(req.Watch)}
 	in.MinGap, in.EstTokens = time.Duration(req.MinGapSeconds)*time.Second, req.EstimatedTokens
 	if req.Acts != nil {
 		in.Acts = req.Acts
@@ -115,6 +116,7 @@ func triggerIn(req schema.ChatsTriggerWrite) (studiosvc.TriggerInput, error) {
 
 var triggerRules = []errRule{
 	fixed(http.StatusNotFound, typeNotFound, "trigger not found", triggers.ErrNotFound),
+	fixed(http.StatusConflict, typeConflict, "the reminder changed meanwhile; try again", triggers.ErrConflict),
 	verbatim(http.StatusBadRequest, typeInvalid, studiosvc.ErrBadTrigger.Error()+": ", studiosvc.ErrBadTrigger),
 	verbatim(http.StatusConflict, typeConflict, "", studiosvc.ErrTooManyTriggers, studiosvc.ErrTooManyProposals),
 	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrTooManyChanges, studiosvc.ErrChangeStale),
@@ -566,6 +568,17 @@ func changeOut(ctx context.Context, host *studiosvc.Triggers, v studiosvc.Change
 	if v.LastRun != nil {
 		r := runOut(host, v.Before.Owner, *v.LastRun)
 		out.LastRun = &r
+	}
+	if rc := v.Reminder; rc != nil {
+		out.Reminder = &schema.ChatsReminderChange{WatchID: rc.WatchID, WatchName: rc.WatchName, WatchZone: rc.WatchZone, Title: rc.Title}
+		if rc.Before != nil {
+			b := reminderOut(*rc.Before)
+			out.Reminder.Before = &b
+		}
+		if rc.After != nil {
+			a := reminderOut(*rc.After)
+			out.Reminder.After = &a
+		}
 	}
 	return out
 }

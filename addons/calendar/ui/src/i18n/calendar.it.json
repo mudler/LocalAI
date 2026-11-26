@@ -58,5 +58,8 @@
   "calendar.view": "Vista",
   "calendar.view.agenda": "Agenda",
   "calendar.view.month": "Mese",
-  "calendar.yes": "Sì"
+  "calendar.yes": "Sì",
+  "calendar.reminder.at": "Promemoria {{when}}",
+  "calendar.reminder.skip": "Salta il promemoria",
+  "calendar.reminder.change": "Cambia orario…"
 }

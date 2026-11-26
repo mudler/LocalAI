@@ -6,6 +6,7 @@ import { useWellKnown } from '../../hooks/useWellKnown'
 import { widgetList } from '../../utils/wellKnown'
 import { plainSummary } from '../../utils/widgetTrigger'
 import { ActsSummary } from '../TriggerActs'
+import { ruleOffsetWords } from '../../utils/watch'
 import Icon from '../Icon'
 import { Button } from '../ui'
 // eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
@@ -37,7 +38,8 @@ function Plan({ p, t }) {
   const tokens = cost.estimated_tokens || 0
 
   let when
-  if (p.kind === 'event') when = <EventSentence trigger={p} />
+  if (p.watch) when = t('watch.summary', { source: p.source, offset: ruleOffsetWords(t, p.watch) })
+  else if (p.kind === 'event') when = <EventSentence trigger={p} />
   else if (p.kind === 'file') when = t('proposal.plan.whenFile', { folder: p.folder })
   else if (first) when = t('proposal.plan.when', { schedule: plainSummary(p), zone, when: first })
   else when = t('proposal.plan.whenNoFirst', { schedule: plainSummary(p), zone })
@@ -59,16 +61,26 @@ function Plan({ p, t }) {
       ? t('proposal.plan.deliveryChannelIn', { channel: d.channel_label, connection: d.connection_name })
       : t('proposal.plan.deliveryChannel', { channel: d.channel_label })
   }
+  // When the runs speak up: a watch only when it adds something (it decides
+  // per item); any other trigger by its delivery mode.
   const mode = deliveryModeKey(d)
-  if (mode) delivery = `${delivery}. ${t(mode)}`
+  const tells = p.watch
+    ? t('proposal.plan.tellsWatch')
+    : t(mode === 'proposal.plan.deliveryModeOnChange' ? 'proposal.plan.tellsOnChange' : mode === 'proposal.plan.deliveryModeOnProblem' ? 'proposal.plan.tellsOnProblem' : 'proposal.plan.tellsEvery')
+  let does = firstSentence(p.prompt)
+  if (p.watch) {
+    does = t('proposal.plan.doesWatch', { source: p.source, offset: ruleOffsetWords(t, p.watch) })
+  }
   const rows = [
     ['when', when],
+    does && ['does', does],
     ['runsAs', p.model ? t('proposal.plan.runsAsModel', { model: p.model }) : t('proposal.plan.runsAs')],
     p.plan?.reads && ['reads', p.plan.reads],
     p.plan?.writes && ['writes', widget
       ? <><code>{p.plan.writes}</code>{t('proposal.plan.writesWidget', { widget: widget.title })}</>
       : <code>{p.plan.writes}</code>],
     ['delivery', delivery],
+    ['tellsYou', tells],
     ['cost', costText],
     p.run_limit && ['limit', limitText],
     ['acts', <ActsSummary key="acts" trigger={p} compact />],
@@ -84,6 +96,12 @@ function Plan({ p, t }) {
       ))}
     </dl>
   )
+}
+
+// firstSentence is the opening of what a run does, short enough for one row.
+function firstSentence(text) {
+  const s = String(text || '').trim().split(/(?<=[.!?])\s/)[0] || ''
+  return s.length > 140 ? `${s.slice(0, 139)}…` : s
 }
 
 // A trigger the model proposed in this chat: a tool line whose card is of kind
@@ -148,15 +166,16 @@ export default function ProposalCard({ id, t, tick = 0 }) {
   const p = view.trigger
   if (view.kind === 'accepted') {
     const when = receiptWhen(p)
-    const isEvent = p.kind === 'event'
+    // A watch has no hook: it hears its add-on, not an outside sender.
+    const isEvent = p.kind === 'event' && !p.watch
     const next = p.next_run ? formatNext(p.next_run, p.time_zone) : ''
     return wrap(
       <div className="cx-receipt" data-testid="trigger-proposal" data-state="accepted">
         <Icon name="check-circle" className="cx-receipt__icon" />
         <div className="cx-receipt__main">
           <p className="cx-receipt__line">
-            <b>{t(isEvent ? 'event.listening' : when.mode === 'file' ? 'proposal.receipt.watching' : 'proposal.receipt.scheduled')}</b>{' '}
-            <span data-testid="receipt-when">{isEvent ? <EventSentence trigger={p} /> : when.text}</span>
+            <b>{t(isEvent ? 'event.listening' : when.mode === 'file' || p.watch ? 'proposal.receipt.watching' : 'proposal.receipt.scheduled')}</b>{' '}
+            <span data-testid="receipt-when">{p.watch ? p.source : isEvent ? <EventSentence trigger={p} /> : when.text}</span>
           </p>
           <p className="cx-receipt__sub">
             <span data-testid="receipt-title">{p.name}</span>
@@ -211,6 +230,7 @@ export default function ProposalCard({ id, t, tick = 0 }) {
       <div className="cx-proposal__head">
         <b>{p.name}</b>
         {p.kind !== 'event' && <span className="cx-proposal__when">{p.summary || p.schedule || p.folder}</span>}
+        {p.watch && <span className="cx-proposal__when">{t('watch.section')}</span>}
       </div>
       <p className="cx-help">{t('proposal.inactive')}</p>
       {!edit && <Plan p={p} t={t} />}
@@ -237,9 +257,9 @@ export default function ProposalCard({ id, t, tick = 0 }) {
           <button type="button" className="cx-btn cx-btn--primary" disabled={!!busy} onClick={() => act('create', async () => {
             const made = await chatTriggersApi.confirm(p.id, browserZone())
             setSecret(made?.secret || '')
-          }, t(p.kind === 'event' ? 'event.announceAccepted' : 'proposal.announce.accepted', { name: p.name }))}>{t('proposal.create')}</button>
+          }, t(p.kind === 'event' && !p.watch ? 'event.announceAccepted' : 'proposal.announce.accepted', { name: p.name }))}>{t('proposal.approve')}</button>
           <button type="button" className="cx-btn" disabled={!!busy} onClick={() => setEdit({ name: p.name, when: p.kind === 'file' ? p.folder || '' : p.schedule || '' })}>{t('proposal.edit')}</button>
-          <button type="button" className="cx-btn" disabled={!!busy} onClick={() => act('dismiss', () => chatTriggersApi.dismiss(p.id), t('proposal.announce.declined', { name: p.name }))}>{t('proposal.dismiss')}</button>
+          <button type="button" className="cx-btn" disabled={!!busy} onClick={() => act('dismiss', () => chatTriggersApi.dismiss(p.id), t('proposal.announce.declined', { name: p.name }))}>{t('proposal.notNow')}</button>
         </span>
       )}
       {alert}

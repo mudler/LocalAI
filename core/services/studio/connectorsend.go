@@ -47,6 +47,9 @@ var (
 // Outgoing is one message to write to a chat of a binding.
 type Outgoing struct {
 	Binding, Chat, Thread, Text string
+	// Actions and Hint go with the message (see Post).
+	Actions []contract.MessageAction
+	Hint    string
 	// Kind is one of the Send constants and Capability the capability that
 	// allowed it; both go to the audit.
 	Kind, Capability string
@@ -74,7 +77,7 @@ func (c *Connectors) Send(ctx context.Context, o Outgoing) (queued bool, err err
 	if b, gerr := c.o.Store.GetBinding(ctx, o.Binding); gerr == nil {
 		ev.Kind = b.Kind
 	}
-	queued, err = c.Post(ctx, Post{Binding: o.Binding, Chat: o.Chat, Thread: o.Thread, Text: text,
+	queued, err = c.Post(ctx, Post{Binding: o.Binding, Chat: o.Chat, Thread: o.Thread, Text: text, Actions: o.Actions, Hint: o.Hint,
 		OnFail: func(err error) {
 			f := ev
 			f.Reason = "failed after waiting"

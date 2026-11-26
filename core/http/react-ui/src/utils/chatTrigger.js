@@ -1,3 +1,4 @@
+import { watchForm, watchPayload } from './watch.js'
 // The schedule of a trigger is one line of text that the server reads, for
 // example "weekdays 08:00". These functions turn the fields of the form into
 // that text and back. No React, so a node test drives them.
@@ -130,6 +131,8 @@ export function emptyTrigger() {
     folder: '', quiet: '', dailyCap: '', runLimit: '', agentId: '', model: '', sourceChatId: '',
     acts: [], writes: '', lock: '',
     source: '', eventType: '', matches: '',
+    // The rule form of a watch (see utils/watch.js); null for any other trigger.
+    watch: null,
   }
 }
 
@@ -144,6 +147,7 @@ export function triggerForm(tr) {
     acts: Array.isArray(tr.acts) ? tr.acts : [], writes: tr.plan?.writes || '',
     lock: tr.read_only && (tr.read_only_why === 'declared' || tr.read_only_why === 'binding') ? tr.read_only_why : '',
     source: tr.source || '', eventType: tr.event_type || '', matches: (tr.matches || []).join('\n'),
+    watch: tr.watch ? watchForm(tr) : null,
   }
 }
 
@@ -163,6 +167,13 @@ export function triggerPayload(v) {
   if (file) {
     body.folder = v.folder.trim()
     body.quiet_seconds = v.quiet ? Number(v.quiet) : 0
+  } else if (v.watch) {
+    // A watch takes every change of its source through its own rule; its
+    // zone is the zone of its quiet hours and of the times it writes.
+    body.kind = 'event'
+    body.source = v.watch.source
+    body.time_zone = v.zone
+    body.watch = watchPayload(v.watch)
   } else if (event) {
     body.source = (v.source || '').trim()
     body.event_type = (v.eventType || '').trim()
@@ -176,7 +187,7 @@ export function triggerPayload(v) {
 
 /** A short word for the state of a run. */
 export function runTone(status) {
-  if (status === 'done') return 'done'
+  if (status === 'done' || status === 'handled') return 'done'
   if (status === 'failed') return 'failed'
   if (status === 'skipped') return 'skipped'
   return 'going'

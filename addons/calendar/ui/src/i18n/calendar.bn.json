@@ -58,5 +58,8 @@
   "calendar.view": "দেখুন",
   "calendar.view.agenda": "এজেন্ডা",
   "calendar.view.month": "মাস",
-  "calendar.yes": "হ্যাঁ"
+  "calendar.yes": "হ্যাঁ",
+  "calendar.reminder.at": "রিমাইন্ডার {{when}}",
+  "calendar.reminder.skip": "রিমাইন্ডার বাদ দিন",
+  "calendar.reminder.change": "সময় বদলান…"
 }

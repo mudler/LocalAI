@@ -9,7 +9,7 @@ devbuild = "feature"
 
 An event trigger starts a run of a chat when something outside sends it an event: a pull request on GitHub, a build that fails, a script that calls `curl`. The sender posts to a URL that belongs to the trigger, and the trigger's own secret is the credential. This page shows how to create one, how a sender signs a call, and what limits apply.
 
-For the other kinds of trigger (schedule and file), the run, the plan card and the API, see [Triggers]({{% relref "/features/chats-and-agents/chats-agents" %}}#triggers).
+For reminders that follow the things of an add-on, such as calendar events, see [Watches and reminders]({{% relref "/features/chats-and-agents/chats-watches" %}}). For the other kinds of trigger (schedule and file), the run, the plan card and the API, see [Triggers]({{% relref "/features/chats-and-agents/chats-agents" %}}#triggers).
 
 ## Create an event trigger
 
