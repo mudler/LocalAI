@@ -33,7 +33,14 @@ if [ "$(id -u)" = "0" ] && [ "${LOCALAI_RUN_AS_ROOT:-false}" != "true" ]; then
 		case ",$groups," in *",$gid,"*) continue ;; esac
 		[ "$gid" = "0" ] || groups="${groups:+$groups,}$gid"
 	done
-	export HOME=/home/localai
+	# The home of the user keeps caches that LocalAI writes, such as the
+	# Sigstore trust that verifies signed add-ons and backends. The image makes
+	# it for uid 10001, so a LOCALAI_UID that is another id gets it too.
+	# LOCALAI_HOME_DIR exists for the entrypoint test.
+	export HOME="${LOCALAI_HOME_DIR:-/home/localai}"
+	if [ -d "$HOME" ] && [ "$(stat -c %u "$HOME")" != "$run_uid" ]; then
+		chown -R "$run_uid:$run_gid" "$HOME" || echo "warning: could not change the owner of $HOME; LocalAI may not be able to keep its caches there"
+	fi
 	if [ -n "$groups" ]; then
 		exec setpriv --reuid="$run_uid" --regid="$run_gid" --groups="$groups" -- "$0" "$@"
 	fi
