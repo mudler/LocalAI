@@ -660,11 +660,9 @@ func loadAbandonedOnWorker(err error) bool {
 		return true
 	}
 	// The deadline usually reaches us as a gRPC status rather than a wrapped
-	// context error. errors.As (not status.Code) so a wrapped status is still
-	// recognised.
-	var st interface{ GRPCStatus() *status.Status }
-	if errors.As(err, &st) {
-		switch st.GRPCStatus().Code() {
+	// context error.
+	if code, ok := wrappedGRPCCode(err); ok {
+		switch code {
 		case codes.DeadlineExceeded, codes.Canceled:
 			return true
 		}
@@ -672,15 +670,26 @@ func loadAbandonedOnWorker(err error) bool {
 	return false
 }
 
+// wrappedGRPCCode returns the code of the gRPC status in err's chain. It uses
+// errors.As, not status.Code, so a status wrapped by fmt.Errorf is still
+// recognised.
+func wrappedGRPCCode(err error) (codes.Code, bool) {
+	var st interface{ GRPCStatus() *status.Status }
+	if !errors.As(err, &st) {
+		return codes.OK, false
+	}
+	return st.GRPCStatus().Code(), true
+}
+
 // isDeadlineExceeded reports whether err is a deadline that ran out: a context
 // deadline, or a gRPC status with code DeadlineExceeded, which is how the
-// remote LoadModel usually reports it. errors.As finds a wrapped status too.
+// remote LoadModel usually reports it.
 func isDeadlineExceeded(err error) bool {
 	if errors.Is(err, context.DeadlineExceeded) {
 		return true
 	}
-	var st interface{ GRPCStatus() *status.Status }
-	return errors.As(err, &st) && st.GRPCStatus().Code() == codes.DeadlineExceeded
+	code, ok := wrappedGRPCCode(err)
+	return ok && code == codes.DeadlineExceeded
 }
 
 // reapAbandonedLoad tells the worker to stop the one replica whose load we
