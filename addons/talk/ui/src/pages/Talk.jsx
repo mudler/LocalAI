@@ -10,6 +10,8 @@ import HomeModelPicker from '../components/home/HomeModelPicker'
 import SessionSheet from '../components/talk/SessionSheet'
 // eslint-disable-next-line no-unused-vars
 import VoiceVisualizer from '../components/VoiceVisualizer'
+// eslint-disable-next-line no-unused-vars
+import Transcript, { Turn } from '../components/talk/Transcript'
 import { useMCPClient } from '../hooks/useMCPClient'
 import { loadClientMCPServers } from '../utils/mcpClientStorage'
 import { useAuth } from '../context/AuthContext'
@@ -155,7 +157,6 @@ export default function Talk() {
   const statsIntervalRef = useRef(null)
   const waveCanvasRef = useRef(null)
   const specCanvasRef = useRef(null)
-  const transcriptEndRef = useRef(null)
 
   // Diagnostics stats (not worth re-rendering for every frame)
   const [diagStats, setDiagStats] = useState({
@@ -177,14 +178,6 @@ export default function Talk() {
       .finally(() => setModelsLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // Auto-scroll the transcript's own overflow container. scrollIntoView bubbles
-  // to every scrollable ancestor (incl. the window), which yanked the whole
-  // page down to the transcript box on mount; scoping to the box avoids it.
-  useEffect(() => {
-    const box = transcriptEndRef.current?.parentElement
-    box?.scrollTo({ top: box.scrollHeight, behavior: 'smooth' })
-  }, [transcript])
 
   // Mirror Chat.jsx: connect / disconnect client MCP servers as the user toggles them.
   useEffect(() => {
@@ -936,32 +929,32 @@ export default function Talk() {
           )}
         </section>
 
-        <section className="talk-transcript" aria-label={t('transcript.title')}>
-          <div className="talk-transcript__head">
-            <h2>{t('transcript.title')}</h2>
-            <button type="button" className="talk-btn talk-btn--ghost" onClick={copyTranscript} disabled={transcript.length === 0} data-testid="talk-copy">
-              <Icon name="copy" /> {t('transcript.copy')}
-            </button>
-          </div>
-          <div className="talk-transcript__body" data-testid="talk-transcript">
-            {transcript.length === 0 && (
-              <p className="talk-transcript__empty">{noPipeline ? t('transcript.emptyNoPipeline') : t('transcript.empty')}</p>
-            )}
-            {transcript.map((entry, i) => {
-              if (entry.role === 'note') {
-                return <p key={entry.id || i} className="talk-turn talk-turn--note" data-role="note"><span className="talk-tag">{entry.text === 'tone' ? t('transcript.toneRequested') : t('transcript.interrupted')}</span></p>
-              }
-              const tool = entry.role === 'tool_call' || entry.role === 'tool_result'
-              return (
-                <div key={entry.id || i} className="talk-turn" data-role={entry.role}>
-                  <b>{t(`transcript.${entry.role}`)}</b>
-                  <p className={tool ? `talk-turn__tool${entry.role === 'tool_result' ? ' talk-turn__tool--result' : ''}` : undefined}>{entry.text}</p>
-                </div>
-              )
-            })}
-            <div ref={transcriptEndRef} />
-          </div>
-        </section>
+        <Transcript
+          title={t('transcript.title')}
+          copyLabel={t('transcript.copy')}
+          onCopy={copyTranscript}
+          canCopy={transcript.length > 0}
+          empty={transcript.length === 0 ? (noPipeline ? t('transcript.emptyNoPipeline') : t('transcript.empty')) : null}
+          testId="talk-transcript"
+          copyTestId="talk-copy"
+          follow={transcript}
+        >
+          {transcript.map((entry, i) => {
+            if (entry.role === 'note') {
+              return <p key={entry.id || i} className="talk-turn talk-turn--note" data-role="note"><span className="talk-tag">{entry.text === 'tone' ? t('transcript.toneRequested') : t('transcript.interrupted')}</span></p>
+            }
+            const tool = entry.role === 'tool_call' || entry.role === 'tool_result'
+            return (
+              <Turn
+                key={entry.id || i}
+                role={entry.role}
+                label={t(`transcript.${entry.role}`)}
+                text={entry.text}
+                textClass={tool ? `talk-turn__tool${entry.role === 'tool_result' ? ' talk-turn__tool--result' : ''}` : undefined}
+              />
+            )
+          })}
+        </Transcript>
       </div>
 
       {/* Hidden audio element for WebRTC playback */}
