@@ -26,8 +26,12 @@ const (
 	// it is what a link carried before it had local addresses.
 	maxPublicAddrs = 2
 	maxLinkRelays  = 3
-	maxPassLen     = 256
-	maxAddrLen     = 256
+	// maxLinkHints is how many public relays a link names for hole punch
+	// coordination. AutoRelay keeps two reservations when it has no static
+	// relay, so more would rarely exist.
+	maxLinkHints = 2
+	maxPassLen   = 256
+	maxAddrLen   = 256
 )
 
 // ErrBadLink is wrapped by every ParseLink failure.
@@ -42,6 +46,7 @@ func badLink(format string, a ...any) error {
 //	localai://pair?v=1&k=<kind>&p=<server peer ID>&c=<code>&e=<unix expiry>&n=<label>
 //	  [&a=<direct multiaddr>]x0-4 [&r=<relay multiaddr with /p2p/>]x0-3
 //	  [&o=<indexes of open relays>] [&x=<relay pass>]
+//	  [&h=<relay hint multiaddr with /p2p/>]x0-2
 //
 // Values are URL query escaped. A parser ignores keys it does not know and
 // refuses a version other than 1.
@@ -65,6 +70,12 @@ type Link struct {
 	Open []int
 	// Pass is the one-time pass that admits the redeeming peer at the relay.
 	Pass string
+	// Hints are public relays on which the server holds a reservation (at
+	// most 2), written like Relays. A device uses one only to reach the
+	// server and coordinate a hole punch: it never carries data, never gets
+	// the pass and is never open. A separate key keeps older clients, which
+	// try the pass on every relay of r, from treating a hint as a carrier.
+	Hints []peer.AddrInfo
 }
 
 // Expired reports whether the link has expired at now.
@@ -82,9 +93,15 @@ func (l *Link) AddrStrings() []string {
 
 // RelayAddrStrings returns one multiaddr ending in /p2p/<relay ID> for each
 // address of each relay of the link, or nil when the link has no relays.
-func (l *Link) RelayAddrStrings() []string {
+func (l *Link) RelayAddrStrings() []string { return p2pAddrStrings(l.Relays) }
+
+// HintAddrStrings returns one multiaddr ending in /p2p/<relay ID> for each
+// address of each relay hint of the link, or nil when the link has none.
+func (l *Link) HintAddrStrings() []string { return p2pAddrStrings(l.Hints) }
+
+func p2pAddrStrings(infos []peer.AddrInfo) []string {
 	var out []string
-	for _, r := range l.Relays {
+	for _, r := range infos {
 		for _, a := range r.Addrs {
 			out = append(out, a.String()+"/p2p/"+r.ID.String())
 		}
@@ -120,6 +137,11 @@ func (l *Link) String() string {
 	}
 	if l.Pass != "" {
 		add("x", l.Pass)
+	}
+	for _, h := range l.Hints {
+		if s, ok := relayString(h); ok {
+			add("h", s)
+		}
 	}
 	return b.String()
 }
@@ -234,18 +256,11 @@ func ParseLink(s string) (*Link, error) {
 		return nil, badLink("too many relays")
 	}
 	for _, r := range q["r"] {
-		if len(r) > maxAddrLen {
-			return nil, badLink("relay address too long")
-		}
-		m, err := ma.NewMultiaddr(r)
+		ai, err := parseRelayAddr(r, "relay")
 		if err != nil {
-			return nil, badLink("bad relay address")
+			return nil, err
 		}
-		ai, err := peer.AddrInfoFromP2pAddr(m)
-		if err != nil || len(ai.Addrs) == 0 {
-			return nil, badLink("a relay address needs a transport and /p2p/")
-		}
-		l.Relays = append(l.Relays, *ai)
+		l.Relays = append(l.Relays, ai)
 	}
 
 	if len(q["o"]) > 1 {
@@ -273,5 +288,43 @@ func ParseLink(s string) (*Link, error) {
 		}
 		l.Pass = x
 	}
+
+	if len(q["h"]) > maxLinkHints {
+		return nil, badLink("too many relay hints")
+	}
+	for _, h := range q["h"] {
+		ai, err := parseRelayAddr(h, "relay hint")
+		if err != nil {
+			return nil, err
+		}
+		// A hint is a route to the server through another peer: the server
+		// itself or a carrier relay named in r is a mistake in the link.
+		if ai.ID == l.Peer {
+			return nil, badLink("a relay hint names the server")
+		}
+		for _, r := range l.Relays {
+			if ai.ID == r.ID {
+				return nil, badLink("a relay hint names a relay of the link")
+			}
+		}
+		l.Hints = append(l.Hints, ai)
+	}
 	return l, nil
+}
+
+// parseRelayAddr reads one relay address of a link: a transport address that
+// ends in /p2p/<relay ID>. what names the key in errors.
+func parseRelayAddr(s, what string) (peer.AddrInfo, error) {
+	if len(s) > maxAddrLen {
+		return peer.AddrInfo{}, badLink("%s address too long", what)
+	}
+	m, err := ma.NewMultiaddr(s)
+	if err != nil {
+		return peer.AddrInfo{}, badLink("bad %s address", what)
+	}
+	ai, err := peer.AddrInfoFromP2pAddr(m)
+	if err != nil || len(ai.Addrs) == 0 {
+		return peer.AddrInfo{}, badLink("a %s address needs a transport and /p2p/", what)
+	}
+	return *ai, nil
 }

@@ -2,6 +2,8 @@ package p2ppair_test
 
 import (
 	"errors"
+	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -81,6 +83,100 @@ var _ = Describe("Link", func() {
 		Expect(got.Code).To(Equal("ABCDE23456"))
 	})
 
+	Describe("relay hints", func() {
+		withHints := func(n int) *p2ppair.Link {
+			l := fullLink()
+			for i := range n {
+				l.Hints = append(l.Hints, relayInfo("/ip4/198.51.100."+strconv.Itoa(20+i)+"/tcp/4001"))
+			}
+			return l
+		}
+
+		DescribeTable("round trips",
+			func(n int) {
+				l := withHints(n)
+				got, err := p2ppair.ParseLink(l.String())
+				Expect(err).NotTo(HaveOccurred())
+				Expect(got.Hints).To(HaveLen(n))
+				Expect(got.HintAddrStrings()).To(Equal(l.HintAddrStrings()))
+				Expect(got.String()).To(Equal(l.String()))
+				Expect(got.Relays).To(HaveLen(2), "hints are not carrier relays")
+				Expect(got.Open).To(Equal([]int{1}))
+			},
+			Entry("no hint", 0),
+			Entry("one hint", 1),
+			Entry("two hints", 2),
+		)
+
+		It("writes h after x, one address per hint ending in /p2p/", func() {
+			l := withHints(1)
+			s := l.String()
+			Expect(s).To(ContainSubstring("&x=pass-123_abc&h="))
+			Expect(l.HintAddrStrings()).To(HaveExactElements(HaveSuffix("/p2p/" + l.Hints[0].ID.String())))
+		})
+
+		It("parses a link whose only route is a hint", func() {
+			l := &p2ppair.Link{V: 1, Kind: p2ppair.KindDevice, Peer: newPeer(), Code: "ABCDE23456", Expires: t0, Label: "phone",
+				Hints: []peer.AddrInfo{relayInfo("/ip4/198.51.100.30/udp/4001/quic-v1")}}
+			got, err := p2ppair.ParseLink(l.String())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Addrs).To(BeEmpty())
+			Expect(got.Relays).To(BeEmpty())
+			Expect(got.Hints).To(HaveLen(1))
+			Expect(got.Hints[0].ID).To(Equal(l.Hints[0].ID))
+		})
+
+		It("gives nil hints for a link without h", func() {
+			got, err := p2ppair.ParseLink(fullLink().String())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Hints).To(BeNil())
+			Expect(got.HintAddrStrings()).To(BeNil())
+		})
+
+		It("keeps a link with hints valid for a parser that does not know h", func() {
+			// A parser from before h treats it as an unknown key. Renaming the
+			// key to one no parser knows reproduces that view of the link.
+			l := withHints(2)
+			old := strings.ReplaceAll(l.String(), "&h=", "&zz=")
+			Expect(old).NotTo(ContainSubstring("&h="))
+			got, err := p2ppair.ParseLink(old)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Hints).To(BeNil())
+			Expect(got.Code).To(Equal(l.Code))
+			Expect(got.RelayAddrStrings()).To(Equal(l.RelayAddrStrings()))
+			Expect(got.Pass).To(Equal(l.Pass))
+		})
+
+		It("refuses more than two hints", func() {
+			_, err := p2ppair.ParseLink(withHints(3).String())
+			Expect(err).To(MatchError(p2ppair.ErrBadLink))
+			Expect(err.Error()).To(ContainSubstring("too many relay hints"))
+		})
+
+		It("refuses a hint that names the server or a carrier relay", func() {
+			l := withHints(1)
+			l.Hints[0].ID = l.Peer
+			_, err := p2ppair.ParseLink(l.String())
+			Expect(err).To(MatchError(p2ppair.ErrBadLink))
+
+			l = withHints(1)
+			l.Hints[0].ID = l.Relays[0].ID
+			_, err = p2ppair.ParseLink(l.String())
+			Expect(err).To(MatchError(p2ppair.ErrBadLink))
+		})
+
+		DescribeTable("refuses a bad hint",
+			func(h string) {
+				_, err := p2ppair.ParseLink(fullLink().String() + "&h=" + h)
+				Expect(err).To(MatchError(p2ppair.ErrBadLink))
+			},
+			Entry("a bad multiaddr", "nonsense"),
+			Entry("no peer ID", url.QueryEscape("/ip4/198.51.100.1/tcp/1")),
+			Entry("no transport", url.QueryEscape("/p2p/"+newPeer().String())),
+			Entry("over 256 bytes", url.QueryEscape("/dns4/"+strings.Repeat("a", 250)+".example.com/tcp/1/p2p/"+newPeer().String())),
+		)
+	})
+
 	It("reports expiry", func() {
 		l := fullLink()
 		Expect(l.Expired(l.Expires.Add(-time.Second))).To(BeFalse())
@@ -137,6 +233,8 @@ var _ = Describe("Link", func() {
 func FuzzParseLink(f *testing.F) {
 	f.Add("localai://pair?v=1&k=device&p=12D3KooWQYhTNQdmr3ArTeUHRYzFg94BKyTkoWBDWez9kSCVe2Xo&c=ABCDE23456&e=1893456000&n=x")
 	f.Add("localai://pair?v=1&k=remote&p=bad&c=&e=0&n=&o=,&r=%2Fip4%2F1.1.1.1%2Ftcp%2F1")
+	f.Add("localai://pair?v=1&k=device&p=12D3KooWQYhTNQdmr3ArTeUHRYzFg94BKyTkoWBDWez9kSCVe2Xo&c=ABCDE23456&e=1893456000&n=x&h=%2Fip4%2F198.51.100.1%2Ftcp%2F4001%2Fp2p%2F12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGm")
+	f.Add("localai://pair?v=1&k=device&p=12D3KooWQYhTNQdmr3ArTeUHRYzFg94BKyTkoWBDWez9kSCVe2Xo&c=ABCDE23456&e=1893456000&n=x&h=%2Fp2p%2F12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGm&h=&h=x")
 	f.Add("")
 	f.Fuzz(func(t *testing.T, s string) {
 		g := NewWithT(t)
