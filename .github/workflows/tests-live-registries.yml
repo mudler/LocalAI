@@ -1,0 +1,38 @@
+---
+# Pulls from the public model registries that LocalAI supports, once a night.
+# The specs with the "live-registry" label skip unless LOCALAI_TEST_LIVE_REGISTRY
+# is 1, so pull requests and master pushes test the same pull code against an
+# in-process fake registry. A public registry that goes down or rate-limits
+# turns only this run red, never master.
+name: 'live registry pulls'
+
+on:
+  schedule:
+    - cron: '41 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-live-registries-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  ollama:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Pull from the public Ollama registry
+        env:
+          LOCALAI_TEST_LIVE_REGISTRY: '1'
+        run: go run github.com/onsi/ginkgo/v2/ginkgo --label-filter='live-registry' -v ./pkg/oci
