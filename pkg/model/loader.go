@@ -433,7 +433,6 @@ func (ml *ModelLoader) BackendLoggingEnabled() bool {
 	return ml.backendLoggingEnabled.Load()
 }
 
-// SetLRUEvictionRetrySettings updates the LRU eviction retry settings
 // SetModelSwap turns model swap on or off. With swap off, a load that needs
 // room waits for the LRU retry window and then fails with a
 // ModelSwapDisabledError; no other model is unloaded for it.
@@ -450,6 +449,7 @@ func (ml *ModelLoader) ModelSwapEnabled() bool {
 	return !ml.modelSwapDisabled
 }
 
+// SetLRUEvictionRetrySettings updates the LRU eviction retry settings
 func (ml *ModelLoader) SetLRUEvictionRetrySettings(maxRetries int, retryInterval time.Duration) {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
@@ -795,10 +795,7 @@ func (ml *ModelLoader) ShutdownModelAtAddress(modelName, address string, force b
 		// (router eviction, reconciler sweeps); unloading it from here
 		// would stop the model on every node that holds it.
 		xlog.Debug("Watchdog eviction of a remote replica: dropping the local stub only", "model", modelName, "address", address)
-		store.Delete(modelName)
-		if wd := ml.GetWatchDog(); wd != nil {
-			wd.Untrack(address)
-		}
+		ml.evictRemoteStub(modelName)
 		return nil
 	}
 	err = ml.deleteProcess(ctx, modelName, force)
@@ -838,20 +835,17 @@ func (ml *ModelLoader) shutdownModel(ctx context.Context, modelName string, forc
 	return ml.deleteProcess(ctx, modelName, force)
 }
 
-// evictRemoteStub drops the local stub of a remote model without telling any
-// worker to stop it. A model can run as several replicas, and a connection
-// error says only that the replica this stub points at is unreachable. Stopping
-// the model cluster-wide (ShutdownModel) would also kill the healthy replicas
-// and their in-flight requests. The next request re-routes through the
-// router, whose health probe removes the registry row of a replica that is
-// really gone.
 // isRemoteStub reports whether m is the local stub of a replica that runs on
 // a worker node: distributed mode, and no process of this frontend.
 func (ml *ModelLoader) isRemoteStub(m *Model) bool {
+	return ml.isDistributed() && m != nil && m.Process() == nil
+}
+
+// isDistributed reports whether loads are routed to worker nodes.
+func (ml *ModelLoader) isDistributed() bool {
 	ml.mu.Lock()
-	distributed := ml.modelRouter != nil
-	ml.mu.Unlock()
-	return distributed && m != nil && m.Process() == nil
+	defer ml.mu.Unlock()
+	return ml.modelRouter != nil
 }
 
 // trackAddressBackend registers a backend reached by address with the
@@ -859,18 +853,19 @@ func (ml *ModelLoader) isRemoteStub(m *Model) bool {
 // address-only backend is a remote replica, which the frontend's watchdog
 // leaves to the cluster.
 func (ml *ModelLoader) trackAddressBackend(modelID, address string) {
-	if ml.wd == nil {
-		return
-	}
-	ml.mu.Lock()
-	distributed := ml.modelRouter != nil
-	ml.mu.Unlock()
-	if distributed {
+	if ml.wd == nil || ml.isDistributed() {
 		return
 	}
 	ml.wd.AddAddressModelMap(address, modelID)
 }
 
+// evictRemoteStub drops the local stub of a remote model without telling any
+// worker to stop it. A model can run as several replicas, and a connection
+// error says only that the replica this stub points at is unreachable. Stopping
+// the model cluster-wide (ShutdownModel) would also kill the healthy replicas
+// and their in-flight requests. The next request re-routes through the
+// router, whose health probe removes the registry row of a replica that is
+// really gone.
 func (ml *ModelLoader) evictRemoteStub(modelName string) {
 	ml.mu.Lock()
 	store := ml.store
