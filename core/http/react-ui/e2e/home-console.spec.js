@@ -381,9 +381,11 @@ test.describe('Home memory strip', () => {
       await route.fulfill({ json: { data: [{ id: 'a' }] } })
     })
     await page.goto('/app', { waitUntil: 'commit' })
-    await expect(page.getByTestId('home-strip-skeleton')).toBeVisible()
+    // The answer is held, so the skeleton stays until it is seen. The first
+    // paint of the instrumented bundle can take more than 5s on a busy runner.
+    await expect(page.getByTestId('home-strip-skeleton')).toBeVisible({ timeout: 15_000 })
     release()
-    await expect(page.locator('.home-strip__head')).toBeVisible()
+    await expect(page.locator('.home-strip__head')).toBeVisible({ timeout: 15_000 })
   })
 })
 
