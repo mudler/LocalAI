@@ -139,6 +139,11 @@ func (r *Runtime) now() time.Time {
 
 var _ contract.Runtime = (*Runtime)(nil)
 
+// readBudget is the time one read may take. The host stops a read after 30
+// seconds; a read across many namespaces stops before that and says what it
+// did not read.
+const readBudget = 28 * time.Second
+
 // MaxPayload bounds the JSON of one result.
 const MaxPayload = 512 << 10
 
@@ -194,10 +199,14 @@ func (r *Runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 	if !slices.Contains(ReadTools(), tool) {
 		return contract.Result{}, bad("unknown tool")
 	}
+	deadline := r.now().Add(readBudget)
+	ctx, cancel := context.WithTimeout(ctx, readBudget)
+	defer cancel()
 	c, err := r.newCall(ctx, env, clusterOf(args))
 	if err != nil {
 		return contract.Result{}, err
 	}
+	c.deadline = deadline
 	var data any
 	switch tool {
 	case ToolCheck:

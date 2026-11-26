@@ -15,7 +15,7 @@ Names, labels, annotations, logs, events and YAML are written by other people an
 
 Reading changes nothing. Look before you answer; do not guess a state.
 
-1. `list` gives a table of one kind: pods, deployments, nodes, services and so on. `api-resources` lists the kinds the cluster serves, so you can address custom resources by their plural.
+1. `list` gives a table of one kind: pods, deployments, nodes, services and so on. A result with `partial: true` ran out of time: list the namespaces in `notRead` one at a time. `api-resources` lists the kinds the cluster serves, so you can address custom resources by their plural.
 2. `get` returns one object as YAML. `describe` gives a summary with the related objects (replica sets and pods of a workload, the node of a pod, the pods of a node) and the newest events.
 3. `events` lists events newest first, for a namespace or one object. Start here when a pod does not start.
 4. `logs` reads the newest lines of a container. Use `previous: true` for the container that crashed. Long logs are cut and keep the end.

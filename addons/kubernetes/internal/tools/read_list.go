@@ -141,10 +141,20 @@ func (c *call) list(raw map[string]json.RawMessage) (any, error) {
 		}
 	}
 	var items []unstructured.Unstructured
+	var notRead []string
 	cut := false
-	for _, ns := range nss {
+	for i, ns := range nss {
+		if i > 0 && !c.r.now().Before(c.deadline) {
+			notRead = nss[i:]
+			break
+		}
 		l, err := c.c.Dynamic.Resource(t.GVR).Namespace(ns).List(c.ctx, metav1.ListOptions{
 			LabelSelector: a.LabelSelector, FieldSelector: a.FieldSelector, Limit: int64(a.Limit)})
+		if err != nil && i > 0 && c.ctx.Err() != nil {
+			// The budget ran out during this namespace: return what was read.
+			notRead = nss[i:]
+			break
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -180,7 +190,13 @@ func (c *call) list(raw map[string]json.RawMessage) (any, error) {
 		}
 		rows = append(rows, row)
 	}
-	return map[string]any{"kind": t.Kind, "rows": rows, "count": len(rows), "cut": cut}, nil
+	out := map[string]any{"kind": t.Kind, "rows": rows, "count": len(rows), "cut": cut}
+	if len(notRead) > 0 {
+		out["partial"] = true
+		out["notRead"] = first(notRead, 20)
+		out["note"] = "The read ran out of time before it read every namespace. List the namespaces that were not read one at a time."
+	}
+	return out, nil
 }
 
 // age writes a duration the way a person reads it: 45s, 12m, 5h3m, 3d4h.

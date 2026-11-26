@@ -144,3 +144,5 @@ API errors keep their status, reason and message, so the model can act on them. 
 - `exec` runs for at most 45 seconds and its output is not filtered. One `exec` runs per pod at a time.
 - No cluster-scoped `apply` or `patch`, no port forwarding, no interactive exec or attach, no file copy, no Helm and no watches.
 - `top` needs the `metrics.k8s.io` API (metrics-server).
+- A read ends within 28 seconds, because LocalAI stops a read after 30. A `list` across many allowed namespaces reads them one by one; when the time runs out it returns what it read with `partial: true` and the namespaces in `notRead`.
+- `describe` of a Deployment reads at most 100 of its replica sets, by the labels of its selector, and at most 20 of its pods.

@@ -46,6 +46,8 @@ func replicaSet(d *appsv1.Deployment, name, revision, image string) *appsv1.Repl
 	rs.Annotations = map[string]string{"deployment.kubernetes.io/revision": revision}
 	rs.OwnerReferences = []metav1.OwnerReference{{APIVersion: "apps/v1", Kind: "Deployment", Name: d.Name, UID: d.UID, Controller: &ctrl}}
 	rs.Spec.Template.Labels = map[string]string{"app": d.Name, "pod-template-hash": name}
+	// The Deployment controller labels a replica set as its pod template.
+	rs.Labels = map[string]string{"app": d.Name, "pod-template-hash": name}
 	rs.Spec.Template.Spec.Containers[0].Image = image
 	return rs
 }

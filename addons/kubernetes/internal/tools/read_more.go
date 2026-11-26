@@ -23,18 +23,21 @@ import (
 const revisionAnnotation = "deployment.kubernetes.io/revision"
 
 const (
-	maxRelatedPods     = 20
-	maxNodePods        = 50
-	maxObjectEvents    = 30
-	defaultEventLimit  = 50
-	maxEventLimit      = 200
-	maxEventMessage    = 1 << 10
-	defaultTailLines   = 200
-	maxTailLines       = 5000
-	maxSinceSeconds    = 7 * 24 * 3600
-	maxLogRead         = 4 << 20
-	maxTopRows         = 500
-	maxConditionsShown = 20
+	maxRelatedPods = 20
+	// maxRelatedReplicaSets bounds the replica sets describe reads for one
+	// Deployment.
+	maxRelatedReplicaSets = 100
+	maxNodePods           = 50
+	maxObjectEvents       = 30
+	defaultEventLimit     = 50
+	maxEventLimit         = 200
+	maxEventMessage       = 1 << 10
+	defaultTailLines      = 200
+	maxTailLines          = 5000
+	maxSinceSeconds       = 7 * 24 * 3600
+	maxLogRead            = 4 << 20
+	maxTopRows            = 500
+	maxConditionsShown    = 20
 )
 
 var (
@@ -129,7 +132,14 @@ func (c *call) related(u *unstructured.Unstructured, t kubeapi.Target) ([]string
 		}
 		return out, nil
 	case schema.GroupResource{Group: "apps", Resource: "deployments"}:
-		l, err := c.c.Dynamic.Resource(replicaSetsGVR).Namespace(u.GetNamespace()).List(c.ctx, metav1.ListOptions{})
+		// The replica sets of a Deployment carry the labels of its selector.
+		// Listing by them, with a cap, keeps a namespace with many replica
+		// sets from making the read slow.
+		opts := metav1.ListOptions{Limit: maxRelatedReplicaSets}
+		if sel, ok, _ := unstructured.NestedStringMap(u.Object, "spec", "selector", "matchLabels"); ok && len(sel) > 0 {
+			opts.LabelSelector = labels.SelectorFromSet(sel).String()
+		}
+		l, err := c.c.Dynamic.Resource(replicaSetsGVR).Namespace(u.GetNamespace()).List(c.ctx, opts)
 		if err != nil {
 			return nil, err
 		}
@@ -147,7 +157,7 @@ func (c *call) related(u *unstructured.Unstructured, t kubeapi.Target) ([]string
 	if !ok || len(sel) == 0 {
 		return out, nil
 	}
-	l, err := c.c.Dynamic.Resource(podsGVR).Namespace(u.GetNamespace()).List(c.ctx, metav1.ListOptions{LabelSelector: labels.SelectorFromSet(sel).String()})
+	l, err := c.c.Dynamic.Resource(podsGVR).Namespace(u.GetNamespace()).List(c.ctx, metav1.ListOptions{LabelSelector: labels.SelectorFromSet(sel).String(), Limit: maxRelatedPods})
 	if err != nil {
 		return nil, err
 	}
