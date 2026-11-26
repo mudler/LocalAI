@@ -13,5 +13,23 @@
   "operationFailed": "Operation failed: {{message}}",
   "invalidInput": "Invalid input. Please check the form and try again.",
   "tryAgain": "Please try again.",
-  "contactAdmin": "If the problem persists, contact your administrator."
+  "contactAdmin": "If the problem persists, contact your administrator.",
+  "route": {
+    "updated": {
+      "title": "LocalAI was updated",
+      "text": "The server now runs a newer version of the web interface. Reload the page to use it."
+    },
+    "offline": {
+      "title": "No connection",
+      "text": "Part of the page could not load because the device is offline. Connect again, then reload."
+    },
+    "generic": {
+      "title": "Something went wrong",
+      "text": "This page stopped because of an error. Reload to try again."
+    },
+    "reload": "Reload",
+    "reloading": "Reloading…",
+    "home": "Go to Home",
+    "details": "Details"
+  }
 }

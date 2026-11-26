@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars, react-refresh/only-export-components -- the lazy panel is used only inside JSX, which this config cannot see */
-import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { useActivitySummary } from '../hooks/useActivityFeed'
@@ -9,9 +9,12 @@ import { badgeText, entryVisible, failed as inboxFailed, hasUnreadFailure } from
 import { emitSound } from '../utils/soundBus'
 import { recentRecords } from '../utils/opsActivity'
 import '../components/inbox/inbox-entry.css'
+import { lazyWithReload } from '../utils/chunkReload'
 
 // The panel and its language file load on the first opening, not with the shell.
-const InboxPanel = lazy(() => import('../components/inbox/InboxPanel'))
+// The panel's chunk is named by the build the tab started with: after a server
+// update it is gone, and the failed import reloads the app once.
+const InboxPanel = lazyWithReload(() => import('../components/inbox/InboxPanel'))
 
 const InboxContext = createContext(null)
 

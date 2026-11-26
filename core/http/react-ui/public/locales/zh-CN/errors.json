@@ -13,5 +13,23 @@
   "operationFailed": "操作失败：{{message}}",
   "invalidInput": "输入无效。请检查表单后重试。",
   "tryAgain": "请重试。",
-  "contactAdmin": "如果问题仍然存在，请联系您的管理员。"
+  "contactAdmin": "如果问题仍然存在，请联系您的管理员。",
+  "route": {
+    "updated": {
+      "title": "LocalAI 已更新",
+      "text": "服务器现在运行的是更新版本的网页界面。请重新加载页面以使用新版本。"
+    },
+    "offline": {
+      "title": "无网络连接",
+      "text": "设备处于离线状态，页面的部分内容无法加载。请重新连接后再重新加载。"
+    },
+    "generic": {
+      "title": "出现问题",
+      "text": "此页面因错误而停止。请重新加载后重试。"
+    },
+    "reload": "重新加载",
+    "reloading": "正在重新加载…",
+    "home": "返回首页",
+    "details": "详细信息"
+  }
 }

@@ -13,5 +13,23 @@
   "operationFailed": "Operasi gagal: {{message}}",
   "invalidInput": "Input tidak valid. Silahkan periksa formulir dan coba lagi.",
   "tryAgain": "Silahkan coba lagi.",
-  "contactAdmin": "Jika masalah terus berlanjut, hubungi administrator Anda."
+  "contactAdmin": "Jika masalah terus berlanjut, hubungi administrator Anda.",
+  "route": {
+    "updated": {
+      "title": "LocalAI telah diperbarui",
+      "text": "Server sekarang menjalankan versi antarmuka web yang lebih baru. Muat ulang halaman untuk menggunakannya."
+    },
+    "offline": {
+      "title": "Tidak ada koneksi",
+      "text": "Sebagian halaman tidak dapat dimuat karena perangkat sedang offline. Sambungkan kembali, lalu muat ulang."
+    },
+    "generic": {
+      "title": "Terjadi kesalahan",
+      "text": "Halaman ini berhenti karena kesalahan. Muat ulang untuk mencoba lagi."
+    },
+    "reload": "Muat ulang",
+    "reloading": "Memuat ulang…",
+    "home": "Ke Beranda",
+    "details": "Detail"
+  }
 }

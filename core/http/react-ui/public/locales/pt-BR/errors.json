@@ -13,5 +13,23 @@
   "operationFailed": "Falha na operação: {{message}}",
   "invalidInput": "Entrada inválida. Verifique o formulário e tente novamente.",
   "tryAgain": "Tente novamente.",
-  "contactAdmin": "Se o problema persistir, entre em contato com o administrador."
+  "contactAdmin": "Se o problema persistir, entre em contato com o administrador.",
+  "route": {
+    "updated": {
+      "title": "O LocalAI foi atualizado",
+      "text": "O servidor agora usa uma versão mais recente da interface web. Recarregue a página para usá-la."
+    },
+    "offline": {
+      "title": "Sem conexão",
+      "text": "Parte da página não pôde ser carregada porque o dispositivo está offline. Conecte-se novamente e recarregue."
+    },
+    "generic": {
+      "title": "Algo deu errado",
+      "text": "Esta página parou por causa de um erro. Recarregue para tentar de novo."
+    },
+    "reload": "Recarregar",
+    "reloading": "Recarregando…",
+    "home": "Ir para o Início",
+    "details": "Detalhes"
+  }
 }
