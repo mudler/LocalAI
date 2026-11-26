@@ -502,8 +502,9 @@ jobs:
         run: |
           set -euo pipefail
           ls -l
-          # Exactly these three files, nothing else.
-          names=$(find . -mindepth 1 -printf '%P\n' | sort | tr '\n' ' ')
+          # Exactly these three files, nothing else. LC_ALL=C: the expected
+          # order below is byte order (upper case first), not the locale's.
+          names=$(find . -mindepth 1 -printf '%P\n' | LC_ALL=C sort | tr '\n' ' ')
           if [ "$names" != "LocalAI-Android-dev.apk LocalAI-Android-dev.apk.sha256 android-update-dev.json " ]; then
             echo "::error::unexpected files in the artifact: $names"
             exit 1
