@@ -163,6 +163,62 @@ var _ = Describe("Dial with hint relays", func() {
 		Eventually(func() int { return connsThrough(client, server.ID(), hint.info().ID) }).Should(BeZero())
 	})
 
+	// In a hole punch the direct connection may reach the dialling host as
+	// an inbound connection: the peer's direct dial before the punch, the
+	// switched roles of the last attempt, or a TCP simultaneous open that
+	// the listening socket accepts. The dialling host's empty allowlist
+	// refuses inbound peers, so it must admit the peer it waits for, and
+	// only that peer.
+	It("admits the inbound direct connection of the peer it waits for, and no stranger", func() {
+		client = newHost(p2pnet.Config{ListenAddrs: loopback})
+		server := startServer(noListen, hint)
+		stranger := newHost(p2pnet.Config{ListenAddrs: noListen})
+		strangerDone := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			// Wait until the client reaches the server through the hint, as
+			// a hole punch does, then dial back directly.
+			Eventually(func() int { return connsThrough(server, client.ID(), hint.info().ID) }, 5*time.Second, 20*time.Millisecond).
+				Should(BeNumerically(">", 0))
+			ctx, cancel := context.WithTimeout(network.WithForceDirectDial(context.Background(), "test"), 5*time.Second)
+			defer cancel()
+			// The dialler may finish its handshake before the client's gate
+			// closes the connection, so the result is checked on the client.
+			_ = stranger.Libp2p().Connect(ctx, addrInfo(client))
+			close(strangerDone)
+			Expect(server.Libp2p().Connect(ctx, addrInfo(client))).To(Succeed())
+		}()
+
+		c, err := client.Dial(dialCtx(), server.ID(), protoTest,
+			p2pnet.WithHints(hint.info()), p2pnet.WithPunchWait(5*time.Second))
+		Expect(err).ToNot(HaveOccurred())
+		defer func() { _ = c.Close() }()
+		_, err = c.Write([]byte("ok"))
+		Expect(err).ToNot(HaveOccurred())
+		buf := make([]byte, 2)
+		_, err = io.ReadFull(c, buf)
+		Expect(err).ToNot(HaveOccurred())
+
+		pc, ok := c.(*p2pnet.Conn)
+		Expect(ok).To(BeTrue())
+		Expect(isCircuit(pc.Stream.Conn())).To(BeFalse())
+		Expect(pc.Stream.Conn().Stat().Direction).To(Equal(network.DirInbound))
+		Expect(log.relayed.Load()).To(BeZero())
+
+		// A stranger that dialled in during the same wait was refused.
+		Eventually(strangerDone).Should(BeClosed())
+		Eventually(func() []network.Conn { return client.Libp2p().Network().ConnsToPeer(stranger.ID()) }).Should(BeEmpty())
+
+		// After the dial the server gets no new connection either: the
+		// admission lasted only while the dial waited.
+		Expect(client.Libp2p().Network().ClosePeer(server.ID())).To(Succeed())
+		ctx, cancel := context.WithTimeout(network.WithForceDirectDial(context.Background(), "test"), 5*time.Second)
+		defer cancel()
+		_ = server.Libp2p().Connect(ctx, addrInfo(client))
+		Eventually(func() []network.Conn { return client.Libp2p().Network().ConnsToPeer(server.ID()) }).Should(BeEmpty())
+		Consistently(func() []network.Conn { return client.Libp2p().Network().ConnsToPeer(server.ID()) }, 300*time.Millisecond).Should(BeEmpty())
+	})
+
 	It("never sends over a hint connection, even when a later dial has no hints", func() {
 		server := startServer(noListen, hint)
 		_, err := client.Dial(dialCtx(), server.ID(), protoTest,

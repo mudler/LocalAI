@@ -135,6 +135,14 @@ func (a *Allowlist) AdmitStream(p peer.ID, proto protocol.ID) bool {
 
 // connGater applies a Gate as the libp2p connection gater. It also keeps
 // the host off hint relays outside a hole punch (see hintRelays).
+//
+// While a dial waits for a hole punch to a peer, the gater admits that
+// peer's inbound connections. The direct connection of a hole punch can
+// arrive as inbound: the peer may dial directly before it punches, the last
+// attempt switches roles, and a TCP simultaneous open may be accepted by the
+// listening socket. A host that only dials out has an empty Gate, which
+// would refuse that connection. The admission is at connection level only:
+// streams to the host's listeners still pass AdmitStream.
 type connGater struct {
 	gate  Gate
 	hints *hintRelays
@@ -152,7 +160,7 @@ func (g connGater) InterceptSecured(d network.Direction, p peer.ID, _ network.Co
 	if d == network.DirOutbound {
 		return true
 	}
-	if !g.gate.AdmitConn(p) {
+	if !g.gate.AdmitConn(p) && (g.hints == nil || !g.hints.punchingFor(p)) {
 		xlog.Debug("p2p: refused inbound connection from an unknown peer", "peer", p.String())
 		return false
 	}

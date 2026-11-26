@@ -73,6 +73,13 @@ func (h *hintRelays) begin(p peer.ID) func() int {
 	}
 }
 
+// punchingFor reports whether a dial to p waits for a hole punch.
+func (h *hintRelays) punchingFor(p peer.ID) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.punching[p] > 0
+}
+
 // allowDial reports whether the host may dial a, an address of p. A circuit
 // address through a hint relay is dialled only while a dial to p waits for
 // a hole punch.
