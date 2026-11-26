@@ -6,6 +6,8 @@ import RequireAdmin from './components/RequireAdmin'
 import RequireAuth from './components/RequireAuth'
 import RequireAuthEnabled from './components/RequireAuthEnabled'
 import RequireFeature from './components/RequireFeature'
+import RouteError from './components/RouteError'
+import { recoverFromChunkError } from './utils/chunkReload'
 
 // Pages are code-split: each becomes its own chunk loaded on demand, so a route
 // no longer drags every other page (and its heavy deps — CodeMirror, the MCP
@@ -21,36 +23,8 @@ import RequireFeature from './components/RequireFeature'
 // still code-split, they just won't be preloaded from the nav.
 const preloaders = {}
 
-// A deploy swaps the whole content-hashed asset set at once, so a tab holding
-// an older index.html (or one whose request lands on a replica that hasn't
-// been swapped yet, the normal state during a rolling update) asks for a page
-// chunk the server no longer has. The import rejects and React Router's default
-// error boundary replaces the app with "Unexpected Application Error!" until
-// someone thinks to reload. Reloading is what fixes it, so do it automatically:
-// index.html is served no-cache, so the reload lands on a self-consistent set.
-//
-// The timestamp guard bounds that to one reload per RELOAD_WINDOW_MS. Without
-// it, a chunk that is genuinely gone rather than merely stale would reload the
-// app forever, which is worse than the error screen: it never settles and never
-// says why. The failure isn't narrowed to fetch errors: the message differs per
-// browser and a missed match costs the recovery, while a module that throws
-// while evaluating costs one wasted reload before the error surfaces anyway.
-const RELOAD_KEY = 'localai.chunkReloadedAt'
-const RELOAD_WINDOW_MS = 10_000
-let reloading = false
-
-function claimReload() {
-  try {
-    const last = Number(window.sessionStorage.getItem(RELOAD_KEY)) || 0
-    if (Date.now() - last < RELOAD_WINDOW_MS) return false
-    window.sessionStorage.setItem(RELOAD_KEY, String(Date.now()))
-    return true
-  } catch {
-    // No usable sessionStorage means no way to bound the reloads.
-    return false
-  }
-}
-
+// A failed page import reloads the app once (utils/chunkReload.js): a deploy
+// has replaced the chunk this tab still names.
 function page(key, loader) {
   // The module once a load has finished. A page that was preloaded then
   // renders at once: React.lazy takes a thenable that answers synchronously
@@ -64,17 +38,7 @@ function page(key, loader) {
   // preloadRoute keeps the raw loader: a hover that fails must stay silent
   // rather than reload the page out from under the pointer. The click that
   // follows goes through this wrapper and recovers there.
-  return lazy(() => (loaded ? { then: (resolve) => resolve(loaded) } : load().catch(err => {
-    // A reload is already committing: a second chunk failing in the same
-    // document must wait for it, not throw and flash the error boundary.
-    if (reloading) return new Promise(() => {})
-    if (!claimReload()) throw err
-    reloading = true
-    window.location.reload()
-    // Stay pending. Resolving or rejecting here would flash the error boundary
-    // in the frames before the reload commits.
-    return new Promise(() => {})
-  })))
+  return lazy(() => (loaded ? { then: (resolve) => resolve(loaded) } : load().catch(recoverFromChunkError)))
 }
 
 export function preloadRoute(path) {
@@ -221,6 +185,12 @@ function BrowseRedirect() {
 
 function Admin({ children }) {
   return <RequireAdmin>{children}</RequireAdmin>
+}
+
+// The layout route of the pages: it only passes App's outlet context on, so the
+// pages read it as before, and it holds the error element of a page.
+function PageOutlet() {
+  return <Outlet context={useOutletContext()} />
 }
 
 function AddonsShell() {
@@ -388,15 +358,21 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <Login />,
+    errorElement: <RouteError />,
   },
   {
     path: '/invite/:code',
     element: <Login />,
+    errorElement: <RouteError />,
   },
   {
     path: '/app',
     element: <RequireAuth><AddonRegistryProvider><NavigationProvider><App /></NavigationProvider></AddonRegistryProvider></RequireAuth>,
-    children: appChildren,
+    errorElement: <RouteError />,
+    // A page that fails is drawn inside the layout, so the sidebar stays and
+    // the person can go elsewhere. A failure of the layout itself (the
+    // notification panel, the header) reaches the error element above.
+    children: [{ element: <PageOutlet />, errorElement: <RouteError inline />, children: appChildren }],
   },
   // Backward compatibility: redirect /browse/* to /app/*
   {
@@ -409,5 +385,5 @@ export const router = createBrowserRouter([
   },
   // An address outside the app that is not a page: the same 404 page, so the
   // visitor gets a way back instead of the router's default error.
-  { path: '*', element: <NotFound /> },
+  { path: '*', element: <NotFound />, errorElement: <RouteError /> },
 ], { basename: routerBasename })

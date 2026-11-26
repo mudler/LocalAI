@@ -30,6 +30,11 @@ import { ShellFallback } from './components/RouteFallback'
 import i18n from 'i18next'
 import { installViewAsFetch, viewAsStore } from './utils/viewAsStore'
 import { basePath } from './utils/basePath'
+import { installPreloadErrorReload } from './utils/chunkReload'
+
+// A server update removes the chunks this tab's build names; when Vite cannot
+// preload one, reload once onto the current build (see utils/chunkReload.js).
+installPreloadErrorReload()
 
 // "View as" adds user_id to the routes that follow it and stops writes in
 // read-only mode, for every fetch of the app (see utils/viewAsStore.js).

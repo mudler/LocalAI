@@ -13,5 +13,23 @@
   "operationFailed": "Vorgang fehlgeschlagen: {{message}}",
   "invalidInput": "Ungültige Eingabe. Bitte überprüfen Sie das Formular und versuchen Sie es erneut.",
   "tryAgain": "Bitte versuchen Sie es erneut.",
-  "contactAdmin": "Wenn das Problem weiterhin besteht, wenden Sie sich an Ihren Administrator."
+  "contactAdmin": "Wenn das Problem weiterhin besteht, wenden Sie sich an Ihren Administrator.",
+  "route": {
+    "updated": {
+      "title": "LocalAI wurde aktualisiert",
+      "text": "Der Server verwendet jetzt eine neuere Version der Weboberfläche. Laden Sie die Seite neu, um sie zu verwenden."
+    },
+    "offline": {
+      "title": "Keine Verbindung",
+      "text": "Ein Teil der Seite konnte nicht geladen werden, weil das Gerät offline ist. Stellen Sie die Verbindung wieder her und laden Sie dann neu."
+    },
+    "generic": {
+      "title": "Etwas ist schiefgelaufen",
+      "text": "Diese Seite wurde wegen eines Fehlers angehalten. Laden Sie neu, um es erneut zu versuchen."
+    },
+    "reload": "Neu laden",
+    "reloading": "Wird neu geladen…",
+    "home": "Zur Startseite",
+    "details": "Details"
+  }
 }

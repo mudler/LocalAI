@@ -99,6 +99,36 @@ var _ = Describe("Static asset caching", Ordered, func() {
 		Expect(rec.Header().Get("Cache-Control")).To(Equal("no-cache"))
 	})
 
+	// A tab that runs an old build asks for chunks a new build no longer has.
+	// The reload that recovers it must fetch a fresh index.html whatever the
+	// address, so every route that answers with index.html is uncached.
+	It("keeps index.html uncached on app subpaths and on the SPA fallback", func() {
+		for _, path := range []string{"/app/chats/c1", "/app/settings"} {
+			rec := do(path, nil)
+			Expect(rec.Code).To(Equal(http.StatusOK), path)
+			Expect(rec.Header().Get("Cache-Control")).To(Equal("no-cache"), path)
+		}
+
+		// /login has no server route: the 404 handler serves the SPA for a
+		// browser navigation.
+		rec := do("/login", map[string]string{"Accept": "text/html,application/xhtml+xml"})
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(rec.Header().Get("Content-Type")).To(ContainSubstring("text/html"))
+		Expect(rec.Header().Get("Cache-Control")).To(Equal("no-cache"))
+	})
+
+	// The chunk a stale tab asks for after a deploy: a plain 404 that the
+	// browser must not keep, never index.html in its place (a module script
+	// served as HTML fails with a MIME error instead of a clean 404).
+	It("answers a missing hashed asset with an uncacheable 404", func() {
+		rec := do("/assets/InboxPanel-gone0000.js", map[string]string{"Accept": "*/*"})
+
+		Expect(rec.Code).To(Equal(http.StatusNotFound))
+		Expect(rec.Header().Get("Cache-Control")).ToNot(ContainSubstring("immutable"))
+		Expect(rec.Header().Get("Cache-Control")).ToNot(ContainSubstring("max-age"))
+		Expect(rec.Header().Get("Content-Type")).ToNot(ContainSubstring("text/html"))
+	})
+
 	It("does not mark the unhashed locale files immutable", func() {
 		rec := do("/locales/en/common.json", nil)
 

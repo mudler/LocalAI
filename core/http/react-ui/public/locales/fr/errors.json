@@ -13,5 +13,23 @@
   "operationFailed": "Échec de l'opération : {{message}}",
   "invalidInput": "Saisie invalide. Vérifiez le formulaire et réessayez.",
   "tryAgain": "Veuillez réessayer.",
-  "contactAdmin": "Si le problème persiste, contactez votre administrateur."
+  "contactAdmin": "Si le problème persiste, contactez votre administrateur.",
+  "route": {
+    "updated": {
+      "title": "LocalAI a été mis à jour",
+      "text": "Le serveur utilise maintenant une version plus récente de l'interface web. Rechargez la page pour l'utiliser."
+    },
+    "offline": {
+      "title": "Pas de connexion",
+      "text": "Une partie de la page n'a pas pu se charger car l'appareil est hors ligne. Reconnectez-vous, puis rechargez."
+    },
+    "generic": {
+      "title": "Une erreur est survenue",
+      "text": "Cette page s'est arrêtée à cause d'une erreur. Rechargez pour réessayer."
+    },
+    "reload": "Recharger",
+    "reloading": "Rechargement…",
+    "home": "Aller à l'accueil",
+    "details": "Détails"
+  }
 }

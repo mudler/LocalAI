@@ -1,0 +1,12 @@
+/* The error element of the routes: one message and Reload. On its own it
+   fills the window on the app canvas; inline it sits in the page area of the
+   layout, like the 404 page. */
+.route-error { --dk-font-display: var(--font-sans); --dk-font-body: var(--font-sans); display: flex; justify-content: center; align-items: center; min-height: 100dvh; padding: var(--dk-space-5) var(--dk-space-4); background: var(--dk-canvas); color: var(--dk-text); font-family: var(--dk-font-body); }
+.route-error--inline { min-height: 0; align-items: flex-start; justify-content: flex-start; padding: var(--dk-space-7) 0 0; background: transparent; }
+.route-error__box { display: flex; flex-direction: column; align-items: flex-start; gap: var(--dk-space-3); max-width: 560px; }
+.route-error__title { margin: 0; font: var(--dk-weight-bold) var(--dk-text-32) / 1.15 var(--dk-font-display); letter-spacing: -.02em; text-wrap: balance; }
+.route-error__text { margin: 0; max-width: 56ch; font-size: var(--dk-text-15); line-height: 1.5; color: var(--dk-muted); }
+.route-error__acts { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); margin-top: var(--dk-space-2); }
+.route-error__details { margin-top: var(--dk-space-3); font-size: var(--dk-text-13); color: var(--dk-muted); }
+.route-error__details summary { cursor: pointer; }
+.route-error__details pre { margin: var(--dk-space-2) 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
