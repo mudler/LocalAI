@@ -44,6 +44,11 @@ const (
 	// evictReserve is the time an eviction may take: no eviction starts
 	// later than this before the end of the budget.
 	evictReserve = 5 * time.Second
+	// throttleWait is the wait after a throttled eviction when the API
+	// server suggests none, and maxThrottleWait the longest one: a longer
+	// Retry-After is cut, since the call must end within its budget.
+	throttleWait    = time.Second
+	maxThrottleWait = 2 * time.Second
 )
 
 type drainOp struct {
@@ -248,6 +253,16 @@ func throttled(err error) bool {
 	return true
 }
 
+// backoff is the wait after a throttled eviction: the Retry-After of the API
+// server, at least throttleWait and at most maxThrottleWait.
+func backoff(err error) time.Duration {
+	d := throttleWait
+	if s, ok := apierrors.SuggestsClientDelay(err); ok && time.Duration(s)*time.Second > d {
+		d = time.Duration(s) * time.Second
+	}
+	return min(d, maxThrottleWait)
+}
+
 func (o *drainOp) apply(c *call) (map[string]any, error) {
 	if err := setUnschedulable(c, o.Node, true); err != nil {
 		return nil, err
@@ -256,8 +271,9 @@ func (o *drainOp) apply(c *call) (map[string]any, error) {
 	blocked := []podNote{}
 	var failure error
 	slow := false
+	stop := false
 	for i, p := range o.evict {
-		if i >= MaxEvictions || !c.r.now().Add(evictReserve).Before(c.deadline) {
+		if stop || i >= MaxEvictions || !c.r.now().Add(evictReserve).Before(c.deadline) {
 			remaining = append(remaining, o.evict[i:]...)
 			break
 		}
@@ -268,8 +284,14 @@ func (o *drainOp) apply(c *call) (map[string]any, error) {
 		case err == nil, apierrors.IsNotFound(err):
 			evicted = append(evicted, p)
 		case throttled(err):
+			// Back off briefly before the next eviction, so the drain does
+			// not add to the load the API server is shedding. A wait that
+			// would leave less than the reserve ends the evictions instead.
 			slow = true
 			remaining = append(remaining, p)
+			if wait := backoff(err); i+1 < len(o.evict) {
+				stop = !c.r.now().Add(wait+evictReserve).Before(c.deadline) || c.r.sleep(c.ctx, wait) != nil
+			}
 		case apierrors.IsTooManyRequests(err):
 			blocked = append(blocked, podNote{p.String(), "PodDisruptionBudget: " + kubeapi.Framed(err, kubeapi.ShortMessage)})
 		case apierrors.IsForbidden(err) || apierrors.IsConflict(err) || apierrors.IsInvalid(err):

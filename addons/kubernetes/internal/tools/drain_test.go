@@ -201,6 +201,62 @@ var _ = Describe("drain", func() {
 		Expect(strs(data["remaining"])).To(ConsistOf("team-a/web-1"))
 		Expect(data["note"]).To(ContainSubstring("throttl"))
 	})
+
+	It("backs off briefly after a throttled eviction, and never past the budget", func() {
+		g := newRig(node("node-1"), owned(pod("team-a", "web-1", "node-1", time.Hour), "ReplicaSet", "web"),
+			owned(pod("team-a", "web-2", "node-1", time.Hour), "ReplicaSet", "web"), owned(pod("team-a", "web-3", "node-1", time.Hour), "ReplicaSet", "web"))
+		retry := 1
+		g.k.Typed.PrependReactor("create", "pods", func(a k8stesting.Action) (bool, runtime.Object, error) {
+			if a.GetSubresource() == "eviction" {
+				return true, nil, apierrors.NewTooManyRequests("Too many requests, please try again later.", retry)
+			}
+			return false, nil, nil
+		})
+		var waits []time.Duration
+		g.rt.Sleep = func(_ context.Context, d time.Duration) error {
+			waits = append(waits, d)
+			g.now = g.now.Add(d)
+			return nil
+		}
+		_, data := g.run("op", tools.ToolDrain, drainArgs)
+		Expect(waits).To(Equal([]time.Duration{time.Second, time.Second}), "one short wait after each throttled eviction but the last")
+		Expect(strs(data["remaining"])).To(ConsistOf("team-a/web-1", "team-a/web-2", "team-a/web-3"))
+
+		retry, waits = 30, nil
+		_, data = g.run("op-2", tools.ToolDrain, drainArgs)
+		Expect(waits).NotTo(BeEmpty())
+		for _, w := range waits {
+			Expect(w).To(BeNumerically("<=", 2*time.Second), "a long Retry-After is cut to a brief wait")
+		}
+		Expect(strs(data["remaining"])).To(HaveLen(3))
+	})
+
+	It("stops evicting when a back-off would cross the budget", func() {
+		g := newRig(node("node-1"), owned(pod("team-a", "web-1", "node-1", time.Hour), "ReplicaSet", "web"),
+			owned(pod("team-a", "web-2", "node-1", time.Hour), "ReplicaSet", "web"))
+		evictions := 0
+		g.k.Typed.PrependReactor("create", "pods", func(a k8stesting.Action) (bool, runtime.Object, error) {
+			if a.GetSubresource() == "eviction" {
+				// The first eviction answers 44 seconds into the 50 second
+				// budget: a 2 second wait would leave less than the reserve.
+				evictions++
+				g.now = g.now.Add(44 * time.Second)
+				return true, nil, apierrors.NewTooManyRequests("Too many requests, please try again later.", 2)
+			}
+			return false, nil, nil
+		})
+		var waits []time.Duration
+		g.rt.Sleep = func(_ context.Context, d time.Duration) error {
+			waits = append(waits, d)
+			g.now = g.now.Add(d)
+			return nil
+		}
+		_, data := g.run("op", tools.ToolDrain, drainArgs)
+		Expect(waits).To(BeEmpty())
+		Expect(evictions).To(Equal(1))
+		Expect(strs(data["remaining"])).To(ConsistOf("team-a/web-1", "team-a/web-2"))
+		Expect(data["note"]).To(ContainSubstring("throttl"))
+	})
 })
 
 func remainingOf(s []string) []any {
