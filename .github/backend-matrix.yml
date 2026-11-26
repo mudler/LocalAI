@@ -941,6 +941,19 @@ include:
     cuda-minor-version: "8"
     platforms: 'linux/amd64'
     tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-12-avatarforcing-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "avatarforcing-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "8"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-12-acestep-cpp'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
@@ -2022,6 +2035,19 @@ include:
   - build-type: 'cublas'
     cuda-major-version: "13"
     cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-avatarforcing-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "avatarforcing-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
     platforms: 'linux/arm64'
     skip-drivers: 'false'
     tag-latest: 'auto'
@@ -2089,6 +2115,19 @@ include:
     backend: "moss-transcribe-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-cuda-13-arm64-avatarforcing-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "avatarforcing-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
   - build-type: 'cublas'
     cuda-major-version: "13"
     cuda-minor-version: "0"
@@ -4737,6 +4776,53 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
+  # avatarforcing-cpp
+  #
+  # CPU and CUDA only: avatarforcing.cpp patches ggml with a grid_sample
+  # operator that has CPU and CUDA kernels only, so a Vulkan, SYCL, ROCm or
+  # Metal image would be a CPU build under a GPU tag. The CUDA rows sit with
+  # the other CUDA 12 and CUDA 13 rows above.
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-avatarforcing-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "avatarforcing-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-avatarforcing-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "avatarforcing-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-arm64-avatarforcing-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+    skip-drivers: 'false'
+    backend: "avatarforcing-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2204'
   # ced
   - build-type: 'cublas'
     cuda-major-version: "12"

@@ -70,6 +70,11 @@ var knownPrefOnlyBackends = []schema.KnownBackend{
 	{Name: "audio-cpp", Modality: "tts", AutoDetect: false, Description: "audio.cpp multi-family audio engine: TTS, voice cloning, ASR, alignment, VAD, diarization, separation, music generation (preference-only)"},
 	// Detection
 	{Name: "sam3-cpp", Modality: "detection", AutoDetect: false, Description: "SAM3 C++ object detection (preference-only)"},
+	// Video
+	// avatarforcing-cpp: no importer, because the GGUF carries no signal that a
+	// remote HuggingFace listing exposes, and the gallery entry already makes
+	// the model self-describing.
+	{Name: "avatarforcing-cpp", Modality: "video", AutoDetect: false, Description: "avatarforcing.cpp talking-head video from a portrait and speech (preference-only)"},
 	// Audio transform (audio-in / audio-out, optional reference signal)
 	{Name: "localvqe", Modality: "audio-transform", AutoDetect: false, Description: "LocalVQE C++ joint AEC + noise suppression + dereverberation (preference-only)"},
 }
