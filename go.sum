@@ -1092,8 +1092,8 @@ github.com/mudler/localrecall v0.6.7-0.20261012155221-88432ad54488 h1:GJaZ5gmSuR
 github.com/mudler/localrecall v0.6.7-0.20261012155221-88432ad54488/go.mod h1:MRyhZMDZOBn1zmTmpVNB0F4Qjjx1tn9fK5CIWH6PyEA=
 github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8 h1:Ry8RiWy8fZ6Ff4E7dPmjRsBrnHOnPeOOj2LhCgyjQu0=
 github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8/go.mod h1:EA8Ashhd56o32qN7ouPKFSRUs/Z+LrRCF4v6R2Oarm8=
-github.com/mudler/nib v0.15.3-0.20261110074256-15b2af46c5d9 h1:bQbK5pSX1qeFz1dohld5Psb/ayRKPIvveCFjFYTz3Gs=
-github.com/mudler/nib v0.15.3-0.20261110074256-15b2af46c5d9/go.mod h1:2uI8jTciHysI7SyJLITnCxC101dffJFeZwxJzV1JBBo=
+github.com/mudler/nib v0.16.0 h1:+BhnX9QQe46sb9FE5biJWGyrh8X4ETHWFKTlUoCDbEY=
+github.com/mudler/nib v0.16.0/go.mod h1:2uI8jTciHysI7SyJLITnCxC101dffJFeZwxJzV1JBBo=
 github.com/mudler/xlog v0.0.6 h1:3nBV4THK8kY0Y8FDXXvWAnuAJoOyO7EAXteJeAoHUC0=
 github.com/mudler/xlog v0.0.6/go.mod h1:3pO/Dsp3ViWl1QLyNtK7VQDJqMlntVu+rm5lP5PkX1g=
 github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 h1:ZK8zHtRHOkbHy6Mmr5D264iyp3TiX5OmNcI5cIARiQI=
