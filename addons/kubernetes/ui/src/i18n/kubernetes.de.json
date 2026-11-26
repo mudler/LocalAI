@@ -129,7 +129,8 @@
     "loadFailed": "Die Richtlinie konnte nicht geladen werden.",
     "saveFailed": "Die Richtlinie konnte nicht gespeichert werden.",
     "readOnly": "Nur ein Administrator kann die Richtlinie ändern.",
-    "broken": "Die gespeicherte Richtlinie konnte nicht gelesen werden. Bis ein Administrator erneut speichert, darf jeder Cluster nur lesen: kein Schreiben, Secret-Werte verborgen. Die beschädigte Datei wird beim Speichern beiseitegelegt.",
+    "broken": "Die gespeicherte Richtlinie konnte nicht gelesen werden. Bis ein Administrator erneut speichert, erhält jeder Cluster keinen Namespace, keinen Schreibzugriff und verborgene Secret-Werte. Beim Speichern wird die beschädigte Datei beiseitegelegt, und eine neue Datei beginnt mit dieser Richtlinie als Standard: Gib die Richtlinie jedes anderen Clusters erneut ein.",
+    "invalid": "Diese gespeicherten Einträge nennen keinen Server, den das Add-on akzeptiert, und gelten daher nie: {{list}}. Das nächste Speichern entfernt sie.",
     "saved": "Gespeichert. Der nächste Aufruf nutzt die neue Richtlinie.",
     "cluster": "Cluster",
     "clusterHint": "Jeder Cluster wird über die URL seines Servers benannt, mit den Kontexten der Verbindungen, die ihn nutzen. Die Standardrichtlinie gilt für jeden Cluster ohne eigene Richtlinie.",
@@ -154,7 +155,7 @@
     "toolsHint": "Ein ausgeschaltetes Werkzeug wird abgelehnt, unabhängig von Schreibmodus und Freigaben.",
     "powerful": "Mächtig: führt jeden Befehl in einem Container aus, und seine Ausgabe wird nicht gefiltert.",
     "secrets": "Secret-Werte anzeigen",
-    "secretsHint": "Standardmäßig an: Das Modell sieht Secret-Werte, bis ein Administrator dies ausschaltet. Wenn aus, zeigen die Lesewerkzeuge und die Diffs von Schreibvorgängen die Schlüssel eines Secrets und verbergen seine Werte, und ein json-Patch eines Secrets darf keinen Wert kopieren, verschieben oder testen. Das gilt nicht für das, was Workloads zeigen: Ein Pod, den ein Chat anlegt, um ein Secret einzuhängen oder auszugeben, exec und Logs können Werte weiterhin zeigen. Schalten Sie apply und exec aus, um diesen Weg zu schließen.",
+    "secretsHint": "Standardmäßig an: Das Modell sieht Secret-Werte, sofern ein Administrator dies nicht abschaltet. Wenn aus, zeigen die Lesewerkzeuge und die Diffs von Schreibvorgängen die Schlüssel eines Secrets und verbergen die Werte, ein JSON-Patch darf keinen Wert kopieren, verschieben oder prüfen, und apply darf einen verborgenen Wert nicht erneut setzen. Nicht abgedeckt ist, was Workloads zeigen: Ein Pod, den ein Chat erstellt, um ein Secret einzuhängen oder auszugeben, exec und Logs können weiterhin Werte zeigen, und die Vorschau eines Patches kann einen erratenen Wert bestätigen. Schalte apply, patch und exec ab, um diese Wege zu schließen.",
     "secretsWarn": "Ein Chat, der einen Secret-Wert liest, sendet ihn an das Modell und behält ihn im Chatverlauf.",
     "save": "Richtlinie speichern",
     "restore": "Standardwerte wiederherstellen"

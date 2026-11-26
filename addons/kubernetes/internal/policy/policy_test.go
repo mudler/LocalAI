@@ -118,10 +118,10 @@ var _ = Describe("the policy of a cluster", func() {
 		Expect(policy.Open(dir).View().Legacy).To(BeEmpty())
 	})
 
-	It("gives every cluster the defaults while the file is damaged, and keeps the file aside on a save", func() {
+	It("gives every cluster the damaged policy while the file is damaged, and keeps the file aside on a save", func() {
 		dir := GinkgoT().TempDir()
 		path := filepath.Join(dir, "policy.json")
-		for _, broken := range []string{"{broken", `{"clusters":{"https://a.example":{"namespaces":[]}}}`, `{"default":{"namespaces":["Bad_NS"]},"clusters":{}}`} {
+		for _, broken := range []string{"{broken", `{"clusters":{"https://a.example":{"namespaces":["team-a"],"writeTools":["rm-rf"]}}}`, `{"default":{"namespaces":["Bad_NS"]},"clusters":{}}`} {
 			Expect(os.WriteFile(path, []byte(broken), 0o600)).To(Succeed())
 			p, err := policy.Open(dir).Get(key)
 			Expect(err).NotTo(HaveOccurred())
@@ -139,6 +139,95 @@ var _ = Describe("the policy of a cluster", func() {
 		v := policy.Open(dir).View()
 		Expect(v.Broken).To(BeFalse())
 		Expect(v.Clusters).To(HaveLen(1))
+	})
+
+	It("gives a damaged file no namespace, no write and hidden values: never more than an administrator set", func() {
+		d := policy.Damaged()
+		Expect(d.Namespaces).To(BeEmpty())
+		Expect(d.NamespaceAllowed("default")).To(BeFalse())
+		Expect(d.AllNamespaces()).To(BeFalse())
+		Expect(d.WriteTools).To(BeEmpty())
+		Expect(d.ReadSecretValues).To(BeFalse())
+	})
+
+	It("stores the damaged policy as the default when a save starts a new file, so the other clusters get no more", func() {
+		dir := GinkgoT().TempDir()
+		bad := `{"default":{"namespaces":["team-a"],"writeTools":[],"readSecretValues":false},"clusters":{"https://a.example":{"namespaces":["Bad_NS"]},"https://b.example":{"namespaces":["team-b"],"writeTools":[],"readSecretValues":false}}}`
+		Expect(os.WriteFile(filepath.Join(dir, "policy.json"), []byte(bad), 0o600)).To(Succeed())
+		s := policy.Open(dir)
+		p, err := s.Get("https://b.example")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p).To(Equal(policy.Damaged()))
+		_, err = s.Set("https://a.example", policy.Policy{Namespaces: []string{"team-a"}})
+		Expect(err).NotTo(HaveOccurred())
+		for _, other := range []string{"https://b.example", "https://c.example"} {
+			p, err = policy.Open(dir).Get(other)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(p).To(Equal(policy.Damaged()), other+" keeps the damaged policy until an administrator enters its policy again")
+		}
+		v := policy.Open(dir).View()
+		Expect(v.Broken).To(BeFalse())
+		Expect(v.DefaultSet).To(BeTrue())
+		Expect(v.Default).To(Equal(policy.Damaged()))
+		Expect(v.Clusters).To(HaveLen(1))
+	})
+
+	It("keeps old entries whose key cannot be read apart, and a save removes them", func() {
+		dir := GinkgoT().TempDir()
+		old := `{"clusters":{
+			"https://a.example:6443#context=dev":{"namespaces":["team-a"]},
+			"not a server":{"namespaces":["team-x"]},
+			"https://127.0.0.1:6443#context=dev":{"namespaces":["team-y"]},
+			"https://b.example:6443#context=dev":{"namespaces":["team-b"]},
+			"https://b.example:6443#context=ops":{"namespaces":["*"]}}}`
+		Expect(os.WriteFile(filepath.Join(dir, "policy.json"), []byte(old), 0o600)).To(Succeed())
+		s := policy.Open(dir)
+		v := s.View()
+		Expect(v.Broken).To(BeFalse())
+		Expect(v.Invalid).To(Equal([]string{"https://127.0.0.1:6443#context=dev", "not a server"}))
+		Expect(v.Legacy).To(Equal([]string{"https://b.example:6443#context=dev", "https://b.example:6443#context=ops"}))
+		p, err := s.Get("https://a.example:6443")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.Namespaces).To(Equal([]string{"team-a"}))
+		_, err = s.Set("https://c.example", policy.Policy{Namespaces: []string{"team-c"}})
+		Expect(err).NotTo(HaveOccurred())
+		v = policy.Open(dir).View()
+		Expect(v.Invalid).To(BeEmpty(), "they can never apply, so a save removes them")
+		Expect(v.Legacy).To(HaveLen(2))
+	})
+
+	It("migrates keys written another way, unless they disagree", func() {
+		dir := GinkgoT().TempDir()
+		old := `{"clusters":{
+			"https://a.example:0443":{"namespaces":["team-a"]},
+			"https://[2001:0db8::1]":{"namespaces":["team-v6"]},
+			"https://[2001:db8:0::1]":{"namespaces":["team-v6"]},
+			"https://[::ffff:10.0.0.1]":{"namespaces":["team-x"]},
+			"https://10.0.0.1":{"namespaces":["team-y"]},
+			"https://d.example..":{"namespaces":["team-d1"]},
+			"https://d.example.":{"namespaces":["team-d2"]}}}`
+		Expect(os.WriteFile(filepath.Join(dir, "policy.json"), []byte(old), 0o600)).To(Succeed())
+		s := policy.Open(dir)
+		get := func(k string) policy.Policy {
+			p, err := s.Get(k)
+			Expect(err).NotTo(HaveOccurred())
+			return p
+		}
+		Expect(get("https://a.example").Namespaces).To(Equal([]string{"team-a"}))
+		Expect(get("https://[2001:db8::1]").Namespaces).To(Equal([]string{"team-v6"}))
+		Expect(get("https://10.0.0.1").Namespaces).To(Equal([]string{"team-y"}), "the entry already written one way wins")
+		Expect(get("https://d.example")).To(Equal(policy.Defaults()), "disagreeing forms do not apply")
+		Expect(s.View().Legacy).To(Equal([]string{"https://d.example.", "https://d.example.."}))
+	})
+
+	It("writes a key one way, so writing it again gives the same key", func() {
+		for _, k := range []string{"https://x.example.", "https://x.example..", "https://[2001:db8:0::1]", "https://[::ffff:10.0.0.1]:0443", "https://x.example:06443#context=dev"} {
+			a, err := policy.ServerKey(k)
+			Expect(err).NotTo(HaveOccurred(), k)
+			b, err := policy.ServerKey(a)
+			Expect(err).NotTo(HaveOccurred(), a)
+			Expect(b).To(Equal(a), k)
+		}
 	})
 
 	It("refuses a key that is not a server", func() {

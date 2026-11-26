@@ -101,6 +101,7 @@ export default function PolicyEditor() {
   }
   const stateText = isDefault ? t(view.defaultSet ? 'policy.defaultSet' : 'policy.defaultBuiltin') : t(STATE_TEXT[state])
   const legacy = Array.isArray(view.legacy) ? view.legacy : []
+  const invalid = Array.isArray(view.invalid) ? view.invalid : []
   const issue = draft ? namespaceIssue(draft.namespaces) : null
   const dirty = Boolean(draft && current && !same(draft, current))
   const edit = (patch) => { setDraft({ ...draft, ...patch }); setSaved(false) }
@@ -112,13 +113,18 @@ export default function PolicyEditor() {
     setBusy(true)
     setError('')
     try {
-      const res = await call(argsOf(key, draft))
-      const policy = res.data?.policy || draft
-      if (isDefault) setView({ ...view, broken: false, default: policy, defaultSet: true })
-      else setView({ ...view, broken: false, clusters: { ...(view.clusters || {}), [res.data?.key || key]: policy } })
-      setDraft(draftOf(policy))
+      await call(argsOf(key, draft))
       setSaved(true)
-    } catch (err) { setError(err?.message || t('policy.saveFailed')) } finally { setBusy(false) }
+    } catch (err) {
+      setError(err?.message || t('policy.saveFailed'))
+      setBusy(false)
+      return
+    }
+    // The add-on is the authority: a save can change more than this policy
+    // (a damaged file is replaced, entries that never apply are dropped), so
+    // read every policy again.
+    await load()
+    setBusy(false)
   }
 
   return (
@@ -130,6 +136,7 @@ export default function PolicyEditor() {
       {error && <Notice tone="error" role="alert" testId="kubernetes-policy-error">{error}</Notice>}
       {saved && <Notice tone="ok" role="status" testId="kubernetes-policy-saved">{t('policy.saved')}</Notice>}
       {legacy.length > 0 && <Notice tone="warn" role="note" testId="kubernetes-policy-legacy">{t('policy.legacy', { list: legacy.join(', ') })}</Notice>}
+      {invalid.length > 0 && <Notice tone="warn" role="note" testId="kubernetes-policy-invalid">{t('policy.invalid', { list: invalid.join(', ') })}</Notice>}
       {keys.length === 0 && <p className="cn-muted" data-testid="kubernetes-policy-none">{t('policy.noClusters')}</p>}
       <form className="kube-policy__form" onSubmit={save} aria-describedby="kube-policy-title">
         <Field label={t('policy.cluster')} hint={t('policy.clusterHint')}>

@@ -123,14 +123,66 @@ export function kubeconfigContexts(text) {
 export function normalizeServer(s) {
   const m = /^https:\/\/([^/?#@\s]+)\/?$/i.exec(String(s || '').trim())
   if (!m) return ''
-  // As the add-on writes it: host in lower case without a trailing dot, and
-  // the default port 443 left out. The add-on keys the policy by this form.
+  // As the add-on writes it: host in lower case without trailing dots, an IP
+  // address in its canonical form (a mapped IPv4 address as IPv4), the port
+  // read as a number and left out when it is 443. The add-on keys the policy
+  // by this form.
   const hp = /^(\[[^\]]+\]|[^:[\]]+)(?::(\d+))?$/.exec(m[1].toLowerCase())
   if (!hp) return ''
-  const host = hp[1].replace(/\.$/, '')
+  let host = hp[1].replace(/\.+$/, '')
   if (!host) return ''
-  const port = hp[2] && hp[2] !== '443' ? `:${hp[2]}` : ''
+  if (host.startsWith('[')) {
+    const ip = canonicalIPv6(host.slice(1, -1))
+    if (!ip) return ''
+    host = ip.includes(':') ? `[${ip}]` : ip
+  }
+  let port = ''
+  if (hp[2] !== undefined) {
+    const n = Number(hp[2])
+    if (!Number.isInteger(n) || n < 1 || n > 65535) return ''
+    if (n !== 443) port = `:${n}`
+  }
   return `https://${host}${port}`
+}
+
+// The canonical text of an IPv6 address (RFC 5952), or an IPv4 address when
+// it is an IPv4 address mapped into IPv6. '' when it is not an address.
+export function canonicalIPv6(text) {
+  let t = String(text || '').toLowerCase()
+  if (!t || t.includes('%')) return ''
+  let tail = []
+  const v4 = /^(.*:)(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(t)
+  if (v4) {
+    const b = v4.slice(2).map(Number)
+    if (b.some((x, i) => x > 255 || (v4[i + 2].length > 1 && v4[i + 2][0] === '0'))) return ''
+    tail = [(b[0] << 8) | b[1], (b[2] << 8) | b[3]]
+    t = v4[1].endsWith('::') ? v4[1] : v4[1].slice(0, -1)
+  }
+  const halves = t.split('::')
+  if (halves.length > 2) return ''
+  const part = (x) => (x === '' ? [] : x.split(':'))
+  const head = part(halves[0])
+  const rest = halves.length === 2 ? part(halves[1]) : []
+  if ([...head, ...rest].some((g) => !/^[0-9a-f]{1,4}$/.test(g))) return ''
+  const want = 8 - tail.length
+  const given = head.length + rest.length
+  if (halves.length === 2 ? given >= want : given !== want) return ''
+  const groups = [...head.map((g) => parseInt(g, 16)), ...Array(want - given).fill(0), ...rest.map((g) => parseInt(g, 16)), ...tail]
+  if (groups.slice(0, 5).every((g) => g === 0) && groups[5] === 0xffff) {
+    return [groups[6] >> 8, groups[6] & 255, groups[7] >> 8, groups[7] & 255].join('.')
+  }
+  let best = -1
+  let len = 0
+  for (let i = 0; i < 8;) {
+    if (groups[i] !== 0) { i++; continue }
+    let j = i
+    while (j < 8 && groups[j] === 0) j++
+    if (j - i > len && j - i >= 2) { best = i; len = j - i }
+    i = j
+  }
+  const hex = groups.map((g) => g.toString(16))
+  if (best < 0) return hex.join(':')
+  return `${hex.slice(0, best).join(':')}::${hex.slice(best + len).join(':')}`
 }
 
 // The server of a context: its cluster, then that cluster's server. '' when unsure.

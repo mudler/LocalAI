@@ -80,13 +80,25 @@ func (c *call) namespaces(arg string, all bool) ([]string, error) {
 	if c.pol.AllNamespaces() {
 		return []string{""}, nil
 	}
+	if len(c.pol.Namespaces) == 0 {
+		return nil, noNamespace()
+	}
 	return slices.Clone(c.pol.Namespaces), nil
+}
+
+// noNamespace refuses a call while the policy allows no namespace, as the
+// policy of a damaged policy file does.
+func noNamespace() error {
+	return policy.Refuse(policy.RuleNamespaces, "the policy of this cluster allows no namespace; if the policy file is damaged, an administrator must save the policy again")
 }
 
 // allow checks one namespace against the policy.
 func (c *call) allow(ns string) error {
 	if !policy.ValidNamespace(ns) {
 		return bad("%q is not a namespace name", ns)
+	}
+	if len(c.pol.Namespaces) == 0 {
+		return noNamespace()
 	}
 	if !c.pol.NamespaceAllowed(ns) {
 		return policy.Refuse(policy.RuleNamespaces, "the namespace %s is not on the allowlist of this cluster", ns)

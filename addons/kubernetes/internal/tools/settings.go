@@ -27,7 +27,7 @@ func (c *call) check(raw map[string]json.RawMessage) (any, error) {
 		// The page names no namespace: check default, or the first
 		// namespace the policy allows.
 		ns = "default"
-		if !c.pol.NamespaceAllowed(ns) {
+		if !c.pol.NamespaceAllowed(ns) && len(c.pol.Namespaces) > 0 {
 			ns = c.pol.Namespaces[0]
 		}
 	}
@@ -58,6 +58,7 @@ func (r *Runtime) getPolicy(ctx context.Context, env contract.Envelope) (contrac
 		"admin":          r.isAdmin(ctx, env),
 		"broken":         v.Broken,
 		"legacy":         v.Legacy,
+		"invalid":        v.Invalid,
 	}, nil)
 }
 
@@ -74,7 +75,8 @@ type setPolicyArgs struct {
 // default policy (default true). Only an administrator may call it, and
 // nothing is saved when a field is refused. A field the page leaves out keeps
 // the value the cluster has now; while the file is damaged that is the
-// built-in default, which allows no write.
+// Damaged policy, which allows no namespace and no write, so a save that
+// leaves out the namespaces is refused until it names them.
 func (r *Runtime) setPolicy(ctx context.Context, env contract.Envelope, args map[string]json.RawMessage) (contract.Result, error) {
 	if !r.isAdmin(ctx, env) {
 		return contract.Result{}, bad("only an administrator can change the policy")

@@ -129,7 +129,8 @@
     "loadFailed": "Non è stato possibile caricare la policy.",
     "saveFailed": "Non è stato possibile salvare la policy.",
     "readOnly": "Solo un amministratore può cambiare la policy.",
-    "broken": "Non è stato possibile leggere la policy salvata. Finché un amministratore non salva di nuovo, ogni cluster ha solo lettura: nessuna scrittura e valori dei Secret nascosti. Al salvataggio il file danneggiato viene messo da parte.",
+    "broken": "Non è stato possibile leggere la policy salvata. Finché un amministratore non salva di nuovo, ogni cluster non ha alcun namespace, nessuna scrittura e i valori dei Secret nascosti. Al salvataggio il file danneggiato viene messo da parte e un nuovo file parte con questa policy come predefinita: inserisci di nuovo la policy di ogni altro cluster.",
+    "invalid": "Queste voci salvate non indicano un server che l'add-on accetta, quindi non si applicano mai: {{list}}. Il prossimo salvataggio le rimuove.",
     "saved": "Salvato. La prossima chiamata usa la nuova policy.",
     "cluster": "Cluster",
     "clusterHint": "Ogni cluster è indicato dall'URL del suo server, con i contesti delle connessioni che lo usano. La policy predefinita vale per ogni cluster senza una policy propria.",
@@ -154,7 +155,7 @@
     "toolsHint": "Uno strumento spento viene rifiutato, qualunque siano la modalità di scrittura e le approvazioni.",
     "powerful": "Potente: esegue qualsiasi comando in un container e il suo output non viene filtrato.",
     "secrets": "Mostra i valori dei Secret",
-    "secretsHint": "Attivo per impostazione predefinita: il modello vede i valori dei Secret, a meno che un amministratore non lo disattivi. Se disattivato, gli strumenti di lettura e i diff delle scritture mostrano le chiavi di un Secret e ne nascondono i valori, e una patch json di un Secret non può copiare, spostare o verificare un valore. Non copre ciò che mostrano i carichi di lavoro: un pod creato da una chat per montare o stampare un Secret, exec e i log possono ancora mostrare i valori. Disattiva apply ed exec per chiudere questa via.",
+    "secretsHint": "Attivo per impostazione predefinita: il modello vede i valori dei Secret, a meno che un amministratore non lo disattivi. Se disattivato, gli strumenti di lettura e i diff delle scritture mostrano le chiavi di un Secret e ne nascondono i valori, una patch json non può copiare, spostare o verificare un valore, e apply non può impostare di nuovo un valore nascosto. Non copre ciò che mostrano i carichi di lavoro: un pod creato da una chat per montare o stampare un Secret, exec e i log possono ancora mostrare i valori, e l'anteprima di una patch può confermare un valore indovinato. Disattiva apply, patch ed exec per chiudere queste vie.",
     "secretsWarn": "Una chat che legge il valore di un Secret lo invia al modello e lo conserva nella cronologia della chat.",
     "save": "Salva policy",
     "restore": "Ripristina i predefiniti"

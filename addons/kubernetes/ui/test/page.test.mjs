@@ -51,15 +51,19 @@ const kinds = { kinds: [{ kind: 'kubernetes', addon_id: 'kubernetes', tool_only:
 const WRITE_TOOLS = ['scale', 'rollout-restart', 'rollout-undo', 'delete-pod', 'cordon', 'uncordon', 'drain', 'apply', 'patch', 'exec']
 // The built-in default: reads, Secret values included, no write.
 const DEFAULTS = { namespaces: ['*'], writeTools: [], readSecretValues: true }
+// The policy of every cluster while the policy file is damaged.
+const DAMAGED = { namespaces: [], writeTools: [], readSecretValues: false }
 
 function ConfirmDialog({ open, title, onConfirm }) {
   if (!open) return null
   return React.createElement('div', { role: 'alertdialog' }, title, React.createElement('button', { type: 'button', onClick: onConfirm }, 'OK'))
 }
 
-async function mount({ admin = true, existing = false } = {}) {
+async function mount({ admin = true, existing = false, broken = false, invalid = [] } = {}) {
   const posts = existing ? [{ name: 'Team A', resources: [KEY], write_mode: 'propose' }] : []
   const reads = []
+  // The add-on's policies: a save changes them, as the add-on does.
+  const pol = { clusters: {}, default: broken ? DAMAGED : DEFAULTS, defaultSet: false, broken, legacy: [], invalid }
   const settings = []
   const dir = await build()
   const mod = await import(pathToFileURL(join(dir, 'ui/kubernetes.js')).href + `?t=${Date.now()}`)
@@ -98,8 +102,15 @@ async function mount({ admin = true, existing = false } = {}) {
           const a = body.arguments || {}
           reads.push(a)
           if (a.tool === 'check') return { data: { cluster: KEY, server: 'https://cluster.example:6443', context: 'team-a', check: { version: 'v1.31.2', namespace: 'default', rules: [{ verbs: ['get', 'list'], apiGroups: ['apps'], resources: ['deployments'] }], incomplete: false } } }
-          if (a.tool === 'get-policy') return { data: { clusters: {}, default: DEFAULTS, defaultSet: false, builtinDefault: DEFAULTS, writeTools: WRITE_TOOLS, admin, broken: false, legacy: [] } }
-          if (a.tool === 'set-policy') return { data: { saved: true, key: a.default ? '' : a.key, default: a.default === true, policy: { namespaces: a.namespaces, writeTools: a.writeTools, readSecretValues: a.readSecretValues } } }
+          if (a.tool === 'get-policy') return { data: { ...pol, builtinDefault: DEFAULTS, writeTools: WRITE_TOOLS, admin } }
+          if (a.tool === 'set-policy') {
+            const policy = { namespaces: a.namespaces, writeTools: a.writeTools, readSecretValues: a.readSecretValues }
+            if (pol.broken) Object.assign(pol, { broken: false, default: DAMAGED, defaultSet: true })
+            if (a.default) Object.assign(pol, { default: policy, defaultSet: true })
+            else pol.clusters = { ...pol.clusters, [a.key]: policy }
+            pol.invalid = []
+            return { data: { saved: true, key: a.default ? '' : a.key, default: a.default === true, policy } }
+          }
           return { data: {} }
         },
         userSettings: async (body) => {
@@ -196,6 +207,31 @@ test('kubernetes page: an administrator sets the default policy of the clusters 
   const set = h.reads.find((a) => a.tool === 'set-policy')
   assert.deepEqual(set, { tool: 'set-policy', default: true, namespaces: ['*'], writeTools: ['scale'], readSecretValues: true })
   assert.match(h.q('kubernetes-policy-own').textContent, /An administrator set this default/)
+})
+
+test('kubernetes page: a save over a damaged policy file reads the policies again and says the other clusters must be entered again', async () => {
+  const h = await mount({ existing: true, broken: true })
+  assert.match(h.q('kubernetes-policy-broken').textContent, /enter the policy of every other cluster again/)
+  const before = h.reads.filter((a) => a.tool === 'get-policy').length
+  await type(h.q('kubernetes-policy-ns-input'), 'team-a')
+  await click(h.q('kubernetes-policy-ns-add'))
+  await click(h.q('kubernetes-policy-save'))
+  assert.ok(h.reads.filter((a) => a.tool === 'get-policy').length > before, 'the page reads the policies again after a save')
+  assert.equal(h.q('kubernetes-policy-broken'), null)
+  assert.equal(h.q('kubernetes-policy-own').textContent, 'This cluster has its own policy.')
+  const sel = h.q('kubernetes-policy-cluster')
+  await act(async () => { sel.value = 'default'; sel.dispatchEvent(new dom.window.Event('change', { bubbles: true })) })
+  await settle()
+  assert.equal(document.querySelectorAll('[data-testid="kubernetes-policy-namespaces"] li').length, 0, 'the default is now the damaged policy, with no namespace')
+})
+
+test('kubernetes page: saved entries that never apply are listed, and a save removes them', async () => {
+  const h = await mount({ existing: true, invalid: ['not a server'] })
+  assert.match(h.q('kubernetes-policy-invalid').textContent, /not a server/)
+  await type(h.q('kubernetes-policy-ns-input'), 'team-a')
+  await click(h.q('kubernetes-policy-ns-add'))
+  await click(h.q('kubernetes-policy-save'))
+  assert.equal(h.q('kubernetes-policy-invalid'), null)
 })
 
 test('kubernetes page: someone who is not an administrator sees the policy read-only', async () => {

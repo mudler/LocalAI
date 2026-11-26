@@ -49,7 +49,7 @@ The kubeconfig is the sealed secret of the connection, at most 16 KiB. The add-o
 - names a local file (`certificate-authority`, `client-certificate`, `client-key`, `tokenFile`). Embed the data with the `-data` fields;
 - turns off certificate checks (`insecure-skip-tls-verify: true`) or uses a proxy (`proxy-url`);
 - uses a user name and a password;
-- names a server by a loopback, link-local, unspecified or multicast IP address, such as `127.0.0.1`, `::1` or `169.254.169.254`. The credential would go to a service of the LocalAI host or of its network. Host names are not resolved, so a local cluster (for example one made by kind) works when its kubeconfig names the server `https://localhost:<port>`. There is no setting to allow these addresses.
+- names a server by a loopback, link-local, unspecified or multicast IP address, such as `127.0.0.1`, `::1` or `169.254.169.254`. The credential would go to a service of the LocalAI host or of its network. There is no setting to allow these addresses.
 
 The add-on never reads a file on the LocalAI host because a kubeconfig names it. The kubeconfig is never in a result, an error, a log or a preview.
 
@@ -101,7 +101,9 @@ An administrator sets a policy for each cluster on the add-on page. The add-on c
 | `writeTools` | none | The write tools that work. A disabled tool is still offered to the model and answers that the policy disabled it. |
 | `readSecretValues` | on | When on, the tools show Secret values to the model. When off, they hide them. See [Secret values](#secret-values) for what hiding covers and what it does not. |
 
-The policy of a cluster is keyed by its server URL, written one way: the host in lower case without a trailing dot, the port left out when it is 443, and no trailing slash. Every context and every connection of one server share one policy, so renaming a context in the kubeconfig, or writing `:443`, does not change which policy applies.
+The policy of a cluster is keyed by its server URL, written one way: the host in lower case without trailing dots, an IP address in its canonical form (`2001:0db8::0001` is `2001:db8::1`, and `::ffff:10.0.0.1` is `10.0.0.1`), the port read as a number and left out when it is 443 (`:0443` is left out too), and no trailing slash. Every context and every connection of one server share one policy, so renaming a context in the kubeconfig, or writing `:443`, does not change which policy applies.
+
+The add-on does not resolve names to match policies. Another name for the same API server, such as a second DNS name or its IP address instead of its name, is another key, and it gets the default policy. So set a strict default policy (few namespaces, no write, Secret values hidden) and give each cluster its own policy, rather than a broad default.
 
 A cluster with no policy of its own uses the **default policy**. Out of the box the default allows reads in every namespace, Secret values included, and **no write**: the page shows such a cluster as "Not configured: writes are off" until an administrator saves a policy for it. An administrator can also change the default policy itself: choose **Default for clusters with no policy** in the cluster list.
 
@@ -109,9 +111,11 @@ Cluster-scoped objects are always readable. The only cluster-scoped writes are `
 
 A refusal names its rule, for example `refused by the connection policy (namespaces)`.
 
-The policy is kept in `policy.json` in the data folder of the add-on. If that file cannot be read, every cluster gets reads only: no write, and Secret values hidden, until an administrator saves a policy again. A damaged file never gives more than that. The next save keeps the damaged file aside as `policy.json.damaged-<time>` and starts a new file, and a save that names only some rules takes the others from that reads-only policy.
+The policy is kept in `policy.json` in the data folder of the add-on. If that file cannot be read, every cluster gets no namespace, no write, and Secret values hidden, until an administrator saves a policy again. The damaged file may have held any policy, so this is the only policy that is never broader than one an administrator set. Cluster-scoped objects, such as nodes, stay readable, as under every policy. The page keeps working, so an administrator can repair the file there.
 
-Policies saved by an earlier build were keyed by server and context. They move to the key of their server by themselves. When two contexts of one server had different policies, neither applies: the page lists them, the server uses the default policy, and saving a policy for that server removes them.
+The next save keeps the damaged file aside as `policy.json.damaged-<time>` and starts a new file. That new file stores the same no-namespace policy as its default policy, and holds only the policy that was saved. Every other cluster keeps the no-namespace policy until an administrator enters its policy again; the old policies are in the file kept aside. A save that names only some rules takes the others from the no-namespace policy, so it must name the namespaces.
+
+Policies saved by an earlier build were keyed by server and context, or by a server written another way. They move to the key of their server by themselves; an entry already under that key wins. When two entries of one server had different policies, neither applies: the page lists them, the server uses the default policy, and saving a policy for that server removes them. An entry whose key is not a server the add-on accepts (for example a loopback address) never applies. The page lists it on its own, and the next save removes it.
 
 With several frontends, the add-on runs on the add-on owner, and every frontend sends its tool calls there. So there is one policy file, on the instance that runs the add-on owner.
 

@@ -87,13 +87,15 @@ func Defaults() Policy {
 	return Policy{Namespaces: []string{All}, WriteTools: []string{}, ReadSecretValues: true}
 }
 
-// Damaged is the policy of every cluster while the file cannot be read: the
-// defaults with Secret values hidden, since the damaged file may have hidden
-// them and a damaged file must never widen access.
+// Damaged is the policy of every cluster while the file cannot be read: no
+// namespace, no write tool, and Secret values hidden. The damaged file may
+// have held any policy, so nothing in it is trusted, and the only policy that
+// is never broader than one an administrator set is one that allows no
+// namespace. Cluster-scoped objects stay readable, as under every policy. The
+// page still works: an administrator repairs the file by saving a policy,
+// which needs no call to a cluster.
 func Damaged() Policy {
-	p := Defaults()
-	p.ReadSecretValues = false
-	return p
+	return Policy{Namespaces: []string{}, WriteTools: []string{}, ReadSecretValues: false}
 }
 
 var label = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$`)
@@ -102,8 +104,12 @@ var label = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$`)
 func ValidNamespace(ns string) bool { return label.MatchString(ns) }
 
 // Normalize checks a policy, drops repeats and sorts the lists.
-func (p Policy) Normalize() (Policy, error) {
-	if len(p.Namespaces) == 0 {
+func (p Policy) Normalize() (Policy, error) { return p.normalize(false) }
+
+// normalize checks a policy. A stored policy may name no namespace: that is
+// the Damaged policy, kept as the default after a damaged file was replaced.
+func (p Policy) normalize(stored bool) (Policy, error) {
+	if len(p.Namespaces) == 0 && !stored {
 		return Policy{}, errors.New("name at least one namespace or *")
 	}
 	if len(p.Namespaces) > MaxNamespaces {
@@ -167,10 +173,10 @@ func (p Policy) Hash() string {
 type file struct {
 	// Default applies to a cluster with no policy of its own. Nil is the
 	// built-in Defaults.
-	Default  *Policy          `json:"default,omitempty"`
+	Default  *Policy           `json:"default,omitempty"`
 	Clusters map[string]Policy `json:"clusters"`
-	// Legacy keeps entries of the old per-context key that could not be
-	// migrated. They never apply.
+	// Legacy keeps entries of an old key that could not be migrated, and
+	// entries whose key cannot be read. They never apply.
 	Legacy map[string]Policy `json:"legacy,omitempty"`
 }
 
@@ -213,10 +219,12 @@ func ServerKey(key string) (string, error) {
 // used.
 type state struct {
 	f file
-	// legacy are entries of the old per-context key that were not
-	// migrated: they disagree with another entry of the same server.
+	// legacy are entries of an old key that were not migrated: they
+	// disagree with another entry of the same server.
 	legacy []string
-	broken bool
+	// invalid are entries whose key is not a server the add-on accepts.
+	invalid []string
+	broken  bool
 }
 
 func (s *Store) read() state {
@@ -235,7 +243,7 @@ func (s *Store) read() state {
 		return state{f: file{Clusters: map[string]Policy{}}, broken: true}
 	}
 	if f.Default != nil {
-		n, err := f.Default.Normalize()
+		n, err := f.Default.normalize(true)
 		if err != nil {
 			return state{f: file{Clusters: map[string]Policy{}}, broken: true}
 		}
@@ -243,7 +251,7 @@ func (s *Store) read() state {
 	}
 	for _, m := range []map[string]Policy{f.Clusters, f.Legacy} {
 		for k, p := range m {
-			n, err := p.Normalize()
+			n, err := p.normalize(true)
 			if err != nil {
 				return state{f: file{Clusters: map[string]Policy{}}, broken: true}
 			}
@@ -253,32 +261,36 @@ func (s *Store) read() state {
 	return migrate(f)
 }
 
-// migrate moves entries of the old key (<server>#context=<name>) to the key
-// of their server. Entries of one server that disagree are not migrated: they
-// stay in the file under legacy, and the server uses the default policy until
-// an administrator saves one for it. An old entry of a server that already
-// has a policy under the new key is dropped.
+// migrate moves entries of an old key to the key of their server: the old
+// per-context key (<server>#context=<name>), and a server written another way
+// by an earlier build (an IPv6 address with zeros, a port with a leading
+// zero, more than one trailing dot). An entry already under the key of its
+// server wins over the others of that server. Other entries of one server
+// that disagree are not migrated: they stay in the file under legacy, and the
+// server uses the default policy until an administrator saves one for it. An
+// entry whose key is not a server the add-on accepts stays under legacy too,
+// listed as invalid; it never applies.
 func migrate(in file) state {
 	out := file{Default: in.Default, Clusters: map[string]Policy{}, Legacy: map[string]Policy{}}
 	for k, p := range in.Legacy {
 		out.Legacy[k] = p
 	}
-	old := map[string]map[string]Policy{}
+	other := map[string]map[string]Policy{}
 	for k, p := range in.Clusters {
 		server, err := ServerKey(k)
 		switch {
 		case err != nil:
 			out.Legacy[k] = p
-		case strings.Contains(k, "#"):
-			if old[server] == nil {
-				old[server] = map[string]Policy{}
-			}
-			old[server][k] = p
-		default:
+		case k == server:
 			out.Clusters[server] = p
+		default:
+			if other[server] == nil {
+				other[server] = map[string]Policy{}
+			}
+			other[server][k] = p
 		}
 	}
-	for server, entries := range old {
+	for server, entries := range other {
 		if _, own := out.Clusters[server]; own {
 			continue
 		}
@@ -297,20 +309,26 @@ func migrate(in file) state {
 		}
 	}
 	legacy := make([]string, 0, len(out.Legacy))
+	invalid := []string{}
 	for k := range out.Legacy {
-		legacy = append(legacy, k)
+		if _, err := ServerKey(k); err != nil {
+			invalid = append(invalid, k)
+		} else {
+			legacy = append(legacy, k)
+		}
 	}
 	sort.Strings(legacy)
+	sort.Strings(invalid)
 	if len(out.Legacy) == 0 {
 		out.Legacy = nil
 	}
-	return state{f: out, legacy: legacy}
+	return state{f: out, legacy: legacy, invalid: invalid}
 }
 
 // Get returns the policy of one cluster: its own, or the default policy. A
 // file that cannot be read gives every cluster the Damaged policy, which
-// allows no write and hides Secret values, so a damaged file never widens
-// access.
+// allows no namespace and no write and hides Secret values, so a damaged file
+// never widens access.
 func (s *Store) Get(key string) (Policy, error) {
 	server, err := ServerKey(key)
 	if err != nil {
@@ -342,9 +360,11 @@ type View struct {
 	// Broken means the file could not be read; every cluster uses the
 	// Damaged policy until an administrator saves.
 	Broken bool
-	// Legacy lists entries of the old per-context key that were not
-	// migrated.
+	// Legacy lists entries of an old key that were not migrated.
 	Legacy []string
+	// Invalid lists entries whose key is not a server the add-on accepts.
+	// They never apply, and the next save removes them.
+	Invalid []string
 }
 
 // View returns the policies.
@@ -352,7 +372,7 @@ func (s *Store) View() View {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	st := s.read()
-	v := View{Clusters: make(map[string]Policy, len(st.f.Clusters)), Default: Defaults(), Broken: st.broken, Legacy: st.legacy}
+	v := View{Clusters: make(map[string]Policy, len(st.f.Clusters)), Default: Defaults(), Broken: st.broken, Legacy: st.legacy, Invalid: st.invalid}
 	for k, p := range st.f.Clusters {
 		v.Clusters[k] = p
 	}
@@ -364,6 +384,9 @@ func (s *Store) View() View {
 	}
 	if v.Legacy == nil {
 		v.Legacy = []string{}
+	}
+	if v.Invalid == nil {
+		v.Invalid = []string{}
 	}
 	return v
 }
@@ -397,8 +420,11 @@ func (s *Store) SetDefault(p Policy) (Policy, error) {
 }
 
 // save changes the file. A file that cannot be read is kept aside under a
-// new name, and the change starts from an empty file: nothing of the damaged
-// file is trusted.
+// new name, and the change starts from a new file whose default is the
+// Damaged policy: nothing of the damaged file is trusted, and every other
+// cluster keeps the Damaged policy until an administrator enters its policy
+// again. Entries whose key cannot be read are dropped, since they never
+// apply.
 func (s *Store) save(change func(*file, Policy) error, p Policy) (Policy, error) {
 	n, err := p.Normalize()
 	if err != nil {
@@ -408,6 +434,13 @@ func (s *Store) save(change func(*file, Policy) error, p Policy) (Policy, error)
 	defer s.mu.Unlock()
 	st := s.read()
 	f := st.f
+	if st.broken {
+		d := Damaged()
+		f.Default = &d
+	}
+	for _, k := range st.invalid {
+		delete(f.Legacy, k)
+	}
 	if err := change(&f, n); err != nil {
 		return Policy{}, err
 	}

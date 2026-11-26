@@ -129,7 +129,8 @@
     "loadFailed": "La politique n'a pas pu être chargée.",
     "saveFailed": "La politique n'a pas pu être enregistrée.",
     "readOnly": "Seul un administrateur peut modifier la politique.",
-    "broken": "La politique enregistrée n'a pas pu être lue. Jusqu'à ce qu'un administrateur enregistre de nouveau, chaque cluster est en lecture seule : aucune écriture, valeurs des Secrets masquées. Le fichier endommagé est mis de côté à l'enregistrement.",
+    "broken": "La politique enregistrée n'a pas pu être lue. Tant qu'un administrateur n'enregistre pas à nouveau, chaque cluster n'a aucun namespace, aucune écriture et les valeurs des Secrets masquées. À l'enregistrement, le fichier endommagé est mis de côté et un nouveau fichier commence avec cette politique par défaut : saisissez de nouveau la politique de chaque autre cluster.",
+    "invalid": "Ces entrées enregistrées ne désignent pas un serveur accepté par le module, elles ne s'appliquent donc jamais : {{list}}. Le prochain enregistrement les supprime.",
     "saved": "Enregistré. Le prochain appel utilise la nouvelle politique.",
     "cluster": "Cluster",
     "clusterHint": "Chaque cluster est nommé par l'URL de son serveur, avec les contextes des connexions qui l'utilisent. La politique par défaut s'applique à tout cluster sans politique propre.",
@@ -154,7 +155,7 @@
     "toolsHint": "Un outil désactivé est refusé, quels que soient le mode d'écriture et les approbations.",
     "powerful": "Puissant : exécute n'importe quelle commande dans un conteneur, et sa sortie n'est pas filtrée.",
     "secrets": "Afficher les valeurs des Secret",
-    "secretsHint": "Activé par défaut : le modèle voit les valeurs des Secrets, sauf si un administrateur le désactive. Désactivé, les outils de lecture et les diffs des écritures montrent les clés d'un Secret et masquent ses valeurs, et un patch json d'un Secret ne peut ni copier, ni déplacer, ni tester une valeur. Cela ne couvre pas ce que montrent les charges de travail : un pod créé par un chat pour monter ou afficher un Secret, exec et les logs peuvent encore montrer des valeurs. Désactivez apply et exec pour fermer cette voie.",
+    "secretsHint": "Activé par défaut : le modèle voit les valeurs des Secrets, sauf si un administrateur le désactive. Une fois désactivé, les outils de lecture et les diffs des écritures montrent les clés d'un Secret et masquent ses valeurs, un patch json ne peut pas copier, déplacer ni tester une valeur, et apply ne peut pas redéfinir une valeur masquée. Cela ne couvre pas ce que montrent les charges de travail : un pod créé par un chat pour monter ou afficher un Secret, exec et les journaux peuvent toujours montrer des valeurs, et l'aperçu d'un patch peut confirmer une valeur devinée. Désactivez apply, patch et exec pour fermer ces voies.",
     "secretsWarn": "Une conversation qui lit une valeur de Secret l'envoie au modèle et la garde dans l'historique de la conversation.",
     "save": "Enregistrer la politique",
     "restore": "Rétablir les valeurs par défaut"

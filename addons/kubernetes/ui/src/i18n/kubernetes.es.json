@@ -129,7 +129,8 @@
     "loadFailed": "No se pudo cargar la política.",
     "saveFailed": "No se pudo guardar la política.",
     "readOnly": "Solo un administrador puede cambiar la política.",
-    "broken": "No se pudo leer la política guardada. Hasta que un administrador guarde de nuevo, todo clúster solo tiene lectura: sin escritura y con los valores de Secret ocultos. El archivo dañado se aparta al guardar.",
+    "broken": "No se pudo leer la política guardada. Hasta que un administrador vuelva a guardar, cada clúster no tiene ningún namespace, ninguna escritura y los valores de los Secret ocultos. Al guardar, el archivo dañado se aparta y un archivo nuevo empieza con esa política como predeterminada: vuelve a introducir la política de cada uno de los demás clústeres.",
+    "invalid": "Estas entradas guardadas no nombran un servidor que el complemento acepte, así que nunca se aplican: {{list}}. El próximo guardado las elimina.",
     "saved": "Guardado. La próxima llamada usa la nueva política.",
     "cluster": "Clúster",
     "clusterHint": "Cada clúster se nombra por la URL de su servidor, con los contextos de las conexiones que lo usan. La política predeterminada se aplica a todo clúster sin política propia.",
@@ -154,7 +155,7 @@
     "toolsHint": "Una herramienta apagada se rechaza, sean cuales sean el modo de escritura y las aprobaciones.",
     "powerful": "Potente: ejecuta cualquier comando en un contenedor, y su salida no se filtra.",
     "secrets": "Mostrar los valores de Secret",
-    "secretsHint": "Activado por defecto: el modelo ve los valores de Secret salvo que un administrador lo desactive. Desactivado, las herramientas de lectura y los diffs de las escrituras muestran las claves de un Secret y ocultan sus valores, y un parche json de un Secret no puede copiar, mover ni probar un valor. Esto no cubre lo que muestran las cargas de trabajo: un pod que un chat crea para montar o imprimir un Secret, exec y los logs aún pueden mostrar valores. Desactive apply y exec para cerrar esa vía.",
+    "secretsHint": "Activado por defecto: el modelo ve los valores de los Secret salvo que un administrador lo desactive. Si está desactivado, las herramientas de lectura y los diffs de las escrituras muestran las claves de un Secret y ocultan sus valores, un parche json no puede copiar, mover ni comprobar un valor, y apply no puede volver a fijar un valor oculto. No cubre lo que muestran las cargas de trabajo: un pod que un chat crea para montar o imprimir un Secret, exec y los registros pueden seguir mostrando valores, y la vista previa de un parche puede confirmar un valor adivinado. Desactiva apply, patch y exec para cerrar esas vías.",
     "secretsWarn": "Un chat que lee un valor de Secret lo envía al modelo y lo guarda en el historial del chat.",
     "save": "Guardar política",
     "restore": "Restaurar valores predeterminados"

@@ -129,7 +129,8 @@
     "loadFailed": "Kebijakan tidak dapat dimuat.",
     "saveFailed": "Kebijakan tidak dapat disimpan.",
     "readOnly": "Hanya administrator yang dapat mengubah kebijakan.",
-    "broken": "Kebijakan tersimpan tidak dapat dibaca. Sampai administrator menyimpan lagi, setiap klaster hanya dapat dibaca: tanpa penulisan, dan nilai Secret disembunyikan. Berkas yang rusak disisihkan saat Anda menyimpan.",
+    "broken": "Kebijakan yang disimpan tidak dapat dibaca. Sampai administrator menyimpan lagi, setiap klaster tidak mendapat namespace, tidak ada penulisan, dan nilai Secret disembunyikan. Saat Anda menyimpan, berkas yang rusak disisihkan dan berkas baru dimulai dengan kebijakan itu sebagai bawaan: masukkan lagi kebijakan setiap klaster lainnya.",
+    "invalid": "Entri tersimpan ini tidak menyebut server yang diterima add-on, sehingga tidak pernah berlaku: {{list}}. Penyimpanan berikutnya akan menghapusnya.",
     "saved": "Tersimpan. Panggilan berikutnya memakai kebijakan baru.",
     "cluster": "Cluster",
     "clusterHint": "Setiap klaster dinamai dengan URL servernya, beserta konteks koneksi yang memakainya. Kebijakan bawaan berlaku untuk setiap klaster tanpa kebijakan sendiri.",
@@ -154,7 +155,7 @@
     "toolsHint": "Alat yang mati ditolak, apa pun mode tulis dan persetujuannya.",
     "powerful": "Kuat: menjalankan perintah apa pun di container, dan outputnya tidak disaring.",
     "secrets": "Tampilkan nilai Secret",
-    "secretsHint": "Aktif secara bawaan: model melihat nilai Secret kecuali administrator menonaktifkannya. Saat nonaktif, alat baca dan diff penulisan menampilkan kunci Secret dan menyembunyikan nilainya, dan patch json pada Secret tidak boleh menyalin, memindahkan, atau menguji nilai. Ini tidak mencakup apa yang ditampilkan workload: pod yang dibuat chat untuk memasang atau mencetak Secret, exec, dan log masih dapat menampilkan nilai. Nonaktifkan apply dan exec untuk menutup jalur itu.",
+    "secretsHint": "Aktif secara bawaan: model melihat nilai Secret kecuali administrator mematikannya. Jika mati, alat baca dan diff penulisan menampilkan kunci Secret dan menyembunyikan nilainya, patch json tidak boleh menyalin, memindahkan, atau menguji nilai, dan apply tidak boleh mengatur lagi nilai yang tersembunyi. Ini tidak mencakup apa yang ditampilkan beban kerja: pod yang dibuat chat untuk memasang atau mencetak Secret, exec, dan log masih dapat menampilkan nilai, dan pratinjau patch dapat memastikan nilai yang ditebak. Matikan apply, patch, dan exec untuk menutup jalur tersebut.",
     "secretsWarn": "Obrolan yang membaca nilai Secret mengirimkannya ke model dan menyimpannya di riwayat obrolan.",
     "save": "Simpan kebijakan",
     "restore": "Pulihkan bawaan"

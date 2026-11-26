@@ -129,7 +129,8 @@
     "loadFailed": "Não foi possível carregar a política.",
     "saveFailed": "Não foi possível salvar a política.",
     "readOnly": "Só um administrador pode alterar a política.",
-    "broken": "Não foi possível ler a política salva. Até que um administrador salve de novo, todo cluster tem só leitura: nenhuma escrita e valores de Secret ocultos. O arquivo danificado é guardado à parte ao salvar.",
+    "broken": "Não foi possível ler a política salva. Até que um administrador salve de novo, cada cluster fica sem namespace, sem escrita e com os valores dos Secrets ocultos. Ao salvar, o arquivo danificado é guardado à parte e um arquivo novo começa com essa política como padrão: insira de novo a política de cada um dos outros clusters.",
+    "invalid": "Estas entradas salvas não indicam um servidor que o complemento aceita, por isso nunca se aplicam: {{list}}. O próximo salvamento as remove.",
     "saved": "Salvo. A próxima chamada usa a nova política.",
     "cluster": "Cluster",
     "clusterHint": "Cada cluster é identificado pela URL do seu servidor, com os contextos das conexões que o usam. A política padrão vale para todo cluster sem política própria.",
@@ -154,7 +155,7 @@
     "toolsHint": "Uma ferramenta desligada é recusada, seja qual for o modo de escrita e as aprovações.",
     "powerful": "Poderosa: roda qualquer comando em um container, e a saída não é filtrada.",
     "secrets": "Mostrar valores de Secret",
-    "secretsHint": "Ativado por padrão: o modelo vê os valores de Secret, a menos que um administrador desative isto. Desativado, as ferramentas de leitura e os diffs das escritas mostram as chaves de um Secret e ocultam seus valores, e um patch json de um Secret não pode copiar, mover nem testar um valor. Isso não cobre o que as cargas de trabalho mostram: um pod criado por um chat para montar ou imprimir um Secret, exec e os logs ainda podem mostrar valores. Desative apply e exec para fechar esse caminho.",
+    "secretsHint": "Ativado por padrão: o modelo vê os valores dos Secrets, a menos que um administrador desative isso. Quando desativado, as ferramentas de leitura e os diffs das escritas mostram as chaves de um Secret e ocultam seus valores, um patch json não pode copiar, mover nem testar um valor, e o apply não pode definir de novo um valor oculto. Isso não cobre o que as cargas de trabalho mostram: um pod que um chat cria para montar ou imprimir um Secret, o exec e os logs ainda podem mostrar valores, e a prévia de um patch pode confirmar um valor adivinhado. Desative apply, patch e exec para fechar esses caminhos.",
     "secretsWarn": "Um chat que lê o valor de um Secret o envia ao modelo e o mantém no histórico do chat.",
     "save": "Salvar política",
     "restore": "Restaurar padrões"

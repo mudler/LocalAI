@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { followName, withName, checkFailure, checkItem, extraBody, extraForm, extraValid, keyOf, kubeconfigContexts, kubeconfigProblem, kubeconfigServer, kubeSecret, MAX_CREDENTIAL, rbacRows, splitKey, tokenKubeconfig, writeModeOf } from '../src/kube.js'
+import { followName, withName, checkFailure, checkItem, extraBody, extraForm, extraValid, keyOf, kubeconfigContexts, kubeconfigProblem, kubeconfigServer, kubeSecret, MAX_CREDENTIAL, normalizeServer, rbacRows, splitKey, tokenKubeconfig, writeModeOf } from '../src/kube.js'
 import en from '../src/i18n/kubernetes.en.json' with { type: 'json' }
 
 // A kubeconfig as kubectl writes it (kubectl config view --flatten), with two
@@ -112,6 +112,32 @@ test('kubernetes: makes and splits connection keys', () => {
   assert.equal(keyOf('https://cluster.example', 'has space'), '')
   assert.equal(keyOf('https://127.0.0.1:6443', `c${'x'.repeat(200)}`), '')
   assert.equal(keyOf('https://127.0.0.1:6443', 'team-a'), 'https://127.0.0.1:6443#context=team-a')
+})
+
+test('kubernetes: writes a server as the add-on does: canonical IP, numeric port, no trailing dots', () => {
+  const cases = {
+    'https://[2001:db8::1]': 'https://[2001:db8::1]',
+    'https://[2001:DB8:0:0::1]': 'https://[2001:db8::1]',
+    'https://[2001:0db8::0001]': 'https://[2001:db8::1]',
+    'https://[2001:db8:0:0:0:0:0:1]': 'https://[2001:db8::1]',
+    'https://[2001:db8:0:0:1:0:0:1]': 'https://[2001:db8::1:0:0:1]',
+    'https://[::ffff:10.0.0.1]': 'https://10.0.0.1',
+    'https://[::ffff:a00:1]:6443': 'https://10.0.0.1:6443',
+    'https://[64:ff9b::7f00:1]': 'https://[64:ff9b::7f00:1]',
+    'https://[::1.2.3.4]': 'https://[::102:304]',
+    'https://cluster.example:0443': 'https://cluster.example',
+    'https://cluster.example:00443': 'https://cluster.example',
+    'https://cluster.example:06443': 'https://cluster.example:6443',
+    'https://cluster.example..': 'https://cluster.example',
+    'https://X.Example...:0443/': 'https://x.example',
+  }
+  for (const [input, want] of Object.entries(cases)) {
+    assert.equal(normalizeServer(input), want, input)
+    assert.equal(normalizeServer(normalizeServer(input)), want, `again ${input}`)
+  }
+  for (const bad of ['https://cluster.example:0', 'https://cluster.example:65536', 'https://...', 'https://[1::2::3]', 'https://[fe80::1%25eth0]', 'https://[12345::]']) {
+    assert.equal(normalizeServer(bad), '', bad)
+  }
 })
 
 test('kubernetes: shows at most 20 RBAC rows', () => {
