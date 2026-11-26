@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"runtime/debug"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
@@ -26,8 +29,9 @@ import (
 
 type observedTranscriptionBackend struct {
 	grpcpkg.Backend
-	err   error
-	audio []byte
+	err        error
+	audio      []byte
+	uploadPath string
 }
 
 type failedTranscriptionWriter struct {
@@ -44,6 +48,10 @@ func (*observedTranscriptionBackend) Free(context.Context) error                
 func (b *observedTranscriptionBackend) AudioTranscription(_ context.Context, r *pb.TranscriptRequest, _ ...ggrpc.CallOption) (*pb.TranscriptResult, error) {
 	var err error
 	b.audio, err = os.ReadFile(r.Dst)
+	if err != nil {
+		return nil, err
+	}
+	b.uploadPath, err = filepath.EvalSymlinks(r.Dst)
 	if err != nil {
 		return nil, err
 	}
@@ -153,6 +161,38 @@ var _ = Describe("transcription observability", func() {
 		Entry("SSE", "/v1/audio/transcriptions", "", true, false),
 		Entry("backend error", "/v1/audio/transcriptions", "json", false, true),
 		Entry("SSE error", "/audio/transcriptions", "", true, true),
+	)
+	DescribeTable("closes the temporary transcription upload", func(fail bool, expectedStatus int) {
+		const fdDir = "/proc/self/fd"
+		if _, err := os.Stat(fdDir); err != nil {
+			Skip("requires /proc/self/fd")
+		}
+
+		// Keep garbage collection from closing a leaked file before the check.
+		gcPercent := debug.SetGCPercent(-1)
+		defer debug.SetGCPercent(gcPercent)
+
+		if fail {
+			fixture.err = errors.New("transcription failed")
+		}
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, request("/v1/audio/transcriptions", "json", false))
+		Expect(rec.Code).To(Equal(expectedStatus), rec.Body.String())
+		Expect(fixture.uploadPath).NotTo(BeEmpty())
+
+		fds, err := os.ReadDir(fdDir)
+		Expect(err).NotTo(HaveOccurred())
+		for _, fd := range fds {
+			target, err := os.Readlink(filepath.Join(fdDir, fd.Name()))
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			Expect(err).NotTo(HaveOccurred())
+			Expect(strings.TrimSuffix(target, " (deleted)")).NotTo(Equal(fixture.uploadPath), "upload file descriptor %s is still open", fd.Name())
+		}
+	},
+		Entry("after success", false, http.StatusOK),
+		Entry("after a backend error", true, http.StatusInternalServerError),
 	)
 	DescribeTable("attributes alias usage to the requested model", func(stream bool) {
 		requestedModel = "speech-alias"

@@ -150,8 +150,10 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 
 		if _, err := io.Copy(dstFile, f); err != nil {
 			xlog.Debug("Audio file copying error", "filename", file.Filename, "dst", dst, "error", err)
+			_ = dstFile.Close()
 			return err
 		}
+		_ = dstFile.Close()
 
 		xlog.Debug("Audio file copied", "dst", dst)
 
