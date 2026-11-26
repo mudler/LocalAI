@@ -4,7 +4,9 @@
 // policy of the cluster allows reading them. It runs on every object before
 // the object becomes text: YAML, table rows, both sides of a diff.
 //
-// A Secret keeps its keys, its type and the length of each value. An
+// A Secret keeps its keys, its type and the length of each value. Its
+// annotations show only their length too, except a few that Kubernetes sets
+// and that hold no value: a write could have put a value there. An
 // environment variable of a container whose name looks secret (TOKEN,
 // PASSWORD, SECRET or KEY in any case) shows *** instead of an inline value.
 // A secretKeyRef stays as it is: it names a Secret and a key, and holds no
@@ -25,6 +27,13 @@ import (
 const Hidden = "***"
 
 const lastApplied = "kubectl.kubernetes.io/last-applied-configuration"
+
+// safeAnnotations are annotations of a Secret that Kubernetes writes and that
+// name an object instead of holding a value.
+var safeAnnotations = map[string]bool{
+	"kubernetes.io/service-account.name": true,
+	"kubernetes.io/service-account.uid":  true,
+}
 
 var secretName = regexp.MustCompile(`(?i)(TOKEN|PASSWORD|SECRET|KEY)`)
 
@@ -59,10 +68,13 @@ func Secret(u *unstructured.Unstructured) {
 		u.Object[f] = out
 	}
 	if a := u.GetAnnotations(); a != nil {
-		if _, ok := a[lastApplied]; ok {
-			delete(a, lastApplied)
-			u.SetAnnotations(a)
+		delete(a, lastApplied)
+		for k, v := range a {
+			if !safeAnnotations[k] {
+				a[k] = describe(len(v))
+			}
 		}
+		u.SetAnnotations(a)
 	}
 }
 
@@ -72,6 +84,15 @@ func Secret(u *unstructured.Unstructured) {
 func SecretPair(live, next *unstructured.Unstructured) {
 	changed := map[string]bool{}
 	if next != nil {
+		var la map[string]string
+		if live != nil {
+			la = live.GetAnnotations()
+		}
+		for k, v := range next.GetAnnotations() {
+			if old, ok := la[k]; !ok || old != v {
+				changed["annotations/"+k] = true
+			}
+		}
 		for _, f := range []string{"data", "stringData"} {
 			nm, _ := next.Object[f].(map[string]any)
 			var lm map[string]any
@@ -92,6 +113,14 @@ func SecretPair(live, next *unstructured.Unstructured) {
 		return
 	}
 	Secret(next)
+	if a := next.GetAnnotations(); a != nil {
+		for k, v := range a {
+			if changed["annotations/"+k] && !safeAnnotations[k] {
+				a[k] = v + " (new value)"
+			}
+		}
+		next.SetAnnotations(a)
+	}
 	for _, f := range []string{"data", "stringData"} {
 		m, _ := next.Object[f].(map[string]any)
 		for k, v := range m {

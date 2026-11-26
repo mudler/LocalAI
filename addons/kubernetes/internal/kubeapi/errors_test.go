@@ -41,6 +41,16 @@ var _ = Describe("errors of the API server", func() {
 		}
 	})
 
+	It("withholds the message of an error and keeps the code and the reason", func() {
+		in := apierrors.NewInvalid(schema.GroupKind{Kind: "Secret"}, "db", nil)
+		in.ErrStatus.Message = `Invalid value: "secret-value"`
+		out := kubeapi.Describe(kubeapi.Withhold(in))
+		Expect(out.Error()).To(ContainSubstring("422 Invalid"))
+		Expect(out.Error()).NotTo(ContainSubstring("secret-value"))
+		e := errors.New("dial failed")
+		Expect(kubeapi.Withhold(e)).To(Equal(e))
+	})
+
 	It("leaves other errors alone", func() {
 		e := errors.New("dial failed")
 		Expect(kubeapi.Describe(e)).To(Equal(e))

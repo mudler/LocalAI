@@ -47,10 +47,13 @@ var _ = Describe("masking", func() {
 		Expect(s.Object["type"]).To(Equal("Opaque"))
 	})
 
-	It("removes the last-applied annotation of a Secret", func() {
+	It("removes the last-applied annotation of a Secret and masks the other annotations", func() {
 		s := secret()
+		a := s.GetAnnotations()
+		a["kubernetes.io/service-account.name"] = "builder"
+		s.SetAnnotations(a)
 		mask.Apply(s, secrets, policy.Defaults())
-		Expect(s.GetAnnotations()).To(Equal(map[string]string{"team": "a"}))
+		Expect(s.GetAnnotations()).To(Equal(map[string]string{"team": "<1 bytes>", "kubernetes.io/service-account.name": "builder"}))
 	})
 
 	It("masks inline env values by name, case-insensitive, at any depth", func() {

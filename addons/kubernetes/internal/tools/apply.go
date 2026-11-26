@@ -184,7 +184,20 @@ func (c *call) parseApply(raw map[string]json.RawMessage) (writeOp, error) {
 	return &o, nil
 }
 
+// guard keeps an API error about a Secret from quoting a hidden value.
+func (c *call) guard(t kubeapi.Target, err error) error {
+	if c.hidesValues(t) {
+		return kubeapi.Withhold(err)
+	}
+	return err
+}
+
 func (o *applyOp) inspect(c *call) (map[string]any, uint64, error) {
+	s, rev, err := o.look(c)
+	return s, rev, c.guard(o.t, err)
+}
+
+func (o *applyOp) look(c *call) (map[string]any, uint64, error) {
 	live, err := c.c.Dynamic.Resource(o.t.GVR).Namespace(o.obj.GetNamespace()).Get(c.ctx, o.obj.GetName(), metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		live, err = nil, nil
@@ -208,7 +221,7 @@ func (o *applyOp) inspect(c *call) (map[string]any, uint64, error) {
 
 func (o *applyOp) apply(c *call) (map[string]any, error) {
 	if _, err := c.c.Writer.Apply(c.ctx, o.t.GVR, o.obj.GetNamespace(), o.obj.DeepCopy(), false); err != nil {
-		return nil, err
+		return nil, c.guard(o.t, err)
 	}
 	return map[string]any{"applied": o.t.Kind + "/" + o.obj.GetNamespace() + "/" + o.obj.GetName(), "diff": o.diff, "diffCut": o.cut}, nil
 }
@@ -272,11 +285,71 @@ func (c *call) parsePatch(raw map[string]json.RawMessage) (writeOp, error) {
 	if err := c.allow(o.Namespace); err != nil {
 		return nil, err
 	}
+	if pt == types.JSONPatchType && c.hidesValues(t) {
+		if err := secretSafeOps(data); err != nil {
+			return nil, err
+		}
+	}
 	o.t, o.pt, o.data = t, pt, data
 	return &o, nil
 }
 
+// hidesValues reports whether the policy hides the values of the target.
+func (c *call) hidesValues(t kubeapi.Target) bool {
+	return !c.pol.ReadSecretValues && mask.IsSecret(t)
+}
+
+// secretSafeOps refuses a json patch of a Secret that could bring a hidden
+// value back to the model. copy and move can put a value where the masking
+// does not look, and test answers yes or no about a value, so none of them
+// may run on a Secret. Any other op that names the data, or the whole object,
+// is refused as well. Keys are compared without case, so an op the API
+// server would read differently is refused too.
+func secretSafeOps(data []byte) error {
+	var ops []map[string]json.RawMessage
+	if json.Unmarshal(data, &ops) != nil {
+		return bad("a json patch is a list of operations")
+	}
+	refuse := func() error {
+		return policy.Refuse(policy.RuleReadSecretValues, "the policy hides Secret values, so a json patch of a Secret may not copy, move or test, and may not name data or stringData; use a merge patch, or ask an administrator")
+	}
+	for _, op := range ops {
+		for k, v := range op {
+			var s string
+			switch strings.ToLower(k) {
+			case "op":
+				_ = json.Unmarshal(v, &s)
+				switch strings.ToLower(s) {
+				case "copy", "move", "test":
+					return refuse()
+				}
+			case "path", "from":
+				if json.Unmarshal(v, &s) != nil || touchesData(s) {
+					return refuse()
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// touchesData reports whether a JSON pointer names the whole object or a
+// place under data or stringData.
+func touchesData(pointer string) bool {
+	if pointer == "" || pointer == "/" {
+		return true
+	}
+	first, _, _ := strings.Cut(strings.TrimPrefix(pointer, "/"), "/")
+	first = strings.ReplaceAll(strings.ReplaceAll(first, "~1", "/"), "~0", "~")
+	return strings.EqualFold(first, "data") || strings.EqualFold(first, "stringData")
+}
+
 func (o *patchOp) inspect(c *call) (map[string]any, uint64, error) {
+	s, rev, err := o.look(c)
+	return s, rev, c.guard(o.t, err)
+}
+
+func (o *patchOp) look(c *call) (map[string]any, uint64, error) {
 	live, err := c.c.Dynamic.Resource(o.t.GVR).Namespace(o.Namespace).Get(c.ctx, o.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, 0, err
@@ -293,7 +366,7 @@ func (o *patchOp) inspect(c *call) (map[string]any, uint64, error) {
 
 func (o *patchOp) apply(c *call) (map[string]any, error) {
 	if _, err := c.c.Writer.Patch(c.ctx, o.t.GVR, o.Namespace, o.Name, o.pt, o.data, false); err != nil {
-		return nil, err
+		return nil, c.guard(o.t, err)
 	}
 	return map[string]any{"patched": o.t.Kind + "/" + o.Namespace + "/" + o.Name, "diff": o.diff, "diffCut": o.cut}, nil
 }
