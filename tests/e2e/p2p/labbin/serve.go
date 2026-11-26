@@ -2,9 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/subtle"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -20,22 +17,16 @@ import (
 )
 
 // server is a lab server: a p2pnet host that admits a set of paired peers, the
-// manager that keeps its relay in sync, and the small HTTP service.
+// manager that keeps its relay in sync, the pairing service and the small HTTP
+// service.
 type server struct {
 	host *p2pnet.Host
 	gate *p2pnet.Allowlist
 	mgr  p2prelaymgr.Manager
+	pair *p2ppair.Service
 
 	mu     sync.Mutex
 	paired []p2pnet.ID
-
-	invite *invite
-}
-
-// invite is a pending invite: one code, used once.
-type invite struct {
-	code string
-	used bool
 }
 
 func (s *server) pairedIDs() []string {
@@ -83,8 +74,11 @@ func cmdServe(ctx context.Context, args []string) int {
 	limitsAfter := fs.Duration("limits-after", 0, "change the limits of the relay after this time, as the server does for an administrator (needs --relay-sync)")
 	limitBytes := fs.Int64("limit-bytes", -1, "with --limits-after: data per circuit (0 removes the limit, -1 leaves it)")
 	limitSeconds := fs.Int64("limit-seconds", -1, "with --limits-after: time per circuit (0 removes the limit, -1 leaves it)")
-	invite := fs.Bool("invite", false, "mint an invite link at start (needs --relay-sync) and print it")
+	invite := fs.Bool("invite", false, "mint an invite link at start through the pairing service and print it; the relay of --relay-sync is its carrier, the --public-relay relays its hints")
 	invitePass := fs.Bool("invite-pass", true, "with --invite: register a relay pass for the link")
+	var public list
+	fs.Var(&public, "public-relay", "a relay to hold a reservation on that the relay manager does not own, as AutoRelay does with a public relay it found (repeatable)")
+	pairDir := fs.String("pair-dir", "", "keep invites and devices in this folder, so that they outlive the process (default: in memory)")
 	_ = fs.Parse(args)
 	if *key == "" {
 		fatalf("serve: --key is required")
@@ -103,7 +97,7 @@ func cmdServe(ctx context.Context, args []string) int {
 		IdentityPath:   *key,
 		ListenAddrs:    append([]string{}, listen...),
 		BootstrapPeers: addrInfos(boot),
-		StaticRelays:   addrInfos(relays),
+		StaticRelays:   addrInfos(append(append([]string{}, relays...), public...)),
 		RelayRetry:     *retry,
 		Gate:           gate,
 	})
@@ -129,8 +123,11 @@ func cmdServe(ctx context.Context, args []string) int {
 			fatalf("serve: %v", err)
 		}
 	}
+	if err := s.startPairing(ctx, *pairDir, *invitePass); err != nil {
+		fatalf("serve: %v", err)
+	}
 	if *invite {
-		if err := s.mintInvite(ctx, relays, *invitePass); err != nil {
+		if err := s.mintInvite(ctx, len(public) > 0); err != nil {
 			fatalf("serve: invite: %v", err)
 		}
 	}
@@ -270,92 +267,4 @@ func (s *server) serveHalfClose() error {
 		}
 	}()
 	return nil
-}
-
-// mintInvite makes an invite link like the pairing service does: a one-time
-// code, the relay of the server, and a relay pass registered on that relay.
-// Pairing opens while the invite is pending.
-func (s *server) mintInvite(ctx context.Context, relays []string, withPass bool) error {
-	if s.mgr == nil || len(relays) == 0 {
-		return fmt.Errorf("--invite needs --relay-sync")
-	}
-	code, err := newInviteCode()
-	if err != nil {
-		return err
-	}
-	ai := addrInfos(relays[:1])[0]
-	l := &p2ppair.Link{
-		V: 1, Kind: p2ppair.KindDevice, Peer: s.host.ID(), Code: code, Label: "lab",
-		Expires: time.Now().Add(10 * time.Minute), Relays: []p2pnet.AddrInfo{ai},
-	}
-	if withPass {
-		rl := s.mgr.List()[0]
-		addr, err := p2pnet.ParseMultiaddr(rl.Addr)
-		if err != nil {
-			return err
-		}
-		pass, err := p2prelaymgr.NewPassRegistrar(s.mgr).RegisterPass(ctx, p2ppair.PassRequest{
-			Relay: p2ppair.Relay{ID: rl.ID, Label: rl.Label, Addr: addr}, InviteID: "lab", Code: code,
-			TTL: 10 * time.Minute, Label: "lab",
-		})
-		if err != nil {
-			return fmt.Errorf("register the relay pass: %w", err)
-		}
-		l.Pass = pass
-	}
-	s.invite = &invite{code: code}
-	s.gate.SetPairing(true)
-	fmt.Println("INVITE", l.String())
-	return nil
-}
-
-// inviteAlphabet is the alphabet of invite codes: no 0, O, 1, I or L.
-const inviteAlphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
-
-// newInviteCode returns a code of ten characters, the length that the link
-// format expects.
-func newInviteCode() (string, error) {
-	var b [10]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "", err
-	}
-	for i := range b {
-		b[i] = inviteAlphabet[int(b[i])%len(inviteAlphabet)]
-	}
-	return string(b[:]), nil
-}
-
-// redeem is the server side of pairing: the code works once, and the peer that
-// presents it becomes a paired device.
-func (s *server) redeem(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Code string `json:"code"`
-	}
-	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&req); err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-	p, _ := r.Context().Value(peerKey{}).(p2pnet.ID)
-	s.mu.Lock()
-	inv := s.invite
-	ok := inv != nil && !inv.used && subtle.ConstantTimeCompare([]byte(inv.code), []byte(req.Code)) == 1
-	if ok {
-		inv.used = true
-	}
-	s.mu.Unlock()
-	if !ok || p == "" {
-		http.Error(w, "gone", http.StatusGone)
-		return
-	}
-	s.allow(p)
-	s.gate.SetPairing(false)
-	if s.mgr != nil {
-		s.mgr.PeerAdded(p.String())
-	}
-	fmt.Println("REDEEMED", p)
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"device_id": "lab-device", "kind": "device", "phrase": "lab phrase",
-		"server": map[string]string{"peer_id": s.host.ID().String()},
-	})
 }

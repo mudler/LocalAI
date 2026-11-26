@@ -60,6 +60,8 @@ func cmdDial(ctx context.Context, args []string) int {
 	nf.add(fs)
 	var hints list
 	fs.Var(&hints, "hint", "address of the peer, for example a circuit address through a relay (repeatable)")
+	var relayHints list
+	fs.Var(&relayHints, "relay-hint", "a public relay of the peer (multiaddr with /p2p/<id>) that may only help a hole punch, like the h key of a link (repeatable)")
 	relay := fs.String("relay", "", "relay multiaddr, needed with --pass")
 	pass := fs.String("pass", "", "relay pass to present to --relay before the dial")
 	mb := fs.Int64("mb", 0, "download this many MiB and report the speed")
@@ -95,6 +97,9 @@ func cmdDial(ctx context.Context, args []string) int {
 		addrs = append(addrs, a)
 	}
 	opts := []p2pnet.DialOption{p2pnet.WithAddrs(addrs...)}
+	if len(relayHints) > 0 {
+		opts = append(opts, p2pnet.WithHints(addrInfos(relayHints)...))
+	}
 
 	if !probe(ctx, h, target, opts) {
 		return 1
