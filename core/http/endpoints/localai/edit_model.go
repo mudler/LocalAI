@@ -64,7 +64,8 @@ func httpStatusForModelAdminError(err error) int {
 		errors.Is(err, modeladmin.ErrEmptyBody),
 		errors.Is(err, modeladmin.ErrPathSeparator),
 		errors.Is(err, modeladmin.ErrBadAction),
-		errors.Is(err, modeladmin.ErrInvalidConfig):
+		errors.Is(err, modeladmin.ErrInvalidConfig),
+		errors.Is(err, modeladmin.ErrInvalidEstimate):
 		return http.StatusBadRequest
 	case errors.Is(err, modeladmin.ErrNotFound),
 		errors.Is(err, modeladmin.ErrConfigFileMissing):

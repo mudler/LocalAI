@@ -33,6 +33,8 @@ var _ = Describe("DTOs round-trip through JSON", func() {
 		roundTripDTO(SystemInfo{Version: "v1", Distributed: false, ModelsPath: "/tmp", LoadedModels: []string{"a"}, InstalledBackends: []string{"x"}})
 		roundTripDTO(Node{ID: "n", Address: "a", HTTPAddress: "h", TotalVRAM: 100, Healthy: true, LastSeen: "now"})
 		roundTripDTO(VRAMEstimateRequest{ModelName: "m", ContextSize: 4096, GPULayers: -1, KVQuantBits: 8})
+		ubatch := 2048
+		roundTripDTO(VRAMEstimateRequest{ModelName: "m", CacheTypeK: "q8_0", CacheTypeV: "q8_0", Batch: &ubatch, UBatch: &ubatch})
 		roundTripDTO(ImportModelURIRequest{URI: "u", BackendPreference: "llama-cpp", Overrides: map[string]any{"k": "v"}})
 		roundTripDTO(ImportModelURIResponse{JobID: "j", DiscoveredModelName: "m", AmbiguousBackend: true, Modality: "tts", BackendCandidates: []string{"a", "b"}, Hint: "h"})
 	})

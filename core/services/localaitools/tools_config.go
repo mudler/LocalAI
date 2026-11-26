@@ -26,7 +26,7 @@ func registerConfigTools(s *mcp.Server, client LocalAIClient, opts Options) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolVRAMEstimate,
-		Description: "Estimate VRAM usage for an installed model under a given config (context size, GPU layers, KV cache quantization).",
+		Description: "Estimate VRAM usage for an installed model under a given config (context size, GPU layers, KV cache types, batch sizes). The runtime field splits out the KV cache and the compute buffers.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args VRAMEstimateRequest) (*mcp.CallToolResult, any, error) {
 		if args.ModelName == "" {
 			return errorResultf("model_name is required"), nil, nil

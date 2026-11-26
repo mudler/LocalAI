@@ -15,7 +15,10 @@ import (
 )
 
 const persistentCacheEntryLimit = 4096
-const persistentCacheVersion = 2
+
+// persistentCacheVersion is raised when GGUFMeta gains a field, so entries
+// written without it are read again from the file.
+const persistentCacheVersion = 3
 
 var defaultPersistentGuard = &persistentGenerationGuard{}
 var defaultCacheMu sync.RWMutex

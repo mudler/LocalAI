@@ -75,7 +75,7 @@ func (p modelProfile) hasArchitecture() bool {
 // model profile and context length.
 func computeVRAM(p modelProfile, ctxLen uint32, opts EstimateOptions) uint64 {
 	kvQuantBits := opts.KVQuantBits
-	if kvQuantBits == 0 {
+	if kvQuantBits <= 0 {
 		kvQuantBits = 16
 	}
 
@@ -101,13 +101,10 @@ func computeVRAM(p modelProfile, ctxLen uint32, opts EstimateOptions) uint64 {
 			if gpuLayers <= 0 {
 				gpuLayers = int(nLayers)
 			}
-			bKV := uint32(kvQuantBits / 8)
-			if bKV == 0 {
-				bKV = 4
-			}
-
+			// In bits, then bytes: a 4-bit cache is half of an 8-bit one.
+			// Integer bytes made it 0, which fell back to 4 bytes (f32).
 			M_model := p.ggufSize
-			M_KV := uint64(bKV) * uint64(dModel) * uint64(headCountKV) * uint64(ctxLen)
+			M_KV := uint64(kvQuantBits) * uint64(dModel) * uint64(headCountKV) * uint64(ctxLen) / 8
 			P := M_model * 2
 			M_overhead := uint64(0.02*float64(P) + 0.15*1e9)
 			vramBytes := M_model + M_KV + M_overhead
@@ -174,6 +171,7 @@ func EstimateMultiContext(ctx context.Context, files []FileInput, contextSizes [
 		result.ExpertCount = p.meta.ExpertCount
 		result.BlockCount = p.meta.BlockCount
 	}
+	result.Meta = p.meta
 	result.Approximate = !p.hasArchitecture()
 
 	return result, nil

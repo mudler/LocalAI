@@ -28,6 +28,9 @@ var _ = Describe("DefaultGGUFReader", func() {
 			HeadCount:            32,
 			HeadCountKV:          8,
 			MaximumContextLength: 8192,
+			// The file states no head size: the parser derives width / heads.
+			KeyLength:   128,
+			ValueLength: 128,
 		}))
 	})
 

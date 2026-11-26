@@ -216,6 +216,29 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 		})
 	})
 
+	Describe("VRAMEstimate", func() {
+		It("sends the KV cache types and batch sizes, keeping a 0 batch, and decodes the runtime part", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.URL.Path).To(Equal("/api/models/vram-estimate"))
+				var body map[string]any
+				Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+				Expect(body).To(HaveKeyWithValue("cache_type_k", "q8_0"))
+				Expect(body).To(HaveKeyWithValue("cache_type_v", "q4_0"))
+				Expect(body).To(HaveKeyWithValue("batch", BeEquivalentTo(0)))
+				Expect(body).To(HaveKeyWithValue("ubatch", BeEquivalentTo(2048)))
+				_, _ = w.Write([]byte(`{"size_bytes":5,"vram_bytes":9,"runtime":{"kv_cache_bytes":7,"compute_bytes":3,"cache_type_k":"q8_0"}}`))
+			}))
+			defer srv.Close()
+			zero, ub := 0, 2048
+			out, err := New(srv.URL, "").VRAMEstimate(ctx, localaitools.VRAMEstimateRequest{
+				ModelName: "m", CacheTypeK: "q8_0", CacheTypeV: "q4_0", Batch: &zero, UBatch: &ub,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.Runtime).ToNot(BeNil())
+			Expect(out.Runtime.KVCacheBytes).To(Equal(uint64(7)))
+		})
+	})
+
 	Describe("SearchModels", func() {
 		It("sends the query and parses the response", func() {
 			var got url.Values

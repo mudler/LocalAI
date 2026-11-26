@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
 )
@@ -85,8 +86,9 @@ const (
 	// (n_ubatch * n_ctx) cell. Derived from an observed allocation (ub2048 *
 	// ctx204800 ~= 4.5 GiB => ~11 B/cell) and rounded up to 16 for margin, since
 	// the real cost also grows with model width (heads / embedding dim) which we
-	// don't know at config time.
-	computeBufferBytesPerCell = 16
+	// don't know at config time. The VRAM estimate of the model editor uses the
+	// same figure, so it lives in pkg/vram.
+	computeBufferBytesPerCell = vram.ComputeBufferBytesPerCell
 	// blackwellBatchHeadroomDivisor caps the extra compute buffer from raising the
 	// physical batch at VRAM/divisor. /4 keeps the bulk of a device for weights +
 	// KV, which already dominate VRAM use.
