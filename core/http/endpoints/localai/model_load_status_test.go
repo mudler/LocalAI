@@ -52,7 +52,7 @@ var _ = Describe("ModelLoadStatusEndpoint", func() {
 
 		It("reports the live progress of a running load", func() {
 			ctx := context.Background()
-			job, claimed, err := registry.ClaimLoadJob(ctx, "big-model", "replica-a")
+			job, claimed, err := registry.ClaimLoadJobOn(ctx, "big-model", "", "replica-a")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(claimed).To(BeTrue())
 			Expect(registry.UpdateLoadJob(ctx, job.Ref(), nodes.LoadJobUpdate{

@@ -23,6 +23,13 @@ func advisorylockWith(ctx context.Context, db *gorm.DB, key int64, fn func()) er
 	})
 }
 
+// ClaimLoadJob is ClaimLoadJobOn for the job of the empty node: the row an
+// older binary wrote before it chose the node. Most job specs do not care
+// about the node, and claim this one.
+func (r *NodeRegistry) ClaimLoadJob(ctx context.Context, trackingKey, owner string) (*ModelLoadJob, bool, error) {
+	return r.ClaimLoadJobOn(ctx, trackingKey, "", owner)
+}
+
 var _ = Describe("ModelLoadJob", func() {
 	var (
 		db       *gorm.DB

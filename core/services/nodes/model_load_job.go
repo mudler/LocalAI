@@ -330,12 +330,6 @@ type claimRow struct {
 	StopPassed   bool
 }
 
-// ClaimLoadJob is ClaimLoadJobOn for a load whose node is not known: the job of
-// the empty node.
-func (r *NodeRegistry) ClaimLoadJob(ctx context.Context, trackingKey, owner string) (*ModelLoadJob, bool, error) {
-	return r.ClaimLoadJobOn(ctx, trackingKey, "", owner)
-}
-
 // ClaimLoadJobOn decides, under the advisory lock of (trackingKey, nodeID),
 // whether this replica owns the cold load of trackingKey on nodeID. The caller
 // chose the node first. It returns claimed=true with a fresh `pending` job when

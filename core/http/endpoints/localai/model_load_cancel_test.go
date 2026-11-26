@@ -182,7 +182,7 @@ var _ = Describe("ModelLoadCancelEndpoint", func() {
 	})
 
 	It("cancels a staging load that has no node yet, without sending a stop", func() {
-		job, _, err := registry.ClaimLoadJob(ctx, "staging", "frontend-a")
+		job, _, err := registry.ClaimLoadJobOn(ctx, "staging", "", "frontend-a")
 		Expect(err).ToNot(HaveOccurred())
 
 		rec := post(serve(known), "staging", cancelBody(job.Generation))
@@ -282,7 +282,7 @@ var _ = Describe("ModelLoadStatusEndpoint activity", func() {
 			return rec.Code, status
 		}
 
-		job, _, err := registry.ClaimLoadJob(ctx, "m", "frontend-a")
+		job, _, err := registry.ClaimLoadJobOn(ctx, "m", "", "frontend-a")
 		Expect(err).ToNot(HaveOccurred())
 		code, status := get("m")
 		Expect(code).To(Equal(http.StatusOK))
