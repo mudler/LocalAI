@@ -139,6 +139,9 @@ func (u userTransport) waitForLoad(ctx context.Context, resp *http.Response) err
 	budget, sleep := u.t.loadSettings()
 	waited := time.Duration(u.waited.Load())
 	if waited >= budget {
+		if l.Code != codeModelLoading {
+			return notAvailable(l, budget)
+		}
 		return stillLoading(l.Model, budget)
 	}
 	d := min(l.RetryAfter, budget-waited)
@@ -181,6 +184,14 @@ func (u userTransport) answer(req *http.Request, resp *http.Response, err error)
 		}
 		_ = resp.Body.Close()
 		return nil, cogito.Permanent(errors.New("the model could not be loaded " + mark + ": " + reason))
+	}
+	if resp.StatusCode == http.StatusServiceUnavailable {
+		if cause, failed := peekBody(resp).heldFailure(); failed {
+			// The last load of the model failed and its node is held for a
+			// short window. Waiting or retrying meets the same answer.
+			_ = resp.Body.Close()
+			return nil, cogito.Permanent(errors.New("the model could not be loaded " + session.MarkLoadFailed + ": " + cause))
+		}
 	}
 	if resp.Header.Get(model.UpstreamStatusHeader) != "" {
 		// The status is the upstream's own, so it says nothing about what the

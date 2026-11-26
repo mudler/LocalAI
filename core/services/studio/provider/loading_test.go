@@ -220,6 +220,63 @@ var _ = Describe("a model that is still loading", func() {
 		Expect(fs.waits).To(BeEmpty())
 	})
 
+	// A load that failed holds its node for a short window, and the route
+	// answers 503 model_loading with the failed state and a Retry-After for
+	// that window. Waiting does not fix it: the turn ends at once, with the
+	// cause of the failure.
+	It("ends the turn at once for a load that failed", func() {
+		var calls atomic.Int32
+		tr := provider.NewTransport()
+		tr.SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			calls.Add(1)
+			w.Header().Set("Retry-After", "30")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = io.WriteString(w, `{"error":{"message":"loading model m: out of memory on the GPU","code":"model_loading","type":"model_loading"},`+
+				`"loading":{"model":"m","state":"failed","node":"n1","progress":0,"last_error":"out of memory on the GPU","retry_after":30}}`)
+		}))
+		fs := &fakeSleep{}
+		provider.SetSleep(tr, fs.sleep)
+
+		_, err := post(tr.Client(nil), `{}`)
+
+		Expect(err).To(HaveOccurred())
+		Expect(cogito.IsPermanent(err)).To(BeTrue(), "want a permanent error, got %v", err)
+		Expect(err.Error()).To(ContainSubstring("out of memory on the GPU"))
+		Expect(err.Error()).NotTo(ContainSubstring("still loading"))
+		Expect(calls.Load()).To(Equal(int32(1)))
+		Expect(fs.waits).To(BeEmpty())
+		Expect(session.Classify(err).Code).To(Equal(session.CodeLoadFailed))
+	})
+
+	// No node for the model (no room, an upgrade in progress) is a 503 with a
+	// Retry-After too. The turn may wait for it, but when the wait runs out
+	// the error says what the server said, not that the model is loading.
+	It("names the real cause when a 503 that is not a load outlasts the budget", func() {
+		var calls atomic.Int32
+		tr := provider.NewTransport()
+		tr.SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			calls.Add(1)
+			w.Header().Set("Retry-After", "10")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = io.WriteString(w, `{"error":{"code":503,"message":"no node has enough free memory for model m (needs about 40 GB): no available nodes","type":""}}`)
+		}))
+		tr.SetLoadWait(time.Minute)
+		fs := &fakeSleep{}
+		provider.SetSleep(tr, fs.sleep)
+
+		_, err := post(tr.Client(nil), `{}`)
+
+		Expect(err).To(HaveOccurred())
+		Expect(cogito.IsPermanent(err)).To(BeTrue(), "want a permanent error, got %v", err)
+		Expect(err.Error()).To(ContainSubstring("no node has enough free memory for model m"))
+		Expect(err.Error()).NotTo(ContainSubstring("still loading"))
+		Expect(err.Error()).NotTo(ContainSubstring(session.MarkStillLoading))
+		Expect(fs.total()).To(Equal(time.Minute))
+		Expect(session.Classify(err).Code).NotTo(Equal(session.CodeModelLoading))
+	})
+
 	DescribeTable("reads Retry-After",
 		func(v string, want time.Duration) {
 			now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
