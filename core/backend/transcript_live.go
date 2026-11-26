@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/trace"
@@ -70,14 +71,24 @@ type LiveTranscriptionSession interface {
 
 // liveCloseDrainTimeout bounds how long Close waits for the backend to flush
 // the decode tail before force-cancelling the stream. Finalize is one short
-// engine call; seconds here means the backend is wedged.
-const liveCloseDrainTimeout = 10 * time.Second
+// engine call, but a decode that fell behind real time must first work
+// through its backlog of fed audio, so on a busy host this can be reached.
+// A variable so tests can shorten it.
+var liveCloseDrainTimeout = 10 * time.Second
+
+// ErrLiveTranscriptIncomplete is returned by Close when the stream ended
+// without the backend's terminal Final event: the decode did not finish
+// within liveCloseDrainTimeout and was cancelled, or the stream ended early.
+// The deltas delivered before that cover only part of the fed audio, so a
+// caller must not use them as the whole transcript.
+var ErrLiveTranscriptIncomplete = errors.New("live transcription: stream ended before the final transcript")
 
 type liveTranscriptionSession struct {
 	stream    grpcPkg.AudioTranscriptionLiveClient
 	cancel    context.CancelFunc
 	recvDone  chan struct{}
 	recvErr   error // written by the recv goroutine before recvDone closes
+	gotFinal  bool  // written by the recv goroutine before recvDone closes
 	closeOnce sync.Once
 	closeErr  error
 	trace     *liveTraceState // nil when tracing was disabled at open
@@ -94,16 +105,34 @@ func (s *liveTranscriptionSession) Feed(pcm []float32) error {
 func (s *liveTranscriptionSession) Close() error {
 	s.closeOnce.Do(func() {
 		err := s.stream.CloseSend()
+		timedOut := false
 		select {
 		case <-s.recvDone:
 		case <-time.After(liveCloseDrainTimeout):
-			xlog.Warn("live transcription: backend did not finalize in time; cancelling stream")
+			xlog.Warn("live transcription: backend did not finalize in time; cancelling stream",
+				"timeout", liveCloseDrainTimeout)
+			timedOut = true
 			s.cancel()
 			<-s.recvDone
 		}
 		s.cancel()
 		if err == nil {
 			err = s.recvErr
+		}
+		// Without the Final event the stream stopped before the backend
+		// decoded all of the fed audio. The cancel above hides that from
+		// recvErr (a cancelled stream is not "unexpected"), so report it
+		// here: otherwise the caller takes a truncated transcript, or an
+		// empty one, for the whole turn.
+		if !s.gotFinal {
+			switch {
+			case timedOut:
+				err = fmt.Errorf("%w: backend did not finalize within %s", ErrLiveTranscriptIncomplete, liveCloseDrainTimeout)
+			case err != nil:
+				err = fmt.Errorf("%w: %w", ErrLiveTranscriptIncomplete, err)
+			default:
+				err = ErrLiveTranscriptIncomplete
+			}
 		}
 		s.closeErr = err
 		s.trace.record(err)
@@ -139,8 +168,8 @@ type liveTraceState struct {
 	finalText   string
 }
 
-func newLiveTraceState(modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, language string) *liveTraceState {
-	if !appConfig.EnableTracing {
+func newLiveTraceState(ctx context.Context, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, language string) *liveTraceState {
+	if !appConfig.EnableTracing || !privacy.Allows(ctx, privacy.StoreTrace) {
 		return nil
 	}
 	trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
@@ -314,31 +343,39 @@ func ModelTranscriptionLive(ctx context.Context, language string,
 		stream:   stream,
 		cancel:   cancel,
 		recvDone: make(chan struct{}),
-		trace:    newLiveTraceState(modelConfig, appConfig, language),
+		trace:    newLiveTraceState(ctx, modelConfig, appConfig, language),
 		release:  release,
 	}
 
-	go func() {
-		defer close(s.recvDone)
-		for {
-			resp, err := stream.Recv()
-			if err != nil {
-				if !errors.Is(err, io.EOF) && streamCtx.Err() == nil {
-					xlog.Warn("live transcription stream ended unexpectedly", "error", err)
-					s.recvErr = err
-				}
-				return
-			}
-			ev := liveEventFromProto(resp)
-			if ev.Delta == "" && !ev.Eou && !ev.Eob && len(ev.Words) == 0 && ev.Final == nil {
-				continue // duplicate ready ack / keep-alive: nothing to deliver
-			}
-			s.trace.observe(ev)
-			onEvent(ev)
-		}
-	}()
+	go s.recvLoop(streamCtx, onEvent)
 
 	return s, nil
+}
+
+// recvLoop delivers the backend's responses to onEvent, in order, until the
+// stream ends, then closes recvDone. It records whether the terminal Final
+// event arrived, which Close needs to tell a finished decode from a cut one.
+func (s *liveTranscriptionSession) recvLoop(streamCtx context.Context, onEvent func(LiveTranscriptionEvent)) {
+	defer close(s.recvDone)
+	for {
+		resp, err := s.stream.Recv()
+		if err != nil {
+			if !errors.Is(err, io.EOF) && streamCtx.Err() == nil {
+				xlog.Warn("live transcription stream ended unexpectedly", "error", err)
+				s.recvErr = err
+			}
+			return
+		}
+		ev := liveEventFromProto(resp)
+		if ev.Delta == "" && !ev.Eou && !ev.Eob && len(ev.Words) == 0 && ev.Final == nil {
+			continue // duplicate ready ack / keep-alive: nothing to deliver
+		}
+		if ev.Final != nil {
+			s.gotFinal = true
+		}
+		s.trace.observe(ev)
+		onEvent(ev)
+	}
 }
 
 func liveEventFromProto(r *proto.TranscriptLiveResponse) LiveTranscriptionEvent {

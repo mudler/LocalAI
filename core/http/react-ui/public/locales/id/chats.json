@@ -1807,5 +1807,21 @@
         "undone": "Perubahan pengingat untuk {{title}} dibatalkan."
       }
     }
+  },
+  "incognito": {
+    "label": "Penyamaran",
+    "levelLabel": "Tingkat penyamaran",
+    "levels": {
+      "memory-off": "Tanpa memori",
+      "zero-retention": "Tanpa penyimpanan"
+    },
+    "describe": {
+      "memory-off": "Chat ini tidak membaca atau menyimpan memori. Chat tidak muncul di daftar dan berakhir saat Anda meninggalkannya. Log dan jejak tetap disimpan seperti biasa.",
+      "zero-retention": "Server tidak menyimpan apa pun dari chat ini, hanya hitungan penggunaan. Chat tidak membaca atau menyimpan memori, tidak menerima lampiran, dan berakhir saat Anda meninggalkannya."
+    },
+    "blocked": "Tidak tersedia di chat penyamaran",
+    "discardTitle": "Akhiri chat penyamaran?",
+    "discardMessage": "Chat dihapus dan tidak dapat dibuka lagi.",
+    "discardConfirm": "Akhiri chat"
   }
 }

@@ -1,7 +1,7 @@
 // Pure rules of the server screens: the live message under the address field,
 // the suggested name, the text of a test result and the rows of the switcher.
 // No React, no bridge. Tested in test/serversUi.test.ts.
-import type { ServerRowView, TestResultView } from '../shared/types'
+import type { ServerRowView, TestResultView, TunnelStatusView } from '../shared/types'
 import { S } from './strings'
 
 export type HintKind = 'fix' | 'note' | 'error' | 'warn' | 'ok'
@@ -146,4 +146,17 @@ export function switcherLine(row: ServerRowView, lastCheck?: (ts: number) => str
     default:
       return S.switcher.remoteConnected(row.host)
   }
+}
+
+/** The forwarder error of a P2P server whose local address another app holds. */
+const PORT_IN_USE = /address already in use|EADDRINUSE/i
+
+/**
+ * The state of a P2P server's forwarder as one line of text, with its error:
+ * a phone cannot show a tooltip. "Address already in use" is said plainly.
+ */
+export function tunnelLine(t: TunnelStatusView): string {
+  const state = S.invite.tunnel[t.state] ?? t.state
+  if (!t.error) return state
+  return `${state}: ${PORT_IN_USE.test(t.error) ? S.invite.portInUse : t.error}`
 }

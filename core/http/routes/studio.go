@@ -44,6 +44,14 @@ func NewStudioOAuth(app *application.Application) studioendpoint.HandlerOption {
 	}})
 }
 
+// NewStudioIncognito gives the chat list the server's incognito setting.
+func NewStudioIncognito(app *application.Application) studioendpoint.HandlerOption {
+	return studioendpoint.WithIncognito(func() schema.ChatsIncognito {
+		cfg := app.ApplicationConfig()
+		return schema.ChatsIncognito{Policy: string(cfg.IncognitoPolicy()), MaxLevel: cfg.IncognitoMaxLevel().String()}
+	})
+}
+
 // NewStudioUserLookup lets the project routes check that the user an
 // administrator names (?user_id=) is a user of this instance. Without an auth
 // database no user is known.

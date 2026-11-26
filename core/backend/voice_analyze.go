@@ -39,7 +39,7 @@ func VoiceAnalyze(
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
-		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceVoiceAnalyze, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: "voice analysis"})
+		traceID = trace.BeginBackendTraceFor(ctx, trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceVoiceAnalyze, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: "voice analysis"})
 	}
 	defer trace.CancelBackendTrace(traceID)
 
@@ -54,7 +54,7 @@ func VoiceAnalyze(
 		if err != nil {
 			errStr = err.Error()
 		}
-		trace.RecordBackendTrace(trace.BackendTrace{
+		trace.RecordBackendTraceFor(ctx, trace.BackendTrace{
 			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),

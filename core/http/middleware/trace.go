@@ -20,6 +20,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/trace/tracepersist"
 	"github.com/mudler/xlog"
@@ -243,6 +244,10 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if !app.ApplicationConfig().EnableTracing {
+				return next(c)
+			}
+			// A zero-retention request leaves no trace: it would hold the bodies.
+			if !privacy.Allows(c.Request().Context(), privacy.StoreTrace) {
 				return next(c)
 			}
 

@@ -251,6 +251,7 @@ CUDNN9_SUBLIBS=(
     libcudnn_cnn
     libcudnn_engines_precompiled
     libcudnn_engines_runtime_compiled
+    libcudnn_engines_tensor_ir
     libcudnn_graph
     libcudnn_heuristic
     libcudnn_ops

@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { dataPath, defaultConfig, defaultConfigPath, loadConfig, migrate, saveConfig, serializeConfig } from '../src/main/config'
+import { remotes } from '../src/core/serversConfig'
 import { tmpDir } from './helpers'
 
 const SECRET = 'S3CR3T-VALUE-9d41'
@@ -283,6 +284,34 @@ describe('log output', () => {
     expect(all).not.toContain('/data/ai')
     expect(all).toContain('environment_vars')
     expect(all).toContain('extra_secret_key')
+  })
+})
+
+describe('servers over P2P with a loopback host of their own', () => {
+  const PEER = '12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGm'
+  const PEER2 = '12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGn'
+  const target = (peer: string, extra: Record<string, unknown> = {}) => ({ peer, port: 41001, addrs: [], relays: [], ...extra })
+
+  it('are dropped on read, because the desktop forwarder listens on 127.0.0.1 only', async () => {
+    const { home, file } = setup()
+    const lines: string[] = []
+    const kept = { id: 'srv_00000001', name: 'Home', url: 'http://127.0.0.1:41001', p2p: target(PEER) }
+    const explicit = { id: 'srv_00000003', name: 'Lab', url: 'http://127.0.0.1:41002', p2p: { ...target(PEER2, { host: '127.0.0.1' }), port: 41002 } }
+    const other = { id: 'srv_00000002', name: 'Studio', url: 'http://127.0.0.2:41001', p2p: target(PEER2, { host: '127.0.0.2' }) }
+    const plain = { id: 'srv_00000004', name: 'GPU', url: 'https://gpu.example.com' }
+    fs.writeFileSync(file, goFile({ remotes: [kept, other, explicit, plain] }))
+    const { config } = await loadConfig({ home, log: (m) => lines.push(m) })
+    expect(remotes(config).map((r) => r.id)).toEqual(['srv_00000001', 'srv_00000003', 'srv_00000004'])
+    expect(lines.join('\n')).toContain('ignored 1 P2P server(s)')
+    expect(lines.join('\n')).not.toContain('127.0.0.2')
+  })
+
+  it('leave a config without such a host unchanged', async () => {
+    const { home, file } = setup()
+    const list = [{ id: 'srv_00000001', name: 'Home', url: 'http://127.0.0.1:41001', p2p: target(PEER) }]
+    fs.writeFileSync(file, goFile({ remotes: list }))
+    const { config } = await loadConfig({ home })
+    expect(config.extra.remotes).toEqual(list)
   })
 })
 

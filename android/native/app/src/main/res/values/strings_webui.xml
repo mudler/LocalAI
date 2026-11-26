@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Strings of the WebUI view. -->
+<resources>
+    <string name="webui_permission_title">Allow access?</string>
+    <string name="webui_permission_microphone">%1$s wants to use your microphone.</string>
+    <string name="webui_permission_camera">%1$s wants to use your camera.</string>
+    <string name="webui_permission_microphone_camera">%1$s wants to use your microphone and camera.</string>
+    <string name="webui_permission_remember">Remember for this server</string>
+    <string name="webui_permission_allow">Allow</string>
+    <string name="webui_permission_deny">Deny</string>
+    <string name="webui_download_started">Downloading %1$s</string>
+    <string name="webui_download_failed">The download could not start.</string>
+    <string name="webui_download_unsupported">This file cannot be saved from the app. Open the WebUI in the browser to save it.</string>
+</resources>

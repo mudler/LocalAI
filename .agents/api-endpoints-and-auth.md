@@ -427,3 +427,25 @@ Two outcomes are acceptable; one is not:
 
 **Add to the bottom of the checklist below**:
 - [ ] If admin: decided whether MCP coverage is needed; if yes, tool registered + map updated; if no, skip-reason in PR description.
+
+## Persistence and incognito
+
+The web UI can start incognito chats (`docs/content/features/chats-and-agents/incognito.md`). The level of a request is in its context (`core/privacy`): `privacy.Normal`, `privacy.MemoryOff` or `privacy.ZeroRetention`. The middleware `httpMiddleware.Incognito` sets it from the `X-LocalAI-Incognito` header, only for a web session (`auth.IsWebSession`) and only when the setting `incognito` is `allow`; an API key never gets it. The chats keep the level of an incognito chat and put it on every in-process model request and tool call of its turns.
+
+Every place that keeps something must ask the level before it writes:
+
+| Class | Check | Allowed for |
+|---|---|---|
+| Long-term memory (notes, knowledge) | `privacy.Allows(ctx, privacy.StoreMemory)` | normal only |
+| A transcript or a record derived from it | `privacy.StoreConversation` | normal, memory-off |
+| A trace or an activity record with bodies | `privacy.StoreTrace` | normal, memory-off |
+| Any other copy of content (files, media, caches, prompt text, log lines) | `privacy.StoreContent` | normal, memory-off |
+| Usage counters | `privacy.StoreCounters` | always |
+
+- Pass the request context down; never copy the level into a global. A goroutine or a model call that starts on a context of its own must carry the level over (`privacy.WithLevel(newCtx, privacy.FromContext(reqCtx))`).
+- A log line that prints a prompt, a message, tool arguments or an answer uses `privacy.Redact(ctx, text)`.
+- A handler that writes a file only to send it uses `privacy.Discard(ctx, paths...)` after the answer is sent.
+- A backend that keeps a prompt cache on disk must honour `PredictOptions.NoPromptCache` or refuse the request.
+- A new chat tool is not offered to a zero-retention chat until it is added to `zeroRetentionTools` in `core/services/studio/incognito.go`, which needs a check of what the tool keeps.
+
+`tests/e2e/incognito_test.go` sends a sentinel through a zero-retention chat and scans the data path, the generated content, the models, the traces and the log. Run it after adding a store: it fails when the store keeps the sentinel.

@@ -18,6 +18,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/schema"
 
 	"github.com/mudler/LocalAI/core/backend"
@@ -150,7 +151,9 @@ func ImageEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			return fmt.Errorf("invalid value for 'size'")
 		}
 
-		b64JSON := config.ResponseFormat == "b64_json"
+		// A URL answer keeps the image in the generated-content directory; an
+		// incognito request that may not keep content gets it inline.
+		b64JSON := config.ResponseFormat == "b64_json" || !privacy.Allows(c.Request().Context(), privacy.StoreContent)
 
 		// src and clip_skip
 		var result []schema.Item

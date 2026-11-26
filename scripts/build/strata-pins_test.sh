@@ -26,6 +26,12 @@ fail() {
     failures=$((failures + 1))
 }
 
+# The version a family pins for a package, read from the Makefile, so a Strata
+# bump does not break the file-name checks below.
+pin_version() {
+    sed -n "s/^STRATA_$1_VERSION_$2?=//p" "$DIR/Makefile"
+}
+
 if ! make -C "$DIR" -s check-pins >/dev/null 2>&1; then
     fail "make check-pins reports a malformed pin"
 fi
@@ -65,12 +71,14 @@ for pkg in $(packages_for cublas 12 x86_64) $(packages_for cublas 13 x86_64) $(p
         grep -q "^STRATA_HY4_${var}_${pkg}?=" "$DIR/Makefile" || fail "no STRATA_HY4_${var}_${pkg} pin"
     done
 done
-want="strata-hy4-0.1.66-linux-x86_64-cuda-cuda12.tar.gz"
+hy4_version=$(pin_version HY4 linux_x86_64_cuda_cuda12)
+[ -n "$hy4_version" ] || fail "no STRATA_HY4_VERSION_linux_x86_64_cuda_cuda12 pin"
+want="strata-hy4-${hy4_version}-linux-x86_64-cuda-cuda12.tar.gz"
 got=$(make -C "$DIR" -s print-asset-hy4 PKG=linux_x86_64_cuda_cuda12)
 [ "$got" = "$want" ] || fail "Hy4 asset name: want '$want', got '$got'"
 grep -q '"HY4": "strata-hy4"' "$REPO_ROOT/.github/bump_strata.sh" || fail "bump_strata.sh does not read the Hy4 packages"
 # `make engine` fetches the Hy4 packages into engines-hy4/ with the program strata-hy4.
-if ! make -C "$DIR" -n engine BUILD_TYPE=cublas CUDA_MAJOR_VERSION=12 UNAME_S=Linux UNAME_M=x86_64 | grep -q "strata-hy4-0.1.66-linux-x86_64-cuda-cuda12.tar.gz.*engines-hy4 strata-hy4"; then
+if ! make -C "$DIR" -n engine BUILD_TYPE=cublas CUDA_MAJOR_VERSION=12 UNAME_S=Linux UNAME_M=x86_64 | grep -q "strata-hy4-${hy4_version}-linux-x86_64-cuda-cuda12.tar.gz.*engines-hy4 strata-hy4"; then
     fail "make engine does not fetch the Hy4 package into engines-hy4"
 fi
 
@@ -81,11 +89,13 @@ for pkg in $(packages_for cublas 12 x86_64) $(packages_for cublas 13 x86_64) $(p
         grep -q "^STRATA_INKLING_${var}_${pkg}?=" "$DIR/Makefile" || fail "no STRATA_INKLING_${var}_${pkg} pin"
     done
 done
-want="strata-inkling-0.1.66-linux-x86_64-cuda-cuda12.tar.gz"
+inkling_version=$(pin_version INKLING linux_x86_64_cuda_cuda12)
+[ -n "$inkling_version" ] || fail "no STRATA_INKLING_VERSION_linux_x86_64_cuda_cuda12 pin"
+want="strata-inkling-${inkling_version}-linux-x86_64-cuda-cuda12.tar.gz"
 got=$(make -C "$DIR" -s print-asset-inkling PKG=linux_x86_64_cuda_cuda12)
 [ "$got" = "$want" ] || fail "Inkling asset name: want '$want', got '$got'"
 grep -q '"INKLING": "strata-inkling"' "$REPO_ROOT/.github/bump_strata.sh" || fail "bump_strata.sh does not read the Inkling packages"
-if ! make -C "$DIR" -n engine BUILD_TYPE=cublas CUDA_MAJOR_VERSION=12 UNAME_S=Linux UNAME_M=x86_64 | grep -q "strata-inkling-0.1.66-linux-x86_64-cuda-cuda12.tar.gz.*engines-inkling strata-inkling"; then
+if ! make -C "$DIR" -n engine BUILD_TYPE=cublas CUDA_MAJOR_VERSION=12 UNAME_S=Linux UNAME_M=x86_64 | grep -q "strata-inkling-${inkling_version}-linux-x86_64-cuda-cuda12.tar.gz.*engines-inkling strata-inkling"; then
     fail "make engine does not fetch the Inkling package into engines-inkling"
 fi
 # The Python sources of the Inkling family are fetched with the others.

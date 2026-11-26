@@ -16,6 +16,7 @@ export function Popover({
   role,
   children,
   onKeyDown,
+  sheet = false,
 }: {
   open: boolean
   onClose: () => void
@@ -27,6 +28,8 @@ export function Popover({
   role?: string
   children: ReactNode
   onKeyDown?: (e: React.KeyboardEvent<HTMLDivElement>) => void
+  /** On a narrow screen: the app's phone layout draws it as a bottom sheet. */
+  sheet?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -43,7 +46,7 @@ export function Popover({
   return (
     <div
       ref={ref}
-      className={`dk-${kind} dk-${kind}--up lnr-pop ${className}`.trim()}
+      className={`dk-${kind} dk-${kind}--up lnr-pop${sheet ? ' lnr-popover--sheet' : ''} ${className}`.trim()}
       role={role}
       aria-label={label}
       aria-labelledby={labelledBy}

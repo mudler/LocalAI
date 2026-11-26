@@ -466,6 +466,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// the role of the exempt-path logic inside the middleware.
 	e.Use(authMiddleware)
 
+	// The incognito level of a web UI request: after auth, which it reads, and
+	// before every route middleware that keeps something (traces, usage).
+	e.Use(httpMiddleware.Incognito(application.ApplicationConfig(), application.AuthDB() != nil))
+
 	// Feature and model access control (after auth middleware, before routes)
 	if application.AuthDB() != nil {
 		e.Use(auth.RequireRouteFeature(application.AuthDB()))
@@ -742,13 +746,13 @@ func API(application *application.Application) (*echo.Echo, error) {
 				// be cached: a stale copy pins the browser to the previous
 				// deploy's assets.
 				c.Response().Header().Set("Cache-Control", "no-cache")
-				// Inject <base href> for reverse-proxy support; baseURL comes
-				// from attacker-controllable Host / X-Forwarded-Host headers.
-				baseURL := httpMiddleware.BaseURL(c)
-				if baseURL != "" {
-					baseTag := `<base href="` + httpMiddleware.SecureBaseHref(baseURL) + `" />`
-					indexHTML = []byte(strings.Replace(string(indexHTML), "<head>", "<head>\n  "+baseTag, 1))
-				}
+				// Inject a path-only <base href> for reverse-proxy support (see
+				// BaseHrefPath for why it carries no scheme or host). The path
+				// can come from X-Forwarded-Prefix, so escape it.
+				basePath := httpMiddleware.BaseHrefPath(c)
+				safeBase := httpMiddleware.SecureBaseHref(basePath)
+				baseTag := `<base href="` + safeBase + `" />`
+				indexHTML = []byte(strings.Replace(string(indexHTML), "<head>", "<head>\n  "+baseTag, 1))
 				// <base href> only changes how relative URLs resolve; path-absolute
 				// URLs (those starting with `/`) still resolve against the origin
 				// and would bypass the reverse-proxy prefix. Rewrite the internal
@@ -761,12 +765,11 @@ func API(application *application.Application) (*echo.Echo, error) {
 				// shapes (// prefix, backslashes, control chars), not attribute
 				// breakout characters like `"`. Escaping makes this resilient
 				// even if the validator ever loosens.
-				if prefix := httpMiddleware.BasePathPrefix(c); prefix != "/" {
-					safePrefix := httpMiddleware.SecureBaseHref(prefix)
+				if basePath != "/" {
 					html := string(indexHTML)
-					html = strings.ReplaceAll(html, `="/assets/`, `="`+safePrefix+`assets/`)
-					html = strings.ReplaceAll(html, `="/favicon.svg"`, `="`+safePrefix+`favicon.svg"`)
-					html = strings.ReplaceAll(html, `="/apple-touch-icon.png"`, `="`+safePrefix+`apple-touch-icon.png"`)
+					html = strings.ReplaceAll(html, `="/assets/`, `="`+safeBase+`assets/`)
+					html = strings.ReplaceAll(html, `="/favicon.svg"`, `="`+safeBase+`favicon.svg"`)
+					html = strings.ReplaceAll(html, `="/apple-touch-icon.png"`, `="`+safeBase+`apple-touch-icon.png"`)
 					indexHTML = []byte(html)
 				}
 				return c.HTMLBlob(http.StatusOK, indexHTML)
@@ -873,7 +876,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		xlog.Info("LocalAI API server shutting down")
 	})
 
-	routes.RegisterStudioRoutes(e, application.StudioService(), routes.NewStudioModelChecker(application), adminMiddleware, routes.NewStudioOAuth(application), routes.NewStudioUserLookup(application))
+	routes.RegisterStudioRoutes(e, application.StudioService(), routes.NewStudioModelChecker(application), adminMiddleware, routes.NewStudioOAuth(application), routes.NewStudioUserLookup(application), routes.NewStudioIncognito(application))
 	// The notification center works with the chats on or off.
 	routes.RegisterNotificationRoutes(e, application.Notifier(), application.NotifyPusher(), application.StudioService() != nil)
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { InstallStateView, SandboxNoticeView, SandboxView, ServerSnapshot, ServerState } from '../src/shared/types'
-import { DEFAULT_SETTINGS, webuiView } from '../src/renderer/dev/fakeBridge'
+import { DEFAULT_SETTINGS, localRow, remoteRow, serversView, webuiView } from '../src/renderer/dev/fakeBridge'
 import {
   addressOf,
   barActions,
@@ -9,6 +9,7 @@ import {
   baseScreen,
   chipView,
   downloadNote,
+  devChipShown,
   dotTone,
   draftOf,
   draftPatch,
@@ -17,6 +18,7 @@ import {
   guideView,
   INITIAL_TRACK,
   installBusy,
+  keepLocalNote,
   progressView,
   sandboxOff,
   sandboxRow,
@@ -355,5 +357,94 @@ describe('settings drafts', () => {
     expect(maskedKey({ prefix: 'lai-', last4: '3f9a' })).toBe('lai-••••3f9a')
     expect(maskedKey({ prefix: '', last4: '' })).toBe('••••')
     expect(maskedKey(undefined)).toBe('••••')
+  })
+})
+
+describe('client-only (no local server)', () => {
+  const CLIENT = { localServer: false, p2p: true, selfUpdate: 'apk', qrScan: true } as const
+  const GPU = remoteRow('srv_00000001', 'GPU box', 'https://gpu-box.example.test', { isDefault: true, isCurrent: true })
+  const client = (extra: Partial<ShellInput> = {}): ShellInput => ({ capabilities: CLIENT, ...extra })
+  const shellOnly = webuiView({ layout: 'shell-only', home: 'shell-only', loaded: false })
+
+  it('asks for a first server when none is saved', () => {
+    expect(baseScreen(client())).toBe('first-connect')
+    expect(baseScreen(client({ servers: serversView({ rows: [], defaultId: 'local' }), webui: shellOnly }))).toBe('first-connect')
+  })
+
+  it('shows the page of a remote default, or its recovery screen', () => {
+    const servers = serversView({ rows: [GPU], defaultId: GPU.id })
+    expect(baseScreen(client({ servers, webui: remote }))).toBe('web')
+    const down = webuiView({ ...remote, remote: { kind: 'unreachable', reason: 'timed out', at: 1, nextAt: 2 } })
+    expect(baseScreen(client({ servers, webui: down }))).toBe('remote-unreachable')
+  })
+
+  it('shows the page while a saved default opens', () => {
+    expect(baseScreen(client({ servers: serversView({ rows: [GPU], defaultId: GPU.id }), webui: shellOnly }))).toBe('web')
+  })
+
+  it('stays on first-connect under the switching card', () => {
+    const switching = { targetId: GPU.id, name: GPU.name, host: GPU.host, step: 'reaching' as const, startedAt: 1 }
+    expect(baseScreen(client({ servers: serversView({ rows: [GPU], defaultId: 'local', switching }), webui: shellOnly }))).toBe('first-connect')
+  })
+
+  it('shows first-connect when the default names no saved server', () => {
+    // What the core sends: a missing default falls back to "local", and there is no local row.
+    expect(baseScreen(client({ servers: serversView({ rows: [], defaultId: 'local' }), webui: shellOnly }))).toBe('first-connect')
+    // Defensive: a default id that names no row.
+    const other = { ...GPU, isDefault: false, isCurrent: false }
+    expect(baseScreen(client({ servers: serversView({ rows: [other], defaultId: 'srv_gone0000' }), webui: shellOnly }))).toBe('first-connect')
+  })
+
+  it('ignores the local server, install and worker state', () => {
+    const i = client({
+      server: srv('not-installed'),
+      install: { kind: 'downloading', done: 1, total: 2 },
+      worker: { mode: 'worker', running: true, status: 'connected', config: { serverUrl: 'http://192.0.2.1:8080', natsUrl: '', advertiseAddress: '', nodeName: '' }, tokenStored: false },
+    })
+    expect(baseScreen(i)).toBe('first-connect')
+    expect(chipView(i)).toEqual({ kind: 'remote', tone: 'idle', label: 'No server', busy: false })
+    expect(updateOffer({ ...i, install: { kind: 'update-available', version: '9.9.9' }, server: srv('ready') })).toBeNull()
+    expect(barNeeds({ ...i, server: srv('failed') })).toEqual([])
+    expect(dotTone({ ...i, server: srv('failed') })).toBe('idle')
+  })
+
+  it('says "No server" in the chip until a server is shown', () => {
+    expect(chipView(client())).toEqual({ kind: 'remote', tone: 'idle', label: 'No server', busy: false })
+    expect(chipView(client({ servers: serversView({ rows: [GPU], defaultId: GPU.id }), webui: remote })).label).toBe('Remote')
+  })
+
+  it('has no local bar buttons', () => {
+    expect(barActions(client())).toEqual({ stopRestart: false, backToComputer: false, logs: false })
+    expect(barActions(client({ server: srv('ready'), webui: web }))).toEqual({ stopRestart: false, backToComputer: false, logs: false })
+  })
+
+  it('offers only the launcher update', () => {
+    expect(updateOffer(client({ updater: { phase: 'downloaded', version: '2.0.0' } }))).toEqual({ kind: 'launcher', version: '2.0.0' })
+  })
+
+  it('an APK app offers an available update too (the sheet downloads it on Update now)', () => {
+    expect(updateOffer(client({ updater: { phase: 'available', version: '2.0.0' } }))).toEqual({ kind: 'launcher', version: '2.0.0' })
+    expect(updateOffer(client({ capabilities: { ...CLIENT, selfUpdate: 'none' }, updater: { phase: 'available', version: '2.0.0' } }))).toBeNull()
+    for (const phase of ['checking', 'downloading', 'error', 'not-available', 'idle'] as const) {
+      expect(updateOffer(client({ updater: { phase, version: '2.0.0' } }))).toBeNull()
+    }
+  })
+
+  it('shows no local notes', () => {
+    const servers = serversView({ rows: [GPU, localRow({ isDefault: false, isCurrent: false })], defaultId: GPU.id, keepLocal: true })
+    const i = client({ servers, webui: remote, updateInfo: { autoCheck: true, channel: 'dev', devConfirmed: true } })
+    expect(keepLocalNote(i)).toBe(false)
+  })
+
+  it('shows the Development chip for the development app, whatever server is on show', () => {
+    expect(devChipShown(client({ updateInfo: { autoCheck: true, channel: 'dev', devConfirmed: true } }))).toBe(true)
+    expect(devChipShown(client({ webui: remote, updateInfo: { autoCheck: true, channel: 'dev', devConfirmed: true } }))).toBe(true)
+    expect(devChipShown(client({ updateInfo: { autoCheck: true, channel: 'stable', devConfirmed: false } }))).toBe(false)
+    expect(devChipShown(client({}))).toBe(false)
+  })
+
+  it('treats a missing capabilities value as the desktop set', () => {
+    expect(baseScreen({ server: srv('ready'), webui: web })).toBe('web')
+    expect(chipView({ server: srv('stopped') }).label).toBe('Stopped')
   })
 })

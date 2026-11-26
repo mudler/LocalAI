@@ -7,11 +7,13 @@ import { useBridge } from '../bridge'
 import { Dialog } from '../Dialog'
 import { Popover } from '../Popover'
 import { ServerForm } from '../ServerForm'
-import { statusTone } from '../serversUi'
+import { statusTone, tunnelLine } from '../serversUi'
 import { S } from '../strings'
 import { Card } from '../parts'
 
-type Sheet = { kind: 'add' } | { kind: 'edit'; id: string } | null
+/** What Settings > Servers opens at once: the add sheet, the edit sheet, or the invite sheet with a link from outside. */
+export type ServersOpen = { kind: 'add' } | { kind: 'edit'; id: string } | { kind: 'invite'; link: string }
+type Sheet = ServersOpen | null
 const DOT: Record<string, string> = { ok: 'dk-dot--ok', warn: 'dk-dot--warn', error: 'dk-dot--error', idle: '', accent: '' }
 
 export function ServerDot({ row }: { row: ServerRowView }) {
@@ -86,7 +88,27 @@ function RowMenu({ row, onEdit, onTest, onDefault, onRemove }: { row: ServerRowV
   )
 }
 
-export function ServersTab({ view, onSwitch, open }: { view: ServersView; onSwitch: (id: string) => void; open?: { kind: 'add' } | { kind: 'edit'; id: string } }) {
+/** `localServer` false: the app runs no LocalAI here, so there is nothing to keep running and no fallback to This computer. */
+export function ServersTab({
+  view,
+  onSwitch,
+  open,
+  localServer = true,
+  p2p = true,
+  onScan,
+  now,
+}: {
+  view: ServersView
+  onSwitch: (id: string) => void
+  open?: ServersOpen
+  localServer?: boolean
+  /** The app can pair over P2P (the invite link in the add sheet). */
+  p2p?: boolean
+  /** Scans an invite QR code. */
+  onScan?: () => Promise<string | undefined>
+  /** A fixed clock for the invite countdown (tests). */
+  now?: number
+}) {
   const b = useBridge()
   const ids = useId()
   const [sheet, setSheet] = useState<Sheet>(open ?? null)
@@ -127,6 +149,10 @@ export function ServersTab({ view, onSwitch, open }: { view: ServersView; onSwit
         <div className="lnr-srow__host dk-mono dk-small">
           {r.kind === 'local' ? `${r.host}${r.version ? ` · LocalAI ${r.version}` : ''}` : r.insecure ? `${r.origin}` : r.host}
         </div>
+        {/* A phone has no hover: the error is text under the host, not only the badge's tooltip. */}
+        {!localServer && r.p2p?.error && (
+          <div className="lnr-srow__host dk-small" data-testid={`server-p2p-detail-${r.id}`}>{tunnelLine(r.p2p)}</div>
+        )}
       </div>
       <span className="lnr-srow__status dk-small dk-muted">{S.servers.status[r.status]}</span>
       {!r.isDefault && <Button size="sm" onClick={() => onSwitch(r.id)} aria-label={`${S.servers.makeDefault}: ${r.name}`}>{S.servers.makeDefault}</Button>}
@@ -158,14 +184,14 @@ export function ServersTab({ view, onSwitch, open }: { view: ServersView; onSwit
         {remotes.length === 0 && (
           <div className="lnr-empty">
             <strong>{S.servers.emptyTitle}</strong>
-            <p className="dk-small dk-muted">{S.servers.emptyBody}</p>
+            <p className="dk-small dk-muted">{localServer ? S.servers.emptyBody : S.invitePreview.serversEmptyClient}</p>
             <Button onClick={() => setSheet({ kind: 'add' })}>{S.servers.addServer}</Button>
           </div>
         )}
         <div className="dk-small dk-muted lnr-srow__note" role="status" aria-live="polite" data-testid="server-note">{note?.text ?? ''}</div>
       </Card>
 
-      {defaultRemote && (
+      {defaultRemote && localServer && (
         <Card>
           <div className="lnr-keep">
             <div className="lnr-keep__text">
@@ -182,14 +208,19 @@ export function ServersTab({ view, onSwitch, open }: { view: ServersView; onSwit
           </div>
         </Card>
       )}
-      {remotes.length > 0 && <p className="dk-small dk-muted">{S.servers.removeNote}</p>}
+      {remotes.length > 0 && <p className="dk-small dk-muted">{localServer ? S.servers.removeNote : S.servers.removeNoteClient}</p>}
 
-      {sheet && (sheet.kind === 'add' || editing) && (
+      {sheet && (sheet.kind !== 'edit' || editing) && (
         <ServerForm
-          key={sheet.kind === 'edit' ? sheet.id : 'add'}
+          key={sheet.kind === 'edit' ? sheet.id : sheet.kind}
           variant="sheet"
           servers={view.rows}
           editing={editing}
+          p2p={p2p}
+          client={!localServer}
+          onScan={onScan}
+          now={now}
+          initialInvite={sheet.kind === 'invite' ? sheet.link : undefined}
           onDone={() => setSheet(null)}
           onCancel={() => setSheet(null)}
           onRemove={editing ? () => (setRemoving(editing.id), setSheet(null)) : undefined}
@@ -201,7 +232,7 @@ export function ServersTab({ view, onSwitch, open }: { view: ServersView; onSwit
             <>
               <p className="lnr-dialog__p">{S.servers.removeDefaultLead}</p>
               <ol className="lnr-steps lnr-dialog__steps">
-                {[S.servers.removeDefault1, S.servers.removeDefault2].map((t, i) => (
+                {(localServer ? [S.servers.removeDefault1, S.servers.removeDefault2] : [S.servers.removeDefault1Client]).map((t, i) => (
                   <li key={t} className="lnr-step"><div className="lnr-step__row"><span className="lnr-step__mark lnr-step__mark--active" aria-hidden="true">{i + 1}</span><span>{t}</span></div></li>
                 ))}
               </ol>
@@ -222,7 +253,7 @@ export function ServersTab({ view, onSwitch, open }: { view: ServersView; onSwit
               }}
               data-testid="remove-confirm"
             >
-              {removeRow.isDefault ? S.servers.removeDefaultAction : S.servers.removeAction}
+              {removeRow.isDefault && localServer ? S.servers.removeDefaultAction : S.servers.removeAction}
             </Button>
           </div>
         </Dialog>

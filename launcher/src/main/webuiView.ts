@@ -15,7 +15,7 @@
 //     the shell view's main frame (see test/webuiSecurity.test.ts).
 import path from 'node:path'
 import { dialog, WebContentsView, type BaseWindow, type Session, type WebContents } from 'electron'
-import type { WebuiEffect, WebuiEvent } from './webuiState'
+import type { WebuiEffect, WebuiEvent } from '../core/webuiState'
 import {
   decideNavigation,
   decidePermission,
@@ -24,13 +24,16 @@ import {
   GESTURE_INPUT_TYPES,
   hasRecentGesture,
   isServerOrigin,
-  partitionForOrigin,
+  OAuthSignInFlow,
   sanitizeFileName,
   type PermissionChoice,
   type PermissionStore,
-} from './webuiPolicy'
+} from '../core/webuiPolicy'
+import { partitionForOrigin } from './webuiPartition'
 import { cornerDotPage, DOT_CLICK_URL, type Rect } from './windowLayout'
 import type { DotTone } from '../shared/types'
+
+export { partitionForOrigin }
 
 /** Chromium's net error for a navigation that was cancelled (by us, or by a new navigation). */
 const ERR_ABORTED = -3
@@ -74,6 +77,7 @@ const MEDIA_LABEL: Record<string, string> = { audio: 'microphone', video: 'camer
 export class WebuiHost {
   private view: WebContentsView | undefined
   private viewOrigin: string | undefined
+  private oauthFlow: OAuthSignInFlow | undefined
   private dot: WebContentsView | undefined
   private dotTone: DotTone | undefined
   private dotPage: string | undefined
@@ -105,7 +109,10 @@ export class WebuiHost {
           this.show(f.origin, f.url)
           break
         case 'navigate':
-          if (this.view && this.viewOrigin && isServerOrigin(f.url, this.viewOrigin)) void this.view.webContents.loadURL(f.url).catch(() => undefined)
+          if (this.view && this.viewOrigin && isServerOrigin(f.url, this.viewOrigin)) {
+            this.oauthFlow?.reset()
+            void this.view.webContents.loadURL(f.url).catch(() => undefined)
+          }
           break
         case 'close':
           this.close()
@@ -125,10 +132,12 @@ export class WebuiHost {
     const win = this.d.window()
     if (!win) return
     const view = new WebContentsView({ webPreferences: webuiWebPreferences(origin) })
+    const oauthFlow = new OAuthSignInFlow(origin)
     this.view = view
     this.viewOrigin = origin
+    this.oauthFlow = oauthFlow
     this.installSession(view.webContents.session, origin)
-    this.installContents(view.webContents, origin)
+    this.installContents(view.webContents, origin, oauthFlow)
     view.setVisible(false) // the next layout pass shows it
     win.contentView.addChildView(view)
     this.d.signal('webui-show')
@@ -139,6 +148,7 @@ export class WebuiHost {
     const view = this.view
     this.view = undefined
     this.viewOrigin = undefined
+    this.oauthFlow = undefined
     if (!view) return
     const win = this.d.window()
     try {
@@ -155,11 +165,11 @@ export class WebuiHost {
     return this.view?.webContents === wc
   }
 
-  private installContents(wc: WebContents, origin: string): void {
+  private installContents(wc: WebContents, origin: string, oauthFlow: OAuthSignInFlow): void {
     // Navigation of any frame the page starts: links, forms, location, iframes.
     wc.on('will-frame-navigate', (e) => {
       const frame = e.isMainFrame ? 'main' : 'sub'
-      const d = decideNavigation(e.url, origin, { frame })
+      const d = oauthFlow.onNavigate(e.url, frame, Date.now())
       if (d.action === 'allow') return
       e.preventDefault()
       if (d.action === 'external') this.d.openExternal(d.url)
@@ -167,7 +177,7 @@ export class WebuiHost {
     })
     wc.on('will-redirect', (e) => {
       const frame = e.isMainFrame ? 'main' : 'sub'
-      const d = decideNavigation(e.url, origin, { frame })
+      const d = oauthFlow.onRedirect(e.url, frame, Date.now())
       if (d.action === 'allow') return
       e.preventDefault()
       if (d.action === 'external') this.d.openExternal(d.url)
@@ -198,11 +208,13 @@ export class WebuiHost {
       ;(callback as (certificate?: Electron.Certificate) => void)()
     })
     wc.on('did-finish-load', () => {
+      oauthFlow.onLoad(wc.getURL(), Date.now())
       if (this.current(wc)) this.d.dispatch({ type: 'view-loaded' })
       this.d.signal('webui-loaded')
     })
     wc.on('did-fail-load', (_e, code, description, _url, isMainFrame) => {
       if (!isMainFrame || code === ERR_ABORTED || !this.current(wc)) return
+      oauthFlow.onLoadFailed(Date.now())
       this.d.log(`webui: page did not load (${code} ${description})`, 'warn')
       this.d.dispatch({ type: 'view-load-failed', code, description })
     })
@@ -248,10 +260,13 @@ export class WebuiHost {
 
     // A second line behind will-frame-navigate: no document from another
     // origin is ever fetched into a frame of this session, including after a
-    // redirect. Other resources (images, fonts, API calls) follow the page's own rules.
+    // redirect (except the active OAuth/OIDC sign-in provider for the main
+    // frame). Other resources (images, fonts, API calls) follow the page's own rules.
     ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
       if (details.resourceType !== 'mainFrame' && details.resourceType !== 'subFrame') return callback({})
-      const d = decideNavigation(details.url, origin, { frame: details.resourceType === 'mainFrame' ? 'main' : 'sub' })
+      const frame = details.resourceType === 'mainFrame' ? 'main' : 'sub'
+      const flow = this.viewOrigin === origin ? this.oauthFlow : undefined
+      const d = flow ? flow.onBeforeRequest(details.url, frame, Date.now()) : decideNavigation(details.url, origin, { frame })
       if (d.action === 'allow') return callback({})
       this.d.signal(`webui-request-blocked ${details.resourceType}`)
       callback({ cancel: true })

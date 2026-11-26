@@ -7,6 +7,7 @@ import { createSharesApi } from './sharesApi'
 import { createFolderSharesApi } from './folderSharesApi'
 import { createPageSharesApi } from './pageSharesApi'
 import { reportUnauthorized } from './sessionEvents'
+import { INCOGNITO_HEADER, forgetIncognitoChat, incognitoChatLevel, incognitoHeaders } from './incognito'
 
 const enc = encodeURIComponent
 const userQ = (userId) => userId ? `?user_id=${enc(userId)}` : ''
@@ -53,10 +54,13 @@ function buildUrl(endpoint, params) {
 }
 
 async function fetchJSON(endpoint, options = {}) {
-  const response = await fetch(apiUrl(endpoint), {
+  const init = {
     headers: { 'Content-Type': 'application/json', ...options.headers },
     ...options,
-  })
+  }
+  // While an incognito chat is open, every request carries its level.
+  init.headers = incognitoHeaders(init.headers)
+  const response = await fetch(apiUrl(endpoint), init)
   return handleResponse(response)
 }
 
@@ -307,7 +311,7 @@ export const chatsApi = {
     form.append('text', text)
     Object.entries(cmd).forEach(([k, v]) => form.append(k, v))
     files.forEach(f => form.append('files', f, f.name))
-    const res = await fetch(apiUrl(API_CONFIG.endpoints.chatMessages(id)), { method: 'POST', body: form })
+    const res = await fetch(apiUrl(API_CONFIG.endpoints.chatMessages(id)), { method: 'POST', body: form, headers: incognitoHeaders() })
     return handleResponse(res)
   },
   editPending: (id, pid, text) => fetchJSON(API_CONFIG.endpoints.chatPending(id, pid), { method: 'PATCH', body: JSON.stringify({ text }) }),
@@ -1055,7 +1059,7 @@ async function parseAudioBlobResponse(response) {
 async function postAudioBlob(endpoint, body, signal) {
   const response = await fetch(apiUrl(endpoint), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: incognitoHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
     ...(signal ? { signal } : {}),
   })
@@ -1065,6 +1069,16 @@ async function postAudioBlob(endpoint, body, signal) {
 async function postMultipartAudioBlob(endpoint, formData) {
   const response = await fetch(apiUrl(endpoint), { method: 'POST', body: formData })
   return parseAudioBlobResponse(response)
+}
+
+// Ends an incognito chat of this tab on the server and forgets it. keepalive
+// lets the request finish while the tab closes. A chat that is not one of the
+// tab's incognito chats is left alone: this never deletes a kept chat.
+export function discardIncognitoChat(id, { keepalive = false } = {}) {
+  const level = incognitoChatLevel(id)
+  if (!level) return
+  forgetIncognitoChat(id)
+  fetch(apiUrl(API_CONFIG.endpoints.chat(id)), { method: 'DELETE', keepalive, headers: { [INCOGNITO_HEADER]: level } }).catch(() => {})
 }
 
 // TTS
@@ -1129,6 +1143,7 @@ export const audioApi = {
       method: 'POST',
       body: formData,
       signal,
+      headers: incognitoHeaders(),
     })
     return handleResponse(response)
   },

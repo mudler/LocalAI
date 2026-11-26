@@ -1807,5 +1807,21 @@
         "undone": "Annullata la modifica del promemoria per {{title}}."
       }
     }
+  },
+  "incognito": {
+    "label": "In incognito",
+    "levelLabel": "Livello incognito",
+    "levels": {
+      "memory-off": "Senza memoria",
+      "zero-retention": "Nessuna conservazione"
+    },
+    "describe": {
+      "memory-off": "Questa chat non legge né salva la memoria. Non compare nell'elenco e termina quando la lasci. Log e tracce restano come sempre.",
+      "zero-retention": "Il server non conserva nulla di questa chat, solo i conteggi d'uso. Non legge né salva la memoria, non accetta allegati e termina quando la lasci."
+    },
+    "blocked": "Non disponibile in una chat in incognito",
+    "discardTitle": "Terminare la chat in incognito?",
+    "discardMessage": "La chat viene eliminata e non si può più riaprire.",
+    "discardConfirm": "Termina chat"
   }
 }

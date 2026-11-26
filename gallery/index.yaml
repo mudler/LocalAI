@@ -7226,7 +7226,7 @@
     - deepseek
   files:
     - filename: ds4flash.gguf
-      sha256: 2e1990f863ad901f9baaaaebfd7abac4642ecf0d25affbbda3f2e696e666e039
+      sha256: 223689c6591b9d2fcc833f45443b581ce33fcbb9eff9a2c48d955d496d6afe6b
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
   overrides:
     backend: ds4
@@ -77424,6 +77424,60 @@
       - backend:best
     parameters:
       model: audio-cpp/nemotron-3.5-asr-streaming-0.6b-f16.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: oruk-fourier-2b
+  description: |
+    Oruk Fourier 2B is an English speech recognition fine-tune of Qwen3-ASR 1.7B
+    by Oruk, served by the audio-cpp backend through /v1/audio/transcriptions.
+    This entry downloads the pinned BF16 safetensors checkpoint (6 files,
+    4.09 GB) directly from Hugging Face and runs offline English transcription
+    on CPU or GPU via audio-cpp's backend:best selector.
+
+    Weights are licensed CC BY-NC 4.0 for local noncommercial use; commercial,
+    hosted, or API serving requires separate permission from Oruk.
+  license: cc-by-nc-4.0
+  urls:
+    - https://huggingface.co/oruk/oruk-fourier-2b
+    - https://github.com/0xShug0/audio.cpp
+  tags:
+    - audio-cpp
+    - qwen3-asr
+    - asr
+    - speech-recognition
+    - transcription
+    - stt
+    - english
+    - safetensors
+  files:
+    - filename: audio-cpp/oruk-fourier-2b/config.json
+      sha256: 5bc1d99c141fc866b61efca97dcbc6412a38db25ff0934c38bf7b46fa09485a2
+      uri: https://huggingface.co/oruk/oruk-fourier-2b/resolve/8c2a8871f1304aa2f634da4fb95e24438c4945b9/config.json
+    - filename: audio-cpp/oruk-fourier-2b/generation_config.json
+      sha256: c2952d2787ee983a289d8f921b0a67c4dfb4e75c4246479f5b1e0ff3be8af236
+      uri: https://huggingface.co/oruk/oruk-fourier-2b/resolve/8c2a8871f1304aa2f634da4fb95e24438c4945b9/generation_config.json
+    - filename: audio-cpp/oruk-fourier-2b/model.safetensors
+      sha256: e64765ffdd90c83704c0951e0d88b7f2ed84499af5c208f7ddf8d922cf08441c
+      uri: https://huggingface.co/oruk/oruk-fourier-2b/resolve/8c2a8871f1304aa2f634da4fb95e24438c4945b9/model.safetensors
+    - filename: audio-cpp/oruk-fourier-2b/processor_config.json
+      sha256: bc0b230081b44e629dd5b9045b78495615c1831b4b9f4cffe97bd37e82a6156a
+      uri: https://huggingface.co/oruk/oruk-fourier-2b/resolve/8c2a8871f1304aa2f634da4fb95e24438c4945b9/processor_config.json
+    - filename: audio-cpp/oruk-fourier-2b/tokenizer.json
+      sha256: bd2a97b55c8f7f9c328c73ee9b9178771037e9f566dfca8e238a063d41cbac92
+      uri: https://huggingface.co/oruk/oruk-fourier-2b/resolve/8c2a8871f1304aa2f634da4fb95e24438c4945b9/tokenizer.json
+    - filename: audio-cpp/oruk-fourier-2b/tokenizer_config.json
+      sha256: 940657ec4b19a2486cd8f95d2967a7a2acbeb6064663ece8ab3833ec455530b3
+      uri: https://huggingface.co/oruk/oruk-fourier-2b/resolve/8c2a8871f1304aa2f634da4fb95e24438c4945b9/tokenizer_config.json
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - transcript
+    name: oruk-fourier-2b
+    options:
+      - family:qwen3_asr
+      - task:asr
+      - backend:best
+    parameters:
+      model: audio-cpp/oruk-fourier-2b
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: audio-cpp-sortformer-diarization
   description: |

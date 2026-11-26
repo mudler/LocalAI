@@ -259,6 +259,10 @@ func (s *Service) cut(ctx context.Context, p, conv string, pick func([]session.E
 // upTo 0 the whole transcript is copied. The new chat has no folder and no
 // pending messages; the next message starts it.
 func (s *Service) Fork(ctx context.Context, user, conv string, upTo int64, title string) (session.ChatRecord, error) {
+	if err := s.refuseIncognito(conv); err != nil {
+		// A fork would be a kept copy of the incognito chat.
+		return session.ChatRecord{}, err
+	}
 	p := principal(user)
 	// The stored record: the fork copies what the chat chose, never the tools
 	// its project attaches (the fork reads those from the project itself).

@@ -15,8 +15,15 @@ import (
 // trustedJobs are the only jobs that may hold registry credentials, the
 // OIDC token permission or an environment. sandbox-image calls the reusable
 // workflow that builds and signs the guest image of the Sandbox add-on; it
-// needs the same permissions in order to sign.
-var trustedJobs = map[string]bool{"publish": true, "promote": true, "sandbox-image": true}
+// needs the same permissions in order to sign. promote-release moves the
+// aliases of a release to the index that the tag push run published.
+var trustedJobs = map[string]bool{"publish": true, "promote": true, "promote-release": true, "sandbox-image": true}
+
+// buildJobs are the jobs that build, check or publish packages. The release
+// event of a release runs none of them: the tag push run of the same commit
+// built and published everything once, and a second build would differ in
+// bytes.
+var buildJobs = []string{"validate", "sandbox-image", "package", "publish"}
 
 // writeScopes lists the one write permission that a named untrusted job may
 // hold. release-index attaches the release catalog to the GitHub release, so
@@ -88,7 +95,7 @@ func checkWorkflow(data []byte) []string {
 	}
 	jobs, _ := doc["jobs"].(map[string]any)
 	job := func(n string) map[string]any { m, _ := jobs[n].(map[string]any); return m }
-	for _, n := range []string{"plan", "validate", "package", "publish", "promote"} {
+	for _, n := range []string{"plan", "validate", "package", "publish", "promote", "tag-run", "promote-release"} {
 		if job(n) == nil {
 			add("P_JOBS", "job %s is required", n)
 		}
@@ -236,7 +243,7 @@ func checkWorkflow(data []byte) []string {
 	}
 	// Publication is per add-on: the groups and the digest must not be shared
 	// between add-ons. The repository is shared; the tag carries the id.
-	for _, n := range []string{"publish", "promote"} {
+	for _, n := range []string{"publish", "promote", "promote-release"} {
 		j := job(n)
 		c, _ := j["concurrency"].(map[string]any)
 		if !strings.Contains(fmt.Sprint(c["group"]), "matrix.addon") {
@@ -246,7 +253,7 @@ func checkWorkflow(data []byte) []string {
 			add("P_REPOSITORY", "%s must use the configured repository as it is: every add-on is a tag of one repository", n)
 		}
 	}
-	for _, n := range []string{"publish", "promote"} {
+	for _, n := range []string{"publish", "promote", "promote-release"} {
 		if !strings.Contains(text(job(n)), "ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}") {
 			add("P_REPOSITORY", "%s must read ADDON_OCI_REPOSITORY from the repository variable", n)
 		}
@@ -334,6 +341,7 @@ func checkWorkflow(data []byte) []string {
 	if !strings.Contains(fmt.Sprint(conc["group"]), "needs.plan.outputs.channel") || conc["cancel-in-progress"] != false {
 		add("P_CONCURRENCY", "promote must serialize per channel with cancel-in-progress: false")
 	}
+	out = append(out, checkReleaseEvent(job, needs, text)...)
 	conc, _ = pub["concurrency"].(map[string]any)
 	if !strings.Contains(fmt.Sprint(conc["group"]), "needs.plan.outputs.immutable") || conc["cancel-in-progress"] != false {
 		add("P_CONCURRENCY", "publish must serialize per immutable tag with cancel-in-progress: false")
@@ -390,4 +398,106 @@ func cmdPolicy(args []string) error {
 	}
 	_, _ = fmt.Fprintf(stdout, "workflow-policy=passed\n")
 	return nil
+}
+
+// checkReleaseEvent applies the rules of the release event: it builds and
+// publishes nothing, and it moves an alias only to the index that a green tag
+// push run of the same commit published, after it checked that index and its
+// signature in the registry.
+func checkReleaseEvent(job func(string) map[string]any, needs func(string) map[string]bool, text func(any) string) []string {
+	var out []string
+	add := func(code, format string, a ...any) { out = append(out, code+": "+fmt.Sprintf(format, a...)) }
+	for _, n := range buildJobs {
+		if !strings.Contains(fmt.Sprint(job(n)["if"]), "github.event_name != 'release'") {
+			add("P_RELEASE_BUILD", "%s must not run on the release event: the tag push run builds and publishes a release once", n)
+		}
+	}
+	// The gate: a successful tag push run of the same commit.
+	gate := text(job("tag-run"))
+	for _, need := range []string{"--event push", `select(.headSha == \"$SHA\")`, `.conclusion == "success"`, "run=$run"} {
+		if !strings.Contains(gate, need) {
+			add("P_RELEASE_GATE", "tag-run must find a successful tag push run of the same commit; it lacks %q", need)
+		}
+	}
+	for _, n := range []string{"promote-release", "release-index"} {
+		if !needs(n)["tag-run"] || !needs(n)["plan"] {
+			add("P_RELEASE_GATE", "%s must need plan and tag-run: it acts only after the tag push run ended green", n)
+		}
+	}
+	if !needs("release-index")["promote-release"] {
+		add("P_RELEASE_GATE", "release-index must need promote-release: the catalog is attached only after the indexes were verified")
+	}
+	pr := job("promote-release")
+	if pr == nil {
+		return out
+	}
+	cond := fmt.Sprint(pr["if"])
+	for _, need := range []string{"github.event_name == 'release'", "needs.plan.outputs.publish == 'true'", "needs.plan.outputs.aliases != ''"} {
+		if !strings.Contains(cond, need) {
+			add("P_TRUSTED_GATE", "promote-release must run only on %s", need)
+		}
+	}
+	for _, bad := range []string{"always()", "cancelled()", "failure()"} {
+		if strings.Contains(cond, bad) {
+			add("P_TRUSTED_GATE", "promote-release must not use %s: it would run without a green tag push run", bad)
+		}
+	}
+	if c, ok := pr["continue-on-error"]; ok && fmt.Sprint(c) != "false" {
+		add("P_TRUSTED_GATE", "promote-release must not set continue-on-error")
+	}
+	if p, _ := pr["permissions"].(map[string]any); p["id-token"] == "write" {
+		add("P_SIGNER", "promote-release must not hold id-token: write")
+	}
+	if m, _ := pr["strategy"].(map[string]any); m == nil || !strings.Contains(text(m), "needs.plan.outputs.addons") {
+		add("P_MATRIX", "promote-release must run once for each add-on of the plan")
+	}
+	if st, _ := pr["strategy"].(map[string]any); st["fail-fast"] != false {
+		add("P_FAIL_FAST", "promote-release must set strategy.fail-fast: false")
+	}
+	conc, _ := pr["concurrency"].(map[string]any)
+	if !strings.Contains(fmt.Sprint(conc["group"]), "needs.plan.outputs.channel") || conc["cancel-in-progress"] != false {
+		add("P_CONCURRENCY", "promote-release must serialize per channel with cancel-in-progress: false")
+	}
+	t := text(pr)
+	if !strings.Contains(t, "sha256:????????????????????????????????????????????????????????????????)") || !strings.Contains(t, "missing or malformed") {
+		add("P_DIGEST", "promote-release must refuse a digest that is missing or not sha256:<64 characters>")
+	}
+	// The digest comes from the registry, checked and verified, never from an
+	// artifact: the release event published nothing of its own.
+	verified, promoted := -1, -1
+	steps, _ := pr["steps"].([]any)
+	for i, s := range steps {
+		st, _ := s.(map[string]any)
+		if u, _ := st["uses"].(string); strings.HasPrefix(u, "actions/download-artifact@") {
+			add("P_ARTIFACTS", "promote-release must take the digest from the registry, not from an artifact")
+		}
+		r := fmt.Sprint(st["run"])
+		if strings.Contains(r, "addonpkg verify-published") && verified < 0 {
+			verified = i
+			if st["id"] != "published" {
+				add("P_DIGEST", "the verify-published step of promote-release must have the id published")
+			}
+			for _, need := range []string{"--version ", "--revision ", "--owner-repo ", "--config "} {
+				if !strings.Contains(r, need) {
+					add("P_SIGNER", "promote-release verify-published lacks %q", need)
+				}
+			}
+		}
+		if strings.Contains(r, "addonpkg promote") && promoted < 0 {
+			promoted = i
+			env, _ := st["env"].(map[string]any)
+			if fmt.Sprint(env["DIGEST"]) != "${{ steps.published.outputs.digest }}" {
+				add("P_DIGEST", "promote-release must promote the digest that verify-published printed (steps.published.outputs.digest), not %q", fmt.Sprint(env["DIGEST"]))
+			}
+		}
+	}
+	switch {
+	case verified < 0:
+		add("P_SIGNER", "promote-release must check the published index and its signature with addonpkg verify-published")
+	case promoted < 0:
+		add("P_ORDER", "promote-release job does not run addonpkg promote")
+	case promoted < verified:
+		add("P_ORDER", "promote-release moves an alias before it verified the published index")
+	}
+	return out
 }

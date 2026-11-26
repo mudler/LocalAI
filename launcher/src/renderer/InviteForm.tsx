@@ -1,10 +1,14 @@
 // Add a server with an invite link. The main process pairs this computer with
 // the server over P2P and saves it at a local address; the form only sends
-// the link and shows the confirmation phrase the server shows too.
-import { useId, useRef, useState } from 'react'
-import { Button, Icon } from '@localai/ui-kit'
-import { useBridge } from './bridge'
+// the link and shows the confirmation phrase the server shows too. Before
+// that, it shows what the link says, and it never pairs by itself:
+// a link that arrives from outside or from a scan only fills the field.
+import { useEffect, useId, useRef, useState } from 'react'
+import { Button, Callout, Icon } from '@localai/ui-kit'
+import { hasLocal, useBridge } from './bridge'
+import { cleanInviteText, invitePreview, isInviteText, scanErrorMessage, type InvitePreviewView } from './invitePreview'
 import { S } from './strings'
+import { clockTime } from './viewModel'
 
 type Phase = { kind: 'idle' } | { kind: 'pairing' } | { kind: 'paired'; phrase: string }
 
@@ -15,28 +19,82 @@ export interface InviteFormProps {
   onCancel: () => void
   /** Back to the address form. */
   onUseAddress: () => void
+  /** A link that reached the app from outside; it fills the field and nothing more. */
+  initialLink?: string
+  /** Scans a QR code: its text, or undefined when cancelled. Shows "Scan QR code". */
+  onScan?: () => Promise<string | undefined>
+  /** A fixed clock (tests). Without it the countdown follows the real time. */
+  now?: number
 }
 
-/** The link names an open relay (its `o` parameter). Only a hint: the main process decides. */
-export function namesOpenRelay(link: string): boolean {
-  const t = link.trim()
-  const i = t.indexOf('?')
-  if (!t.startsWith('localai://pair?') || i < 0) return false
-  return (new URLSearchParams(t.slice(i + 1)).get('o') ?? '') !== ''
+/** When the invite expires, in words: "today at 14:15", or the day as well. */
+function expiryText(expiresAt: number, now: number): string {
+  const at = new Date(expiresAt)
+  const today = new Date(now)
+  const sameDay = at.getFullYear() === today.getFullYear() && at.getMonth() === today.getMonth() && at.getDate() === today.getDate()
+  const clock = clockTime(expiresAt)
+  return sameDay ? S.invitePreview.today(clock) : S.invitePreview.onDay(at.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), clock)
+}
+
+function PreviewCard({ v, now }: { v: InvitePreviewView; now: number }) {
+  const label = v.label || S.invitePreview.unnamed
+  return (
+    <section className="lnr-ipreview" aria-label={label} data-testid="invite-preview">
+      <div className="lnr-ipreview__head">
+        <span className="lnr-ipreview__icon" aria-hidden="true"><Icon name="server" /></span>
+        <div className="lnr-grow">
+          <strong className="lnr-ipreview__label">{label}</strong>
+          <p className="lnr-ipreview__kind">{S.invitePreview.kind[v.kind]}</p>
+        </div>
+        <span className="lnr-badge lnr-badge--accent lnr-ipreview__left"><Icon name="clock" />{S.invitePreview.left(v.secondsLeft)}</span>
+      </div>
+      <dl className="lnr-ipreview__facts">
+        <dt>{S.invitePreview.peer}</dt>
+        <dd className="dk-mono">{v.peerShort}</dd>
+        <dt>{S.invitePreview.routes}</dt>
+        <dd>{S.invitePreview.routeCounts(v.routes.addrs, v.routes.relays)}</dd>
+        <dt>{S.invitePreview.expires}</dt>
+        <dd>{expiryText(v.expiresAt, now)}</dd>
+      </dl>
+    </section>
+  )
 }
 
 export function InviteForm(p: InviteFormProps) {
   const b = useBridge()
   const ids = useId()
-  const [link, setLink] = useState('')
+  const [link, setLink] = useState(() => p.initialLink?.trim() ?? '')
   const [name, setName] = useState('')
   const [allowOpen, setAllowOpen] = useState(false)
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
   const [error, setError] = useState<string>()
+  const [scanning, setScanning] = useState(false)
+  const [clock, setClock] = useState(() => Date.now())
   const token = useRef(0)
 
-  const open = namesOpenRelay(link)
-  const usable = link.trim().startsWith('localai://pair?') && (!open || allowOpen) && name.trim().length <= 60
+  const at = p.now ?? clock
+  const preview = invitePreview(link, at)
+  const ok = preview && !('problem' in preview) ? preview : undefined
+  const problem = preview && 'problem' in preview ? preview.problem : undefined
+
+  // The countdown moves while a valid link is on show; it also turns into
+  // "expired" (and Pair goes off) when the time is up.
+  const ticking = !!ok && p.now === undefined
+  useEffect(() => {
+    if (!ticking) return
+    const t = setInterval(() => setClock(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [ticking])
+
+  const open = !!ok?.openRelay
+  const usable = !!ok && (!open || allowOpen) && name.trim().length <= 60
+
+  // The consent to an open relay belongs to one link.
+  const fill = (text: string) => {
+    setLink(text)
+    setAllowOpen(false)
+    setClock(Date.now())
+  }
 
   const submit = async () => {
     if (!usable || phase.kind === 'pairing') return
@@ -55,8 +113,32 @@ export function InviteForm(p: InviteFormProps) {
       return
     }
     setPhase({ kind: 'idle' })
-    const base = S.invite.failed[r.reason] ?? S.invite.failed['pair-failed']
+    // Without a local server there is nothing to install: the app itself lacks P2P.
+    const base = r.reason === 'no-binary' && !hasLocal(b) ? S.clientApp.noP2P : (S.invite.failed[r.reason] ?? S.invite.failed['pair-failed'])
     setError(r.detail ? `${base} ${r.detail}` : base)
+  }
+
+  // A scan fills the field only with an invite; other text is refused and the field stays.
+  const scan = async () => {
+    if (!p.onScan || scanning || phase.kind === 'pairing') return
+    setError(undefined)
+    setScanning(true)
+    let text: string | undefined
+    try {
+      text = await p.onScan()
+    } catch (e) {
+      setError(scanErrorMessage(e))
+      return
+    } finally {
+      setScanning(false)
+    }
+    if (text === undefined) return
+    const link = cleanInviteText(text)
+    if (!isInviteText(link, p.now ?? Date.now())) {
+      setError(S.invitePreview.notInvite)
+      return
+    }
+    fill(link)
   }
 
   const linkId = `${ids}-link`
@@ -97,31 +179,49 @@ export function InviteForm(p: InviteFormProps) {
           placeholder={S.invite.linkPlaceholder}
           spellCheck={false}
           autoComplete="off"
-          autoFocus
+          // A link that came from outside needs no typing: no keyboard pops up for it.
+          autoFocus={!p.initialLink}
           disabled={pairing}
           onChange={(e) => {
-            setLink(e.target.value)
+            fill(e.target.value)
             setError(undefined)
           }}
           data-testid="invite-link"
         />
       </div>
+      {p.onScan && (
+        <div className="lnr-row lnr-row--tight lnr-ipreview__tools">
+          <Button size="sm" icon="camera" busy={scanning} disabled={pairing} onClick={() => void scan()}>{S.invitePreview.scan}</Button>
+        </div>
+      )}
+      {problem && <p className="dk-field-error" data-testid="invite-problem">{S.invite.failed[problem]}</p>}
 
-      <label className="lnr-form__label" htmlFor={nameId}>{S.invite.name}</label>
-      <div className="lnr-form__input">
-        <input id={nameId} className="dk-input" value={name} maxLength={60} autoComplete="off" disabled={pairing} onChange={(e) => setName(e.target.value)} />
-      </div>
-      <p className="lnr-form__note">{S.invite.nameNote}</p>
+      {ok && <PreviewCard v={ok} now={at} />}
 
       {open && (
-        <div className="lnr-form__input" data-testid="invite-open-relay">
+        <Callout tone="warn" title={S.invitePreview.openRelayTitle} testId="invite-open-relay" className="lnr-ipreview__relay">
+          <span className="lnr-form__note lnr-ipreview__relaynote">{S.invite.openRelayNote}</span>
           <label htmlFor={openId} className="lnr-row lnr-row--tight">
             <input id={openId} type="checkbox" checked={allowOpen} disabled={pairing} onChange={(e) => setAllowOpen(e.target.checked)} />
             <span>{S.invite.openRelay}</span>
           </label>
-          <p className="lnr-form__note">{S.invite.openRelayNote}</p>
-        </div>
+        </Callout>
       )}
+
+      <label className="lnr-form__label" htmlFor={nameId}>{S.invite.name}</label>
+      <div className="lnr-form__input">
+        <input
+          id={nameId}
+          className="dk-input"
+          value={name}
+          maxLength={60}
+          autoComplete="off"
+          placeholder={ok?.label ? S.invitePreview.namePlaceholder(ok.label) : undefined}
+          disabled={pairing}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+      <p className="lnr-form__note">{S.invite.nameNote}</p>
 
       {pairing && (
         <div className="lnr-result lnr-result--busy" role="status" data-testid="invite-pairing">

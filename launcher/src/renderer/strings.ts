@@ -22,6 +22,7 @@ export const S = {
     remoteInsecure: 'Remote, not encrypted',
     unreachable: 'Unreachable',
     opening: 'Opening',
+    noServer: 'No server',
   },
 
   bar: {
@@ -51,6 +52,9 @@ export const S = {
   about: {
     title: 'About LocalAI',
     launcher: 'Launcher',
+    /** The version line of a client-only app (the Android app). */
+    app: 'App',
+    applicationId: 'Application ID',
     server: 'LocalAI server',
     notInstalled: 'Not installed',
     unknown: 'Unknown',
@@ -465,6 +469,19 @@ export const S = {
     foot: 'Not sure? Choose this computer. You can add servers at any time in Settings. The launcher does not save passwords or API keys for servers.',
   },
 
+  // The first screen of an app with no local server: add a server to use.
+  firstConnect: {
+    title: 'Connect to a LocalAI server',
+    sub: 'This app shows a LocalAI that runs on another computer: at home, at work or in the cloud. Nothing runs on this device.',
+    addressTitle: 'Add by address',
+    addressNote: 'You need the server address, for example https://gpu.example.com',
+    inviteTitle: 'Paste an invite link',
+    inviteNote: 'Starts with localai://pair. The server owner sends it to you.',
+    scanTitle: 'Scan an invite QR code',
+    scanNote: 'Open “Share this instance” on the server and scan the code.',
+    foot: 'The app does not save passwords or API keys. If the server asks you to sign in, you do it on its own page.',
+  },
+
   servers: {
     connectTitle: 'Connect to a LocalAI server',
     connectSub: 'Enter the address of a LocalAI server that you can reach. Ask the server owner if you do not know it.',
@@ -508,6 +525,7 @@ export const S = {
     keepTitle: "Keep this computer's server running too",
     keepBody: 'While another server is the default, the launcher does not install, start, update or check LocalAI on this computer. Turn this on to keep it running in the background.',
     removeNote: 'If you remove the default server, This computer becomes the default.',
+    removeNoteClient: 'If you remove the default server, the app asks you to choose or add a server.',
     status: {
       running: 'Running',
       'not-running': 'Not running',
@@ -521,6 +539,7 @@ export const S = {
     removeTitle: (n: string) => `Remove ${n}?`,
     removeDefaultLead: 'This is your default server. If you remove it:',
     removeDefault1: 'This computer becomes the default server.',
+    removeDefault1Client: 'No server is the default until you choose one.',
     removeDefault2: 'LocalAI starts on this computer. Install comes first if it is missing.',
     removeOther: 'It is removed from the list.',
     removeFoot: 'The server itself is not changed. You can add it again at any time.',
@@ -564,6 +583,7 @@ export const S = {
       stopped: 'P2P stopped',
       failed: 'P2P connection failed',
     } as Record<string, string>,
+    portInUse: 'Another app on this device uses the local address of this server. Close that app or restart the device; the app tries again by itself.',
     path: {
       direct: 'direct',
       hole_punched: 'hole punched',
@@ -686,6 +706,8 @@ export const S = {
     computerTitle: 'Use LocalAI on this computer',
     computerNote: (n: string) => `Starts it here. ${n} stays saved.`,
     computer: 'Switch to This computer',
+    chooseOther: 'Choose another server',
+    chooseOtherNote: (name: string) => `${name} stays saved.`,
     editTitle: 'Check the address',
     editNote: 'Use this if the server moved.',
     edit: 'Edit server',
@@ -817,6 +839,96 @@ export const S = {
     removedBody: 'The sandbox stays off until a profile is set up again.',
     remove: 'Remove profile',
     tryAgain: 'Try again',
+  },
+
+  // The app without a local server (the mobile client).
+  clientApp: {
+    /** Pairing answered `no-binary`: the app was built without the P2P library. */
+    noP2P: 'P2P is not available in this build of the app.',
+  },
+
+  // What the invite form shows about a link before pairing, and
+  // invites that reach the app from a link, the share sheet or a QR code.
+  invitePreview: {
+    notInvite: 'This is not a LocalAI invite link.',
+    close: 'Close',
+    scan: 'Scan QR code',
+    scanFailed: 'The QR code could not be scanned. Check that the app may use the camera, then try again.',
+    scanNoCamera: 'This device has no camera. Paste the invite link instead.',
+    scanPermissionDenied: 'The app may not use the camera. Allow the camera for LocalAI in the Android settings, or paste the invite link.',
+    unnamed: 'LocalAI server',
+    kind: { device: 'Device invite · works once', remote: 'Remote invite' } as Record<string, string>,
+    left: (secs: number) => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')} left`,
+    peer: 'Server peer',
+    routes: 'Routes',
+    routeCounts: (addrs: number, relays: number) =>
+      `${addrs} direct ${addrs === 1 ? 'address' : 'addresses'} · ${relays} ${relays === 1 ? 'relay' : 'relays'}`,
+    expires: 'Expires',
+    today: (clock: string) => `today at ${clock}`,
+    onDay: (day: string, clock: string) => `${day} at ${clock}`,
+    openRelayTitle: 'The link names an open relay',
+    /** The name field when it is empty: the name the invite gives. */
+    namePlaceholder: (label: string) => `${label} (from the invite)`,
+    /** Settings > Servers with no saved server, in an app with no local server. */
+    serversEmptyClient: 'Add a LocalAI server to use its models in this app.',
+  },
+
+  /** Android app only: the P2P background switch in Settings > General and the private CA hint on the test card. */
+  androidSettings: {
+    p2pCard: 'P2P',
+    // Same words as the Android docs page ("P2P in the background").
+    keepP2P: 'Keep P2P connection in the background',
+    keepP2PNote: 'Keeps P2P servers connected when you leave the app. Uses more battery and shows a notification.',
+    keepP2PFailed: 'The setting could not be changed. Try again.',
+    caHint: 'A server with a private certificate authority (CA) works after you install that CA in the Android settings.',
+    caHelp: 'How to install a CA',
+  },
+
+  /** App updates of the Android app (selfUpdate 'apk'): Settings > Updates and the update sheet. */
+  apkUpdate: {
+    appVersion: (v: string) => `LocalAI for Android ${v}`,
+    phase: {
+      unsupported: 'This app does not update itself.',
+      idle: 'Not checked yet',
+      checking: 'Checking…',
+      available: (v?: string) => (v ? `${v} is available.` : 'An update is available.'),
+      'not-available': 'Up to date',
+      downloading: (p?: number) => `Downloading the update${p !== undefined ? ` (${Math.round(p)}%)` : ''}`,
+      downloaded: (v?: string) => (v ? `${v} is ready to install.` : 'An update is ready to install.'),
+      error: 'The last check failed.',
+    },
+    upToDate: 'up to date',
+    updateTo: (v: string) => `Update to ${v}`,
+    autoCheckNote: 'Once a day, when the app opens',
+    channelName: 'Channel',
+    channel: { stable: 'Stable', dev: 'Development (separate app)', rc: 'Stable' } as Record<string, string>,
+    channelShort: { stable: 'Stable', dev: 'Development', rc: 'Stable' } as Record<string, string>,
+    channelNote: 'Tested releases. Recommended.',
+    devChannelNote: 'A separate app with the newest master build. It does not update from the stable releases.',
+    devApp: 'Development app',
+    devAppNote: 'A separate app, newest master build. Not supported. It installs next to this app, with its own servers and sign-ins.',
+    getDevApp: 'Get the development app',
+    // The update sheet
+    sheetTitle: (v: string) => `LocalAI ${v} is available`,
+    sheetSub: (installed: string, size: string, channel: string) => `You have ${installed} · ${size} · ${channel}`,
+    downloaded: 'Downloaded. SHA-256 and signature match this app.',
+    downloading: (p?: number) => `Downloading${p !== undefined ? ` ${Math.round(p)}%` : ''}…`,
+    consentTitle: 'Allow updates from LocalAI (one time)',
+    consentBody1: 'Android asks you to allow this app to install updates. Turn on ',
+    consentSetting: 'Allow from this source',
+    consentBody2: ', then come back here.',
+    openSettings: 'Open Android settings',
+    updateTitle: 'Update now',
+    updateBody: (v: string) => `LocalAI closes and opens again on ${v}. Your servers and sign-ins stay.`,
+    updateNow: 'Update now',
+    androidNote:
+      'On Android 12 and later the update installs with no more questions. On Android 11 and earlier, or when Android requires it, a system dialog asks you to confirm.',
+    installing: 'Installing… LocalAI restarts by itself.',
+    confirm: 'Confirm the update in the Android dialog. If no dialog appeared, tap Update now again.',
+    releaseNotes: 'Release notes',
+    later: 'Later',
+    close: 'Close',
+    noOffer: 'No update is ready. Check for updates in Settings > Updates.',
   },
 
   time: {

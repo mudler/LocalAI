@@ -102,7 +102,7 @@ func ModelAudioTransform(
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
-		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceAudioTransform, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(filepath.Base(audioPath), 200)})
+		traceID = trace.BeginBackendTraceFor(ctx, trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceAudioTransform, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(filepath.Base(audioPath), 200)})
 	}
 	defer trace.CancelBackendTrace(traceID)
 
@@ -133,7 +133,7 @@ func ModelAudioTransform(
 				maps.Copy(data, snippet)
 			}
 		}
-		trace.RecordBackendTrace(trace.BackendTrace{
+		trace.RecordBackendTraceFor(ctx, trace.BackendTrace{
 			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),

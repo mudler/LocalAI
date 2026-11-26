@@ -12,10 +12,11 @@ interface Item {
   sepBefore?: boolean
 }
 
-export function menuItems(opts: { remote: boolean; canOpenInBrowser: boolean; serverVersion?: string }): Item[] {
+/** `connect` (default true): the Connect screen shares the local server, so an app without one leaves it out. */
+export function menuItems(opts: { remote: boolean; canOpenInBrowser: boolean; serverVersion?: string; connect?: boolean }): Item[] {
   const items: Item[] = []
   items.push({ id: 'settings', label: S.menu.settings })
-  items.push({ id: 'connect', label: S.menu.connect })
+  if (opts.connect ?? true) items.push({ id: 'connect', label: S.menu.connect })
   if (opts.canOpenInBrowser) items.push({ id: 'open-in-browser', label: S.menu.openInBrowser, end: <Icon name="external-link" />, sepBefore: true })
   items.push({ id: 'about', label: S.menu.about, end: opts.serverVersion, sepBefore: true })
   return items

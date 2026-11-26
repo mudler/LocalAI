@@ -165,6 +165,25 @@ describe.skipIf(process.platform !== 'linux')('AppRun', () => {
     expect(open.cwd).toBe(fs.realpathSync(path.join(home2, '.cache/localai-launcher', `ld-${loaderHash}`)))
   })
 
+  it('accepts its directory when stat prints translated file types', () => {
+    // A stat first on PATH that prints the German file type unless LC_ALL=C,
+    // so the test does not need a German locale installed.
+    const realStat = execFileSync('sh', ['-c', 'command -v stat'], { encoding: 'utf8' }).trim()
+    const bin = tmp()
+    fs.writeFileSync(
+      path.join(bin, 'stat'),
+      `#!/bin/sh\nout=$('${realStat}' "$@") || exit $?\nif [ "\${LC_ALL:-}" = C ]; then printf '%s\\n' "$out"; else printf '%s\\n' "$out" | sed 's/directory$/Verzeichnis/'; fi\n`,
+      { mode: 0o755 },
+    )
+    expect(execFileSync(path.join(bin, 'stat'), ['-c', '%F', bin], { encoding: 'utf8', env: { PATH: process.env.PATH, LANG: 'de_DE.UTF-8' } }).trim()).toBe('Verzeichnis')
+    const { appdir, loaderHash } = bundle()
+    const home = tmp()
+    const r = run(appdir, home, { PATH: `${bin}:${process.env.PATH}`, LANG: 'de_DE.UTF-8' })
+    expect(r.stderr).toBe('')
+    expect(r.status).toBe(0)
+    expect(r.cwd).toBe(fs.realpathSync(path.join(home, '.cache/localai-launcher', `ld-${loaderHash}`)))
+  })
+
   it('uses the system loader through a link on a glibc host', () => {
     // Only on a host that has the standard glibc loader.
     if (!fs.existsSync(OLD)) return

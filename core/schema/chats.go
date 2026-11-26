@@ -385,6 +385,10 @@ type ChatsConversation struct {
 	// Harness says whether the chat has the context window the chat agent
 	// needs. It is set when a single chat is opened, created or changed.
 	Harness *ChatsHarness `json:"harness,omitempty"`
+	// Incognito is the privacy level of an incognito chat (memory-off or
+	// zero-retention), empty for any other chat. An incognito chat lives in
+	// the memory of the server only and is never listed.
+	Incognito string `json:"incognito,omitempty"`
 }
 
 // ChatsHarness is the window check of a chat for the user who asks. The
@@ -483,6 +487,9 @@ type ChatsConversationList struct {
 	// ImageModel is the model that describes the images of a chat whose own
 	// model cannot look at them. It is empty when no model can.
 	ImageModel string `json:"image_model,omitempty"`
+	// Incognito is the server's incognito setting, so the page knows whether
+	// to offer incognito chats and up to which level.
+	Incognito *ChatsIncognito `json:"incognito,omitempty"`
 }
 
 // ChatsConversationDetail is a conversation with the messages waiting for the model.
@@ -3549,4 +3556,11 @@ type ChatsSandboxProfilesAdmin struct {
 	Addon    string                `json:"addon,omitempty"`
 	Roles    []string              `json:"roles"`
 	Profiles []ChatsSandboxProfile `json:"profiles"`
+}
+
+// ChatsIncognito is the incognito setting of the server as the chat page reads
+// it: Policy is allow or forbid, MaxLevel is memory-off or zero-retention.
+type ChatsIncognito struct {
+	Policy   string `json:"policy"`
+	MaxLevel string `json:"max_level"`
 }

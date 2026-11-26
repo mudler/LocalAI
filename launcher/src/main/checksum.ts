@@ -1,22 +1,15 @@
 // Checksum verification that fails closed. No Electron import.
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
+import { parseChecksums } from '../core/checksums'
+
+export { parseChecksums } from '../core/checksums'
 
 export class ChecksumError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'ChecksumError'
   }
-}
-
-/** Parse `sha256sum` output: "<64 hex>  <name>" or "<64 hex> *<name>". */
-export function parseChecksums(text: string): Map<string, string> {
-  const out = new Map<string, string>()
-  for (const raw of text.split(/\r?\n/)) {
-    const m = /^([0-9a-fA-F]{64})\s+\*?(.+?)\s*$/.exec(raw)
-    if (m) out.set(m[2], m[1].toLowerCase())
-  }
-  return out
 }
 
 export function sha256File(file: string): Promise<string> {

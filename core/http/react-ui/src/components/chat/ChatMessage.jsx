@@ -268,7 +268,7 @@ function ChatMessage({
     } else if (e.key === 'e' && isUser && !busy) {
       e.preventDefault()
       setDraft(text)
-    } else if (e.key === 'b' && !busy) {
+    } else if (e.key === 'b' && !busy && !actions.forkBlocked) {
       e.preventDefault()
       actions.fork(index)
     } else if (e.key === 'r' && canRegenerate) {
@@ -354,7 +354,7 @@ function ChatMessage({
           </button>
         )}
         {!busy && (
-          <button type="button" className="cx-icobtn" onClick={() => actions.fork(index)} title={t('actions.branch')} aria-label={t('actions.branch')}>
+          <button type="button" className="cx-icobtn" onClick={() => actions.fork(index)} disabled={Boolean(actions.forkBlocked)} title={actions.forkBlocked || t('actions.branch')} aria-label={t('actions.branch')}>
             <Icon name="git-branch" />
           </button>
         )}

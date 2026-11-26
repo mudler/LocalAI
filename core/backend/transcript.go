@@ -77,6 +77,7 @@ func ModelTranscription(ctx context.Context, audio, language string, translate, 
 }
 
 func ModelTranscriptionWithOptions(ctx context.Context, req TranscriptionRequest, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (*schema.TranscriptionResult, error) {
+	defer hideOutputFor(ctx, ml, modelConfig)()
 	transcriptionModel, err := loadTranscriptionModel(ctx, ml, modelConfig, appConfig)
 	if err != nil {
 		return nil, err
@@ -93,7 +94,7 @@ func ModelTranscriptionWithOptions(ctx context.Context, req TranscriptionRequest
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
-		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceTranscription, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(req.Audio, 200)})
+		traceID = trace.BeginBackendTraceFor(ctx, trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceTranscription, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(req.Audio, 200)})
 		// Capture audio before the backend call — the backend may delete the file.
 		audioSnippet = trace.AudioSnippet(req.Audio, appConfig.TracingMaxBodyBytes)
 	}
@@ -112,7 +113,7 @@ func ModelTranscriptionWithOptions(ctx context.Context, req TranscriptionRequest
 			if audioSnippet != nil {
 				maps.Copy(errData, audioSnippet)
 			}
-			trace.RecordBackendTrace(trace.BackendTrace{
+			trace.RecordBackendTraceFor(ctx, trace.BackendTrace{
 				ID:        traceID,
 				Timestamp: startTime,
 				Duration:  time.Since(startTime),
@@ -141,7 +142,7 @@ func ModelTranscriptionWithOptions(ctx context.Context, req TranscriptionRequest
 		if audioSnippet != nil {
 			maps.Copy(data, audioSnippet)
 		}
-		trace.RecordBackendTrace(trace.BackendTrace{
+		trace.RecordBackendTraceFor(ctx, trace.BackendTrace{
 			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),

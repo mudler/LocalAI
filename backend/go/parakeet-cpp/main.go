@@ -120,6 +120,11 @@ func main() {
 		purego.RegisterLibFunc(&CppStreamFeedJSON, lib, "parakeet_capi_stream_feed_json")
 		purego.RegisterLibFunc(&CppStreamFinalizeJSON, lib, "parakeet_capi_stream_finalize_json")
 	}
+	// Stream capabilities (ABI v11): tells a model that ends utterances with
+	// <EOU> apart, so its unary transcription takes the streaming decode.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_stream_caps"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppStreamCaps, lib, "parakeet_capi_stream_caps")
+	}
 
 	// Model roles + diarization/sound (ABI v7-v8): parakeet_capi_model_kind is
 	// what lets Load tell an ASR/diarization/sound context apart, so it gates

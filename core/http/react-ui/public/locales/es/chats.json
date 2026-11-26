@@ -1807,5 +1807,21 @@
         "undone": "Deshecho el cambio del recordatorio de {{title}}."
       }
     }
+  },
+  "incognito": {
+    "label": "Incógnito",
+    "levelLabel": "Nivel de incógnito",
+    "levels": {
+      "memory-off": "Sin memoria",
+      "zero-retention": "Sin retención"
+    },
+    "describe": {
+      "memory-off": "Este chat no lee ni guarda memoria. No aparece en la lista y termina cuando lo dejas. Los registros y las trazas se guardan como siempre.",
+      "zero-retention": "El servidor no guarda nada de este chat, solo los contadores de uso. No lee ni guarda memoria, no acepta adjuntos y termina cuando lo dejas."
+    },
+    "blocked": "No disponible en un chat de incógnito",
+    "discardTitle": "¿Terminar el chat de incógnito?",
+    "discardMessage": "El chat se elimina y no se puede volver a abrir.",
+    "discardConfirm": "Terminar chat"
   }
 }

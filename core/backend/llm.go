@@ -190,7 +190,9 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	// in GRPC, the backend is supposed to answer to 1 single token if stream is not supported
 	var capturedPredictOpts *proto.PredictOptions
 	fn := func() (LLMResponse, error) {
+		defer hideOutputFor(ctx, loader, *c)()
 		opts := gRPCPredictOpts(*c, loader.ModelPath)
+		withRequestPrivacy(ctx, opts)
 		// Merge request-level metadata (overrides config defaults)
 		for k, v := range metadata {
 			opts.Metadata[k] = v
@@ -397,7 +399,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 		originalFn := fn
 		fn = func() (LLMResponse, error) {
 			startTime := time.Now()
-			traceID := trace.BeginBackendTrace(trace.BackendTrace{
+			traceID := trace.BeginBackendTraceFor(ctx, trace.BackendTrace{
 				Timestamp: startTime,
 				Type:      trace.BackendTraceLLM,
 				ModelName: c.Name,
@@ -455,7 +457,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 				errStr = err.Error()
 			}
 
-			trace.RecordBackendTrace(trace.BackendTrace{
+			trace.RecordBackendTraceFor(ctx, trace.BackendTrace{
 				ID:        traceID,
 				Timestamp: startTime,
 				Duration:  duration,

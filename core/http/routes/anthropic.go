@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/anthropic"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piiadapter"
@@ -105,6 +106,8 @@ func setAnthropicRequestContext(appConfig *config.ApplicationConfig) echo.Middle
 			// Add the correlation ID to the new context
 			ctxWithCorrelationID := context.WithValue(c1, middleware.CorrelationIDKey, correlationID)
 			ctxWithCorrelationID = distributedhdr.Inherit(ctxWithCorrelationID, reqCtx)
+			// The model call runs on a context of its own: keep the incognito level.
+			ctxWithCorrelationID = privacy.WithLevel(ctxWithCorrelationID, privacy.FromContext(reqCtx))
 			ctxWithCorrelationID = diagnostics.Inherit(ctxWithCorrelationID, reqCtx)
 
 			input.Context = ctxWithCorrelationID

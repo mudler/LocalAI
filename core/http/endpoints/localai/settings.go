@@ -211,6 +211,18 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 				Error:   "Invalid chats_tool_search: use auto, on or off",
 			})
 		}
+		if settings.Incognito != nil && !config.ValidIncognito(*settings.Incognito) {
+			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+				Success: false,
+				Error:   "Invalid incognito: use allow or forbid",
+			})
+		}
+		if settings.IncognitoMaxLevel != nil && !config.ValidIncognitoMaxLevel(*settings.IncognitoMaxLevel) {
+			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+				Success: false,
+				Error:   "Invalid incognito_max_level: use memory-off or zero-retention",
+			})
+		}
 		if settings.ChatsToolProviders != nil {
 			for tool, addon := range *settings.ChatsToolProviders {
 				if !(contract.Replaceable(tool) || contract.ReplaceableSkill(tool)) || !validAddonID(addon) {

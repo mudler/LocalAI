@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { migrate } from '../src/main/config'
 import {
+  addP2PRemote,
   addRemote,
   defaultTarget,
   keepLocalRunning,
   migrateRemoteUrl,
   newRemoteId,
+  p2pOrigin,
+  parseP2PTarget,
   removeRemote,
   remotes,
   updateChannel,
@@ -14,7 +17,7 @@ import {
   withKeepLocalRunning,
   withUpdateChannel,
   MAX_REMOTES,
-} from '../src/main/serversConfig'
+} from '../src/core/serversConfig'
 
 const cfg = (raw: Record<string, unknown> = {}) => migrate(raw, { home: '/h' }).config
 
@@ -97,6 +100,47 @@ describe('remotes in launcher.json', () => {
     const c = cfg({ weird: 1, remotes: [], address: '127.0.0.1:9' })
     expect(c.extra.weird).toBe(1)
     expect(c.address).toBe('127.0.0.1:9')
+  })
+})
+
+describe('servers over P2P on a loopback host of their own', () => {
+  const PEER = '12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGm'
+  const target = (extra: Record<string, unknown> = {}) => ({ peer: PEER, port: 41001, addrs: [], relays: [], ...extra })
+
+  it('keeps a 127.x.y.z host and refuses any other host', () => {
+    expect(parseP2PTarget(target({ host: '127.0.0.3' }))).toEqual({ peer: PEER, port: 41001, addrs: [], relays: [], host: '127.0.0.3' })
+    expect(parseP2PTarget(target({ host: '127.1.2.254' }))?.host).toBe('127.1.2.254')
+    for (const host of ['10.0.0.1', '192.0.2.1', '127.0.0.0', '127.0.0.256', '127.0.0', 'localhost', '::1', ' 127.0.0.2', 3, '']) {
+      expect(parseP2PTarget(target({ host })), String(host)).toBeNull()
+    }
+  })
+
+  it('still reads a target without a host (the desktop)', () => {
+    const t = parseP2PTarget(target())
+    expect(t).toEqual({ peer: PEER, port: 41001, addrs: [], relays: [] })
+    expect(t && 'host' in t).toBe(false)
+  })
+
+  it('builds the origin from the host, 127.0.0.1 when there is none', () => {
+    expect(p2pOrigin(41001, '127.0.0.3')).toBe('http://127.0.0.3:41001')
+    expect(p2pOrigin(41001)).toBe('http://127.0.0.1:41001')
+  })
+
+  it('saves a server at its own host and reads it back', () => {
+    const r = addP2PRemote(cfg(), { name: 'Studio', target: target({ host: '127.0.0.2' }) }, () => 'srv_00000001')
+    if (!r.ok) throw new Error(r.reason)
+    expect(r.remote.url).toBe('http://127.0.0.2:41001')
+    expect(remotes(r.config)).toEqual([r.remote])
+    // The same port on another host is another origin, so another sign-in.
+    const PEER2 = '12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGn'
+    const r2 = addP2PRemote(r.config, { name: 'Office', target: { ...target({ host: '127.0.0.3' }), peer: PEER2 } }, () => 'srv_00000002')
+    if (!r2.ok) throw new Error(r2.reason)
+    expect(remotes(r2.config).map((x) => x.url)).toEqual(['http://127.0.0.2:41001', 'http://127.0.0.3:41001'])
+  })
+
+  it('drops a stored server whose address does not match its host', () => {
+    const c = cfg({ remotes: [{ id: 'srv_00000001', name: 'Studio', url: 'http://127.0.0.1:41001', p2p: target({ host: '127.0.0.2' }) }] })
+    expect(remotes(c)).toEqual([])
   })
 })
 

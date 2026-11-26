@@ -9,7 +9,7 @@ import { buildChildEnv } from './childEnv'
 import { normalizeAddress } from './network'
 import { BASE_PATH_ENV } from './paths'
 import { CREDENTIALS_FILE_ENV } from './credentialsFile'
-import type { UpdateChannel } from './serversConfig'
+import type { UpdateChannel } from '../core/serversConfig'
 
 export interface ServerLaunch {
   args: string[]

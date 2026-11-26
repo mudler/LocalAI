@@ -13,5 +13,5 @@
     "resolveJsonModule": true,
     "types": ["vite/client"]
   },
-  "include": ["src/renderer/**/*", "src/shared/**/*.ts"]
+  "include": ["src/renderer/**/*", "src/core/**/*.ts", "src/shared/**/*.ts"]
 }

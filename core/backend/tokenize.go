@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -25,6 +26,12 @@ func tokenizeTokenCount(resp *pb.TokenizationResponse) int {
 }
 
 func ModelTokenize(s string, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (schema.TokenizeResponse, error) {
+	return ModelTokenizeCtx(context.Background(), s, loader, modelConfig, appConfig)
+}
+
+// ModelTokenizeCtx is ModelTokenize for the request of ctx: a zero-retention
+// request leaves no trace with its text.
+func ModelTokenizeCtx(ctx context.Context, s string, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (schema.TokenizeResponse, error) {
 
 	var inferenceModel grpc.Backend
 	var err error
@@ -49,7 +56,7 @@ func ModelTokenize(s string, loader *model.ModelLoader, modelConfig config.Model
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
-		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceTokenize, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(s, 200)})
+		traceID = trace.BeginBackendTraceFor(ctx, trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceTokenize, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(s, 200)})
 	}
 	defer trace.CancelBackendTrace(traceID)
 
@@ -64,7 +71,7 @@ func ModelTokenize(s string, loader *model.ModelLoader, modelConfig config.Model
 
 		tokenCount := tokenizeTokenCount(resp)
 
-		trace.RecordBackendTrace(trace.BackendTrace{
+		trace.RecordBackendTraceFor(ctx, trace.BackendTrace{
 			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),

@@ -1,10 +1,12 @@
 package middleware
 
 import (
+	"context"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/routing/router"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -100,11 +102,11 @@ var _ = Describe("routing probe extraction and trimming", func() {
 	})
 
 	Describe("modelTokenTrim", func() {
-		tok := func(string) (int, error) { return 1, nil }
+		tok := func(context.Context, string) (int, error) { return 1, nil }
 		depsFor := func(cfg *config.ModelConfig) ClassifierDeps {
 			return ClassifierDeps{
 				ModelLookup:  func(string) *config.ModelConfig { return cfg },
-				TokenCounter: func(string) func(string) (int, error) { return tok },
+				TokenCounter: func(string) router.Tokenizer { return tok },
 			}
 		}
 

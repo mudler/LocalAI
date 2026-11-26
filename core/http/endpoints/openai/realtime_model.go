@@ -931,7 +931,7 @@ func (m *wrappedModel) FillToolArguments(ctx context.Context, messages schema.Me
 	if err != nil {
 		return "", nil, err
 	}
-	prompt, err := classifier.SlotFillPrompt(classifierProbe(messages), chosen.ID, slots[0].Name)
+	prompt, err := classifier.SlotFillPrompt(ctx, classifierProbe(messages), chosen.ID, slots[0].Name)
 	if err != nil {
 		return "", nil, err
 	}

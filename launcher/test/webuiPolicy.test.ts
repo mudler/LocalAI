@@ -8,16 +8,21 @@ import {
   hasRecentGesture,
   httpOrigin,
   isLocalOrPrivateHost,
+  isOAuthLoginUrl,
   isServerOrigin,
+  OAUTH_MAX_ORIGINS,
+  OAUTH_PENDING_TIMEOUT_MS,
+  OAUTH_SIGNIN_TIMEOUT_MS,
+  OAuthSignInFlow,
   parsePermissionStore,
-  partitionForOrigin,
   recall,
   remember,
   resetPermissions,
   sanitizeFileName,
   validateRemoteOrigin,
   type PermissionRequestInfo,
-} from '../src/main/webuiPolicy'
+} from '../src/core/webuiPolicy'
+import { partitionForOrigin } from '../src/main/webuiPartition'
 
 const SERVER = 'http://127.0.0.1:8080'
 const LOCALHOST = 'http://localhost:8080'
@@ -154,6 +159,138 @@ describe('decideNavigation, subframes', () => {
     ['about:config', 'deny'],
     ['custom-proto://x', 'deny'],
   ])('%s -> %s', (url, action) => expect(decideNavigation(url, SERVER, sub).action).toBe(action))
+
+  it('never applies allowedOrigins to subframes or URLs with credentials', () => {
+    const allowedOrigins = new Set(['https://idp.example.test'])
+    expect(decideNavigation('https://idp.example.test/login', SERVER, { frame: 'main', allowedOrigins })).toEqual({ action: 'allow' })
+    expect(decideNavigation('https://idp.example.test/login', SERVER, { frame: 'sub', allowedOrigins }).action).toBe('deny')
+    expect(decideNavigation('https://user:pw@idp.example.test/login', SERVER, { frame: 'main', allowedOrigins }).action).toBe('deny')
+    expect(decideNavigation('https://idp.example.test.evil.test/login', SERVER, { frame: 'main', allowedOrigins }).action).toBe('external')
+  })
+})
+
+describe('OAuth/OIDC sign-in flow policy', () => {
+  const REMOTE = 'https://remote.example.test'
+  const IDP = 'https://idp.example.test'
+
+  it('recognises only server OIDC and GitHub login routes', () => {
+    expect(isOAuthLoginUrl(`${REMOTE}/api/auth/oidc/login`, REMOTE)).toBe(true)
+    expect(isOAuthLoginUrl(`${REMOTE}/api/auth/oidc/login?invite_code=abc`, REMOTE)).toBe(true)
+    expect(isOAuthLoginUrl(`${REMOTE}/api/auth/github/login`, REMOTE)).toBe(true)
+    expect(isOAuthLoginUrl(`${REMOTE}/api/auth/github/login?invite_code=abc`, REMOTE)).toBe(true)
+    expect(isOAuthLoginUrl(`${REMOTE}/api/auth/oidc/callback?code=1`, REMOTE)).toBe(false)
+    expect(isOAuthLoginUrl(`${REMOTE}/api/auth/login`, REMOTE)).toBe(false)
+    expect(isOAuthLoginUrl(`${REMOTE}/prefix/api/auth/oidc/login`, REMOTE)).toBe(false)
+    expect(isOAuthLoginUrl(`${IDP}/api/auth/oidc/login`, REMOTE)).toBe(false)
+    expect(isOAuthLoginUrl(`https://user@remote.example.test/api/auth/oidc/login`, REMOTE)).toBe(false)
+  })
+
+  it('tracks OIDC sign-in from login route through IdP and revokes access on return', () => {
+    const flow = new OAuthSignInFlow(REMOTE)
+    let t = 1_000
+    expect(flow.phase).toBe('idle')
+
+    // Unrelated redirects are blocked while idle.
+    expect(flow.onRedirect(`${IDP}/authorize`, 'main', t).action).toBe('external')
+    expect(flow.onBeforeRequest(`${IDP}/authorize`, 'main', t).action).toBe('external')
+
+    // Navigating to /api/auth/oidc/login arms pending; server redirect activates IdP origin.
+    expect(flow.onNavigate(`${REMOTE}/api/auth/oidc/login`, 'main', t)).toEqual({ action: 'allow' })
+    expect(flow.phase).toBe('pending')
+    t += 500
+    expect(flow.onRedirect(`${IDP}/authorize?state=s1`, 'main', t)).toEqual({ action: 'allow' })
+    expect(flow.phase).toBe('active')
+    expect(flow.onBeforeRequest(`${IDP}/authorize?state=s1`, 'main', t)).toEqual({ action: 'allow' })
+
+    // Finishing load on the IdP keeps the flow active for form submissions / MFA.
+    flow.onLoad(`${IDP}/login`, t)
+    expect(flow.phase).toBe('active')
+    expect(flow.onNavigate(`${IDP}/mfa`, 'main', t)).toEqual({ action: 'allow' })
+
+    // External links on the IdP page open in the browser without aborting sign-in.
+    expect(flow.onNavigate('https://docs.example.test/help', 'main', t)).toEqual({
+      action: 'external',
+      url: 'https://docs.example.test/help',
+    })
+    expect(flow.phase).toBe('active')
+
+    // Subframes to the IdP remain denied during sign-in.
+    expect(flow.onNavigate(`${IDP}/embed`, 'sub', t).action).toBe('deny')
+    expect(flow.onRedirect(`${IDP}/embed`, 'sub', t).action).toBe('deny')
+    expect(flow.onBeforeRequest(`${IDP}/embed`, 'sub', t).action).toBe('deny')
+
+    // Redirect back to server callback finishes the flow and revokes IdP origin.
+    expect(flow.onRedirect(`${REMOTE}/api/auth/oidc/callback?code=c1&state=s1`, 'main', t)).toEqual({ action: 'allow' })
+    expect(flow.phase).toBe('idle')
+    expect(flow.onNavigate(`${IDP}/account`, 'main', t).action).toBe('external')
+    expect(flow.onBeforeRequest(`${IDP}/account`, 'main', t).action).toBe('external')
+  })
+
+  it('supports GitHub login and bounds federated redirect chains', () => {
+    const flow = new OAuthSignInFlow(REMOTE)
+    const t = 1_000
+    expect(flow.onNavigate(`${REMOTE}/api/auth/github/login?invite_code=k`, 'main', t)).toEqual({ action: 'allow' })
+    for (let i = 1; i <= OAUTH_MAX_ORIGINS; i++) {
+      expect(flow.onRedirect(`https://hop${i}.example.test/auth`, 'main', t)).toEqual({ action: 'allow' })
+    }
+    // Beyond the cap, new origins are handed to the system browser instead of expanding further.
+    expect(flow.onRedirect(`https://hop${OAUTH_MAX_ORIGINS + 1}.example.test/auth`, 'main', t).action).toBe('external')
+    // Already-allowed origins in the chain still work until return.
+    expect(flow.onNavigate('https://hop1.example.test/callback', 'main', t)).toEqual({ action: 'allow' })
+    expect(flow.onNavigate(`${REMOTE}/api/auth/github/callback?code=1&state=2`, 'main', t)).toEqual({ action: 'allow' })
+    expect(flow.phase).toBe('idle')
+  })
+
+  it('expires pending and active flows after their timeouts', () => {
+    const flow = new OAuthSignInFlow(REMOTE)
+    expect(flow.onNavigate(`${REMOTE}/api/auth/oidc/login`, 'main', 1_000)).toEqual({ action: 'allow' })
+    expect(flow.onRedirect(`${IDP}/authorize`, 'main', 1_000 + OAUTH_PENDING_TIMEOUT_MS + 1).action).toBe('external')
+    expect(flow.phase).toBe('idle')
+
+    expect(flow.onNavigate(`${REMOTE}/api/auth/oidc/login`, 'main', 2_000)).toEqual({ action: 'allow' })
+    expect(flow.onRedirect(`${IDP}/authorize`, 'main', 2_100)).toEqual({ action: 'allow' })
+    expect(flow.onBeforeRequest(`${IDP}/login`, 'main', 2_100 + OAUTH_SIGNIN_TIMEOUT_MS)).toEqual({ action: 'allow' })
+    expect(flow.onBeforeRequest(`${IDP}/login`, 'main', 2_100 + OAUTH_SIGNIN_TIMEOUT_MS + 1).action).toBe('external')
+    expect(flow.phase).toBe('idle')
+  })
+
+  it('clears pending state on non-redirect load, load failure, invalid redirect, or navigation elsewhere', () => {
+    const flow = new OAuthSignInFlow(REMOTE)
+    flow.onNavigate(`${REMOTE}/api/auth/oidc/login`, 'main', 1_000)
+    flow.onLoad(`${REMOTE}/api/auth/oidc/login`, 1_100)
+    expect(flow.phase).toBe('idle')
+
+    flow.onNavigate(`${REMOTE}/api/auth/oidc/login`, 'main', 2_000)
+    flow.onLoadFailed(2_100)
+    expect(flow.phase).toBe('idle')
+
+    flow.onNavigate(`${REMOTE}/api/auth/oidc/login`, 'main', 3_000)
+    expect(flow.onRedirect('javascript:alert(1)', 'main', 3_100).action).toBe('deny')
+    expect(flow.phase).toBe('idle')
+
+    flow.onNavigate(`${REMOTE}/api/auth/oidc/login`, 'main', 4_000)
+    expect(flow.onNavigate('https://evil.example.test/', 'main', 4_100).action).toBe('external')
+    expect(flow.phase).toBe('idle')
+
+    flow.onNavigate(`${REMOTE}/api/auth/oidc/login`, 'main', 5_000)
+    expect(flow.onNavigate(`${REMOTE}/redirect`, 'main', 5_100)).toEqual({ action: 'allow' })
+    expect(flow.phase).toBe('idle')
+    expect(flow.onRedirect('https://evil.example.test/', 'main', 5_200).action).toBe('external')
+  })
+
+  it('clears active state on reset or when a server page finishes loading', () => {
+    const flow = new OAuthSignInFlow(REMOTE)
+    flow.onNavigate(`${REMOTE}/api/auth/oidc/login`, 'main', 1_000)
+    flow.onRedirect(`${IDP}/authorize`, 'main', 1_100)
+    expect(flow.phase).toBe('active')
+    flow.onLoad(`${REMOTE}/login`, 1_200)
+    expect(flow.phase).toBe('idle')
+
+    flow.onNavigate(`${REMOTE}/api/auth/oidc/login`, 'main', 2_000)
+    flow.onRedirect(`${IDP}/authorize`, 'main', 2_100)
+    flow.reset()
+    expect(flow.phase).toBe('idle')
+  })
 })
 
 describe('decideWindowOpen never creates a window', () => {

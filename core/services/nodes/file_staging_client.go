@@ -619,6 +619,67 @@ func (f *FileStagingClient) Diarize(ctx context.Context, in *pb.DiarizeRequest, 
 	return f.Backend.Diarize(ctx, in, opts...)
 }
 
+// VoiceVerify stages both clips on the worker. The HTTP layer writes request
+// audio to a temp file on the frontend, and a remote backend cannot open that
+// path.
+func (f *FileStagingClient) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyRequest, opts ...ggrpc.CallOption) (*pb.VoiceVerifyResponse, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.VoiceVerifyRequest)
+
+	if in.Audio1 != "" && isFilePath(in.Audio1) {
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Audio1, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging first audio for voice verify: %w", err)
+		}
+		in.Audio1 = backendPath
+	}
+	if in.Audio2 != "" && isFilePath(in.Audio2) {
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Audio2, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging second audio for voice verify: %w", err)
+		}
+		in.Audio2 = backendPath
+	}
+
+	return f.Backend.VoiceVerify(ctx, in, opts...)
+}
+
+// VoiceAnalyze stages the clip on the worker; see VoiceVerify.
+func (f *FileStagingClient) VoiceAnalyze(ctx context.Context, in *pb.VoiceAnalyzeRequest, opts ...ggrpc.CallOption) (*pb.VoiceAnalyzeResponse, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.VoiceAnalyzeRequest)
+
+	if in.Audio != "" && isFilePath(in.Audio) {
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Audio, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging audio for voice analyze: %w", err)
+		}
+		in.Audio = backendPath
+	}
+
+	return f.Backend.VoiceAnalyze(ctx, in, opts...)
+}
+
+// VoiceEmbed stages the clip on the worker; see VoiceVerify. Register and
+// identify go through this call too.
+func (f *FileStagingClient) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest, opts ...ggrpc.CallOption) (*pb.VoiceEmbedResponse, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.VoiceEmbedRequest)
+
+	if in.Audio != "" && isFilePath(in.Audio) {
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Audio, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging audio for voice embed: %w", err)
+		}
+		in.Audio = backendPath
+	}
+
+	return f.Backend.VoiceEmbed(ctx, in, opts...)
+}
+
 // AudioTransform stages the input and reference audio on the worker, runs the
 // transform into a worker-side temp file and brings every output back to the
 // frontend paths the caller asked for.

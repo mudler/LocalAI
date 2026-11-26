@@ -75,6 +75,8 @@ import { Button, Callout, LoadError } from '../components/ui'
 import './home.css'
 import Icon from '../components/Icon'
 import { idsText, resultParts } from '../utils/remotes'
+import IncognitoBar from '../components/chat/IncognitoBar'
+import { ZERO_RETENTION, incognitoLevels, offeredLevel, rememberIncognitoChat, setIncognitoMarker } from '../utils/incognito'
 
 const DOCS_URL = 'https://localai.io'
 const ADDONS_DOCS_URL = 'https://localai.io/features/addons/#turning-the-owner-on-or-off'
@@ -124,11 +126,18 @@ export default function Home() {
   const [searchParams] = useSearchParams()
   // What the chat server says about chats here: whether files (attachments,
   // skills) work, whether chats are kept, the model that reads images.
-  const [chatServer, setChatServer] = useState({ files: true, filesReason: '', persistent: true, imageModel: '' })
+  const [chatServer, setChatServer] = useState({ files: true, filesReason: '', persistent: true, imageModel: '', incognito: null })
+  // The incognito level of the next chat, '' when off. It lives in this
+  // component only, and every request carries it while it is on.
+  const [incognito, setIncognito] = useState('')
+  useEffect(() => {
+    setIncognitoMarker(incognito)
+    return () => setIncognitoMarker('')
+  }, [incognito])
   // The composer is the chat page's (useChatComposer): the draft is Home's,
   // the switches are a draft that goes with the new chat.
   const composer = useChatComposer({
-    draftKey: HOME_DRAFT, userId: user?.id, filesOn: chatServer.files, canAgents: hasFeature('agents'),
+    draftKey: HOME_DRAFT, userId: user?.id, filesOn: chatServer.files && incognito !== ZERO_RETENTION, canAgents: hasFeature('agents'),
     initialModel: searchParams.get('model') || '',
   })
   // The sandbox profile and the network of the new chat: picked here, saved
@@ -434,9 +443,11 @@ export default function Home() {
   // The new chat of Send and of Live: the chosen model, agent and drafted
   // switches, then the reasoning effort in its settings.
   const createChat = useCallback(async () => {
-    const chat = await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined, projectId || undefined)
+    // An incognito chat belongs to no project; the marker is on the request.
+    const chat = await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined, incognito ? undefined : (projectId || undefined))
+    if (incognito) rememberIncognitoChat(chat.id, chat.incognito || incognito)
     // The shared projects picked in the composer are pulled into the new chat.
-    if (pulledDraft?.length) {
+    if (pulledDraft?.length && !incognito) {
       try {
         await chatProjectsApi.setChatPulled(chat.id, pulledDraft)
         chat.pulled_projects = pulledDraft
@@ -458,7 +469,7 @@ export default function Home() {
       }
     }
     return chat
-  }, [draftModel, agentId, projectId, pulledDraft, draftEffort, switches, addToast, tpj, tch, tc, saveProfileDraft, saveNetworkDraft])
+  }, [draftModel, agentId, projectId, pulledDraft, draftEffort, switches, addToast, tpj, tch, tc, saveProfileDraft, saveNetworkDraft, incognito])
   const doSubmit = useCallback(async (override) => {
     const own = typeof override !== 'string'
     let text = (own ? message : override).trim()
@@ -605,7 +616,7 @@ export default function Home() {
     chatsApi.list(1, 'chat', 'person').then(r => {
       if (!live) return
       setConversations(resumeItems(r.conversations))
-      setChatServer({ files: r.files !== false, filesReason: r.files_reason || '', persistent: r.persistent !== false, imageModel: r.image_model || '' })
+      setChatServer({ files: r.files !== false, filesReason: r.files_reason || '', persistent: r.persistent !== false, imageModel: r.image_model || '', incognito: r.incognito || null })
     }).catch(() => { if (live) setConversations([]) })
     return () => { live = false }
   }, [])
@@ -793,11 +804,16 @@ export default function Home() {
           )}
           {!chatServer.persistent && <p className="cx-notice" role="note">{tc('memoryNotice')}</p>}
           {!chatServer.files && <p className="cx-notice" role="note">{chatServer.filesReason || tc('attach.off')}</p>}
+          <IncognitoBar
+            levels={incognitoLevels(chatServer.incognito)}
+            level={incognito}
+            onChange={(l) => setIncognito(l ? offeredLevel(chatServer.incognito, l) : '')}
+          />
           <ChatComposer
             composer={composer}
             sandboxProfile={sandboxProfile}
             egress={egress}
-            filesOn={chatServer.files}
+            filesOn={chatServer.files && incognito !== ZERO_RETENTION}
             loadedIds={loadedIds}
             imageModel={chatServer.imageModel}
             pickerRef={pickerRef}

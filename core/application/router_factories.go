@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/routing/corpus"
+	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/pkg/reasoning"
 	"gopkg.in/yaml.v3"
 )
@@ -65,16 +66,16 @@ func (l *lazyScorer) Score(ctx context.Context, prompt string, stablePrefixLen i
 
 // TokenCounter returns a func so the middleware's literal field type accepts
 // it as a method value without importing core/http/middleware from here.
-func (a *Application) TokenCounter(modelName string) func(string) (int, error) {
+func (a *Application) TokenCounter(modelName string) router.Tokenizer {
 	if a.adapterConfig(modelName) == nil {
 		return nil
 	}
-	return func(text string) (int, error) {
+	return func(ctx context.Context, text string) (int, error) {
 		cfg := a.adapterConfig(modelName)
 		if cfg == nil {
 			return 0, fmt.Errorf("token counter: model %q no longer available", modelName)
 		}
-		resp, err := backend.ModelTokenize(text, a.modelLoader, *cfg, a.applicationConfig)
+		resp, err := backend.ModelTokenizeCtx(ctx, text, a.modelLoader, *cfg, a.applicationConfig)
 		if err != nil {
 			return 0, err
 		}

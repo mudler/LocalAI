@@ -21,15 +21,39 @@ removed from the repository. It uses the same data folder (`~/.localai`) and the
   `serverVersion.ts`, `serverLaunch.ts`, `settings.ts`, the `sandbox*.ts`
   modules, `ipcGuard.ts` (sender check), `ipcValidate.ts` (input checks),
   `ipcHandlers.ts` (one handler per channel), `menuModel.ts`, `core.ts`
-  (start order and actions), `webuiPolicy.ts` (the WebUI view's security
-  decisions), `webuiState.ts` (the WebUI view's lifecycle) and
-  `windowLayout.ts` (view bounds and stacking), `hostTools.ts` (free port,
-  what listens on a port, hardware summary), `loginItem.ts` (Launch at
-  login), `secretStore.ts` (secrets.json over an injected safeStorage),
-  `apiKey.ts`, `network.ts` (bind address and LAN addresses),
-  `webuiCredential.ts` (the WebUI sign-in cookie), `notifications.ts` (the
-  notification streams, event parser, reconnect, link check, suppression rule).
+  (start order and actions), `windowLayout.ts` (view bounds and stacking),
+  `webuiPartition.ts` (the session partition of each origin), `hostTools.ts`
+  (free port, what listens on a port, hardware summary), `loginItem.ts`
+  (Launch at login), `secretStore.ts` (secrets.json over an injected
+  safeStorage), `apiKey.ts`, `network.ts` (bind address and LAN addresses),
+  `webuiCredential.ts` (the WebUI sign-in cookie), `p2pRemote.ts` (the
+  `local-ai p2p` commands and the forwarder supervisor), `testConnection.ts`
+  (the Node HTTP transport of the connection test) and `devFeed.ts` (the
+  file names and the feed URL of the development build). `checksum.ts`,
+  `config.ts`, `configStore.ts`, `network.ts`, `testConnection.ts` and
+  `devFeed.ts` add the Node side to a module of `src/core` and re-export its
+  names, so existing imports keep working.
   Electron-facing: `index.ts`, `menu.ts`, `tray.ts`, `selfUpdate.ts`, `webuiView.ts`, `dimView.ts`, `notifyGlue.ts` (desktop notifications, badge).
+- `src/core`: pure modules that the main process shares with other clients.
+  They import no Node module and no Electron, and use no `Buffer` or
+  `process`; what needs the platform (random bytes, file I/O, the HTTP
+  request, child processes) comes in from the caller.
+  `test/coreBoundary.test.ts` checks the imports of `src/core` and
+  `src/shared`, `tsconfig.core.json` type-checks both folders without Node
+  types (part of `npm run typecheck`), and `test/coreBrowser.test.ts` runs
+  them under jsdom. The modules: `address.ts` (address normalisation,
+  loopback check), `webuiPolicy.ts` (the WebUI view's security decisions),
+  `webuiState.ts` (the WebUI view's lifecycle), `notifications.ts` (the
+  notification streams, event parser, reconnect, link check, suppression
+  rule), `remoteMonitor.ts` (the watch on a remote default), `configTypes.ts`
+  and `configStore.ts` (the launcher.json model and its one writer, over an
+  injected `ConfigIO`), `p2pInvite.ts` (invite links, pairing answers,
+  forwarder status lines), `serversConfig.ts` (the saved servers in
+  launcher.json), `testClassify.ts` (what a server address answers, over an
+  injected HTTP request), `checksums.ts` (the checksum list parser),
+  `devFeed.ts` (the development release tag and build identity) and
+  `remoteServers.ts` (the saved servers, switching, the watch and the P2P
+  forwarders, with every dependency injected).
 - `src/shared/ipc.ts`: the IPC contract. Every channel, its direction
   (invoke, event, send) and its payload types. `test/preload.test.ts` fails
   when the preload or the main handler table disagrees with it.
@@ -38,7 +62,10 @@ removed from the repository. It uses the same data folder (`~/.localai`) and the
   uses the `@localai/ui-kit` package and the WebUI's theme CSS (aliases in
   `vite.config.mts`). `bridge.ts` lists the bridge methods the shell can do
   without; a control whose method is missing is hidden. `dev/` holds a fake
-  bridge and named fixtures for the component tests.
+  bridge, a fake client-only bridge (`fakeClientBridge.ts`) and named
+  fixtures for the component tests.
+- `src/shared/apiGroups.ts`: the bridge methods in three groups. See
+  "Capabilities" below.
 - `test`: vitest. `test/fixtures/fake-server.cjs` stands in for the server and
   starts a grandchild so group signals are exercised.
 - `scripts/smoke-packaged.sh`: runs a packaged AppImage under `xvfb-run`, a
@@ -88,6 +115,30 @@ arguments, so the launcher treats a start at login as a hidden start. The
 setting is saved only when the change took effect. On Windows it is
 Electron's login item (a `Run` entry of the current user) with `--hidden`.
 
+## Capabilities
+
+`info().capabilities` tells the shell what the app can do: `localServer`
+(the app runs and manages a LocalAI server on this device), `p2p` (servers
+can be added with an invite link), `selfUpdate` (`electron`, `apk` or
+`none`) and `qrScan`. `src/shared/apiGroups.ts` puts the bridge methods in
+three groups: `CoreApi` (every bridge), `ServersApi` (a bridge that talks to
+servers) and `LocalServerApi` (only a bridge that runs a local server). A
+compile-time check fails when a `LauncherApi` method is in no group. A
+client-only bridge has `localServer: false` and leaves out the
+`LocalServerApi` methods; the shell then hides the local server's controls,
+and with no saved server it shows the first-connect screen. A missing
+`capabilities` value (an older main process) means the desktop set
+(`DESKTOP_CAPABILITIES`), never client-only. The desktop launcher always
+reports the desktop set.
+
+The Android client app (`android/`) reuses `src/renderer`, `src/shared` and
+`src/core` through import aliases, with a client-only bridge
+(`localServer: false`, `selfUpdate: 'apk'`). A change in these folders
+therefore also changes the Android app, and its CI runs on them. The WebUI
+policy fixture `test/fixtures/webui-policy.json` has a Kotlin consumer too:
+the parity test of the Android app's port of `webuiPolicy.ts`. See
+`android/README.md`.
+
 ## Config
 
 The launcher reads and writes `~/.localai/launcher.json` (on Windows
@@ -113,7 +164,7 @@ emptied. An older launcher then starts the server without them.
 
 ## Servers, the default target and the update channel
 
-`launcher.json` keeps these keys (`src/main/serversConfig.ts`; Go keys and
+`launcher.json` keeps these keys (`src/core/serversConfig.ts`; Go keys and
 unknown keys are kept; writes go through the one config queue):
 
 | Key | Meaning |
@@ -132,16 +183,19 @@ started stops after the new page has loaded. With `keep_local_running` on,
 the local server keeps its own rules in the background. Picking a server in
 the bar switcher makes it the default. Switching to This computer starts it
 (the Install screens come first when it is missing). A remote is saved and
-opened only after a passing test (`src/main/testConnection.ts`: no
+opened only after a passing test (`src/core/testClassify.ts` decides,
+`src/main/testConnection.ts` sends the request: no
 credentials, certificate errors never skipped, no redirect off the origin,
 8 s timeout; a server that asks for a sign-in counts as reachable);
 "Save without testing" exists only in Settings. While the remote default
 does not answer, the shell shows the recovery screen and the launcher retries
-every 30 s (`remoteMonitor.ts`); it never starts the local server by itself.
+every 30 s (`src/core/remoteMonitor.ts`); it never starts the local server by itself.
 Plain http to any host is accepted, with a warning in the form and an amber
 "Remote, not encrypted" chip in the bar.
 
-A server over P2P (`src/main/p2pRemote.ts`) is added with an invite link.
+A server over P2P is added with an invite link (`src/core/p2pInvite.ts`
+reads the link and the command output, `src/main/p2pRemote.ts` runs the
+commands).
 The launcher runs `local-ai p2p pair --invite <link> --identity <file> --json`
 once, with the identity file `~/.localai/launcher-p2p/identity.key`, picks a
 free loopback port, saves the server at `http://127.0.0.1:<port>` and keeps
@@ -165,8 +219,10 @@ build, for the server and for the launcher itself:
 
 - Where it comes from: the `dev-master` pre-release of the LocalAI
   repository, with `local-ai-master-<os>-<arch>` and a `.sha256` file for each
-  platform. All names are in `src/main/devFeed.ts`; the fake release server in
-  `scripts/fake-release-server.mjs` serves the same names for tests.
+  platform. The file names and the feed URL are in `src/main/devFeed.ts`.
+  The release tag and the build id parser are in `src/core/devFeed.ts`. The
+  fake release server in `scripts/fake-release-server.mjs` serves the same
+  names for tests.
 - The same fail-closed checksum check and atomic swap as a release. "Newer"
   means a different build id (the short commit sha from the release text),
   not a higher version. The previous binary stays as `local-ai.previous`,
@@ -656,7 +712,7 @@ The window is a `BaseWindow` with up to four `WebContentsView`s, from bottom
 to top: the shell (the launcher's React page, the only view with the preload
 bridge), the WebUI view, the dim layer (only while the server is stopped),
 and the corner dot. `windowLayout.ts` computes their
-bounds and order from the state of `webuiState.ts` on every state change and
+bounds and order from the state of `src/core/webuiState.ts` on every state change and
 resize. The window has a minimum size of 720 by 480.
 
 | Layout | When | Views |
@@ -751,7 +807,7 @@ channel (`src/shared/ipc.ts` has the full list):
 
 The view renders server pages, model output and MCP app frames, so it gets
 the strictest settings (`webuiView.ts`; the decisions are in
-`webuiPolicy.ts`):
+`src/core/webuiPolicy.ts`):
 
 - No preload. `nodeIntegration` off (also in subframes and workers);
   `contextIsolation`, `sandbox` and `webSecurity` on; no insecure content; no
@@ -769,6 +825,18 @@ the strictest settings (`webuiView.ts`; the decisions are in
   and the server's own `blob:` URLs, nothing else, and they never open the
   browser. The session also cancels every document request to another origin,
   also after a redirect.
+- OAuth and OIDC sign-in is the one exception (`OAuthSignInFlow` in
+  `src/core/webuiPolicy.ts`). A main-frame navigation to
+  `/api/auth/oidc/login` or `/api/auth/github/login` on the server origin
+  waits 30 seconds for a redirect. The first redirect of the main frame to
+  another `http` or `https` origin then lets that origin load in the main
+  frame, so the `oauth_state` cookie and the session cookie stay in the
+  view's partition. More redirects can add origins, at most 5 in all; a link
+  that a provider page follows adds none. The exception ends on a return to
+  the server origin, after 10 minutes (the life of the `oauth_state`
+  cookie), when the launcher navigates the view, and when the view closes or
+  shows another server. Subframes, windows, permissions, downloads, other
+  schemes and URLs with user info keep the rules above.
 - `window.open` and `target=_blank` never create a window. `/app` pages of
   the server open in the view; other server pages and other origins open in
   the browser.
@@ -791,11 +859,16 @@ box): the form warns, and the bar keeps an amber "Remote, not encrypted" chip
 for as long as that server is shown. Credentials in an address and other
 schemes are refused. Each origin keeps its own session partition.
 
-Known limits: a sign-in that redirects to another origin (an identity
-provider) opens in the system browser, so it cannot complete inside the view;
-use Open in browser for it. This is by decision: the view never shows a page
-of an origin the user did not choose. A `javascript:` link runs inside the page itself
-(same origin, no new rights), as in any browser.
+Known limits: an identity provider page is a page of an origin the user did
+not choose. It loads in the view only for the sign-in that the server's login
+route started, in the main frame only, and with no permissions. A provider
+that moves to another origin by script (not by a redirect) opens that origin
+in the system browser, and the sign-in does not complete in the view; use
+Open in browser for it. A provider page gets no permission (camera,
+notifications and the like), and its passkey or security-key prompt may not
+work in the view; choose another sign-in method of the provider then. A
+`javascript:` link runs inside the page itself (same origin, no new rights),
+as in any browser.
 
 ### Desktop notifications
 
@@ -833,7 +906,21 @@ serves the inbox endpoints and two test hooks (`POST /__emit`, `GET /__stats`).
 `test/webuiPolicy.test.ts`, `test/webuiState.test.ts`,
 `test/windowLayout.test.ts` and `test/webuiSecurity.test.ts` (the Electron
 wiring against a fake Electron, and the real trust check against WebUI
-frames) run with `npm test`. `scripts/webui-security.sh` runs the built app:
+frames) run with `npm test`.
+
+`test/fixtures/webui-policy.json` holds the decisions of
+`src/core/webuiPolicy.ts` (navigation, window open, permission, file name)
+for the cases in `test/webuiPolicyCases.ts`, so a port of the policy to
+another client can run the same cases and compare its answers.
+`test/webuiPolicyFixture.test.ts` fails when the file and the code do not
+agree. After a deliberate policy change, write the file again and review the
+diff:
+
+```sh
+UPDATE_WEBUI_POLICY_FIXTURE=1 npx vitest run test/webuiPolicyFixture.test.ts
+```
+
+`scripts/webui-security.sh` runs the built app:
 
 ```sh
 npm run build

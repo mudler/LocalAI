@@ -19,11 +19,14 @@ name: 'sandbox guest image'
 #
 # Event policy:
 #   pull_request          build both architectures, push nothing, no secrets
-#   push to master        build and push, tag sha-<short sha>
-#   workflow_dispatch     build and push, tag sha-<short sha>
+#   push to master        build and push, tag sha-<sha>
+#   workflow_dispatch     build and push, tag sha-<sha>; refused on a tag ref
 #   workflow_call         as the event of the caller: build and push, tag
-#                         sha-<short sha>, except for a pull request and for a
-#                         push to a branch other than master, which push nothing
+#                         sha-<sha>, except for a pull request and for a
+#                         push to a branch other than master, which push nothing,
+#                         and for a v<semver> tag (below); a caller's release
+#                         event is refused: the release event of a release
+#                         builds nothing and needs no guest image
 #
 # The repository of the base image is quay.io/go-skynet/sandbox-guest unless
 # the repository variable SANDBOX_GUEST_REPOSITORY names another one. The media
@@ -35,6 +38,24 @@ name: 'sandbox guest image'
 # workflow reads the digest of each pushed tag back and checks that the
 # reference by digest resolves. The repository must allow anonymous pulls: the
 # add-on pulls an image on the host that runs it.
+#
+# A tag never moves. The add-on is stamped with a digest, and a registry
+# serves a digest only while a tag names it, so moving a tag to a rebuild
+# (the build is not reproducible) breaks every package stamped with the old
+# digest. So:
+#   - A run that pushes first looks each tag up. An image whose tag exists is
+#     reused (its digest is the output) and not built again. Only the missing
+#     images are built, so a run that stopped after one push resumes.
+#   - The runs that push sha-<sha> tags of one commit run one at a time
+#     (the concurrency group of the job), so two of them never both see a tag
+#     missing and both push it.
+#   - A v<semver> tag push names the images of the release with their own
+#     tags: v<semver> (base), media-v<semver> and office-v<semver>. It reuses
+#     a release tag that exists; else it gives the release tag to the image
+#     of sha-<sha> when that exists (no build); else it builds and pushes the
+#     release tag only. A release tag is written once and never pushed again.
+#   - The release event of that tag does not call this workflow. A run for a
+#     release event fails, so it can never build a second set of images.
 
 on:
   workflow_call:
@@ -69,7 +90,9 @@ permissions:
 # caller, so the run of this file and the run that add-on packages calls for
 # the same pull request do not cancel each other.
 concurrency:
-  group: sandbox-images-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  # The event name keeps the runs of different events of one commit apart. The
+  # job group below serializes the runs that push sha-<sha> tags.
+  group: sandbox-images-${{ github.workflow }}-${{ github.event.pull_request.number || format('{0}-{1}', github.event_name, github.sha) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -77,6 +100,14 @@ jobs:
     name: build and push the guest image
     runs-on: ubuntu-24.04
     timeout-minutes: 300
+    # The runs that push sha-<sha> tags of one commit (this workflow on master,
+    # the add-on packages run of master, a dispatch) take turns, so the second
+    # one finds the tags of the first and reuses them. Tag pushes and pull
+    # requests never push a sha-<sha> tag, so each has a group of its own. GitHub keeps one pending job per group: a third run of the
+    # same commit replaces a pending one.
+    concurrency:
+      group: ${{ (github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/tags/')) && format('sandbox-guest-sha-{0}-{1}', github.repository, github.sha) || format('sandbox-guest-run-{0}-{1}-{2}', github.workflow, github.run_id, github.run_attempt) }}
+      cancel-in-progress: false
     outputs:
       image: ${{ steps.ref.outputs.image }}
       digest: ${{ steps.resolve.outputs.digest }}
@@ -91,13 +122,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - name: Free disk space
-        uses: ./.github/actions/free-disk-space
-      # The kernel builds on the build machine and cross-compiles. Only the
-      # userland stage of the arm64 image needs emulation.
-      - uses: docker/setup-qemu-action@master
-        with:
-          platforms: arm64
       - uses: docker/setup-buildx-action@master
       - name: Registry login
         if: env.PUSH == 'true'
@@ -106,10 +130,119 @@ jobs:
           registry: quay.io
           username: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
           password: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+      # Decides, for each image, the tag it ends under and whether this run
+      # builds it, reuses it as it is, or gives the release tag to the image of
+      # sha-<sha>. See "A tag never moves" at the top of this file.
+      - name: Look up the tags that exist
+        id: plan
+        env:
+          SHA: ${{ github.sha }}
+          REF: ${{ github.ref }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -eu
+          # lookup prints the digest of a tag, or nothing when the registry
+          # has no such tag. Any other error fails the step: a tag that cannot
+          # be read is never taken as missing, or the run would push it again.
+          lookup() {
+            if out=$(docker buildx imagetools inspect "$1" --format '{{.Manifest.Digest}}' 2>"$RUNNER_TEMP/lookup.err"); then
+              case "$out" in
+              sha256:????????????????????????????????????????????????????????????????) printf '%s' "$out"; return 0 ;;
+              esac
+              echo "the registry gave no image digest for $1: '$out'" >&2
+              return 1
+            fi
+            if grep -qiE 'not found|manifest unknown' "$RUNNER_TEMP/lookup.err"; then
+              return 0
+            fi
+            cat "$RUNNER_TEMP/lookup.err" >&2
+            return 1
+          }
+          release=
+          if [ "$EVENT" = workflow_dispatch ] && [ "${REF#refs/tags/}" != "$REF" ]; then
+            # The tag push run of a release owns its release tags; a manual run
+            # on the tag would race it.
+            echo "run this workflow by hand on a branch, not on the tag ${REF#refs/tags/}" >&2
+            exit 1
+          fi
+          if [ "$EVENT" = release ]; then
+            # The tag push run of a release builds and names its images; the
+            # release event stamps no package and must not build them again.
+            echo "the release event builds no guest image; the tag push run of ${REF#refs/tags/} does" >&2
+            exit 1
+          fi
+          case "$REF" in
+          refs/tags/v*)
+            release=${REF#refs/tags/}
+            case "$release" in
+            *[!A-Za-z0-9_.-]*) echo "the tag $release is not a valid image tag" >&2; exit 1 ;;
+            esac
+            ;;
+          esac
+          if [ "$PUSH" != true ]; then
+            mode=local
+          elif [ -n "$release" ]; then
+            mode=release
+          else
+            mode=sha
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "mode: $mode"
+          for t in base media office; do
+            if [ "$t" = base ]; then prefix=; else prefix="$t-"; fi
+            sha_tag="${prefix}sha-${SHA}"
+            build=false from=
+            case "$mode" in
+            local)
+              # Nothing is pushed; build every image to check it.
+              tag=$sha_tag build=true
+              ;;
+            sha)
+              tag=$sha_tag
+              # An assignment, so that set -e stops on a lookup error.
+              have=$(lookup "${REPOSITORY}:${tag}")
+              if [ -n "$have" ]; then
+                echo "${REPOSITORY}:${tag} exists; reusing it"
+              else
+                build=true
+              fi
+              ;;
+            release)
+              tag="${prefix}${release}"
+              have=$(lookup "${REPOSITORY}:${tag}")
+              if [ -n "$have" ]; then
+                echo "${REPOSITORY}:${tag} exists; reusing it"
+              else
+                from=$(lookup "${REPOSITORY}:${sha_tag}")
+                if [ -n "$from" ]; then
+                  echo "${REPOSITORY}:${tag} is missing; giving it to ${REPOSITORY}:${sha_tag} (${from})"
+                else
+                  echo "${REPOSITORY}:${tag} and ${REPOSITORY}:${sha_tag} are missing; building"
+                  build=true
+                fi
+              fi
+              ;;
+            esac
+            {
+              echo "tag_${t}=${tag}"
+              echo "build_${t}=${build}"
+              echo "from_${t}=${from}"
+            } >> "$GITHUB_OUTPUT"
+          done
+      - name: Free disk space
+        if: steps.plan.outputs.build_base == 'true' || steps.plan.outputs.build_media == 'true' || steps.plan.outputs.build_office == 'true'
+        uses: ./.github/actions/free-disk-space
+      # The kernel builds on the build machine and cross-compiles. Only the
+      # userland stage of the arm64 image needs emulation.
+      - uses: docker/setup-qemu-action@master
+        if: steps.plan.outputs.build_base == 'true' || steps.plan.outputs.build_media == 'true' || steps.plan.outputs.build_office == 'true'
+        with:
+          platforms: arm64
       # Each target is one build. The kernel and the agent stages are shared,
       # so the layer cache makes the second build short for them.
       - name: Build base
         id: build
+        if: steps.plan.outputs.build_base == 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -122,10 +255,11 @@ jobs:
           sbom: false
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest
           cache-to: ${{ env.PUSH == 'true' && 'type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest,mode=max,ignore-error=true' || '' }}
-          tags: ${{ env.REPOSITORY }}:sha-${{ github.sha }}
+          tags: ${{ env.REPOSITORY }}:${{ steps.plan.outputs.tag_base }}
           push: ${{ env.PUSH == 'true' }}
       - name: Build media
         id: build_media
+        if: steps.plan.outputs.build_media == 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -136,10 +270,11 @@ jobs:
           sbom: false
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest
           cache-to: ${{ env.PUSH == 'true' && 'type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest,mode=max,ignore-error=true' || '' }}
-          tags: ${{ env.REPOSITORY }}:media-sha-${{ github.sha }}
+          tags: ${{ env.REPOSITORY }}:${{ steps.plan.outputs.tag_media }}
           push: ${{ env.PUSH == 'true' }}
       - name: Build office
         id: build_office
+        if: steps.plan.outputs.build_office == 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -150,20 +285,52 @@ jobs:
           sbom: false
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest
           cache-to: ${{ env.PUSH == 'true' && 'type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest,mode=max,ignore-error=true' || '' }}
-          tags: ${{ env.REPOSITORY }}:office-sha-${{ github.sha }}
+          tags: ${{ env.REPOSITORY }}:${{ steps.plan.outputs.tag_office }}
           push: ${{ env.PUSH == 'true' }}
+      # A release reuses the image that master already built for its commit.
+      # The release tag is added to that index by digest; the index is copied
+      # as it is, so the digest does not change.
+      - name: Give the release tags to the images of the commit
+        if: steps.plan.outputs.mode == 'release' && (steps.plan.outputs.from_base != '' || steps.plan.outputs.from_media != '' || steps.plan.outputs.from_office != '')
+        env:
+          PAIRS: ${{ steps.plan.outputs.tag_base }}=${{ steps.plan.outputs.from_base }} ${{ steps.plan.outputs.tag_media }}=${{ steps.plan.outputs.from_media }} ${{ steps.plan.outputs.tag_office }}=${{ steps.plan.outputs.from_office }}
+        run: |
+          set -eu
+          # As in the plan step: a tag that cannot be read is never missing.
+          lookup() {
+            if out=$(docker buildx imagetools inspect "$1" --format '{{.Manifest.Digest}}' 2>"$RUNNER_TEMP/lookup.err"); then
+              printf '%s' "$out"
+              return 0
+            fi
+            if grep -qiE 'not found|manifest unknown' "$RUNNER_TEMP/lookup.err"; then
+              return 0
+            fi
+            cat "$RUNNER_TEMP/lookup.err" >&2
+            return 1
+          }
+          for pair in $PAIRS; do
+            tag=${pair%%=*} from=${pair#*=}
+            [ -n "$from" ] || continue
+            # Look again just before the write: a release tag is never moved.
+            have=$(lookup "${REPOSITORY}:${tag}")
+            if [ -n "$have" ]; then
+              echo "${REPOSITORY}:${tag} exists now (${have}); keeping it"
+              continue
+            fi
+            docker buildx imagetools create --tag "${REPOSITORY}:${tag}" "${REPOSITORY}@${from}"
+          done
       # The digest that the build action reports is the one of the index as it
       # was built. A registry can re-serialize the index and serve it under
       # another digest (quay.io does), and the reported one then gives a
       # "manifest unknown" error. So read the digest back from the registry
-      # by the tag that was just pushed.
+      # by the tag that the image ends under.
       - name: Resolve the digests from the registry
         id: resolve
         if: env.PUSH == 'true'
         env:
-          TAG: sha-${{ github.sha }}
-          TAG_MEDIA: media-sha-${{ github.sha }}
-          TAG_OFFICE: office-sha-${{ github.sha }}
+          TAG: ${{ steps.plan.outputs.tag_base }}
+          TAG_MEDIA: ${{ steps.plan.outputs.tag_media }}
+          TAG_OFFICE: ${{ steps.plan.outputs.tag_office }}
         run: |
           set -eu
           digest=$(docker buildx imagetools inspect "${REPOSITORY}:${TAG}" --format '{{.Manifest.Digest}}')

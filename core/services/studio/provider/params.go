@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/cogito/clients"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/privacy"
 )
 
 // maxRewriteBody caps a request body that LLMWith reads to add its fields. A
@@ -33,6 +34,10 @@ const nodeHeader = "X-LocalAI-Node"
 // Params are the sampling fields and the usage hook of one chat's model
 // client. A nil pointer or an empty string leaves the model's own default.
 type Params struct {
+	// Privacy is the incognito level of the chat. Every request of the client
+	// carries it in its context, so the chat route keeps what the level
+	// allows (no trace, counters only, for zero-retention).
+	Privacy         privacy.Level
 	Temperature     *float64
 	TopP            *float64
 	TopK            *int
@@ -97,7 +102,7 @@ func (p *Provider) LLMWith(user *auth.User, model string, params Params) cogito.
 }
 
 func (p Params) isZero() bool {
-	return p.Temperature == nil && p.TopP == nil && p.TopK == nil && p.ReasoningEffort == "" && p.OnUsage == nil && p.TakeVideos == nil && !p.OnlyLastImages && !p.PreserveThinking
+	return p.Privacy == privacy.Normal && p.Temperature == nil && p.TopP == nil && p.TopK == nil && p.ReasoningEffort == "" && p.OnUsage == nil && p.TakeVideos == nil && !p.OnlyLastImages && !p.PreserveThinking
 }
 
 type paramsTransport struct {
@@ -106,6 +111,9 @@ type paramsTransport struct {
 }
 
 func (t *paramsTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if t.params.Privacy.Incognito() {
+		req = req.WithContext(privacy.WithLevel(req.Context(), t.params.Privacy))
+	}
 	if req.Method != http.MethodPost || !strings.HasSuffix(req.URL.Path, "/chat/completions") || req.Body == nil {
 		return t.next.RoundTrip(req)
 	}

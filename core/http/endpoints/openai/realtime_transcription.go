@@ -2,11 +2,16 @@ package openai
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
 )
+
+// errNoFinalTranscript reports a transcription stream that ended without its
+// final result.
+var errNoFinalTranscript = errors.New("transcription stream ended without a final transcript")
 
 // emitPrecomputedTranscription emits the transcription events for a turn
 // whose transcript already exists (semantic_vad's live stream, or the
@@ -62,13 +67,17 @@ func emitTranscription(ctx context.Context, t Transport, session *Session, itemI
 		if err != nil {
 			return "", err
 		}
-		transcript := ""
-		if final != nil {
-			transcript = final.Text
-			if diarize {
-				if err := emitSpeakerSegments(t, itemID, final); err != nil {
-					return "", err
-				}
+		// Every backend ends a transcription stream with a final result,
+		// even for silence (empty text). A stream that ended without one was
+		// cut short: report it as a failed transcription instead of passing
+		// it off as a turn in which nothing was said.
+		if final == nil {
+			return "", errNoFinalTranscript
+		}
+		transcript := final.Text
+		if diarize {
+			if err := emitSpeakerSegments(t, itemID, final); err != nil {
+				return "", err
 			}
 		}
 		if beforeCompleted != nil {

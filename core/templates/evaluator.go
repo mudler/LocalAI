@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/xlog"
@@ -209,7 +210,7 @@ func (e *Evaluator) TemplateMessages(input schema.OpenAIRequest, messages []sche
 	}
 
 	predInput = strings.Join(mess, joinCharacter)
-	xlog.Debug("Prompt (before templating)", "prompt", predInput)
+	xlog.Debug("Prompt (before templating)", "prompt", privacy.Redact(input.Context, predInput))
 
 	promptTemplate := ChatPromptTemplate
 
@@ -227,7 +228,7 @@ func (e *Evaluator) TemplateMessages(input schema.OpenAIRequest, messages []sche
 	})
 	if err == nil {
 		predInput = templatedInput
-		xlog.Debug("Template found, input modified", "input", predInput)
+		xlog.Debug("Template found, input modified", "input", privacy.Redact(input.Context, predInput))
 	} else {
 		xlog.Debug("Template failed loading", "error", err)
 	}

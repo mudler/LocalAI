@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, waitFor, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { called, renderShell, screen, settle } from './render'
 
 const bar = () => within(screen.getByRole('contentinfo', { name: 'LocalAI status bar' }))
@@ -239,6 +239,42 @@ describe('hidden bar', () => {
     b.emitServer({ state: 'stopped', endpoint: 'http://127.0.0.1:8080', logTail: [] })
     await settle()
     expect(screen.getByTestId('corner-dot').getAttribute('data-tone')).toBe('idle')
+  })
+})
+
+describe('the switcher on a narrow screen', () => {
+  // jsdom has no matchMedia; each case installs one that answers `matches`.
+  const stubMatchMedia = (matches: boolean) => {
+    const queries: string[] = []
+    window.matchMedia = ((query: string) => {
+      queries.push(query)
+      return { matches, media: query, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false }
+    }) as typeof window.matchMedia
+    return queries
+  }
+  afterEach(() => {
+    delete (window as { matchMedia?: unknown }).matchMedia
+  })
+
+  it('opens as a bottom sheet under 600 px', async () => {
+    const queries = stubMatchMedia(true)
+    await renderShell('switcher')
+    fireEvent.click(bar().getByRole('button', { name: 'Server: Office GPU box. Switch server.' }))
+    const menu = screen.getByRole('menu', { name: 'Servers' })
+    expect(menu.classList.contains('lnr-popover--sheet')).toBe(true)
+    expect(queries).toContain('(max-width: 599px)')
+  })
+
+  it('stays a popover on a wider screen and without matchMedia (the desktop)', async () => {
+    stubMatchMedia(false)
+    await renderShell('switcher')
+    fireEvent.click(bar().getByRole('button', { name: 'Server: Office GPU box. Switch server.' }))
+    expect(screen.getByRole('menu', { name: 'Servers' }).classList.contains('lnr-popover--sheet')).toBe(false)
+    cleanupAndCheck()
+    delete (window as { matchMedia?: unknown }).matchMedia
+    await renderShell('switcher')
+    fireEvent.click(bar().getByRole('button', { name: 'Server: Office GPU box. Switch server.' }))
+    expect(screen.getByRole('menu', { name: 'Servers' }).classList.contains('lnr-popover--sheet')).toBe(false)
   })
 })
 

@@ -1807,5 +1807,21 @@
         "undone": "Changement du rappel de {{title}} annulé."
       }
     }
+  },
+  "incognito": {
+    "label": "Navigation privée",
+    "levelLabel": "Niveau de confidentialité",
+    "levels": {
+      "memory-off": "Sans mémoire",
+      "zero-retention": "Aucune conservation"
+    },
+    "describe": {
+      "memory-off": "Ce chat ne lit ni n'enregistre la mémoire. Il n'apparaît dans aucune liste et se termine quand vous le quittez. Les journaux et les traces sont conservés comme d'habitude.",
+      "zero-retention": "Le serveur ne conserve rien de ce chat, seulement les compteurs d'utilisation. Il ne lit ni n'enregistre la mémoire, n'accepte aucune pièce jointe et se termine quand vous le quittez."
+    },
+    "blocked": "Indisponible dans un chat privé",
+    "discardTitle": "Terminer le chat privé ?",
+    "discardMessage": "Le chat est supprimé et ne peut plus être rouvert.",
+    "discardConfirm": "Terminer le chat"
   }
 }

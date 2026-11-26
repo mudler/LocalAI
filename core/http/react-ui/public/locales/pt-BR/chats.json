@@ -1807,5 +1807,21 @@
         "undone": "Alteração do lembrete de {{title}} desfeita."
       }
     }
+  },
+  "incognito": {
+    "label": "Anônimo",
+    "levelLabel": "Nível anônimo",
+    "levels": {
+      "memory-off": "Sem memória",
+      "zero-retention": "Sem retenção"
+    },
+    "describe": {
+      "memory-off": "Este chat não lê nem salva memória. Não aparece na lista e termina quando você sai dele. Logs e rastros são mantidos como de costume.",
+      "zero-retention": "O servidor não guarda nada deste chat, apenas contagens de uso. Não lê nem salva memória, não aceita anexos e termina quando você sai dele."
+    },
+    "blocked": "Indisponível em um chat anônimo",
+    "discardTitle": "Encerrar o chat anônimo?",
+    "discardMessage": "O chat é excluído e não pode ser aberto de novo.",
+    "discardConfirm": "Encerrar chat"
   }
 }
