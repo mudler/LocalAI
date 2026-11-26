@@ -729,6 +729,9 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     int kv_pool_tokens = 0;
     int prefill_budget = 0;
     int kv_output_reserve = 256;
+    // An explicit cont_batching:false, which parallel > 1 would otherwise
+    // override, so LoadModel can reject it together with paged_kv.
+    bool cont_batching_off = false;
 
     // Initialize fit_params options (can be overridden by options)
     // fit_params: whether to auto-adjust params to fit device memory (default: true as in llama.cpp)
@@ -997,8 +1000,10 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         } else if (!strcmp(optname, "cont_batching") || !strcmp(optname, "continuous_batching")) {
             if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
                 params.cont_batching = true;
+                cont_batching_off = false;
             } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
                 params.cont_batching = false;
+                cont_batching_off = true;
             }
         } else if (!strcmp(optname, "check_tensors")) {
             if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
@@ -1691,6 +1696,9 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     }
     if (params.n_parallel > 1) {
         params.cont_batching = true;
+    }
+    if (paged_active && cont_batching_off) {
+        params.cont_batching = false;
     }
 
     // The total KV pool of paged serving. It is the context size, named for
