@@ -1,20 +1,21 @@
 #!/bin/bash
 # Regression test for the cuDNN packaging in scripts/build/package-gpu-libs.sh.
 #
-# cuDNN 9 is a dispatcher (libcudnn.so.9) plus eight sublibraries the dispatcher
-# dlopen()s by bare soname at runtime. Only the dispatcher is ever a DT_NEEDED,
-# so ldd finds it but never the eight - they have to be completed explicitly.
+# cuDNN 9 is a dispatcher (libcudnn.so.9) plus seven sublibraries the dispatcher
+# dlopen()s by bare soname at runtime, eight from 9.21 on, which adds
+# libcudnn_engines_tensor_ir. Only the dispatcher is ever a DT_NEEDED, so ldd
+# finds it but never the sublibraries - they have to be completed explicitly.
 #
 # Three end states are correct, and which one applies is a property of the
 # backend, not of the Dockerfile that built it:
 #
 #   venv has a complete pip cuDNN   -> bundle nothing  (longcat-video)
-#   venv has no pip cuDNN           -> bundle all 9    (vllm: Jetson-index torch
+#   venv has no pip cuDNN           -> bundle all      (vllm: Jetson-index torch
 #                                                       links cuDNN, no wheel)
 #   no venv, nothing links cuDNN    -> bundle nothing  (llama-cpp, whisper,
 #                                                       rfdetr-cpp, sam3-cpp,
 #                                                       stablediffusion-ggml)
-#   no venv, something links cuDNN  -> bundle all 9    (face-detect, voice-detect)
+#   no venv, something links cuDNN  -> bundle all      (face-detect, voice-detect)
 #
 # Everything else is a bug this file exists to catch. Historically the allowlist
 # force-copied three cuDNN libs into every CUDA backend, which produced the two
@@ -56,9 +57,8 @@ echo 'int cudnn_stub(void){return 0;}' > "$WORK/stub.c"
 # would leave the fixture silently testing nothing.
 printf 'int cudnn_stub(void);\nint consume(void){return cudnn_stub();}\n' > "$WORK/consumer.c"
 
-# A system (apt) cuDNN: real .so.9.24.0 files behind .so.9 symlinks. This is
-# what the L4T build image carries and it holds no TensorRT, matching reality -
-# nothing in the Dockerfiles installs libnvinfer.
+# A system (apt) cuDNN: real .so.9.24.0 files behind .so.9 symlinks, the shape
+# of the CUDA 13 arm64 build images.
 SYS="$WORK/sys"
 mkdir -p "$SYS"
 for name in "${CUDNN_FAMILY[@]}"; do
@@ -75,6 +75,21 @@ cp -a "$SYS"/. "$SYSTRT/"
 gcc -shared -fPIC -o "$SYSTRT/libnvinfer.so.10" "$WORK/consumer.c" \
     -L"$SYS" -l:libcudnn.so.9 -Wl,-rpath,"$SYS"
 
+# The JetPack r36.4 build image (l4t-jetpack, CUDA 12): cuDNN 9.3.0, which
+# predates libcudnn_engines_tensor_ir (first shipped in 9.21.0), plus TensorRT
+# 10.3, whose libnvinfer the cuda_libs allowlist bundles into every package and
+# which pulls the cuDNN dispatcher in through the transitive sweep.
+SYS93="$WORK/sys93"
+mkdir -p "$SYS93"
+for name in "${CUDNN_FAMILY[@]}"; do
+    [ "$name" = libcudnn_engines_tensor_ir ] && continue
+    gcc -shared -fPIC -o "$SYS93/${name}.so.9.3.0" "$WORK/stub.c"
+    ln -s "${name}.so.9.3.0" "$SYS93/${name}.so.9"
+done
+gcc -shared -fPIC -o "$SYS93/libnvinfer.so.10.3.0" "$WORK/consumer.c" \
+    -L"$SYS93" -l:libcudnn.so.9 -Wl,-rpath,"$SYS93"
+ln -s libnvinfer.so.10.3.0 "$SYS93/libnvinfer.so.10"
+
 # Build a backend dir: <edir>/lib is the bundle target, <edir>/venv is the venv.
 # pip ships cuDNN as plain libcudnn*.so.9 files with no versioned real name.
 #
@@ -82,7 +97,7 @@ gcc -shared -fPIC -o "$SYSTRT/libnvinfer.so.10" "$WORK/consumer.c" \
 # own shared object into package/lib, which IS the target dir, so the existing
 # transitive sweep sees it. That is how face-detect/voice-detect are detected.
 #
-# $1 = backend name, $2 = pip-cudnn | venv-no-cudnn | no-venv | links-cudnn
+# $1 = backend name, $2 = pip-cudnn | pip-cudnn-* | venv-no-cudnn | no-venv | links-cudnn
 make_backend() {
     local edir="$WORK/$1"
     mkdir -p "$edir/lib"
@@ -94,6 +109,31 @@ make_backend() {
             for name in "${CUDNN_FAMILY[@]}"; do
                 gcc -shared -fPIC -o "$sp/${name}.so.9" "$WORK/stub.c"
             done
+            ;;
+        pip-cudnn-9.10-header|pip-cudnn-9.10-distinfo|pip-cudnn-9.24-header|pip-cudnn-unknown)
+            # torch's pinned pip cuDNN predates 9.21, so it has no
+            # libcudnn_engines_tensor_ir. The version comes from the header or
+            # the dist-info, since pip file names carry none.
+            local site="$edir/venv/lib/python3.12/site-packages"
+            local sp="$site/nvidia/cudnn/lib"
+            mkdir -p "$sp"
+            local name
+            for name in "${CUDNN_FAMILY[@]}"; do
+                [ "$name" = libcudnn_engines_tensor_ir ] && continue
+                gcc -shared -fPIC -o "$sp/${name}.so.9" "$WORK/stub.c"
+            done
+            case "$2" in
+                pip-cudnn-9.10-header|pip-cudnn-9.24-header)
+                    local minor="${2#pip-cudnn-9.}"
+                    minor="${minor%-header}"
+                    mkdir -p "$site/nvidia/cudnn/include"
+                    printf '#define CUDNN_MAJOR 9\n#define CUDNN_MINOR %s\n#define CUDNN_PATCHLEVEL 2\n' \
+                        "$minor" > "$site/nvidia/cudnn/include/cudnn_version.h"
+                    ;;
+                pip-cudnn-9.10-distinfo)
+                    mkdir -p "$site/nvidia_cudnn_cu12-9.10.2.21.dist-info"
+                    ;;
+            esac
             ;;
         venv-no-cudnn)
             mkdir -p "$edir/venv/lib/python3.12/site-packages/nvidia"
@@ -119,10 +159,12 @@ bundled_cudnn() {
     find "$1" -maxdepth 1 -name 'libcudnn*' -printf '%f\n' 2>/dev/null | sort | tr '\n' ' '
 }
 
-# Report how many of the 8 sonames are present, for the "expect all" cases.
+# Report which sonames of the family are absent, for the "expect all" cases.
+# $2 = "pre-9.21" when the family predates libcudnn_engines_tensor_ir.
 missing_cudnn() {
     local dir="$1" name out=()
     for name in "${CUDNN_FAMILY[@]}"; do
+        [ "${2:-}" = pre-9.21 ] && [ "$name" = libcudnn_engines_tensor_ir ] && continue
         [ -e "$dir/${name}.so.9" ] || out+=("${name}.so.9")
     done
     echo "${out[*]:-}"
@@ -183,8 +225,8 @@ else
 fi
 
 # --- 5. a bundled library pulling cuDNN in must also get the family completed.
-# Nothing installs TensorRT today, but if it ever is, libnvinfer's DT_NEEDED on
-# libcudnn would otherwise reintroduce exactly the partial set from #10905.
+# The JetPack build image ships TensorRT, and libnvinfer's DT_NEEDED on libcudnn
+# would otherwise reintroduce exactly the partial set from #10905.
 EDIR=$(make_backend gotrt no-venv)
 run_packager "$EDIR/lib" "$SYSTRT" >/dev/null 2>&1 || true
 missing=$(missing_cudnn "$EDIR/lib")
@@ -204,12 +246,59 @@ else
     fail "build failed for a backend that has no cuDNN available anywhere"
 fi
 
+# --- 7. JetPack r36.4 (cuDNN 9.3.0, TensorRT 10.3), Go backend with no cuDNN
+# consumer of its own (whisper, parakeet-cpp, ced). libnvinfer drags cuDNN in;
+# the family 9.3 ships is complete without libcudnn_engines_tensor_ir, so the
+# build must pass and carry exactly the seven sublibraries 9.3 has.
+EDIR=$(make_backend l4tgo no-venv)
+if out=$(run_packager "$EDIR/lib" "$SYS93"); then
+    pass "cuDNN 9.3 pulled in by TensorRT -> build succeeds"
+else
+    fail "cuDNN 9.3 pulled in by TensorRT failed the build: $(echo "$out" | grep -E 'ERROR' | head -1)"
+fi
+missing=$(missing_cudnn "$EDIR/lib" pre-9.21)
+if [ -z "$missing" ]; then
+    pass "cuDNN 9.3 -> every sublibrary 9.3 ships is bundled"
+else
+    fail "cuDNN 9.3 bundle left incomplete: $missing"
+fi
+if echo "$out" | grep -q 'libcudnn_engines_tensor_ir.so.9 was not found'; then
+    fail "warned about libcudnn_engines_tensor_ir, which cuDNN 9.3 never ships"
+else
+    pass "no tensor_ir warning for a cuDNN that predates it"
+fi
+
+# --- 8. JetPack r36.4, Python backend with no pip cuDNN (qwen-asr on l4t):
+# the conservative path bundles the system family, which is complete for 9.3.
+EDIR=$(make_backend l4tpy venv-no-cudnn)
+if run_packager "$EDIR/lib" "$SYS93" >/dev/null 2>&1 \
+    && [ -z "$(missing_cudnn "$EDIR/lib" pre-9.21)" ]; then
+    pass "venv without pip cuDNN on cuDNN 9.3 -> complete 9.3 family bundled"
+else
+    fail "venv without pip cuDNN on cuDNN 9.3 did not bundle a complete family"
+fi
+
+# --- 9. a pip cuDNN older than 9.21 in the venv (torch's pin: vllm,
+# transformers, longcat-video). It is complete without tensor_ir and must be
+# recognised as complete, whether the version comes from the header or the
+# dist-info, so nothing is bundled over it.
+for shape in pip-cudnn-9.10-header pip-cudnn-9.10-distinfo; do
+    EDIR=$(make_backend "venv-$shape" "$shape")
+    if run_packager "$EDIR/lib" "$SYS" >/dev/null 2>&1 \
+        && [ -z "$(bundled_cudnn "$EDIR/lib")" ]; then
+        pass "pip cuDNN 9.10 ($shape) is complete -> nothing bundled"
+    else
+        fail "pip cuDNN 9.10 ($shape) was not recognised as a complete set"
+    fi
+done
+
 # --- Guard unit checks. Source once for direct access to the helpers.
 mkdir -p "$WORK/guard"
 # shellcheck source=/dev/null
 source "$SCRIPT" "$WORK/guard"
 
-for fn in verify_cudnn_bundle cudnn_family_state cudnn_venv_lib_dir cudnn_is_referenced; do
+for fn in verify_cudnn_bundle cudnn_family_state cudnn_family_minor cudnn9_required_libs \
+    cudnn_venv_lib_dir cudnn_is_referenced; do
     if ! declare -F "$fn" >/dev/null; then
         echo "FAIL: package-gpu-libs.sh does not define $fn"
         exit 1
@@ -298,6 +387,61 @@ if cudnn_is_referenced "$DLOPEN"; then
 else
     fail "cudnn_is_referenced missed a dlopen-only consumer (ldd cannot see it)"
 fi
+
+# libcudnn_engines_tensor_ir is part of the family from 9.21 on. A newer bundle
+# without it is the partial set behind #13385 (cuda12-sherpa-onnx shipped 9.28.1
+# without it and failed with CUDNN_STATUS_SUBLIBRARY_LOADING_FAILED), and the
+# guard must still reject it.
+NOTIR="$WORK/notir"
+mkdir -p "$NOTIR"
+for name in "${CUDNN_FAMILY[@]}"; do
+    [ "$name" = libcudnn_engines_tensor_ir ] && continue
+    cp "$SYS/${name}.so.9.24.0" "$NOTIR/${name}.so.9.28.1"
+    ln -sf "${name}.so.9.28.1" "$NOTIR/${name}.so.9"
+done
+if verify_cudnn_bundle "$NOTIR" absent complete 2>/dev/null; then
+    fail "verify_cudnn_bundle accepted a 9.28.1 bundle without libcudnn_engines_tensor_ir"
+else
+    pass "verify_cudnn_bundle rejected a 9.28.1 bundle without libcudnn_engines_tensor_ir"
+fi
+
+# The same seven files at 9.3.0 are the whole 9.3 family.
+OLD93="$WORK/old93"
+mkdir -p "$OLD93"
+for name in "${CUDNN_FAMILY[@]}"; do
+    [ "$name" = libcudnn_engines_tensor_ir ] && continue
+    cp "$SYS93/${name}.so.9.3.0" "$OLD93/"
+    ln -sf "${name}.so.9.3.0" "$OLD93/${name}.so.9"
+done
+if verify_cudnn_bundle "$OLD93" absent partial; then
+    pass "verify_cudnn_bundle accepts a complete cuDNN 9.3 bundle"
+else
+    fail "verify_cudnn_bundle rejected a complete cuDNN 9.3 bundle"
+fi
+
+# An older version does not relax the rest of the family: 9.3 without
+# libcudnn_graph is still a partial set.
+rm "$OLD93/libcudnn_graph.so.9" "$OLD93/libcudnn_graph.so.9.3.0"
+if verify_cudnn_bundle "$OLD93" absent partial 2>/dev/null; then
+    fail "verify_cudnn_bundle accepted a cuDNN 9.3 bundle without libcudnn_graph"
+else
+    pass "verify_cudnn_bundle rejected a cuDNN 9.3 bundle without libcudnn_graph"
+fi
+
+# pip cuDNN without tensor_ir: complete before 9.21, partial from 9.21 on, and
+# partial when the version cannot be told, so an unknown set gets the strict
+# check rather than a pass.
+for case in "pip-cudnn-9.10-header complete" "pip-cudnn-9.24-header partial" \
+    "pip-cudnn-unknown partial"; do
+    set -- $case
+    EDIR=$(make_backend "state-$1" "$1")
+    got=$(cudnn_family_state "$(cudnn_venv_lib_dir "$EDIR")")
+    if [ "$got" = "$2" ]; then
+        pass "$1 without tensor_ir -> $2"
+    else
+        fail "$1 without tensor_ir -> $got, expected $2"
+    fi
+done
 
 # The venv-only end state stays valid.
 if verify_cudnn_bundle "$EMPTY" complete complete; then
