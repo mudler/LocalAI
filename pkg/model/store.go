@@ -1,6 +1,9 @@
 package model
 
-import "sync"
+import (
+	"io"
+	"sync"
+)
 
 // ModelStore abstracts model tracking. Single-node mode uses an in-memory map;
 // distributed mode backs this with PostgreSQL.
@@ -34,10 +37,17 @@ func (s *InMemoryModelStore) Set(id string, m *Model) {
 	s.models[id] = m
 }
 
+// Delete removes the model and closes the connection of its client. The client
+// keeps one connection for all calls, and nothing else closes it when the model
+// unloads.
 func (s *InMemoryModelStore) Delete(id string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	m := s.models[id]
 	delete(s.models, id)
+	s.mu.Unlock()
+	if m != nil {
+		m.closeClient()
+	}
 }
 
 func (s *InMemoryModelStore) Range(fn func(string, *Model) bool) {
@@ -47,5 +57,16 @@ func (s *InMemoryModelStore) Range(fn func(string, *Model) bool) {
 		if !fn(id, m) {
 			return
 		}
+	}
+}
+
+// closeClient closes the connection of the client of m, if it has one. A call
+// that is still running keeps it open until it ends.
+func (m *Model) closeClient() {
+	m.Lock()
+	c := m.client
+	m.Unlock()
+	if closer, ok := c.(io.Closer); ok {
+		_ = closer.Close() // the model is gone; a close error changes nothing
 	}
 }

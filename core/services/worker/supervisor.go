@@ -618,6 +618,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 	// which manifested upstream as "connect: connection refused" on the
 	// frontend's first LoadModel dial.
 	client := grpc.NewClientWithToken(clientAddr, false, nil, false, s.cfg.dataToken)
+	defer grpc.CloseBackend(client)
 	const readinessPollInterval = 200 * time.Millisecond
 	readinessTimeout := s.startTimeout
 	if readinessTimeout <= 0 {
@@ -1010,6 +1011,7 @@ func (s *backendSupervisor) finishStopping(key string, bp *backendProcess, force
 			xlog.Warn("Free() failed (best-effort)", "backend", key, "error", err)
 		}
 		cancel()
+		grpc.CloseBackend(client)
 	}
 
 	xlog.Info("Stopping backend process", "backend", key, "addr", bp.addr, "force", force, "backendName", bp.backendName)
@@ -1072,6 +1074,7 @@ func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) worke
 		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
 		freeErr := client.Free(freeCtx)
 		cancel()
+		grpc.CloseBackend(client)
 		if freeErr != nil {
 			reply.Error = fmt.Sprintf("freeing process %s: %v", req.ProcessKey, freeErr)
 		} else {

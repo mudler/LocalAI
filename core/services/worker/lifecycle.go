@@ -541,6 +541,7 @@ func (s *backendSupervisor) unloadModel(ctx context.Context, req workerctl.Model
 		freeCtx, cancel := context.WithTimeout(ctx, workerBackendFreeTimeout)
 		freeErr := client.Free(freeCtx)
 		cancel()
+		grpc.CloseBackend(client)
 		if freeErr != nil {
 			xlog.Warn("Free() failed during model.unload", "error", freeErr, "addr", addr, "processKey", key)
 		} else {

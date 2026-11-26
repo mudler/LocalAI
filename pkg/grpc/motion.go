@@ -59,7 +59,7 @@ func (c *Client) MotionStream(ctx context.Context, opts ...grpc.CallOption) (Mot
 		}
 	}
 
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		cleanup()
 		return nil, err
@@ -67,14 +67,14 @@ func (c *Client) MotionStream(ctx context.Context, opts ...grpc.CallOption) (Mot
 	client := pb.NewBackendClient(conn)
 	stream, err := client.MotionStream(ctx, opts...)
 	if err != nil {
-		_ = conn.Close()
+		release()
 		cleanup()
 		return nil, err
 	}
 	result := &motionStreamClient{
 		Backend_MotionStreamClient: stream,
 		closer: func() {
-			_ = conn.Close()
+			release()
 			cleanup()
 		},
 	}

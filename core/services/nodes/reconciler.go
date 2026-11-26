@@ -70,6 +70,7 @@ type grpcModelProber struct{ clients BackendClientFactory }
 
 func (g grpcModelProber) Probe(ctx context.Context, nodeID, address string) ProbeOutcome {
 	client := g.clients.NewClient(nodeID, address, false)
+	defer grpc.CloseBackend(client)
 	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 	ok, err := client.HealthCheck(probeCtx)

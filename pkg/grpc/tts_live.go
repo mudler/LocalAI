@@ -69,11 +69,11 @@ func (c *Client) TTSLive(ctx context.Context, config *pb.TTSRequest, text <-chan
 	defer c.setBusy(false)
 	complete := c.wdMark()
 	defer complete()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return err
 	}
-	defer func() { _ = conn.Close() }()
+	defer release()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	stream, err := pb.NewBackendClient(conn).TTSLive(ctx)

@@ -48,6 +48,9 @@ type Client struct {
 	dialsPending int
 	lastDialErr  error
 
+	// conns holds the connection that calls share. See connCache.
+	conns connCache
+
 	sync.Mutex
 	opMutex sync.Mutex
 	wd      WatchDog
@@ -83,9 +86,24 @@ func (c *Client) wdMark() func() {
 	return func() {}
 }
 
+// acquireConn returns the connection of the client and the function that
+// releases it. Every call must release the connection exactly once, when it no
+// longer uses it.
+func (c *Client) acquireConn() (*grpc.ClientConn, func(), error) {
+	return c.conns.acquire(c.dial)
+}
+
+// Close implements io.Closer. It closes the shared connection once the calls
+// that use it end. The client stays usable: a later call dials a connection
+// of its own and closes it when it returns.
+func (c *Client) Close() error {
+	c.conns.close()
+	return nil
+}
+
 // dial creates a gRPC client connection with common options.
 // If c.token is set, bearer token credentials are included.
-func (c *Client) dial() (*grpc.ClientConn, error) {
+func (c *Client) dial(extra ...grpc.DialOption) (*grpc.ClientConn, error) {
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(
@@ -106,7 +124,7 @@ func (c *Client) dial() (*grpc.ClientConn, error) {
 		opts = append(opts, grpc.WithContextDialer(c.dialer))
 		target = "passthrough:///" + c.address
 	}
-	return grpc.NewClient(target, opts...)
+	return grpc.NewClient(target, append(opts, extra...)...)
 }
 
 func (c *Client) HealthCheck(ctx context.Context) (bool, error) {
@@ -116,11 +134,11 @@ func (c *Client) HealthCheck(ctx context.Context) (bool, error) {
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return false, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 
 	// The healthcheck call shouldn't take long time
@@ -147,11 +165,11 @@ func (c *Client) Embeddings(ctx context.Context, in *pb.PredictOptions, opts ...
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 
 	return client.Embedding(ctx, in, opts...)
@@ -165,11 +183,11 @@ func (c *Client) Predict(ctx context.Context, in *pb.PredictOptions, opts ...grp
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 
 	return client.Predict(ctx, in, opts...)
@@ -183,11 +201,11 @@ func (c *Client) LoadModel(ctx context.Context, in *pb.ModelOptions, opts ...grp
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.LoadModel(ctx, in, opts...)
 }
@@ -200,11 +218,16 @@ func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f fun
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer release()
+	// The connection outlives this call, so closing it no longer ends the
+	// stream. Cancel it on return, or a backend keeps generating for a
+	// caller that stopped reading.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	client := pb.NewBackendClient(conn)
 
 	stream, err := client.PredictStream(ctx, in, opts...)
@@ -247,11 +270,11 @@ func (c *Client) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest,
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.GenerateImage(ctx, in, opts...)
 }
@@ -264,11 +287,11 @@ func (c *Client) UpscaleImage(ctx context.Context, in *pb.UpscaleImageRequest, o
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.UpscaleImage(ctx, in, opts...)
 }
@@ -281,11 +304,11 @@ func (c *Client) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest,
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.GenerateVideo(ctx, in, opts...)
 }
@@ -298,11 +321,11 @@ func (c *Client) Animate3D(ctx context.Context, in *pb.Animate3DRequest, opts ..
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer release()
 	return pb.NewBackendClient(conn).Animate3D(ctx, in, opts...)
 }
 
@@ -314,11 +337,11 @@ func (c *Client) Generate3D(ctx context.Context, in *pb.Generate3DRequest, opts 
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.Generate3D(ctx, in, opts...)
 }
@@ -331,11 +354,11 @@ func (c *Client) TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.CallOp
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.TTS(ctx, in, opts...)
 }
@@ -348,11 +371,14 @@ func (c *Client) TTSStream(ctx context.Context, in *pb.TTSRequest, f func(reply 
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer release()
+	// Ends the stream on return; see PredictStream.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	client := pb.NewBackendClient(conn)
 
 	stream, err := client.TTSStream(ctx, in, opts...)
@@ -393,11 +419,11 @@ func (c *Client) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequ
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.SoundGeneration(ctx, in, opts...)
 }
@@ -410,11 +436,11 @@ func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.AudioTranscription(ctx, in, opts...)
 }
@@ -427,11 +453,14 @@ func (c *Client) AudioTranscriptionStream(ctx context.Context, in *pb.Transcript
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer release()
+	// Ends the stream on return; see PredictStream.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	client := pb.NewBackendClient(conn)
 
 	stream, err := client.AudioTranscriptionStream(ctx, in, opts...)
@@ -470,11 +499,11 @@ func (c *Client) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 
 	res, err := client.TokenizeString(ctx, in, opts...)
@@ -493,11 +522,11 @@ func (c *Client) Detokenize(ctx context.Context, in *pb.DetokenizeRequest, opts 
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer release()
 	client := pb.NewBackendClient(conn)
 
 	res, err := client.Detokenize(ctx, in, opts...)
@@ -514,11 +543,11 @@ func (c *Client) Status(ctx context.Context) (*pb.StatusResponse, error) {
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.Status(ctx, &pb.HealthMessage{})
 }
@@ -531,11 +560,11 @@ func (c *Client) StoresSet(ctx context.Context, in *pb.StoresSetOptions, opts ..
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.StoresSet(ctx, in, opts...)
 }
@@ -548,11 +577,11 @@ func (c *Client) StoresDelete(ctx context.Context, in *pb.StoresDeleteOptions, o
 	defer c.wdMark()()
 	c.setBusy(true)
 	defer c.setBusy(false)
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.StoresDelete(ctx, in, opts...)
 }
@@ -565,11 +594,11 @@ func (c *Client) StoresGet(ctx context.Context, in *pb.StoresGetOptions, opts ..
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.StoresGet(ctx, in, opts...)
 }
@@ -582,11 +611,11 @@ func (c *Client) StoresFind(ctx context.Context, in *pb.StoresFindOptions, opts 
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.StoresFind(ctx, in, opts...)
 }
@@ -599,11 +628,11 @@ func (c *Client) Rerank(ctx context.Context, in *pb.RerankRequest, opts ...grpc.
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.Rerank(ctx, in, opts...)
 }
@@ -616,11 +645,11 @@ func (c *Client) TokenClassify(ctx context.Context, in *pb.TokenClassifyRequest,
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.TokenClassify(ctx, in, opts...)
 }
@@ -633,11 +662,11 @@ func (c *Client) Score(ctx context.Context, in *pb.ScoreRequest, opts ...grpc.Ca
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.Score(ctx, in, opts...)
 }
@@ -650,11 +679,11 @@ func (c *Client) GetTokenMetrics(ctx context.Context, in *pb.MetricsRequest, opt
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.GetMetrics(ctx, in, opts...)
 }
@@ -667,11 +696,11 @@ func (c *Client) SlotCache(ctx context.Context, in *pb.SlotCacheRequest, opts ..
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.SlotCache(ctx, in, opts...)
 }
@@ -684,11 +713,11 @@ func (c *Client) VAD(ctx context.Context, in *pb.VADRequest, opts ...grpc.CallOp
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.VAD(ctx, in, opts...)
 }
@@ -701,11 +730,11 @@ func (c *Client) Diarize(ctx context.Context, in *pb.DiarizeRequest, opts ...grp
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.Diarize(ctx, in, opts...)
 }
@@ -718,11 +747,11 @@ func (c *Client) SoundDetection(ctx context.Context, in *pb.SoundDetectionReques
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.SoundDetection(ctx, in, opts...)
 }
@@ -735,11 +764,11 @@ func (c *Client) Detect(ctx context.Context, in *pb.DetectOptions, opts ...grpc.
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.Detect(ctx, in, opts...)
 }
@@ -752,11 +781,11 @@ func (c *Client) Depth(ctx context.Context, in *pb.DepthRequest, opts ...grpc.Ca
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.Depth(ctx, in, opts...)
 }
@@ -769,11 +798,11 @@ func (c *Client) Forecast(ctx context.Context, in *pb.ForecastRequest, opts ...g
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.Forecast(ctx, in, opts...)
 }
@@ -786,11 +815,11 @@ func (c *Client) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest, opts 
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.FaceVerify(ctx, in, opts...)
 }
@@ -803,11 +832,11 @@ func (c *Client) FaceAnalyze(ctx context.Context, in *pb.FaceAnalyzeRequest, opt
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.FaceAnalyze(ctx, in, opts...)
 }
@@ -820,11 +849,11 @@ func (c *Client) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyRequest, opt
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.VoiceVerify(ctx, in, opts...)
 }
@@ -837,11 +866,11 @@ func (c *Client) VoiceAnalyze(ctx context.Context, in *pb.VoiceAnalyzeRequest, o
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.VoiceAnalyze(ctx, in, opts...)
 }
@@ -854,11 +883,11 @@ func (c *Client) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest, opts 
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.VoiceEmbed(ctx, in, opts...)
 }
@@ -871,11 +900,11 @@ func (c *Client) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest, opt
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.AudioEncode(ctx, in, opts...)
 }
@@ -888,11 +917,11 @@ func (c *Client) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest, opt
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.AudioDecode(ctx, in, opts...)
 }
@@ -905,11 +934,11 @@ func (c *Client) AudioTransform(ctx context.Context, in *pb.AudioTransformReques
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.AudioTransform(ctx, in, opts...)
 }
@@ -967,7 +996,7 @@ func (c *Client) Forward(ctx context.Context, opts ...grpc.CallOption) (ForwardC
 		}
 	}
 
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		cleanup()
 		return nil, err
@@ -975,7 +1004,7 @@ func (c *Client) Forward(ctx context.Context, opts ...grpc.CallOption) (ForwardC
 	client := pb.NewBackendClient(conn)
 	stream, err := client.Forward(ctx, opts...)
 	if err != nil {
-		_ = conn.Close()
+		release()
 		cleanup()
 		return nil, err
 	}
@@ -983,7 +1012,7 @@ func (c *Client) Forward(ctx context.Context, opts ...grpc.CallOption) (ForwardC
 		Backend_ForwardClient: stream,
 		conn:                  conn,
 		closer: func() {
-			_ = conn.Close()
+			release()
 			cleanup()
 		},
 	}, nil
@@ -1096,7 +1125,7 @@ func (c *Client) AudioTransformStream(ctx context.Context, opts ...grpc.CallOpti
 		}
 	}
 
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		cleanup()
 		return nil, err
@@ -1104,14 +1133,14 @@ func (c *Client) AudioTransformStream(ctx context.Context, opts ...grpc.CallOpti
 	client := pb.NewBackendClient(conn)
 	stream, err := client.AudioTransformStream(ctx, opts...)
 	if err != nil {
-		_ = conn.Close()
+		release()
 		cleanup()
 		return nil, err
 	}
 	return &audioTransformStreamClient{
 		Backend_AudioTransformStreamClient: stream,
 		lifecycle: newStreamCleanup(ctx, func() {
-			_ = conn.Close()
+			release()
 			cleanup()
 		}),
 	}, nil
@@ -1175,7 +1204,7 @@ func (c *Client) AudioTranscriptionLive(ctx context.Context, opts ...grpc.CallOp
 		}
 	}
 
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		cleanup()
 		return nil, err
@@ -1183,14 +1212,14 @@ func (c *Client) AudioTranscriptionLive(ctx context.Context, opts ...grpc.CallOp
 	client := pb.NewBackendClient(conn)
 	stream, err := client.AudioTranscriptionLive(ctx, opts...)
 	if err != nil {
-		_ = conn.Close()
+		release()
 		cleanup()
 		return nil, err
 	}
 	return &audioTranscriptionLiveClient{
 		Backend_AudioTranscriptionLiveClient: stream,
 		closer: func() {
-			_ = conn.Close()
+			release()
 			cleanup()
 		},
 	}, nil
@@ -1239,7 +1268,7 @@ func (c *Client) AudioToAudioStream(ctx context.Context, opts ...grpc.CallOption
 		}
 	}
 
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		cleanup()
 		return nil, err
@@ -1247,14 +1276,14 @@ func (c *Client) AudioToAudioStream(ctx context.Context, opts ...grpc.CallOption
 	client := pb.NewBackendClient(conn)
 	stream, err := client.AudioToAudioStream(ctx, opts...)
 	if err != nil {
-		_ = conn.Close()
+		release()
 		cleanup()
 		return nil, err
 	}
 	return &audioToAudioStreamClient{
 		Backend_AudioToAudioStreamClient: stream,
 		closer: func() {
-			_ = conn.Close()
+			release()
 			cleanup()
 		},
 	}, nil
@@ -1268,11 +1297,11 @@ func (c *Client) StartFineTune(ctx context.Context, in *pb.FineTuneRequest, opts
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.StartFineTune(ctx, in, opts...)
 }
@@ -1285,11 +1314,14 @@ func (c *Client) FineTuneProgress(ctx context.Context, in *pb.FineTuneProgressRe
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer release()
+	// Ends the stream on return; see PredictStream.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	client := pb.NewBackendClient(conn)
 
 	stream, err := client.FineTuneProgress(ctx, in, opts...)
@@ -1328,11 +1360,11 @@ func (c *Client) StopFineTune(ctx context.Context, in *pb.FineTuneStopRequest, o
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.StopFineTune(ctx, in, opts...)
 }
@@ -1345,11 +1377,11 @@ func (c *Client) ListCheckpoints(ctx context.Context, in *pb.ListCheckpointsRequ
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.ListCheckpoints(ctx, in, opts...)
 }
@@ -1362,11 +1394,11 @@ func (c *Client) ExportModel(ctx context.Context, in *pb.ExportModelRequest, opt
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.ExportModel(ctx, in, opts...)
 }
@@ -1379,11 +1411,11 @@ func (c *Client) StartQuantization(ctx context.Context, in *pb.QuantizationReque
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.StartQuantization(ctx, in, opts...)
 }
@@ -1396,11 +1428,14 @@ func (c *Client) QuantizationProgress(ctx context.Context, in *pb.QuantizationPr
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer release()
+	// Ends the stream on return; see PredictStream.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	client := pb.NewBackendClient(conn)
 
 	stream, err := client.QuantizationProgress(ctx, in, opts...)
@@ -1439,11 +1474,11 @@ func (c *Client) StopQuantization(ctx context.Context, in *pb.QuantizationStopRe
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.StopQuantization(ctx, in, opts...)
 }
@@ -1457,11 +1492,11 @@ func (c *Client) Free(ctx context.Context) error {
 	defer c.setBusy(false)
 	defer c.wdMark()()
 
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer release()
 
 	client := pb.NewBackendClient(conn)
 	_, err = client.Free(ctx, &pb.HealthMessage{})
@@ -1476,11 +1511,11 @@ func (c *Client) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ..
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, release, err := c.acquireConn()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer release()
 	client := pb.NewBackendClient(conn)
 	return client.ModelMetadata(ctx, in, opts...)
 }

@@ -82,7 +82,9 @@ func (ml *ModelLoader) CheckBackendStart(ctx context.Context, id, runFile string
 	ml.untrackProcess(proc)
 	defer ml.stopStartCheck(proc, id)
 
-	return waitBackendHealthy(ctx, proc, grpc.NewClient(address, false, nil, false), timeout)
+	client := grpc.NewClient(address, false, nil, false)
+	defer grpc.CloseBackend(client)
+	return waitBackendHealthy(ctx, proc, client, timeout)
 }
 
 // waitBackendHealthy polls the health check of the process until it answers,
