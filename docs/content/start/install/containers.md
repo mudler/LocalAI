@@ -19,26 +19,63 @@ Before you begin, ensure you have a container engine installed:
 - [Install Podman](https://podman.io/getting-started/installation) (Linux, macOS, Windows WSL2)
 
 Podman might not resolve short image names such as `localai/localai:latest`.
-The Podman and Compose examples use the `docker.io/` prefix to identify the
-container registry explicitly.
+The Podman examples use the `docker.io/` prefix to identify the container
+registry explicitly.
 
 ## Quick Start
 
-The fastest way to get started is with the CPU image:
+Download the compose file and start it:
 
 ```bash
-docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
-# Or with Podman:
-podman run -p 8080:8080 --name local-ai -ti docker.io/localai/localai:latest
+curl -fsSL https://localai.io/install/docker-compose.yaml -o docker-compose.yaml
+docker compose up -d
 ```
 
-This will:
-- Start LocalAI (you'll need to install models separately)
-- Make the API available at `http://localhost:8080`
+Then open `http://localhost:8080` and install a model from the gallery.
+
+The compose file runs the CPU image `localai/localai:latest`. It keeps models,
+backends, settings and application data in four named volumes, so they stay
+when you recreate the container or upgrade the image. It restarts LocalAI after
+a crash or a reboot. To use a GPU, see [Using Compose](#using-compose).
+
+To upgrade to a new release:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+`docker compose down` stops LocalAI and keeps the volumes. `docker compose down -v`
+also deletes the volumes, with all models and data.
+
+Without Compose, use `docker run` with the same four volumes:
+
+```bash
+docker run -d --name local-ai --restart unless-stopped --init -p 8080:8080 \
+  -v localai-models:/models \
+  -v localai-backends:/backends \
+  -v localai-data:/data \
+  -v localai-configuration:/configuration \
+  localai/localai:latest
+# Or with Podman:
+podman run -d --name local-ai --restart unless-stopped --init -p 8080:8080 \
+  -v localai-models:/models \
+  -v localai-backends:/backends \
+  -v localai-data:/data \
+  -v localai-configuration:/configuration \
+  docker.io/localai/localai:latest
+```
+
+Docker and Podman create the named volumes when the container starts for the
+first time. To follow the logs, run `docker logs -f local-ai`.
 
 ## Image Types
 
 LocalAI provides several image types to suit different needs. These images work with both Docker and Podman.
+
+The commands in this section show only the image and the GPU flags. Add the
+`-d`, `--restart`, `--init` and `-v` options from the [Quick Start](#quick-start)
+to keep your data.
 
 ### Standard Images
 
@@ -77,24 +114,29 @@ podman run -ti --name local-ai -p 8080:8080 --device nvidia.com/gpu=all docker.i
 
 **AMD GPU (ROCm):**
 ```bash
-docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-gpu-hipblas
+docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri localai/localai:latest-gpu-hipblas
 # Or with Podman:
 podman run -ti --name local-ai -p 8080:8080 --device rocm.com/gpu=all docker.io/localai/localai:latest-gpu-hipblas
 ```
 
 **Intel GPU:**
 ```bash
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-intel
+docker run -ti --name local-ai -p 8080:8080 --device=/dev/dri localai/localai:latest-gpu-intel
 # Or with Podman:
 podman run -ti --name local-ai -p 8080:8080 --device gpu.intel.com/all docker.io/localai/localai:latest-gpu-intel
 ```
 
 **Vulkan:**
 ```bash
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-vulkan
+docker run -ti --name local-ai -p 8080:8080 --device=/dev/dri localai/localai:latest-gpu-vulkan
 # Or with Podman:
-podman run -ti --name local-ai -p 8080:8080 docker.io/localai/localai:latest-gpu-vulkan
+podman run -ti --name local-ai -p 8080:8080 --device=/dev/dri docker.io/localai/localai:latest-gpu-vulkan
 ```
+
+For an NVIDIA GPU with the Vulkan image, use `--gpus all` instead of `--device=/dev/dri`.
+
+The container adds the groups that own `/dev/kfd` and `/dev/dri/*` to the user
+that runs LocalAI, so `--group-add` is not necessary.
 
 **NVIDIA Jetson (L4T ARM64):**
 
@@ -110,90 +152,52 @@ docker run -ti --name local-ai -p 8080:8080 --runtime nvidia --gpus all localai/
 
 ## Using Compose
 
-The repository's `docker-compose.yaml` installs `phi-2-chat` from the model gallery by default. Change its `command` list to select a different gallery model.
+The [compose file](https://localai.io/install/docker-compose.yaml) of the Quick
+Start is the recommended setup. It is the same file as `docker-compose.yaml` in
+the repository. It uses no `.env` file and installs no model.
 
-For a more manageable setup, especially with persistent volumes, use Docker Compose or Podman Compose:
+To use a GPU, edit `docker-compose.yaml`:
 
-### Using CDI (Container Device Interface) - Recommended for NVIDIA Container Toolkit 1.14+
+1. Change `image` to the GPU tag, for example `localai/localai:latest-gpu-nvidia-cuda-12`.
+   The comments in the file list the tags.
+2. Remove the `#` from the block for your GPU (NVIDIA, AMD, or Intel and Vulkan).
+3. Run `docker compose up -d`.
 
-The CDI approach is recommended for newer versions of the NVIDIA Container Toolkit (1.14 and later). It provides better compatibility and is the future-proof method:
-
-```yaml
-version: "3.9"
-services:
-  api:
-    image: docker.io/localai/localai:latest-gpu-nvidia-cuda-12
-    # For CUDA 13, use: docker.io/localai/localai:latest-gpu-nvidia-cuda-13
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
-      # start_period, not timeout, is the knob for a slow first boot: startup
-      # preload can download tens of GB before the API binds, and failures
-      # inside the start period leave the container `starting` rather than
-      # marking it unhealthy. timeout is a per-probe deadline.
-      start_period: 60m
-      interval: 1m
-      timeout: 10s
-      retries: 3
-    ports:
-      - 8080:8080
-    environment:
-      - DEBUG=false
-    volumes:
-      - ./models:/models:cached
-    # CDI driver configuration (recommended for NVIDIA Container Toolkit 1.14+)
-    # This uses the nvidia.com/gpu resource API
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia.com/gpu
-              count: all
-              capabilities: [gpu]
-```
-
-Save this as `compose.yaml` and run:
-
-```bash
-docker compose up -d
-# Or with Podman:
-podman-compose up -d
-```
-
-### Using Legacy NVIDIA Driver - For Older NVIDIA Container Toolkit
-
-If you are using an older version of the NVIDIA Container Toolkit (before 1.14), or need backward compatibility, use the legacy approach:
+For NVIDIA, the block reserves all GPUs. It needs the
+[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+on the host:
 
 ```yaml
-version: "3.9"
 services:
-  api:
-    image: docker.io/localai/localai:latest-gpu-nvidia-cuda-12
-    # For CUDA 13, use: docker.io/localai/localai:latest-gpu-nvidia-cuda-13
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
-      # start_period, not timeout, is the knob for a slow first boot: startup
-      # preload can download tens of GB before the API binds, and failures
-      # inside the start period leave the container `starting` rather than
-      # marking it unhealthy. timeout is a per-probe deadline.
-      start_period: 60m
-      interval: 1m
-      timeout: 10s
-      retries: 3
-    ports:
-      - 8080:8080
-    environment:
-      - DEBUG=false
-    volumes:
-      - ./models:/models:cached
-    # Legacy NVIDIA driver configuration (for older NVIDIA Container Toolkit)
+  localai:
+    image: localai/localai:latest-gpu-nvidia-cuda-12
+    # ...
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              count: all
               capabilities: [gpu]
 ```
+
+For AMD, Intel and Vulkan, the block passes the device files:
+
+```yaml
+services:
+  localai:
+    image: localai/localai:latest-gpu-hipblas
+    # ...
+    devices:
+      - /dev/kfd   # AMD only
+      - /dev/dri
+```
+
+With Podman, use `podman compose up -d` or `podman-compose up -d`, and add the
+`docker.io/` prefix to the image name.
+
+To build LocalAI from a source checkout instead, use `docker-compose.dev.yaml`
+in the repository: `docker compose -f docker-compose.dev.yaml up -d --build`.
 
 ## Persistent Storage
 
@@ -204,7 +208,7 @@ The container exposes the following volumes:
 | `/models` | Model files used for inferencing | `--models-path` | `$LOCALAI_MODELS_PATH` |
 | `/backends` | Custom backends for inferencing | `--backends-path` | `$LOCALAI_BACKENDS_PATH` |
 | `/configuration` | Dynamic config files (api_keys.json, external_backends.json, runtime_settings.json) | `--localai-config-dir` | `$LOCALAI_CONFIG_DIR` |
-| `/data` | Persistent data (collections, chat files, JSON stores when there is no database). Downloads are staged in `/data/downloading` until they are extracted | `--data-path` | `$LOCALAI_DATA_PATH` |
+| `/data` | Persistent data: collections, chat files, add-ons, JSON stores when there is no database, generated images, audio and video (`/data/generated`), uploads (`/data/upload`), the home folder (`/data/home`) and caches (`/data/cache`). Downloads are staged in `/data/downloading` until they are extracted | `--data-path` | `$LOCALAI_DATA_PATH` |
 
 {{% callout style="warning" %}}
 Container files that are not stored in a volume are lost when the container is
@@ -223,58 +227,124 @@ materializes each link as a regular file so installation can complete. This can
 use more disk space than a local filesystem. Prefer a Docker or Podman named
 volume for `/backends` when possible.
 
-To use bind mounts:
+Named volumes, as in the [Quick Start](#quick-start), need no preparation. To
+keep the files in folders of the host instead (bind mounts), create the folders
+first as your own user. If Docker creates a missing folder, root owns it. Then
+start the container:
 
 ```bash
-docker run -ti --name local-ai -p 8080:8080 \
-  -v $PWD/models:/models \
-  -v $PWD/backends:/backends \
-  -v $PWD/configuration:/configuration \
-  -v $PWD/data:/data \
+mkdir -p models backends data configuration
+docker run -d --name local-ai --restart unless-stopped --init -p 8080:8080 \
+  -v "$PWD/models:/models" \
+  -v "$PWD/backends:/backends" \
+  -v "$PWD/data:/data" \
+  -v "$PWD/configuration:/configuration" \
   localai/localai:latest
-# Or with Podman:
-podman run -ti --name local-ai -p 8080:8080 \
-  -v $PWD/models:/models \
-  -v $PWD/backends:/backends \
-  -v $PWD/configuration:/configuration \
-  -v $PWD/data:/data \
-  docker.io/localai/localai:latest
 ```
 
-Or use named volumes:
+With Compose, use the bind-mount lines in the comments of `docker-compose.yaml`.
+To know who owns the files, see [Container user and permissions](#container-user-and-permissions).
 
-```bash
-docker volume create localai-models
-docker volume create localai-backends
-docker volume create localai-configuration
-docker volume create localai-data
-docker run -ti --name local-ai -p 8080:8080 \
-  -v localai-models:/models \
-  -v localai-backends:/backends \
-  -v localai-configuration:/configuration \
-  -v localai-data:/data \
-  localai/localai:latest
-# Or with Podman:
-podman volume create localai-models
-podman volume create localai-backends
-podman volume create localai-configuration
-podman volume create localai-data
-podman run -ti --name local-ai -p 8080:8080 \
-  -v localai-models:/models \
-  -v localai-backends:/backends \
-  -v localai-configuration:/configuration \
-  -v localai-data:/data \
-  docker.io/localai/localai:latest
-```
+## Container user and permissions
 
-### Container user and existing volumes
+LocalAI does not run as root in the container. The image starts as root only to
+run `entrypoint.sh`. The entrypoint selects a user, makes the data folders
+writable for that user, and then starts LocalAI as that user. An add-on that runs
+commands in an isolated sandbox needs this, because it refuses to run as root.
+See [the sandbox in the LocalAI container]({{% relref "/addons/catalogue/work/sandbox-settings#the-sandbox-in-the-localai-container" %}})
+for the devices and permissions it needs.
 
-The image starts as root only to run `entrypoint.sh`, which gives the data folders (`/models`, `/backends`, `/configuration`, `/data`, `/tmp/generated`) to the user `localai` (uid and gid 10001) and then runs LocalAI as that user. An add-on that runs commands in an isolated sandbox needs this, because it refuses to run as root. See [the sandbox in the LocalAI container]({{% relref "/addons/catalogue/work/sandbox-settings#the-sandbox-in-the-localai-container" %}}) for the devices and permissions it needs.
+The entrypoint selects the user in this order:
 
-- **Volumes from an older image** are owned by root. The first start with this image changes their owner to 10001 (it logs this, and it can take a while on a large models folder). No manual step is needed.
-- `LOCALAI_UID` and `LOCALAI_GID` change the user. The entrypoint also gives that user the home folder `/home/localai`, where LocalAI keeps caches such as the Sigstore trust that checks signed add-ons. `docker run --user` or a Kubernetes `runAsUser` is respected, and the data folders must then be writable by that user. When the home folder of that user is not writable, LocalAI keeps the Sigstore trust in memory and downloads it again after each restart.
-- `LOCALAI_RUN_AS_ROOT=true` keeps the old behaviour. Add-ons that run commands in a sandbox are then unavailable.
-- A bind mount whose owner cannot be changed (a read-only or network mount) must be made writable for uid 10001 on the storage side.
+1. If `LOCALAI_UID` is set, LocalAI runs as `LOCALAI_UID` and `LOCALAI_GID`.
+2. If `LOCALAI_UID` and `LOCALAI_GID` are not set, and `/data` and `/models`
+   have the same owner that is not root, LocalAI runs as that owner.
+3. In all other cases, LocalAI runs as the user `localai` (uid and gid 10001).
+
+The entrypoint then gives each data folder (`/models`, `/backends`,
+`/configuration`, `/data`) that another user owns to the selected user
+(`chown -R`). It logs each change. On a large models folder, this can take
+some time on the first start. In case 2, `/data` and `/models` already belong
+to the selected user, so the entrypoint does not change them. When the image
+has no user for the selected uid, the entrypoint adds one.
+
+The entrypoint also adds the groups that own `/dev/kvm`, `/dev/kfd`, `/dev/dri/*`
+and `/var/run/docker.sock` when you pass them to the container. Access to the
+Docker socket is equal to root access on the host, so mount it only when you
+need it.
+
+The home folder of the user is `/data/home`. The backends keep their caches
+there, for example the caches of the Python backends. LocalAI keeps the
+Sigstore trust data, which verifies signed add-ons and backends, in
+`/data/cache/sigstore`. These caches stay when you recreate the container.
+
+At startup, LocalAI logs one `WARN` line that names each folder it cannot
+write, with the user it runs as. If you see this line, use the list below to
+correct the setup.
+
+Select the setup that matches your installation:
+
+- **Named volumes (recommended).** Nothing to do. The volumes belong to uid
+  10001 inside Docker. Use `docker compose cp` or `docker cp` to copy files
+  into them.
+- **Bind mounts that you created.** Create the four folders as your own user
+  before the first start, as shown in [Persistent Storage](#persistent-storage).
+  Because `/data` and `/models` then have your uid, LocalAI runs as you, and
+  the files on the host stay yours.
+- **Bind mounts that root owns.** This includes folders that Docker created
+  because they did not exist. The entrypoint gives them to uid 10001. On the
+  host, you then need `sudo` to change the files. To use your own user instead,
+  give the folders to that user (`sudo chown -R "$(id -u):$(id -g)" models backends data configuration`)
+  and start the container again.
+- **A fixed user (`LOCALAI_UID`, `LOCALAI_GID`).** Set them when the files must
+  belong to a known user, for example the user of a NAS share. This setting
+  always has priority. The entrypoint gives the data folders to that user.
+- **`docker run --user`, Compose `user:`, Kubernetes `runAsUser`.** The
+  entrypoint then does nothing: it changes no owner and adds no group. The data
+  folders must already be writable by that user. Add the groups of the GPU
+  devices yourself with `--group-add` (Compose `group_add:`).
+- **Rootless Podman.** Map your host user to uid 10001 in the container, so
+  that the folders on the host stay owned by you:
+
+  ```bash
+  podman run -d --name local-ai --init -p 8080:8080 \
+    --userns=keep-id:uid=10001,gid=10001 \
+    -v "$PWD/models:/models" -v "$PWD/backends:/backends" \
+    -v "$PWD/data:/data" -v "$PWD/configuration:/configuration" \
+    docker.io/localai/localai:latest
+  ```
+
+  With this option, LocalAI starts as uid 10001 and the entrypoint adds no
+  device groups. For a GPU, add `--group-add keep-groups` (it needs the `crun`
+  runtime) so that the container keeps the groups of your host user.
+- **Rootless Docker.** Use named volumes. With bind mounts, the files on the
+  host get a uid from the subordinate range of your user, not your own uid.
+- **Read-only root file system.** All data that LocalAI writes goes to the four
+  volumes. Backends and some features also need a temporary folder, so mount
+  `/tmp` as a `tmpfs`:
+
+  ```yaml
+  services:
+    localai:
+      image: localai/localai:latest
+      read_only: true
+      tmpfs:
+        - /tmp
+      # ... init, restart, ports and the four volumes of docker-compose.yaml
+  ```
+
+  With `docker run`, use `--read-only --tmpfs /tmp`.
+- **Run as root (`LOCALAI_RUN_AS_ROOT=true`).** LocalAI runs as root, as before
+  version 5.0.0. Add-ons that run commands in a sandbox are then unavailable.
+- **A network or read-only mount that refuses `chown`.** Make it writable for
+  the user of LocalAI on the storage side. Or set `LOCALAI_UID` and
+  `LOCALAI_GID` to the owner of the files.
+
+{{% callout style="note" %}}
+LocalAI 5.0.1 and earlier always run as uid 10001 unless `LOCALAI_UID` is set,
+use `/home/localai` as the home folder, keep generated content and uploads
+under `/tmp`, and do not add the group of the Docker socket.
+{{% /callout %}}
 
 ## Next Steps
 
@@ -335,6 +405,41 @@ This indicates a Docker/NVIDIA Container Toolkit configuration issue. The contai
 - Verify disk space: `df -h`
 - Check container logs for errors: `docker logs local-ai` or `podman logs local-ai`
 - If the logs show status 401 or 403, the source needs authentication. See [Private Registries and Galleries]({{% relref "/models/private-sources" %}})
+
+### Permission denied on a data folder
+
+- Look for the `WARN` line at startup that starts with `LocalAI cannot write to some of its folders`. It names the folders, their owner, and the uid and gid of LocalAI.
+- Select the setup that matches yours in [Container user and permissions](#container-user-and-permissions).
+
+### An add-on install fails with "invalid or unverified addon package"
+
+LocalAI checks the signature of each add-on with Sigstore. It downloads the
+Sigstore trust data once and keeps it in a cache in `/data/cache/sigstore`
+(in the home folder on LocalAI 5.0.1). The log line after the error names the
+check that failed.
+
+On LocalAI 5.0.1, these causes are frequent:
+
+- **A failed download of the trust data.** LocalAI 5.0.1 does not try the
+  download again until it restarts. Restart the container
+  (`docker compose restart localai` or `docker restart local-ai`) and install
+  the add-on again.
+- **`LOCALAI_UID` or `LOCALAI_GID` is set.** The home folder `/home/localai`
+  stays owned by uid 10001, so LocalAI cannot write its cache. Remove the two
+  variables and recreate the container. Or give the home folder to your user
+  and restart. This lasts until the container is recreated:
+
+  ```bash
+  docker compose exec -u 0 localai chown -R <uid>:<gid> /home/localai
+  docker compose restart localai
+  ```
+
+  Replace `localai` with the name of your service when it is different.
+
+- **`docker run --user` or Compose `user:`.** The home folder of that user is
+  not writable. Set `HOME=/data/home` in the environment of the container.
+- **A read-only root file system.** Set `HOME=/data/home` and mount `/tmp` as
+  a `tmpfs`, as shown in [Container user and permissions](#container-user-and-permissions).
 
 ## Full image reference
 

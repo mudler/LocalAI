@@ -67,10 +67,11 @@ To remove the worker: `sudo systemctl disable --now localai-worker`, then remove
 ## Container
 
 ```bash
-docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
+curl -fsSL https://localai.io/install/docker-compose.yaml -o docker-compose.yaml
+docker compose up -d
 ```
 
-Podman works the same way for the CPU image. For GPU images and persistent storage, see [Containers]({{% relref "/start/install/containers" %}}).
+The compose file runs the CPU image and keeps models, backends, settings and data in named volumes. For GPU images, `docker run`, Podman and file permissions, see [Containers]({{% relref "/start/install/containers" %}}).
 
 ## Desktop app
 

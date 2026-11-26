@@ -555,59 +555,44 @@ response = client.chat.completions.create(
 
 ### MCP and adding packages
 
-It might be handy to install packages before starting the container to setup the environment. This is an example on how you can do that with docker-compose (installing and configuring docker)
+An MCP server that runs `docker` needs the Docker CLI in the container and access to a Docker daemon. This Compose example installs the CLI when the container starts and mounts the Docker socket of the host:
 
 ```yaml
 services:
-  local-ai:
+  localai:
     image: localai/localai:latest
-    #image: localai/localai:latest-gpu-nvidia-cuda-13
-    #image: localai/localai:latest-gpu-nvidia-cuda-12
-    container_name: local-ai
-    restart: always
-    entrypoint: [ "/bin/bash" ]
-    command: >
-     -c "apt-get update &&
-         apt-get install -y docker.io &&
-         /entrypoint.sh"
+    # image: localai/localai:latest-gpu-nvidia-cuda-12
+    init: true
+    restart: unless-stopped
+    # Install the Docker CLI as root, then start LocalAI as usual.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        apt-get update -qq && apt-get install -y -qq docker.io
+        exec /entrypoint.sh
     environment:
-      - DEBUG=true
-      - LOCALAI_WATCHDOG_IDLE=true
-      - LOCALAI_WATCHDOG_BUSY=true
-      - LOCALAI_WATCHDOG_IDLE_TIMEOUT=15m
-      - LOCALAI_WATCHDOG_BUSY_TIMEOUT=15m
       - LOCALAI_API_KEY=my-beautiful-api-key
-      - DOCKER_HOST=tcp://docker:2376
-      - DOCKER_TLS_VERIFY=1
-      - DOCKER_CERT_PATH=/certs/client
+      - LOCALAI_WATCHDOG_IDLE=true
+      - LOCALAI_WATCHDOG_IDLE_TIMEOUT=15m
     ports:
       - "8080:8080"
     volumes:
-      - /data/models:/models
-      - /data/backends:/backends
-      - certs:/certs:ro
-    # uncomment for nvidia
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - capabilities: [gpu]
-    #           device_ids: ['7']
-    # runtime: nvidia
+      - models:/models
+      - backends:/backends
+      - data:/data
+      - configuration:/configuration
+      - /var/run/docker.sock:/var/run/docker.sock
 
-  docker:
-    image: docker:dind
-    privileged: true
-    container_name: docker
-    volumes:
-      - certs:/certs
-    healthcheck:
-      test: ["CMD", "docker", "info"]
-      interval: 10s
-      timeout: 5s
 volumes:
-  certs:
+  models:
+  backends:
+  data:
+  configuration:
 ```
+
+LocalAI does not run as root in the container. The entrypoint adds the group that owns `/var/run/docker.sock` to the user of LocalAI, so the MCP servers can use the socket. Access to the Docker socket is equal to root access on the host. Use it only on a host that you trust. See [Container user and permissions]({{% relref "/start/install/containers#container-user-and-permissions" %}}).
+
+To use a Docker-in-Docker (`docker:dind`) service instead of the socket, set `DOCKER_HOST`, `DOCKER_TLS_VERIFY` and `DOCKER_CERT_PATH` and mount its client certificates. The user of LocalAI must be able to read the certificate files.
 
 An example model config (to append to any existing model you have) can be:
 

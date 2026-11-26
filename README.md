@@ -48,20 +48,23 @@ local-ai
 
 The script installs the program and does not start it; `local-ai` starts the server. To run a model directly, name it, for example `local-ai run gemma-4-e2b-it-qat-q4_0`, a small Google Gemma 4 model for CPUs (4.3 GB to download: 3.35 GB for the model and 0.99 GB for the image projector).
 
-**Container** (Docker, podman, ...):
+**Container** (Docker Compose): the compose file keeps models, backends, settings and data in named volumes.
 
 ```bash
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
+curl -fsSL https://localai.io/install/docker-compose.yaml -o docker-compose.yaml
+docker compose up -d
 ```
 
 **Desktop app**: it installs, updates, starts and stops the server for you and shows the web interface in its own window, on macOS and Linux (Windows is experimental). Use the download buttons above. See the [desktop app guide](https://localai.io/docs/start/install/desktop/).
 
 The install script and the `latest` image give 5.0.0.
 
-Then open `http://localhost:8080`. To restart an existing container, use `docker start -i local-ai`. More ways to install: [Install LocalAI](https://localai.io/docs/start/install/).
+Then open `http://localhost:8080`. To upgrade the container, run `docker compose pull && docker compose up -d`. More ways to install, and `docker run` and Podman commands: [Containers](https://localai.io/docs/start/install/containers/).
 
 <details>
 <summary>GPU images (NVIDIA, AMD, Intel, Vulkan)</summary>
+
+In `docker-compose.yaml`, change `image` to one of these tags and remove the `#` from the block for your GPU. With `docker run`, use these flags, and add the `-v` options from [Containers](https://localai.io/docs/start/install/containers/#quick-start) to keep your data:
 
 ```bash
 # NVIDIA, CUDA 13
@@ -77,13 +80,13 @@ docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-nv
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-nvidia-l4t-arm64-cuda-13
 
 # AMD (ROCm)
-docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-gpu-hipblas
+docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri localai/localai:latest-gpu-hipblas
 
 # Intel (oneAPI)
 docker run -ti --name local-ai -p 8080:8080 --device=/dev/dri/card1 --device=/dev/dri/renderD128 localai/localai:latest-gpu-intel
 
 # Vulkan
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-vulkan
+docker run -ti --name local-ai -p 8080:8080 --device=/dev/dri localai/localai:latest-gpu-vulkan
 ```
 
 LocalAI detects your GPU and downloads the matching backend. See [GPU Acceleration](https://localai.io/docs/models/gpu-acceleration/).

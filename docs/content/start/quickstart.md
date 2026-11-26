@@ -26,11 +26,14 @@ The script installs the `local-ai` program and does not start it. The command `l
 
 On Windows, use the PowerShell script `irm https://localai.io/install.ps1 | iex`. See [Install on Windows]({{% relref "/start/install/windows" %}}).
 
-On an Intel Mac, or when you prefer a container, use Docker instead:
+On an Intel Mac, or when you prefer a container, use Docker Compose instead:
 
 ```bash
-docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
+curl -fsSL https://localai.io/install/docker-compose.yaml -o docker-compose.yaml
+docker compose up -d
 ```
+
+The compose file keeps models, backends, settings and data in named volumes, so they stay when you recreate or upgrade the container.
 
 A desktop app for macOS and Linux is in the 5.0 release. See the [install guide]({{% relref "/start/install" %}}) for the other ways to install.
 
@@ -45,7 +48,7 @@ For a GPU in a container, use the image that matches your hardware:
 | Intel GPU | `localai/localai:latest-gpu-intel` |
 | Vulkan | `localai/localai:latest-gpu-vulkan` |
 
-For NVIDIA GPUs, add `--gpus all`. For AMD, Intel and Vulkan, add the `--device` flags. NVIDIA Jetson images and the full flag list are in [Container images]({{% relref "/start/install/containers" %}}).
+To use a GPU, change `image` in `docker-compose.yaml` to the tag for your hardware, and remove the `#` from the block for your GPU. With `docker run`, add `--gpus all` for NVIDIA, or the `--device` flags for AMD, Intel and Vulkan. NVIDIA Jetson images and the full flag list are in [Container images]({{% relref "/start/install/containers" %}}).
 
 ## Chat in the web interface
 

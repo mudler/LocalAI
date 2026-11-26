@@ -117,7 +117,7 @@ The image list is on [quay](https://quay.io/repository/go-skynet/local-ai?tab=ta
 In addition to the commands to run LocalAI normally, you need to specify `--gpus all` to docker, for example:
 
 ```bash
-docker run --rm -ti --gpus all -p 8080:8080 -e DEBUG=true -e MODELS_PATH=/models -e THREADS=1 -v $PWD/models:/models quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-12
+docker run --rm -ti --gpus all -p 8080:8080 -e DEBUG=true -e MODELS_PATH=/models -e THREADS=1 -v localai-models:/models quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-12
 ```
 
 If the GPU inferencing is working, you should be able to see something like:
@@ -223,7 +223,7 @@ The Python backends (diffusers, transformers, vllm, coqui, ...) are built on ROC
 
 **Note:** Starting with ROCm 6.4, AMD removed rocBLAS kernel support for older architectures (gfx803, gfx900, gfx906). Since llama.cpp and other backends depend on rocBLAS for matrix operations, these GPUs (e.g. Radeon VII) are no longer supported in pre-built images.
 
-If your device is not one of the above targets, you must specify the corresponding `GPU_TARGETS` and specify `REBUILD=true`. However, rebuilding will not help for architectures that lack rocBLAS kernel support in your ROCm version.
+The images and backends do not include other targets, and the container cannot rebuild them at startup. If your device is not one of the above targets, build the backend from source with `AMDGPU_TARGETS` set to your gfx target. See [Build backends]({{%relref "/contributing/build-from-source#build-backends" %}}). This does not help for architectures that lack rocBLAS kernel support in your ROCm version.
 
 ### Verified
 
@@ -256,11 +256,7 @@ The following are examples of the ROCm specific configuration elements required.
     # For full functionality select a non-'core' image, version locking the image is recommended for debug purposes.
     image: quay.io/go-skynet/local-ai:master-gpu-hipblas
     environment:
-      - DEBUG=true
-      # If your gpu is not already included in the current list of default targets the following build details are required.
-      - REBUILD=true
-      - BUILD_TYPE=hipblas
-      - GPU_TARGETS=gfx1100 # Example for RX 7900 XTX
+      - LOCALAI_LOG_LEVEL=debug
     devices:
       # AMD GPU only require the following devices be passed through to the container for offloading to occur.
       - /dev/dri
@@ -271,10 +267,7 @@ The same can also be executed as a `run` for your container runtime
 
 ```
 docker run \
- -e DEBUG=true \
- -e REBUILD=true \
- -e BUILD_TYPE=hipblas \
- -e GPU_TARGETS=gfx1100 \
+ -e LOCALAI_LOG_LEVEL=debug \
  --device /dev/dri \
  --device /dev/kfd \
  quay.io/go-skynet/local-ai:master-gpu-hipblas
@@ -342,7 +335,7 @@ The carried driver comes from Intel's own package repository, so it knows the ca
 ```bash
 docker run --rm -ti --device /dev/dri -p 8080:8080 \
   -e ZE_ENABLE_ALT_DRIVERS=/usr/lib/x86_64-linux-gnu/libze_intel_gpu.so.1 \
-  -v $PWD/models:/models quay.io/go-skynet/local-ai:{{< version >}}-gpu-intel
+  -v localai-models:/models quay.io/go-skynet/local-ai:{{< version >}}-gpu-intel
 ```
 
 Set the path to wherever your distribution keeps that file. Whatever you set is used as is, and the carried driver is left alone.
@@ -360,7 +353,7 @@ The image list is on [quay](https://quay.io/repository/go-skynet/local-ai?tab=ta
 To run LocalAI with Docker and sycl starting `phi-2`, you can use the following command as an example:
 
 ```bash
-docker run -e DEBUG=true --privileged -ti -v $PWD/models:/models -p 8080:8080  -v /dev/dri:/dev/dri --rm quay.io/go-skynet/local-ai:master-gpu-intel phi-2
+docker run -e LOCALAI_LOG_LEVEL=debug -ti -v localai-models:/models -p 8080:8080 --device /dev/dri --rm quay.io/go-skynet/local-ai:master-gpu-intel phi-2
 ```
 
 ### Notes
@@ -368,7 +361,7 @@ docker run -e DEBUG=true --privileged -ti -v $PWD/models:/models -p 8080:8080  -
 In addition to the commands to run LocalAI normally, you need to specify `--device /dev/dri` to docker, for example:
 
 ```bash
-docker run --rm -ti --device /dev/dri -p 8080:8080 -e DEBUG=true -e MODELS_PATH=/models -e THREADS=1 -v $PWD/models:/models quay.io/go-skynet/local-ai:{{< version >}}-gpu-intel
+docker run --rm -ti --device /dev/dri -p 8080:8080 -e LOCALAI_LOG_LEVEL=debug -e THREADS=1 -v localai-models:/models quay.io/go-skynet/local-ai:{{< version >}}-gpu-intel
 ```
 
 Note also that sycl does have a known issue to hang with `mmap: true`. You have to disable it in the model configuration if explicitly enabled.
@@ -390,7 +383,7 @@ To use Vulkan, use the images with the `vulkan` tag, for example `{{< version >}
 To run LocalAI with Docker and Vulkan, you can use the following command as an example:
 
 ```bash
-docker run -p 8080:8080 -e DEBUG=true -v $PWD/models:/models localai/localai:latest-gpu-vulkan
+docker run -p 8080:8080 -e DEBUG=true -v localai-models:/models localai/localai:latest-gpu-vulkan
 ```
 
 ### Notes
@@ -402,7 +395,7 @@ These flags are the same as the sections above, depending on the hardware, for [
 If you have mixed hardware, you can pass flags for multiple GPUs, for example:
 
 ```bash
-docker run -p 8080:8080 -e DEBUG=true -v $PWD/models:/models \
+docker run -p 8080:8080 -e DEBUG=true -v localai-models:/models \
 --gpus=all \ # nvidia passthrough
 --device /dev/dri --device /dev/kfd \ # AMD/Intel passthrough
 localai/localai:latest-gpu-vulkan
@@ -418,12 +411,12 @@ For detailed setup instructions, platform compatibility, and build commands, see
 
 ```bash
 # Jetson AGX Orin (CUDA 12)
-docker run -e DEBUG=true -p 8080:8080 -v $PWD/models:/models \
+docker run -e DEBUG=true -p 8080:8080 -v localai-models:/models \
   --runtime nvidia --gpus all \
   quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64
 
 # DGX Spark (CUDA 13)
-docker run -e DEBUG=true -p 8080:8080 -v $PWD/models:/models \
+docker run -e DEBUG=true -p 8080:8080 -v localai-models:/models \
   --runtime nvidia --gpus all \
   quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64-cuda-13
 ```
@@ -495,13 +488,7 @@ sycl-ls
 
 ### ROCm: unsupported GPU target
 
-If your AMD GPU is not in the default target list, set `REBUILD=true` and `GPU_TARGETS` to your device's gfx target:
-
-```bash
-docker run -e REBUILD=true -e BUILD_TYPE=hipblas -e GPU_TARGETS=gfx1030 \
-  --device /dev/dri --device /dev/kfd \
-  quay.io/go-skynet/local-ai:master-gpu-hipblas
-```
+The prebuilt `hipblas` images and backends support only the targets listed in [Limitations](#limitations). The container cannot rebuild them for another target: LocalAI has no `REBUILD` or `GPU_TARGETS` setting. To use another target, build the backend from source with `AMDGPU_TARGETS` set to your gfx target. See [Build backends]({{%relref "/contributing/build-from-source#build-backends" %}}).
 
 ### Intel SYCL: model hangs
 

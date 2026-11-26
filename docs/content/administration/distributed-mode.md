@@ -1214,14 +1214,19 @@ The routes of an agent worker follow the same flags as a backend worker (`--rout
 
 The agent worker does not run chat turns. To run the turns of triggers, connectors and [agent jobs]({{% relref "/features/chats-and-agents/agent-jobs" %}}) away from the frontends, use [chat workers](#chat-workers). The options `LOCALAI_AGENT_SUBJECT`, `LOCALAI_AGENT_QUEUE`, `LOCALAI_MCP_CI_JOB_TIMEOUT`, `LOCALAI_API_URL` and `LOCALAI_API_TOKEN` are still accepted by `local-ai agent-worker` and ignored. `LOCALAI_MCP_CI_JOB_TIMEOUT` is live on the server command (`local-ai run`, also used by frontends and chat workers) and is ignored only on `local-ai agent-worker`. `LOCALAI_AGENT_JOB_RETENTION_DAYS` is read by `local-ai run`.
 
-In the docker-compose setup, the agent worker mounts the Docker socket so it can run MCP stdio servers (e.g., `docker run` commands):
+In `docker-compose.distributed.yaml`, the agent worker mounts the Docker socket so it can run MCP stdio servers (e.g., `docker run` commands). It keeps its own credential in `/data`, so mount a volume there too:
 
 ```yaml
 agent-worker-1:
   command: agent-worker
   volumes:
     - /var/run/docker.sock:/var/run/docker.sock
+    - agent_worker_1_data:/data
 ```
+
+The container does not run LocalAI as root. Its entrypoint adds the group that owns `/var/run/docker.sock` to the user of LocalAI, so the agent worker can use the socket. Access to the Docker socket is equal to root access on the host. See [Container user and permissions]({{% relref "/start/install/containers#container-user-and-permissions" %}}).
+
+Backend workers also install backends. Mount a volume on `/backends` of each worker, so that a recreated container does not download them again.
 
 ## Chat Workers
 

@@ -65,21 +65,29 @@ docker build --build-arg SKIP_DRIVERS=false --build-arg BUILD_TYPE=cublas --buil
 
 ## Usage
 
-Run the LocalAI container on Nvidia ARM64 devices using the following commands, where `/data/models` is the directory containing the models:
+Run the LocalAI container on Nvidia ARM64 devices with the following commands. They keep models, backends, settings and data in named volumes:
 
 ### CUDA 12 (for AGX Orin and similar platforms)
 
 ```bash
-docker run -e DEBUG=true -p 8080:8080 -v /data/models:/models -ti --restart=always --name local-ai --runtime nvidia --gpus all quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64
+docker run -d --name local-ai --restart unless-stopped --init -p 8080:8080 \
+  --runtime nvidia --gpus all \
+  -v localai-models:/models -v localai-backends:/backends \
+  -v localai-data:/data -v localai-configuration:/configuration \
+  quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64
 ```
 
 ### CUDA 13 (for DGX Spark)
 
 ```bash
-docker run -e DEBUG=true -p 8080:8080 -v /data/models:/models -ti --restart=always --name local-ai --runtime nvidia --gpus all quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64-cuda-13
+docker run -d --name local-ai --restart unless-stopped --init -p 8080:8080 \
+  --runtime nvidia --gpus all \
+  -v localai-models:/models -v localai-backends:/backends \
+  -v localai-data:/data -v localai-configuration:/configuration \
+  quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64-cuda-13
 ```
 
-Note: `/data/models` is the directory containing the models. You can replace it with the directory containing your models.
+To use a folder of the host for the models, create it as your own user first, and see [Persistent Storage]({{% relref "/start/install/containers#persistent-storage" %}}) for the bind mounts.
 
 ## GPU reporting in distributed mode
 

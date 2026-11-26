@@ -359,12 +359,14 @@ Choose one of the following methods to run LocalAI:
 {{< tabs >}}
 {{% tab title="Docker" %}}
 
+Create the `models` and `data` folders as your own user before you start the container. When you own both folders, LocalAI runs as your user, and the files stay yours on the host. See [Container user and permissions]({{% relref "/start/install/containers#container-user-and-permissions" %}}).
+
 ```bash
-mkdir models
+mkdir -p models data
 
 cp your-model.gguf models/
 
-docker run -p 8080:8080 -v $PWD/models:/models -ti --rm localai/localai:latest --models-path /models --context-size 700 --threads 4
+docker run -p 8080:8080 -v "$PWD/models:/models" -v "$PWD/data:/data" -ti --rm localai/localai:latest --models-path /models --context-size 700 --threads 4
 
 curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
      "model": "your-model.gguf",
@@ -382,13 +384,13 @@ For other Docker images, please refer to the table in [the container images sect
 ### Example:
 
 ```bash
-mkdir models
+mkdir -p models data
 
 wget https://huggingface.co/TheBloke/Luna-AI-Llama2-Uncensored-GGUF/resolve/main/luna-ai-llama2-uncensored.Q4_0.gguf -O models/luna-ai-llama2
 
 cp -rf prompt-templates/getting_started.tmpl models/luna-ai-llama2.tmpl
 
-docker run -p 8080:8080 -v $PWD/models:/models -ti --rm localai/localai:latest --models-path /models --context-size 700 --threads 4
+docker run -p 8080:8080 -v "$PWD/models:/models" -v "$PWD/data:/data" -ti --rm localai/localai:latest --models-path /models --context-size 700 --threads 4
 
 curl http://localhost:8080/v1/models
 
@@ -407,14 +409,19 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 {{% /tab %}}
 {{% tab title="Docker Compose" %}}
 
+Download the compose file and create the folders for the bind mounts:
+
 ```bash
-git clone https://github.com/go-skynet/LocalAI
+curl -fsSL https://localai.io/install/docker-compose.yaml -o docker-compose.yaml
+mkdir -p models backends data configuration
+```
 
-cd LocalAI
+In `docker-compose.yaml`, replace the four named volumes with the four bind-mount lines from the comments (`./models:/models` and the others). Then copy the model and start LocalAI:
 
+```bash
 cp your-model.gguf models/
 
-docker compose up -d --pull always
+docker compose up -d
 
 curl http://localhost:8080/v1/models
 
@@ -428,8 +435,10 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
 {{% callout style="tip" %}}
 **Other Docker Images**:
 
-For other Docker images, please refer to the table in [Getting Started](https://localai.io/basics/getting_started/#container-images).
+For other Docker images, please refer to the table in [the container images section]({{% relref "/start/install/containers" %}}).
  {{% /callout %}}
+
+To keep the named volumes of the compose file instead, copy the model into the running container: `docker compose cp your-model.gguf localai:/models/`.
 
 Note: If you are on Windows, ensure the project is on the Linux filesystem to avoid slow model loading. For more information, see the [Microsoft Docs](https://learn.microsoft.com/en-us/windows/wsl/filesystems).
 

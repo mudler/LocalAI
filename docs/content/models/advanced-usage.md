@@ -180,7 +180,7 @@ there are additional environment variables available that modify the behavior of
 
 | Environment variable       | Default | Description                                                                                                |
 |----------------------------|---------|------------------------------------------------------------------------------------------------------------|
-| `EXTRA_BACKENDS`          |         | A space separated list of backends to prepare. For example `EXTRA_BACKENDS="backend/python/diffusers backend/python/transformers"` prepares the python environment on start |
+| `EXTRA_BACKENDS`          |         | Only for an image that you build from a source checkout, which has the backend sources and the build tools. A space separated list of backend folders to build on start, for example `EXTRA_BACKENDS="backend/python/diffusers"`. The released images cannot use it: install backends from the gallery instead (see [Extra backends](#extra-backends)) |
 | `LLAMACPP_GRPC_SERVERS`   |         | A list of llama.cpp workers to distribute the workload. For example `LLAMACPP_GRPC_SERVERS="address1:port,address2:port"` |
 
 Here is how to configure these variables:
@@ -250,11 +250,16 @@ LocalAI can be extended with extra backends. The backends are implemented as `gR
 
 ### In runtime
 
-When using the `-core` container image it is possible to prepare the python backends you are interested into by using the `EXTRA_BACKENDS` variable, for instance:
+LocalAI installs a backend from the backend gallery the first time a model needs it. To install a backend before that, use the Backends page of the web interface, or `POST /backends/apply`. To install backends from the gallery when the container starts, list them in `LOCALAI_EXTERNAL_BACKENDS`, separated by commas:
 
 ```bash
-docker run --env EXTRA_BACKENDS="backend/python/diffusers" quay.io/go-skynet/local-ai:master
+docker run -d --name local-ai -p 8080:8080 \
+  -e LOCALAI_EXTERNAL_BACKENDS=diffusers \
+  -v localai-backends:/backends \
+  localai/localai:latest
 ```
+
+Mount `/backends` as a volume, so that the installed backends stay when you recreate the container.
 
 ## Concurrent requests
 
