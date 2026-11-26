@@ -16,6 +16,7 @@ import fr from './i18n/jellyfin.fr.json'
 import zh from './i18n/jellyfin.zh-CN.json'
 import id from './i18n/jellyfin.id.json'
 import ko from './i18n/jellyfin.ko.json'
+import tr from './i18n/jellyfin.tr.json'
 import pt from './i18n/jellyfin.pt-BR.json'
 import ProposalCard from './ProposalCard'
 import { checkFailure, checkItem, composeServerKey, extraBody, extraForm, extraValid, followName, isPlainHttp, jellyfinSecret, serverIssue, tokenProblem, WRITE_MODES, writeModeOf } from './server'
@@ -23,7 +24,7 @@ import { finishTest, resultOf, startTest, subscribe } from './results'
 import './jellyfin.css'
 
 // The words of the page, in every language of the web UI; a key a language lacks reads in English.
-registerLocales({ jellyfin: { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
+registerLocales({ jellyfin: { en, it, es, de, fr, 'zh-CN': zh, id, ko, tr, 'pt-BR': pt } })
 
 // The API key. It is typed only to replace it.
 function JellyfinToken({ form, setForm, t }) {

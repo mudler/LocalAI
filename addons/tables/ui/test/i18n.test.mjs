@@ -6,7 +6,7 @@ import { BUNDLES } from '../src/i18n/index.js'
 const placeholders = (s) => [...String(s).matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)].map(m => m[1]).sort()
 
 test('i18n: every language of the host has every key of the English bundle and nothing else', () => {
-  assert.deepEqual(Object.keys(BUNDLES).sort(), ['de', 'en', 'es', 'id', 'it', 'ko', 'pt-BR', 'zh-CN'])
+  assert.deepEqual(Object.keys(BUNDLES).sort(), ['de', 'en', 'es', 'id', 'it', 'ko', 'pt-BR', 'tr', 'zh-CN'])
   const keys = Object.keys(EN).sort()
   for (const [lang, bundle] of Object.entries(BUNDLES)) {
     assert.deepEqual(Object.keys(bundle).sort(), keys, lang)

@@ -10,6 +10,7 @@ import fr from './gmail.fr.json'
 import zh from './gmail.zh-CN.json'
 import id from './gmail.id.json'
 import ko from './gmail.ko.json'
+import tr from './gmail.tr.json'
 import pt from './gmail.pt-BR.json'
 
-registerAddonLocales('gmail', { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt })
+registerAddonLocales('gmail', { en, it, es, de, fr, 'zh-CN': zh, id, ko, tr, 'pt-BR': pt })

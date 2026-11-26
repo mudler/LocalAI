@@ -1,0 +1,218 @@
+{
+  "unsaved": {
+    "title": "Kaydedilmemiş değişiklikler silinsin mi?",
+    "message": "Kaydedilmemiş değişikliklerin var; bu sayfadan ayrılırsan kaybolacaklar.",
+    "leave": "Ayrıl"
+  },
+  "actions": {
+    "save": "Kaydet",
+    "saving": "Kaydediliyor...",
+    "cancel": "İptal",
+    "close": "Kapat",
+    "confirm": "Onayla",
+    "delete": "Sil",
+    "edit": "Düzenle",
+    "add": "Ekle",
+    "remove": "Kaldır",
+    "create": "Oluştur",
+    "update": "Güncelle",
+    "refresh": "Yenile",
+    "reload": "Yeniden yükle",
+    "retry": "Yeniden dene",
+    "search": "Ara",
+    "filter": "Filtrele",
+    "clear": "Temizle",
+    "reset": "Sıfırla",
+    "apply": "Uygula",
+    "back": "Geri",
+    "next": "İleri",
+    "previous": "Önceki",
+    "open": "Aç",
+    "submit": "Gönder",
+    "select": "Seç",
+    "selectAll": "Tümünü seç",
+    "copy": "Kopyala",
+    "copied": "Kopyalandı",
+    "download": "İndir",
+    "upload": "Yükle",
+    "import": "İçe aktar",
+    "export": "Dışa aktar",
+    "view": "Görüntüle",
+    "details": "Ayrıntılar",
+    "settings": "Ayarlar",
+    "help": "Yardım",
+    "yes": "Evet",
+    "no": "Hayır",
+    "loading": "Yükleniyor..."
+  },
+  "status": {
+    "loading": "Yükleniyor...",
+    "saving": "Kaydediliyor...",
+    "saved": "Kaydedildi",
+    "ready": "Hazır",
+    "running": "Çalışıyor",
+    "stopped": "Durduruldu",
+    "starting": "Başlatılıyor...",
+    "stopping": "Durduruluyor...",
+    "pending": "Bekliyor",
+    "active": "Etkin",
+    "inactive": "Etkin değil",
+    "enabled": "Etkin",
+    "disabled": "Devre dışı",
+    "online": "Çevrimiçi",
+    "offline": "Çevrimdışı",
+    "error": "Hata",
+    "success": "Başarılı",
+    "warning": "Uyarı",
+    "info": "Bilgi",
+    "empty": "Öğe yok",
+    "none": "Yok",
+    "unknown": "Bilinmiyor"
+  },
+  "dialogs": {
+    "confirmDelete": {
+      "title": "Silmeyi onayla",
+      "message": "Bunu silmek istediğinden emin misin? Bu işlem geri alınamaz.",
+      "confirm": "Sil",
+      "cancel": "İptal"
+    },
+    "unsavedChanges": {
+      "title": "Kaydedilmemiş değişiklikler",
+      "message": "Kaydedilmemiş değişikliklerin var. Bunlardan vazgeçmek istiyor musun?",
+      "discard": "Vazgeç",
+      "keepEditing": "Düzenlemeye devam et"
+    }
+  },
+  "forms": {
+    "required": "Zorunlu",
+    "optional": "İsteğe bağlı",
+    "name": "Ad",
+    "description": "Açıklama",
+    "type": "Tür",
+    "value": "Değer",
+    "search": "Ara...",
+    "selectPlaceholder": "Bir seçenek seç...",
+    "noMatch": "Eşleşme yok"
+  },
+  "time": {
+    "now": "şimdi",
+    "secondsAgo_one": "{{count}} saniye önce",
+    "secondsAgo_other": "{{count}} saniye önce",
+    "minutesAgo_one": "{{count}} dakika önce",
+    "minutesAgo_other": "{{count}} dakika önce",
+    "hoursAgo_one": "{{count}} saat önce",
+    "hoursAgo_other": "{{count}} saat önce",
+    "daysAgo_one": "{{count}} gün önce",
+    "daysAgo_other": "{{count}} gün önce"
+  },
+  "units": {
+    "bytes": "B",
+    "kilobytes": "KB",
+    "megabytes": "MB",
+    "gigabytes": "GB",
+    "terabytes": "TB"
+  },
+  "ui": {
+    "tryAgain": "Yeniden dene",
+    "undo": "Geri al",
+    "loadError": {
+      "title": "Bu yüklenemedi.",
+      "serverSaid": "Sunucu şu yanıtı verdi: “{{message}}”.",
+      "nothingChanged": "Hiçbir şey değiştirilmedi."
+    }
+  },
+  "chip": {
+    "running": "Çalışıyor",
+    "starting": "Başlıyor",
+    "stopped": "Durduruldu",
+    "failed": "Başarısız",
+    "updateAvailable": "Güncelleme var",
+    "ready": "Hazır",
+    "noRunsYet": "Henüz çalıştırma yok",
+    "updating": "Güncelleniyor",
+    "heldForApproval": "Onay bekliyor",
+    "cannotUpdate": "Güncellenemiyor",
+    "differsFromCluster": "Kümeden farklı"
+  },
+  "share": {
+    "title": "Paylaş: \"{{name}}\"",
+    "untitled": "Adsız",
+    "intro": "Eklediğin kişiler bunu kendi listelerinde görür.",
+    "disabled": {
+      "title": "Paylaşım kullanılamıyor",
+      "text": "Bu LocalAI tek bir yerel sahip için çalışıyor, bu yüzden paylaşılacak başka hesap yok."
+    },
+    "add": "Kişi ekle",
+    "search": "Kişiyi adıyla bul",
+    "searchHint": "Bir adın en az üç harfini yaz.",
+    "newRole": "Eklediğin kişiler için rol",
+    "searching": "Aranıyor",
+    "noResults": "Eşleşen kimse yok.",
+    "alreadyShared": "Eşleşen herkesin zaten erişimi var.",
+    "results": "Bulunan kişiler",
+    "addPerson": "{{name}} kişisini {{role}} olarak ekle",
+    "granted": "{{name}} artık erişebilir.",
+    "changed": "{{name}} artık {{role}}.",
+    "everyone": "Herkes",
+    "everyoneHelp": "Bu LocalAI üzerindeki yeni hesaplar dahil her hesap.",
+    "everyoneAdd": "Herkesle paylaş",
+    "people": "Erişimi olan kişiler",
+    "loading": "Erişimi olanlar yükleniyor",
+    "none": "Yalnızca senin erişimin var.",
+    "unnamed": "Adsız hesap",
+    "roleOf": "Rol: {{name}}",
+    "revoke": "Paylaşımı durdur",
+    "revokeAria": "Paylaşımı durdur: {{name}}",
+    "revokeConfirm": "{{name}} ile paylaşım durdurulsun mu? Bunun üzerindeki çalışan işleri durur.",
+    "revoked": "{{name}} ile paylaşım durduruldu.",
+    "refs": {
+      "title": "Paylaşmadan önce",
+      "intro": "Bu, başka kaynakları kullanıyor. Eklediğin kişilerin her biri için ne alacağını seç.",
+      "label": "Erişim: {{name}}",
+      "choose": "Seç",
+      "pending": "Paylaşmak için yukarıdaki her öğe için bir seçenek seç.",
+      "option": {
+        "view": "Görüntüleyebilir",
+        "use": "Kullanabilir",
+        "none": "Paylaşma"
+      },
+      "own": "Kendi erişimlerinin olması gerekir"
+    },
+    "roles": {
+      "owner": "Sahip",
+      "use": "Kullanabilir",
+      "manage": "Yönetebilir",
+      "viewer": "Görüntüleyici",
+      "editor": "Düzenleyici"
+    },
+    "roleHelp": {
+      "use": "Açıp çalıştırabilir.",
+      "manage": "Ayrıca değiştirebilir.",
+      "viewer": "Okuyabilir.",
+      "editor": "Okuyabilir ve değiştirebilir."
+    },
+    "line": {
+      "sharedBy": "Paylaşan: {{name}}",
+      "sharedEveryone": "{{name}} herkesle paylaştı",
+      "sharedWith": "{{count}} kişiyle paylaşıldı",
+      "private": "Özel"
+    },
+    "error": {
+      "withdrawn": "Bu sayfa kapatıldı.",
+      "auth": "Paylaşmak için yeniden giriş yap.",
+      "denied": "Artık bunu paylaşamazsın. Silinmiş olabilir.",
+      "unknown": "Değişiklik kaydedilmemiş olabilir. Emin olmak için yeniden dene.",
+      "invalid": "Sunucu bu değişikliği reddetti.",
+      "network": "Sunucuya ulaşılamadı.",
+      "unavailable": "Paylaşım yanıt vermedi. Biraz sonra yeniden dene.",
+      "generic": "Bir şeyler ters gitti."
+    }
+  },
+  "picker": {
+    "filter": "Filtrele",
+    "loading": "Yükleniyor",
+    "empty": "Henüz seçilecek bir şey yok",
+    "noMatch": "Eşleşme yok",
+    "clear": "Temizle"
+  }
+}

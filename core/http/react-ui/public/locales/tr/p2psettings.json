@@ -1,0 +1,291 @@
+{
+  "title": "P2P ayarları",
+  "lede": {
+    "off": "P2P kapalı. Diğer örnekleri kullanmak ya da bunu paylaşmak için bir mod seç.",
+    "connect": "Yalnızca bağlan: bu sunucu P2P üzerinden uzak örnekleri kullanır ve kimseyi kabul etmez.",
+    "share": "Bağlan ve paylaş: bu sunucu ayrıca eşleştirdiğin cihazları da kabul eder."
+  },
+  "loadError": "P2P ayarları yüklenemedi",
+  "notRunning": "P2P çalışmıyor.",
+  "saved": "Kaydedildi. P2P yeni ayarla yeniden başlar.",
+  "saveFailed": "Sunucu ayarı kaydetmedi.",
+  "sections": {
+    "label": "P2P ayar bölümleri",
+    "network": "Ağ",
+    "relays": "Relay'ler",
+    "identity": "Kimlik"
+  },
+  "actions": {
+    "save": "Kaydet",
+    "cancel": "İptal",
+    "close": "Kapat",
+    "copy": "Kopyala",
+    "done": "Bitti"
+  },
+  "units": {
+    "kibps": "KiB/sn",
+    "gib": "GiB",
+    "minutes": "dakika"
+  },
+  "modes": {
+    "off": {
+      "title": "Kapalı",
+      "body": "P2P yok. NATS ve WebSocket üzerindeki düğümler etkilenmez."
+    },
+    "connect": {
+      "title": "Yalnızca bağlan",
+      "body": "Diğer örneklerin modellerini P2P üzerinden kullan. Bu sunucu kimseyi kabul etmez. Kimlik doğrulama gerekmez."
+    },
+    "share": {
+      "title": "Bağlan ve paylaş",
+      "body": "Ayrıca eşleşmiş cihazları, uzak örnekleri ve P2P düğümlerini kabul et. Kimlik doğrulamanın açık olmasını gerektirir."
+    }
+  },
+  "network": {
+    "title": "Ağ",
+    "mode": {
+      "title": "P2P modu",
+      "lede": "Bu örneğin P2P üzerinden yaptığı şey. Değişiklik hemen uygulanır.",
+      "needsAuth": "Kimlik doğrulama gerekir",
+      "replaces": "--p2p yerine geçer"
+    },
+    "defaultOn": "Varsayılan olarak açık",
+    "shareOnly": "Yalnızca Bağlan ve paylaş",
+    "shareOnlyNote": "Yalnızca Bağlan ve paylaş modunda gösterilir: Bu örneği paylaş, Cihazlar ve davetler, Eşleşmiş cihazlar için relay ve Relay'ler.",
+    "dht": {
+      "title": "Genel DHT",
+      "desc": "Genel libp2p ağı üzerinden bul ve bulun. Katılmak buna asla ihtiyaç duymaz: bir davet peer ID'yi ve relay ipucunu taşır, istemci de peer ID'ye bağlanır."
+    },
+    "mdns": {
+      "title": "Yerel ağ keşfi",
+      "desc": "Aynı yerel ağdaki diğer örnekleri bul (mDNS), böylece internet olmadan doğrudan bağlanırlar."
+    },
+    "bootstrap": {
+      "title": "Bootstrap peer'leri",
+      "desc": "libp2p ağına kendi giriş noktaların, satır başına bir adres. Her adres /p2p/<peer ID> ile biter. Genel bootstrap peer'lerini kullanmak için boş bırak."
+    },
+    "relayPaired": {
+      "title": "Eşleşmiş cihazlar için relay",
+      "desc": "Bu sunucu, kendi eşleşmiş cihazları doğrudan bağlanamadığında aralarındaki trafiği taşır. Sunucun üzerinden olarak gösterilir."
+    },
+    "relayMode": {
+      "title": "Bu sunucu ne zaman relay yapar",
+      "desc": "Otomatik, relay'i yalnızca diğer peer'ler bu sunucuya internetten ulaşabildiği sürece çalıştırır.",
+      "auto": "Otomatik: bu sunucuya erişilebildiğinde",
+      "on": "Her zaman",
+      "off": "Asla"
+    },
+    "relayRate": {
+      "title": "Circuit başına bant genişliği",
+      "desc": "Bu sunucunun aktardığı her bağlantı için sınır. 0 sınır yok demektir."
+    }
+  },
+  "share": {
+    "title": "Bu örneği buradan paylaş",
+    "body": "Dizüstü bilgisayarının bu sunucunun modellerini kullanmasına izin ver ve P2P düğümleri ekle. Eşleşen her cihaz kendi API anahtarını alır, bu yüzden paylaşım için kimlik doğrulamanın açık olması gerekir.",
+    "authOn": "Kimlik doğrulama açık. Geçiş yapmak Cihazlar ve davetler, Bu örneği paylaş ve Relay'ler bölümlerini ekler. Uzak örneklerin bağlı kalır.",
+    "turnOnAuth": "Kimlik doğrulamayı aç",
+    "switch": "Bağlan ve paylaş moduna geç"
+  },
+  "relays": {
+    "title": "Relay'ler",
+    "run": "Relay çalıştır…",
+    "lede": "LocalAI genel relay çalıştırmaz. Genel libp2p relay'leri hole punching'i koordine eder ve eşleştirmeyi ve küçük istekleri taşır; bir bağlantıyı yaklaşık 128 KiB sonra sıfırlarlar. Bazı ağ çiftleri doğrudan bağlanamaz, bu yüzden kendi relay'ini çalıştır. Kısıtlı bir relay yalnızca bu sunucunun eşleştirdiği peer'leri kabul eder. Açık bir relay davetlerde bir uyarıyla kullanılabilir.",
+    "loadError": "Relay'ler yüklenemedi",
+    "col": {
+      "relay": "Relay",
+      "health": "Sağlık",
+      "invites": "Davetler",
+      "limits": "Sınırlar",
+      "actions": "İşlemler"
+    },
+    "thisServer": "Bu sunucu",
+    "self": {
+      "running": "Aktarıyor",
+      "reason": {
+        "off": "Kapalı",
+        "not_share": "Kapalı: paylaşım yok",
+        "not_public": "Bekliyor: internetten erişilemiyor"
+      },
+      "pairedOnly": "Yalnızca eşleşmiş cihazlar",
+      "limits": "Ağ bölümünde ayarla"
+    },
+    "yourRelay": "Senin relay'in",
+    "admins_one": "{{count}} yönetici",
+    "admins_other": "{{count}} yönetici",
+    "state": {
+      "in_sync": "Kısıtlı, senkron",
+      "out_of_sync": "Kısıtlı, senkron değil",
+      "open": "Açık: herkes kullanabilir",
+      "unclaimed": "Henüz sahiplenilmedi",
+      "not_admin": "Bu sunucu yönetici değil",
+      "denied": "Bu sunucuyu reddediyor",
+      "unreachable": "Erişilemiyor",
+      "checking": "Kontrol ediliyor"
+    },
+    "latency": "Gidiş dönüş {{ms}} ms",
+    "checked": {
+      "now": "Az önce kontrol edildi",
+      "minutes_one": "{{count}} dk önce kontrol edildi",
+      "minutes_other": "{{count}} dk önce kontrol edildi",
+      "hours_one": "{{count}} sa önce kontrol edildi",
+      "hours_other": "{{count}} sa önce kontrol edildi",
+      "days_one": "{{count}} gün önce kontrol edildi",
+      "days_other": "{{count}} gün önce kontrol edildi"
+    },
+    "pass": {
+      "pass": "Relay geçişi",
+      "open": "Uyarıyla",
+      "none": "Kullanılmıyor"
+    },
+    "members_one": "{{count}} peer'e izin verildi",
+    "members_other": "{{count}} peer'e izin verildi",
+    "noLimit": "Sınır yok",
+    "perCircuit": "circuit başına {{limits}}",
+    "sync": "Şimdi senkronize et",
+    "synced": "Relay, eşleşmiş cihazların güncel listesine sahip.",
+    "claim": "Sahiplen",
+    "limitsOf": "{{name}} sınırları",
+    "checkOf": "{{name}} öğesini yeniden kontrol et",
+    "removeOf": "{{name}} öğesini kaldır",
+    "empty": {
+      "title": "Henüz kendi relay'in yok",
+      "body": "Sıkı yönlendiricilerin arkasındaki cihazlar doğrudan bağlanamaz. Genel adresi olan bir makinedeki küçük bir relay onları içeri alır."
+    },
+    "outOfSync": {
+      "title": "{{name}} senkron değil.",
+      "body_one": "Yetkisini kaldırdığın bir cihazı hâlâ kabul ediyor olabilir. Şimdi senkronize et, {{count}} eşleşmiş cihazın güncel listesini gönderir.",
+      "body_other": "Yetkisini kaldırdığın bir cihazı hâlâ kabul ediyor olabilir. Şimdi senkronize et, {{count}} eşleşmiş cihazın güncel listesini gönderir."
+    },
+    "claimTitle": "Bu relay'i sahiplen",
+    "claimLede": "Relay'in henüz yöneticisi yok. Başlarken tek kullanımlık bir sahiplenme kodu yazdırdı.",
+    "claimed": "Bu sunucu artık relay'in yöneticisi.",
+    "removeTitle": "Bu relay kaldırılsın mı?",
+    "removeBody": "{{name}} artık yeni davetlerde kullanılmayacak. Relay çalışmaya devam eder; onu kendi makinesinde durdur.",
+    "remove": "Kaldır",
+    "removed": "Relay kaldırıldı."
+  },
+  "run": {
+    "title": "Relay çalıştır",
+    "lede": "Doğrudan bağlanamayan peer'ler için. Yalnızca bu sunucunun eşleştirdiği peer'leri kabul eder.",
+    "step1": "1. Genel adresi olan bir makinede başlat",
+    "dockerLabel": "Relay'i Docker ile başlat",
+    "orBinary": "Ya da binary ile:",
+    "binaryLabel": "Relay'i local-ai binary'siyle başlat",
+    "explain": "UDP ve TCP 4001 portunu aç. Volume, relay anahtarını saklar, bu yüzden peer ID'si yeniden başlatmalarda korunur. <b>--admin</b> bu sunucuyu belirtir: relay yalnızca bu sunucunun eşleştirdiği peer'leri kabul eder ve bu sunucu, bir cihazı eşleştirdiğinde veya yetkisini kaldırdığında o listeyi günceller. İki sunucu tek bir relay'i paylaşabilir: her biri için bir <b>--admin</b> ekle. Relay, <b>localai/relay</b> adlı ayrı bir küçük imajdır. Circuit başına sınırlar: <b>--circuit-max-bytes</b>, <b>--circuit-max-duration</b>, <b>--rate-limit</b>, <b>--max-circuits-per-peer</b>. <b>--open</b> ile herkes kullanabilir ve circuit başına 64 KiB/sn ile başlar.",
+    "step2": "2. Relay adresini yapıştır",
+    "addrHint": "Relay başlarken adresini yazdırır.",
+    "addrInvalid": "Adresin tamamını yapıştır. / ile başlar ve /p2p/ ile relay'in peer ID'siyle biter.",
+    "check": "Erişilebilirliği kontrol et",
+    "claimLabel": "Sahiplenme kodu",
+    "claim": "Sahiplen",
+    "claimFailed": "Relay sahiplenme kodunu reddetti: {{error}}",
+    "add": "Relay ekle",
+    "added": "Relay eklendi. Yeni davetler onu belirtir.",
+    "ready": "Eklemeye hazır.",
+    "nothingSaved": "Relay'i ekleyene kadar hiçbir şey kaydedilmez.",
+    "steps": {
+      "reserve": {
+        "waiting": "Relay'de bir yuva ayır",
+        "ok": "Relay'de bir yuva ayrıldı",
+        "failed": "Yuva ayırma: yanıt yok",
+        "skipped": "Yuva ayır"
+      },
+      "circuit": {
+        "waiting": "Circuit testi",
+        "ok": "Circuit testi: veri relay üzerinden geçti",
+        "failed": "Circuit testi başarısız oldu",
+        "skipped": "Circuit testi: atlandı, bu sunucu yönetici değil"
+      },
+      "allowlist": {
+        "waiting": "İzin listesini gönder",
+        "ok": "İzin listesi gönderildi. Bu sunucu yönetici.",
+        "failed": "İzin listesi gönderilmedi",
+        "skipped": "İzin listesi: açık relay için gerekmez"
+      }
+    },
+    "result": {
+      "ok": {
+        "title": "Relay çalışıyor ve kısıtlı.",
+        "body": "Her yeni davete, relay geçişiyle birlikte relay ipucu olarak girer."
+      },
+      "open": {
+        "title": "Relay çalışıyor ama açık.",
+        "body": "Herkes kullanabilir. Davetler onu yalnızca bir uyarıyla belirtir. Kısıtlı yapmak için --admin ile başlat."
+      },
+      "wrong_peer": {
+        "title": "Yanlış peer ID.",
+        "body": "Relay {{actual}} olarak yanıt verdi ama adres {{expected}} diyor. Adresi relay günlüğünden yeniden kopyala. Relay anahtar volume'u olmadan yeniden başladıysa yeni bir ID oluşturmuştur."
+      },
+      "unreachable": {
+        "title": "Relay'e ulaşılamıyor.",
+        "body": "Çalıştığını ve makinesinde ile yönlendiricisinde UDP ve TCP 4001 portunun açık olduğunu kontrol et. Sonra yeniden kontrol et."
+      },
+      "circuit": {
+        "title": "Relay yanıt veriyor ama içinden veri geçmedi.",
+        "body": "Sınırları çok düşük olabilir ya da aşırı yüklenmiş olabilir. Günlüğünü kontrol et, sonra yeniden kontrol et."
+      },
+      "unclaimed": {
+        "title": "Relay'in henüz yöneticisi yok.",
+        "body": "Başlarken yazdırdığı sahiplenme kodunu gir ya da onu --admin ve bu sunucunun peer ID'siyle yeniden başlat."
+      },
+      "not_admin": {
+        "title": "Bu sunucu relay'in yöneticisi değil.",
+        "body": "Relay'i 1. adımdaki gibi --admin ve bu sunucunun peer ID'siyle başlat. Sonra yeniden kontrol et."
+      }
+    }
+  },
+  "limits": {
+    "title": "{{name}} için sınırlar",
+    "ledeOpen": "Açık relay: herkes kullanabilir.",
+    "ledeGated": "Kısıtlı relay: yalnızca eşleşmiş peer'ler kullanır.",
+    "reset": "Varsayılanlara sıfırla",
+    "noLimitTitle": "Sınır yok.",
+    "noLimitOpen": "Tek bir yabancı bu relay'in tüm bant genişliğini ve verisini kullanabilir ve kendi peer'lerin yavaşlar.",
+    "noLimitGated": "Eşleşmiş bir peer, örneğin bir model kopyası için, bu relay'in tüm bant genişliğini kullanabilir.",
+    "mode": "Mod",
+    "limited": "Sınırlı",
+    "none": "Sınır yok",
+    "fields": {
+      "dataGiB": "Circuit başına veri",
+      "minutes": "Circuit başına süre",
+      "kibps": "Circuit başına bant genişliği"
+    },
+    "zeroHint": "0, o değer için sınır yok demektir.",
+    "invalid": "Her değer 0 veya daha büyük bir sayı olmalı.",
+    "applyHint": "Yeni bir bant genişliği sınırı sonraki circuit'e uygulanır. Yeni bir veri veya süre sınırı, relay'in circuit hizmetini yeniden başlatır: açık circuit'ler kapanana kadar eski sınırları korur ve eşleşmiş cihazlar birkaç saniye içinde relay üzerinden yeniden bağlanır.",
+    "save": "Sınırları kaydet",
+    "saved": "Sınırlar {{name}} üzerinde kaydedildi.",
+    "savedRestarted": "Sınırlar {{name}} üzerinde kaydedildi. Relay circuit hizmetini yeniden başlattı; cihazlar birazdan yeniden bağlanır.",
+    "loadError": "Sınırlar relay'den okunamadı.",
+    "readOnlyTitle": "Bu sunucu bu sınırları değiştiremez.",
+    "readOnlyOpen": "Bu açık bir relay ve bu sunucu onun yöneticisi değil. Sınırları relay'in çalıştığı yerde, --circuit-max-bytes, --circuit-max-duration ve --rate-limit ile ayarla.",
+    "readOnlyMember": "Bu sunucu bu relay'in yöneticisi değil. Yöneticisinden iste ya da sınırları relay'in çalıştığı yerde, --circuit-max-bytes, --circuit-max-duration ve --rate-limit ile ayarla.",
+    "max": "Maksimum: {{value}}",
+    "noMax": "Maksimum yok",
+    "ceilingTitle": "Relay operatörü maksimumlar belirledi.",
+    "ceilingBody": "Bu relay'in operatörü, başlatma bayraklarıyla her sınır için bir üst sınır belirledi. Bir sınırı maksimumuna kadar değiştirebilirsin, üstüne çıkamazsın ve maksimumu olan bir sınırı kaldıramazsın.",
+    "issue": {
+      "above": "{{max}} maksimumunun üstünde.",
+      "required": "{{max}} değerine kadar bir değer gir: maksimumu olan bir sınır kaldırılamaz."
+    },
+    "refusedTitle": "Relay değişikliği reddetti."
+  },
+  "identity": {
+    "title": "Kimlik",
+    "lede": "İstemciler bir daveti kullanırken bu peer ID'yi sabitler. Relay'lerin onu yönetici olarak adlandırır. Yeniden başlatmalarda aynı kalır.",
+    "notRunning": "P2P çalışmıyor, bu yüzden bu sunucunun gösterilecek bir peer ID'si yok.",
+    "copied": "Peer ID kopyalandı.",
+    "copyFailed": "Peer ID kopyalanamadı.",
+    "regenerateTitle": "Peer ID'yi yeniden oluştur",
+    "regenerateDesc": "Yeni bir kimlik anahtarı oluşturur. Eski anahtar, yenisinin yanında yedek olarak saklanır. Bunu yalnızca kimlik anahtarı sızdıysa yap.",
+    "regenerateButton": "Yeniden oluştur…",
+    "regenerate": "Yeniden oluştur",
+    "regenerated": "Yeni peer ID oluşturuldu. Her cihaza ve uzak örneğe yeni bir davet gönder.",
+    "confirmTitle": "Peer ID yeniden oluşturulsun mu?",
+    "confirmBody": "Eşleşmiş her cihaz, uzak örnek ve P2P worker şu anki ID'yi sabitledi. Bağlanmayı bırakırlar ve yeni ID'yi güvenlik uyarısı olarak reddederler. Her birine yeni bir davet göndermelisin. Bekleyen davetler çalışmayı bırakır.",
+    "confirmOnly": "Bunu yalnızca kimlik anahtarı sızdıysa yap.",
+    "confirmCheck_one": "{{count}} eşleşmiş cihazın yeniden eşleşmesi gerektiğini anlıyorum",
+    "confirmCheck_other": "{{count}} eşleşmiş cihazın yeniden eşleşmesi gerektiğini anlıyorum"
+  }
+}

@@ -1,0 +1,212 @@
+{
+  "title": "Model içe aktar",
+  "subtitle": {
+    "source": "Bir Hugging Face referansı, bir URL veya bu makinedeki bir yol yapıştır.",
+    "yaml": "Model yapılandırmasını elle yaz. Hiçbir şey otomatik algılanmaz."
+  },
+  "tabs": {
+    "ariaLabel": "İçe aktarma türü",
+    "source": "Bir kaynaktan",
+    "yaml": "YAML yaz"
+  },
+  "actions": {
+    "import": "İçe aktar",
+    "importing": "İçe aktarılıyor…",
+    "create": "Oluştur",
+    "saving": "Kaydediliyor...",
+    "browseHF": "Hugging Face'teki modellere göz at",
+    "addCustom": "Özel ekle",
+    "copy": "Kopyala"
+  },
+  "form": {
+    "modelUri": "Kaynak",
+    "uriPlaceholder": "huggingface://owner/repo",
+    "uriHint": "İçe aktarmak için Enter'a bas. Sen seçmedikçe LocalAI backend'i kaynaktan seçer.",
+    "supportedFormats": "Yapıştırabileceklerin",
+    "options": "Gelişmiş seçenekler",
+    "customPreferences": "Özel tercihler",
+    "customKeyValueHint": "Gelişmiş yapılandırma için özel anahtar-değer çiftleri ekle.",
+    "preferenceKey": "{{index}}. satırın tercih anahtarı",
+    "preferenceValue": "{{index}}. satırın tercih değeri",
+    "removePref": "Bu tercihi kaldır",
+    "key": "Anahtar",
+    "value": "Değer",
+    "backend": "Backend",
+    "backendAuto": "Otomatik algıla (URI'ye göre)",
+    "backendLoading": "Backend'ler yükleniyor…",
+    "backendSearch": "Backend ara...",
+    "backendHint": "Listeyi modelin ne yaptığına göre daralt, sonra birini seç. Otomatik algılamada bırakırsan LocalAI karar verir. \"Elle seçim\" işaretli girdiler hiçbir zaman otomatik algılanmaz.",
+    "backendErrorHint": "Backend listesi yüklenemedi. Yalnızca otomatik algılama.",
+    "backendNotInstalled": "Bu backend henüz kurulu değil. İçe aktarmayı gönderince önce o indirilir.",
+    "backendInstallDisabled": "Bu backend kurulu değil ve bu sunucu backend kurmuyor. Backend LocalAI dışında kurulana kadar içe aktarma reddedilir.",
+    "modelName": "Ad",
+    "modelNamePlaceholder": "Dosya adını kullanmak için boş bırak",
+    "modelNameHint": "Model için özel ad. Boşsa dosya adı kullanılır.",
+    "description": "Açıklama",
+    "descriptionPlaceholder": "Varsayılan açıklamayı kullanmak için boş bırak",
+    "descriptionHint": "Model için özel açıklama.",
+    "quantizations": "Kuantizasyonlar",
+    "quantizationsPlaceholder": "q4_k_m,q4_k_s,q3_k_m (virgülle ayrılmış)",
+    "quantizationsHint": "Tercih edilen kuantizasyonlar (virgülle ayrılmış). Varsayılan (q4_k_m) için boş bırak.",
+    "mmprojQuantizations": "MMProj kuantizasyonları",
+    "mmprojQuantizationsPlaceholder": "fp16,fp32 (virgülle ayrılmış)",
+    "mmprojQuantizationsHint": "Tercih edilen MMProj kuantizasyonları. Varsayılan (fp16) için boş bırak.",
+    "embeddings": "Embedding'ler",
+    "embeddingsHint": "Bu model için embedding desteğini etkinleştir.",
+    "modelType": "Model türü",
+    "modelTypePlaceholder": "AutoModelForCausalLM (transformers backend'i için)",
+    "modelTypeHint": "transformers backend'i için model türü. Örnekler: AutoModelForCausalLM, SentenceTransformer, Mamba.",
+    "pipelineType": "Pipeline türü",
+    "pipelineTypeHint": "diffusers backend'i için pipeline türü.",
+    "schedulerType": "Zamanlayıcı türü",
+    "schedulerTypePlaceholder": "k_dpmpp_2m (isteğe bağlı)",
+    "schedulerTypeHint": "diffusers backend'i için zamanlayıcı türü. Örnekler: k_dpmpp_2m, euler_a, ddim.",
+    "enableParameters": "Parametreleri etkinleştir",
+    "enableParametersPlaceholder": "negative_prompt,num_inference_steps (virgülle ayrılmış)",
+    "enableParametersHint": "diffusers backend'i için etkin parametreler (virgülle ayrılmış).",
+    "cuda": "CUDA",
+    "cudaHint": "GPU hızlandırması için CUDA desteğini etkinleştir.",
+    "yamlEditor": "Model yapılandırması",
+    "manualPick": "elle seçim",
+    "manualPickTooltip": "Otomatik algılama bu backend'e yönlendirmez. İstediğin buysa burada seç.",
+    "optionsSummary": "backend, ad, açıklama, kuantizasyonlar…",
+    "modalityAny": "Hepsi",
+    "modalityFilter": "Backend'leri türe göre filtrele",
+    "yamlHint": "Models klasörüne olduğu gibi yazılır. Hiçbir şey algılanmaz veya indirilmez."
+  },
+  "modality": {
+    "text": "Metin LLM'i",
+    "asr": "Konuşma tanıma",
+    "tts": "Metinden konuşmaya",
+    "image": "Görsel / Video",
+    "video": "Video üretimi",
+    "3d": "3D mesh üretimi",
+    "3d_animation": "3D animasyon",
+    "motion": "Hareket yakalama",
+    "embeddings": "Embedding'ler",
+    "reranker": "Reranker'lar",
+    "detection": "Nesne algılama",
+    "vad": "Ses etkinliği algılama",
+    "other": "Diğer"
+  },
+  "estimate": {
+    "downloadLabel": "İndirme",
+    "vramLabel": "Yüklemede VRAM",
+    "fit": {
+      "fits": "Boş olan {{free}} içine sığar.",
+      "tight": "Boş olan {{free}} değerine yakın.",
+      "over": "Boş olan {{free}} değerinden fazla."
+    },
+    "diskShort": "Modeller diskinde boş olan {{free}} değerinden fazla."
+  },
+  "progress": {
+    "label": "İçe aktarma ilerlemesi",
+    "working": "Çalışıyor…"
+  },
+  "toasts": {
+    "noUri": "Lütfen bir model URI'si gir",
+    "noYaml": "Lütfen YAML yapılandırması gir",
+    "started": "İçe aktarma başladı. İlerleme aşağıda gösteriliyor.",
+    "imported": "Model başarıyla içe aktarıldı!",
+    "importedYaml": "Model yapılandırması başarıyla içe aktarıldı!",
+    "importFailed": "İçe aktarma başarısız: {{message}}",
+    "startImportFailed": "İçe aktarma başlatılamadı: {{message}}",
+    "backendsLoadFailed": "Backend listesi yüklenemedi — yalnızca otomatik algılama kullanılıyor",
+    "modalityClearedBackend": "Backend seçimi temizlendi — {{label}} grubunda değildi.",
+    "copied": "Panoya kopyalandı"
+  },
+  "uriFormats": {
+    "huggingface": {
+      "title": "Hugging Face"
+    },
+    "http": {
+      "title": "Doğrudan URL"
+    },
+    "local": {
+      "title": "Bu makinede"
+    },
+    "oci": {
+      "title": "OCI kayıt defteri"
+    },
+    "ollama": {
+      "title": "Ollama"
+    }
+  },
+  "steps": {
+    "label": "İlerleme",
+    "source": "Kaynak",
+    "review": "Gözden geçir",
+    "import": "İçe aktar",
+    "done": "Bitti"
+  },
+  "found": {
+    "title": "LocalAI'nin anlayabildikleri",
+    "untouched": "Burada yalnızca kaynak biçimi tanınır. Kaynağa ulaşılmadı ve bir model olarak doğrulanmadı. LocalAI bunu içe aktardığında çözümler.",
+    "examples": "Veya bir örnekle başla",
+    "kind": {
+      "huggingface": "Hugging Face deposu",
+      "url": "Doğrudan URL",
+      "config": "Yapılandırma dosyası",
+      "oci": "OCI imajı",
+      "ollama": "Ollama modeli",
+      "magnet": "Magnet bağlantısı",
+      "pirateface": "Pirate Face modeli",
+      "local": "Bu makinedeki dosya",
+      "unknown": "Tanınmadı"
+    },
+    "ref": {
+      "huggingface": "Depo",
+      "url": "Adres",
+      "config": "Dosya",
+      "oci": "İmaj",
+      "ollama": "Model",
+      "magnet": "Info hash",
+      "pirateface": "Model",
+      "local": "Yol",
+      "unknown": "Kaynak"
+    },
+    "file": "Dosya",
+    "backend": "Backend",
+    "backendAuto": "İçe aktarma başlarken, kaynağın içeriğine göre seçilir.",
+    "backendChosen": "senin seçimin",
+    "backendDownload": "senin seçimin, önce indirilir",
+    "adjust": "Ad, backend ve kuantizasyonları ayarla"
+  },
+  "preview": {
+    "title": "İstek önizlemesi",
+    "note": "Formun gönderdiği şey bu. LocalAI model yapılandırmasının önizlemesini döndürmez: yapılandırma içe aktarma başladıktan sonra yazılır. YAML yaz sekmesi yapılandırmayı kendin yazmanı sağlar."
+  },
+  "checks": {
+    "heading": "Kontroller",
+    "note": "Yalnızca içe aktarma başlamadan önce bilinebilenler."
+  },
+  "done": {
+    "title": "Model içe aktarıldı",
+    "titleNamed": "{{name}} içe aktarıldı",
+    "text": "LocalAI'ye kaydedildi. Modeller sayfasında aç veya onunla sohbet başlat.",
+    "chat": "Sohbet et: {{name}}",
+    "models": "Modeller'de aç",
+    "another": "Başka bir tane içe aktar"
+  },
+  "bar": {
+    "empty": "Devam etmek için bir kaynak gir.",
+    "ready": "{{ref}} kaynağını içe aktarır ve model yapılandırmasını yazar. Boyut, başladığında bilinir.",
+    "working": "İçe aktarılıyor. İlerleme yukarıda gösteriliyor."
+  },
+  "ambiguity": {
+    "title": "Bunu birden fazla backend çalıştırabilir",
+    "tts": "Bu bir metinden konuşmaya modeline benziyor. Devam etmek için aşağıdaki backend'lerden birini seç.",
+    "asr": "Bu bir konuşma tanıma modeline benziyor. Devam etmek için aşağıdaki backend'lerden birini seç.",
+    "embeddings": "Bu bir embedding modeline benziyor. Devam etmek için aşağıdaki backend'lerden birini seç.",
+    "image": "Bu bir görsel üretim modeline benziyor. Devam etmek için aşağıdaki backend'lerden birini seç.",
+    "reranker": "Bu bir reranker veya sınıflandırıcı modeline benziyor. Devam etmek için aşağıdaki backend'lerden birini seç.",
+    "detection": "Bu bir nesne algılama modeline benziyor. Devam etmek için aşağıdaki backend'lerden birini seç.",
+    "other": "Bu bir {{modality}} modeline benziyor, ancak LocalAI backend'i kendi başına seçemiyor. Devam etmek için aşağıdaki backend'lerden birini seç.",
+    "installed": "Kurulu.",
+    "notInstalled": "Kurulu değil. LocalAI önce indirir.",
+    "use": "Kullan: {{name}}",
+    "useTitle": "Bu içe aktarma için şunu kullan: {{name}}",
+    "useInstallTitle": "Kullan: {{name}}. LocalAI önce kuracak.",
+    "dismiss": "Kapat"
+  }
+}

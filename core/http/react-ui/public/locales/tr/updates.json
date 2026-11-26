@@ -1,0 +1,501 @@
+{
+  "title": "Güncellemeler",
+  "supporting": "Daha yeni sürümü olan backend'ler, kitaplık backend'leri, eklentiler ve galeri modelleri.",
+  "loading": "Güncellemeler yükleniyor",
+  "adminOnly": {
+    "title": "Güncellemeler yöneticiler içindir",
+    "body": "Bu sunucuda nelerin eskidiğine bakması için bir yöneticiden iste."
+  },
+  "loadError": {
+    "title": "Güncelleme listesi yüklenemedi."
+  },
+  "strip": {
+    "label": "Güncelleme özeti",
+    "checking": "Güncellemeler kontrol ediliyor...",
+    "checkNow": "Şimdi kontrol et",
+    "checkedJustNow": "Az önce kontrol edildi",
+    "ready": "{{count}} hazır",
+    "updating": "{{count}} güncelleniyor",
+    "needs_one": "{{count}} tanesi senin ilgini bekliyor",
+    "needs_other": "{{count}} tanesi senin ilgini bekliyor",
+    "lastCheck": "Son kontrol: {{when}}",
+    "headline": {
+      "loading": "Güncellemeler yükleniyor",
+      "loadError": "Güncelleme listesi yüklenemedi",
+      "updates_one": "{{count}} güncelleme var",
+      "updates_other": "{{count}} güncelleme var",
+      "current": "Her şey güncel",
+      "never": "Henüz kontrol yapılmadı",
+      "couldNot": "Güncellemeler kontrol edilemedi",
+      "noneButFailed": "Güncelleme bulunamadı ama şunlar için kontrol başarısız oldu: {{sources}}",
+      "noneButNever": "Güncelleme bulunamadı ama şunlar henüz kontrol edilmedi: {{sources}}",
+      "unavailable": "Bu sunucuda güncellemeler kontrol edilemiyor"
+    }
+  },
+  "when": {
+    "justNow": "az önce"
+  },
+  "source": {
+    "label": "Güncellemelerin geldiği yerler",
+    "name": {
+      "gallery": "Backend galerisi",
+      "library": "Backend kitaplığı",
+      "addons": "Eklentiler",
+      "models": "Model galerisi"
+    },
+    "checked": "kontrol edildi: {{when}}",
+    "ok": "kontrol edildi",
+    "never": "henüz kontrol edilmedi",
+    "loading": "okunuyor",
+    "unavailable": "bu sunucuda kullanılamıyor",
+    "unavailableWhy": "kullanılamıyor: {{reason}}",
+    "failed": "kontrol başarısız oldu: {{error}}",
+    "addonsUnreadable": "eklentiler okunamadı"
+  },
+  "auto": {
+    "backends": "Backend'leri otomatik güncelle:",
+    "addons": "Eklentileri otomatik güncelle:",
+    "on": "açık",
+    "off": "kapalı",
+    "settings": "Ayarlar"
+  },
+  "disabled": {
+    "title": "Bu sunucuda backend güncellemeleri kapalı.",
+    "body": "Aşağıdaki backend'ler listelenir ama burada hiçbirini güncelleyemezsin. Sunucu yapılandırması backend kurulumlarını kapattı."
+  },
+  "failedSource": {
+    "title": {
+      "gallery": "Backend galerisi kontrolü başarısız oldu, bu yüzden backend'lerin gösterilmeyen güncellemeleri olabilir.",
+      "library": "Kitaplık kontrolü başarısız oldu, bu yüzden kitaplık backend'lerinin gösterilmeyen güncellemeleri olabilir.",
+      "addons": "Eklenti kontrolü başarısız oldu, bu yüzden eklentilerin gösterilmeyen güncellemeleri olabilir.",
+      "models": "Model galerisi kontrolü başarısız oldu, bu yüzden modellerin gösterilmeyen güncellemeleri olabilir."
+    },
+    "lastGood": "Aşağıdaki liste son başarılı kontrolden, {{when}}. Neden: {{error}}.",
+    "noGood": "Henüz başarılı bir kontrol olmadı. Neden: {{error}}.",
+    "again": "Yeniden kontrol et"
+  },
+  "filter": {
+    "label": "Güncellemeleri filtrele",
+    "all": "Tümü",
+    "ready": "Hazır",
+    "needs-you": "İlgini bekleyen",
+    "updating": "Güncelleniyor",
+    "current": "Güncel",
+    "none": "Bu filtreyle eşleşen yok."
+  },
+  "group": {
+    "needs": "İlgini bekleyen",
+    "updating": "Güncelleniyor",
+    "ready": "Güncellemeye hazır",
+    "current_one": "{{count}} güncel",
+    "current_other": "{{count}} güncel",
+    "show": "Göster",
+    "hide": "Gizle",
+    "other": "Diğer modeller"
+  },
+  "row": {
+    "tag": {
+      "gallery": "Backend",
+      "library": "Kitaplık backend'i",
+      "addon": "Eklenti",
+      "model": "Model"
+    },
+    "origin": {
+      "gallery": "Backend galerisi",
+      "library": "Kitaplık: {{id}}",
+      "libraryUnnamed": "Kitaplık",
+      "model": "Galeri {{gallery}}",
+      "modelUnnamed": "Model galerisi"
+    },
+    "signed": "imzalı",
+    "versions": "{{from}} sürümünden {{to}} sürümüne",
+    "nodes_one": "{{count}} düğüm",
+    "nodes_other": "{{count}} düğüm",
+    "drift_one": "{{count}} tanesi farklı",
+    "drift_other": "{{count}} tanesi farklı",
+    "old": "önceki bir kontrolden",
+    "update": "Güncelle",
+    "updateNamed": "{{name}} öğesini güncelle",
+    "check": "Kontrol et",
+    "checkNamed": "{{name}} için güncelleme kontrol et",
+    "retry": "Yeniden dene",
+    "retryNamed": "{{name}} işlemini yeniden dene",
+    "review": "İncele",
+    "reviewNamed": "{{name}} güncellemesini incele",
+    "cancel": "İptal",
+    "cancelNamed": "{{name}} güncellemesini iptal et",
+    "progress": "{{name}} güncellemesinin ilerlemesi",
+    "failed": "Güncelleme başarısız oldu: {{message}}",
+    "failedWhy": "Güncelleme başarısız oldu: {{message}}",
+    "noReason": "neden belirtilmedi",
+    "startFailed": "Güncelleme başlatılamadı: {{message}}",
+    "unchanged": "Güncelleme bitti ama sürüm değişmedi.",
+    "unconfirmed": "Güncelleme bitti ama hiçbir kontrol onu doğrulayamadı.",
+    "held": "Onay için bekletiliyor. {{version}} sürümü, onaylamadığın erişimler istiyor ({{count}} yeni).",
+    "blocked": {
+      "installsDisabled": "Bu sunucuda backend güncellemeleri kapalı.",
+      "incompatible": "{{version}} sürümü bu ana makinede çalışamaz.",
+      "integrity": "Kitaplık, kurulu sürümü farklı içerikle listeliyor. Hiçbir şey değiştirilmedi."
+    },
+    "updatingPhase": "Güncelleniyor: {{phase}}",
+    "updatingPlain": "Güncelleniyor",
+    "queued": "Sırada, boş bir yuva bekleniyor",
+    "nodesAction": "Düğümler",
+    "nodesNamed": "{{name}} düğümlerini göster",
+    "heldBack": "Geri tutuldu: bu sürüm başlamadı. Otomatik güncellemeler yeni bir sürüm çıkana kadar bunu atlar. Yeniden denemek için burada güncelle."
+  },
+  "bulk": {
+    "start": "Hazır {{count}} öğeyi güncelle",
+    "running": "{{total}} öğenin {{current}}. güncelleniyor",
+    "summary": "{{done}} güncellendi, {{failed}} başarısız, {{skipped}} atlandı",
+    "retryFailed": "Başarısızları yeniden dene ({{count}})",
+    "review": "Güncellemeleri incele"
+  },
+  "check": {
+    "result_one": "Kontrol bitti: {{count}} güncelleme.",
+    "result_other": "Kontrol bitti: {{count}} güncelleme.",
+    "failedSources_one": "{{count}} kaynak başarısız oldu.",
+    "failedSources_other": "{{count}} kaynak başarısız oldu.",
+    "throttled": "Birkaç saniye önce bir kontrol çalıştı. Bu onun sonucu."
+  },
+  "empty": {
+    "title": "Henüz güncellenecek bir şey yok",
+    "body": "Bir backend veya eklenti kur, güncellemeleri burada görünsün.",
+    "backends": "Backend'leri aç",
+    "addons": "Uygulamaları aç"
+  },
+  "dialog": {
+    "close": "Kapat"
+  },
+  "item": {
+    "queued": "Sırada",
+    "upgrading": "Güncelleniyor",
+    "done": "Güncellendi",
+    "failed": "Başarısız",
+    "skipped": "Atlandı"
+  },
+  "node": {
+    "breadcrumb": "Gezinti yolu",
+    "reload": "Yeniden dene",
+    "noneTitle": "{{name}} için güncellenecek düğüm yok",
+    "noneBody": "Bu backend için hiçbir düğümde listelenmiş güncelleme yok. Her yerde güncel olabilir ya da az önce güncellenmiş olabilir.",
+    "back": "Güncellemeler'e dön",
+    "supporting_one": "{{version}} sürümü mevcut. {{nodes}} üzerinde kurulu ve bunların {{count}} tanesinin güncellemeye ihtiyacı var.",
+    "supporting_other": "{{version}} sürümü mevcut. {{nodes}} üzerinde kurulu ve bunların {{count}} tanesinin güncellemeye ihtiyacı var.",
+    "supportingDrift_one": "Düğümlerin hepsinde aynı derleme yok. {{nodes}} içinden {{count}} tanesi kümeden farklı.",
+    "supportingDrift_other": "Düğümlerin hepsinde aynı derleme yok. {{nodes}} içinden {{count}} tanesi kümeden farklı.",
+    "warning": "Güncelleme, her düğümde bu backend'i kullanan modelleri durdurur. Bir istek gerektirdiğinde model yeniden başlar.",
+    "driftNote": "Kümeden farklı olan bir düğüm her zaman geride değildir: daha yeni de olabilir. Güncelleme onu galerinin sunduğu sürüme getirir.",
+    "tableLabel": "{{name}} kurulu olan düğümler",
+    "col": {
+      "node": "Düğüm",
+      "installed": "Kurulu",
+      "models": "Onu kullanan çalışan modeller",
+      "state": "Durum",
+      "action": "İşlem"
+    },
+    "noneRecorded": "Kayıtlı yok",
+    "state": {
+      "current": "Güncel",
+      "unreachable": "Erişilemiyor"
+    },
+    "updateN_one": "{{count}} düğümü güncelle",
+    "updateN_other": "{{count}} düğümü güncelle",
+    "updateNamed": "{{name}} öğesini güncelle",
+    "models_one": "{{count}} model",
+    "models_other": "{{count}} model",
+    "nodes_one": "{{count}} düğüm",
+    "nodes_other": "{{count}} düğüm",
+    "stops": "Durdurur: {{models}}",
+    "title_one": "{{backend}}, {{count}} düğümde güncellensin mi?",
+    "title_other": "{{backend}}, {{count}} düğümde güncellensin mi?",
+    "titleMany_one": "{{count}} backend, {{nodes}} üzerinde güncellensin mi?",
+    "titleMany_other": "{{count}} backend, {{nodes}} üzerinde güncellensin mi?",
+    "runningTitle": "Düğümler güncelleniyor",
+    "doneTitle": "Güncelleme bitti",
+    "intro": "Her düğüm, {{backend}} kullanan modelleri durdurur, yeni sürümü kurar ve bir istek gerektirdiğinde modeli yeniden başlatır. Bu işlem buradan geri alınamaz.",
+    "introMany": "Her düğüm, bu backend'leri kullanan modelleri durdurur, yeni sürümleri kurar ve bir istek gerektirdiğinde modeli yeniden başlatır. Bu işlem buradan geri alınamaz.",
+    "stopKnown_one": "{{count}} model durur.",
+    "stopKnown_other": "{{count}} model durur.",
+    "stopPartial_one": "{{count}} modelin durduğu kaydedildi. Diğer düğümlerde kayıtlı model yok ve kayıt birini kaçırmış olabilir, bu yüzden daha fazla model durabilir.",
+    "stopPartial_other": "{{count}} modelin durduğu kaydedildi. Diğer düğümlerde kayıtlı model yok ve kayıt birini kaçırmış olabilir, bu yüzden daha fazla model durabilir.",
+    "stopNone": "Bu düğümlerde kayıtlı yüklü model yok. Kayıt eksiksiz değil, bu yüzden bu backend'i kullanan bir model yine de durabilir.",
+    "sequence": "Düğümler sırayla güncellenir. Bu pencere her sonucu bittiğinde gösterir.",
+    "confirmStop_one": "{{count}} düğümü güncelle ve şunu durdur: {{models}}",
+    "confirmStop_other": "{{count}} düğümü güncelle ve şunu durdur: {{models}}",
+    "confirmStopAtLeast_one": "{{count}} düğümü güncelle ve en az şunu durdur: {{models}}",
+    "confirmStopAtLeast_other": "{{count}} düğümü güncelle ve en az şunu durdur: {{models}}",
+    "confirmPlain_one": "{{count}} düğümü güncelle",
+    "confirmPlain_other": "{{count}} düğümü güncelle",
+    "cancel": "İptal",
+    "stop": "Bu düğümden sonra dur",
+    "listLabel": "Güncellenecek düğümler",
+    "titleAll_one": "{{count}} güncelleme başlatılsın mı?",
+    "titleAll_other": "{{count}} güncelleme başlatılsın mı?",
+    "confirmPlus_one": "{{label}}, ayrıca {{count}} tane daha",
+    "confirmPlus_other": "{{label}}, ayrıca {{count}} tane daha",
+    "othersTitle": "Onayladığında bunlar da başlar",
+    "othersLabel": "Başlatılacak diğer güncellemeler",
+    "othersIntro": "Bunlar düğümlerde çalışmaz. Onayladığında sırayla başlar. Bir eklenti, verisi yedeklenip taşınırken durur. Yeni sürüm başlamazsa mevcut sürüm çalışmaya devam eder.",
+    "otherKind": {
+      "addon": "Eklenti",
+      "library": "Kitaplık backend'i",
+      "gallery": "Backend"
+    },
+    "otherOrigin": "Kitaplık {{library}}",
+    "otherOriginChannel": "Kitaplık {{library}}, kanal {{channel}}",
+    "runningNote": "Durdur, henüz başlamamış düğümlerin başlamasını engeller."
+  },
+  "model": {
+    "chip": {
+      "edited": "Düzenlendi",
+      "held": "Bekletiliyor",
+      "unknown": "Bilinmiyor",
+      "gone": "Galeride yok",
+      "cleanup": "Eski sürüm saklandı"
+    },
+    "phase": {
+      "queued": "başlamayı bekliyor",
+      "starting": "başlıyor",
+      "preflight": "disk, backend ve dosyalar kontrol ediliyor",
+      "staging": "yeni dosyalar indiriliyor",
+      "unloading": "model durduruluyor",
+      "committing": "yeni sürüme geçiliyor",
+      "loading": "yeni sürüm başlatılıyor",
+      "confirmed": "bitti",
+      "rolling-back": "eski sürüm geri konuyor",
+      "rolled-back": "eski sürüm geri kondu",
+      "failed": "başarısız",
+      "resolving": "dosyalar bulunuyor",
+      "downloading": "indiriliyor",
+      "verifying": "dosyalar kontrol ediliyor",
+      "persisting": "kaydediliyor"
+    },
+    "detail": {
+      "failed": "Yükseltme başarısız oldu: {{message}}. Eski sürüm hizmet vermeye devam ediyor.",
+      "rolledBack": "Yükseltme başarısız oldu ve eski sürüm geri kondu: {{message}}. Eski sürüm hizmet vermeye devam ediyor.",
+      "updating": "Yükseltiliyor: {{phase}}",
+      "edited_one": "Bu güncellemenin de değiştirdiği {{count}} anahtarı düzenledin. Hangi değerin kalacağını seç.",
+      "edited_other": "Bu güncellemenin de değiştirdiği {{count}} anahtarı düzenledin. Hangi değerin kalacağını seç.",
+      "configOnly": "Yalnızca yapılandırma veya prompt şablonları değişir. Hiçbir şey indirilmez.",
+      "files_one": "{{count}} dosya değişiyor.",
+      "files_other": "{{count}} dosya değişiyor.",
+      "held": "Bu sürümde bekletiliyor.",
+      "heldNewer": "Bu sürümde bekletiliyor. Galeride daha yenisi var.",
+      "legacy": "LocalAI bu modelin nereden geldiğini kaydetmedi. Güncelleme almak için benimse. Yapılandırman değişmez.",
+      "notChecked": "Henüz kontrol edilmedi.",
+      "checkFailed": "Kontrol galeri girdisini okuyamadı: {{message}}",
+      "unreadable": "Model dosyaları okunamadı: {{message}}",
+      "gone": "Hiçbir galeri artık {{entry}} girdisini listelemiyor. Kurulu sürüm çalışmaya devam ediyor.",
+      "cleanup_one": "Yükseltildi. Eski sürüm sen kaldırana kadar diskte kalır ({{count}} dosya).",
+      "cleanup_other": "Yükseltildi. Eski sürüm sen kaldırana kadar diskte kalır ({{count}} dosya)."
+    },
+    "action": {
+      "upgrade": "Yükselt",
+      "upgradeNamed": "{{name}} öğesini yükselt",
+      "removeOld": "Eski sürümü kaldır",
+      "removeOldNamed": "{{name}} öğesinin eski sürümünü kaldır",
+      "hold": "Bu sürümde beklet",
+      "release": "Beklemeyi bırak",
+      "releaseNamed": "{{name}} öğesinin beklemesini bırak",
+      "more": "{{name}} için daha fazla işlem",
+      "adopt": "Benimse",
+      "adoptNamed": "{{name}} öğesini benimse"
+    },
+    "dialog": {
+      "title": "{{name}} yükseltilsin mi?",
+      "intro": "{{from}} sürümünden {{to}} sürümüne. Sen onaylayana kadar hiçbir şey değişmez.",
+      "loadedTitle": "{{name}} şu an yüklü.",
+      "loadedBody": "Yükseltme onu durdurur, dosyaları ve yapılandırmayı değiştirir ve yeniden başlatır. Ona gelen istekler geri gelene kadar bekler veya başarısız olur. Yeni sürüm başlamazsa eski sürüm geri konur.",
+      "notLoaded": "{{name}} şu an yüklü değil. Yükseltme, çalıştığını kontrol etmek için yeni sürümü bir kez başlatır; çalışmazsa eski sürümü geri koyar.",
+      "loadUnknown": "{{name}} öğesinin yüklü olup olmadığı anlaşılamadı. Yüklüyse yükseltme onu durdurur ve yeniden başlatır.",
+      "filesTitle": "Dosyalar",
+      "noFiles": "Dosya değişikliği yok.",
+      "disk": "Yeni dosyalar eskilerin yanına indirilir, bu yüzden diskte ikisine de yetecek yer olmalı. Galeri dosya boyutlarını vermez, bu yüzden gereken alan indirmeden önce bilinmez.",
+      "diskNone": "Hiçbir şey indirilmez.",
+      "uncheckedTitle_one": "{{count}} dosyanın galeride sağlama toplamı yok.",
+      "uncheckedTitle_other": "{{count}} dosyanın galeride sağlama toplamı yok.",
+      "uncheckedBody": "Yükseltme, sağlama toplamı olmayan ağırlıkları indirmez, bu yüzden ilk kontrolde durur.",
+      "configOnly": "Yalnızca yapılandırmayı ve prompt şablonlarını uygula",
+      "configOnlyHint": "Bu güncelleme hiçbir model dosyasını değiştirmez, bu yüzden hiçbir şey indirilmez.",
+      "keysTitle": "Düzenlediğin ve güncellemenin de değiştirdiği anahtarlar",
+      "keysIntro": "Her anahtar için kalacak değeri seç. Her anahtar için bir seçim yapılmadan yükseltme başlayamaz.",
+      "keepMine": "Benimkini koru",
+      "takeGallery": "Galerinin değerini al",
+      "notSet": "ayarlanmamış",
+      "kept_one": "Senin ayarladığın gibi korundu: {{keys}}. Güncelleme bunu değiştirmez.",
+      "kept_other": "Senin ayarladığın gibi korundu: {{keys}}. Güncelleme bunları değiştirmez.",
+      "after": "Eski sürüm yükseltmeden sonra diskte kalır. \"Eski sürümü kaldır\" ile kaldırabilirsin.",
+      "missing_one": "{{count}} anahtar için bir değer seç",
+      "missing_other": "{{count}} anahtar için bir değer seç",
+      "confirm": "Yükselt",
+      "confirmStop": "Durdur ve yükselt",
+      "needChoices": "Sunucu daha fazla anahtar için seçim istiyor. Her biri için bir değer seç, sonra yeniden onayla.",
+      "startFailed": "Yükseltme başlatılamadı: {{message}}"
+    },
+    "change": {
+      "added": "yeni",
+      "changed": "değişti",
+      "removed": "kaldırıldı"
+    },
+    "role": {
+      "weights": "ağırlıklar",
+      "mmproj": "görüntü projektörü",
+      "template": "prompt şablonu",
+      "artifact": "artefakt",
+      "config": "yapılandırma"
+    },
+    "remove": {
+      "title": "{{name}} öğesinin eski sürümü kaldırılsın mı?",
+      "body_one": "Bu, yükseltmenin sakladığı {{count}} eski dosyayı siler. Model yeni sürümde çalışmaya devam eder. Bu işlem geri alınamaz.",
+      "body_other": "Bu, yükseltmenin sakladığı {{count}} eski dosyayı siler. Model yeni sürümde çalışmaya devam eder. Bu işlem geri alınamaz.",
+      "confirm": "Eski sürümü kaldır",
+      "pending": "Kaldırılıyor…"
+    },
+    "live": {
+      "started": "{{name}} yükseltmesi başladı.",
+      "failed": "{{name}}: {{message}}",
+      "removed_one": "{{name}}: {{count}} eski dosya kaldırıldı.",
+      "removed_other": "{{name}}: {{count}} eski dosya kaldırıldı.",
+      "held": "{{name}} bu sürümde bekletiliyor.",
+      "released": "{{name}} artık bekletilmiyor.",
+      "adopted": "{{name}}, {{gallery}} galerisinden benimsendi. LocalAI artık güncellemeleri için kontrol ediyor.",
+      "adoptedDiffers": "{{name}}, {{gallery}} galerisinden benimsendi. Dosyaları galeri girdisinden farklı, bu yüzden bir güncelleme sunuluyor.",
+      "adoptedNoCheck": "{{name}} benimsendi ama güncelleme kontrolü başarısız oldu: {{message}}",
+      "adoptFailed": "{{name}} benimsenemedi: {{message}}"
+    },
+    "card": {
+      "title": "Güncellemeler",
+      "current": "Güncel",
+      "open": "Güncellemeleri aç",
+      "holdHint": "Bunu kapatana kadar bu model için güncelleme sunma."
+    },
+    "adopt": {
+      "title": "{{name}} öğesini benimse",
+      "intro": "Birden fazla galeri bu modeli listeliyor. Geldiği girdiyi seç.",
+      "legend": "Galeri girdileri",
+      "gallery": "Galeri {{gallery}}",
+      "after": "LocalAI girdiyi kaydeder ve güncellemeler için kontrol eder. Yapılandırman değişmez.",
+      "failed": "Benimsenemedi: {{message}}"
+    }
+  },
+  "review": {
+    "title_one": "{{count}} güncellemeyi incele",
+    "title_other": "{{count}} güncellemeyi incele",
+    "loadingTitle": "Güncellemeleri incele",
+    "intro": "Sen başlatana kadar hiçbir şey değişmez.",
+    "loading": "Plan okunuyor",
+    "loadError": "Güncellemelerin planı okunamadı.",
+    "selectAll": "Tümünü seç",
+    "selectNone": "Hiçbirini seçme",
+    "selected_one": "{{total}} içinden {{count}} seçili",
+    "selected_other": "{{total}} içinden {{count}} seçili",
+    "order": "Önce backend'ler, sonra modeller, sonra eklentiler tek tek güncellenir. Her güncelleme, yenisi çalışana kadar önceki sürümü korur. Başladıktan sonra bu pencereyi kapatıp sayfadan ayrılabilirsin.",
+    "group": {
+      "backends": "Backend'ler ({{count}})",
+      "addons": "Eklentiler ({{count}})",
+      "models": "Modeller ({{count}})"
+    },
+    "item": "{{name}} öğesini güncelle",
+    "backsUp": "Verilerini yedekler",
+    "modelNote": "Varsayılan olarak seçili değil: bir model güncellemesi onu yeniden yükler. Sen onaylayana kadar eski dosyalar kalır.",
+    "blocked": "Başlatılamaz: {{reason}}",
+    "empty": "Güncellenecek bir şey yok.",
+    "start_one": "{{count}} öğeyi güncelle",
+    "start_other": "{{count}} öğeyi güncelle",
+    "startOne": "Güncelle",
+    "cancel": "İptal",
+    "singleTitle": "{{name}} güncellensin mi?",
+    "singleLoading": "Güncelle",
+    "singleNote": "Yenisi çalışana kadar eski sürüm kalır.",
+    "risk": {
+      "stopsModels_one": "Geçiş sırasında {{count}} yüklü modeli durdurur",
+      "stopsModels_other": "Geçiş sırasında {{count}} yüklü modeli durdurur",
+      "stopsModelsNodes_one": "Geçiş sırasında {{nodes}} düğümde {{count}} yüklü modeli durdurur",
+      "stopsModelsNodes_other": "Geçiş sırasında {{nodes}} düğümde {{count}} yüklü modeli durdurur",
+      "migratesData": "Verilerin taşınır. Önce doğrulanmış bir yedek alınır.",
+      "editedKeys_one": "Bu modelin {{count}} ayarını düzenledin. Nelerin kalacağını seçmek için satırındaki {{action}} işlemini kullan.",
+      "editedKeys_other": "Bu modelin {{count}} ayarını düzenledin. Nelerin kalacağını seçmek için satırındaki {{action}} işlemini kullan.",
+      "held": "Bu sürüm onayını bekliyor.",
+      "cluster_one": "{{count}} düğümde güncellenir",
+      "cluster_other": "{{count}} düğümde güncellenir",
+      "drift_one": "{{count}} düğüm şu an farklı bir derleme çalıştırıyor. Güncelleme her düğümü yeni derlemeye taşır.",
+      "drift_other": "{{count}} düğüm şu an farklı bir derleme çalıştırıyor. Güncelleme her düğümü yeni derlemeye taşır.",
+      "configOnly": "Yalnızca modelin ayarlarını değiştirir. Hiçbir şey indirilmez."
+    },
+    "follow": "Çalıştırmayı göster"
+  },
+  "run": {
+    "group": "Bu güncelleme çalıştırması",
+    "title_one": "{{count}} öğe güncelleniyor",
+    "title_other": "{{count}} öğe güncelleniyor",
+    "count": {
+      "updated_one": "{{count}} güncellendi",
+      "updated_other": "{{count}} güncellendi",
+      "running_one": "{{count}} çalışıyor",
+      "running_other": "{{count}} çalışıyor",
+      "waiting_one": "{{count}} bekliyor",
+      "waiting_other": "{{count}} bekliyor",
+      "attention_one": "{{count}} tanesi ilgi bekliyor",
+      "attention_other": "{{count}} tanesi ilgi bekliyor"
+    },
+    "started": "Başlangıç: {{when}}",
+    "finished": "Bitiş: {{when}}",
+    "result": {
+      "attention_one": "{{updated}} güncellendi, {{count}} tanesi ilgi bekliyor",
+      "attention_other": "{{updated}} güncellendi, {{count}} tanesi ilgi bekliyor",
+      "done_one": "{{count}} güncellendi",
+      "done_other": "{{count}} güncellendi",
+      "cancelled_one": "Güncelleme çalıştırması iptal edildi, {{count}} güncellendi",
+      "cancelled_other": "Güncelleme çalıştırması iptal edildi, {{count}} güncellendi",
+      "clean": "Yarım güncellenmiş bir şey kalmadı",
+      "unknown_one": "{{count}} sonuç henüz doğrulanmadı",
+      "unknown_other": "{{count}} sonuç henüz doğrulanmadı"
+    },
+    "progress": "Güncelleme çalıştırmasının ilerlemesi",
+    "cancelRemaining": "Kalanları iptal et",
+    "retryFailed": "Başarısızları yeniden dene",
+    "dismiss": "Gizle",
+    "actionFailed": "İstek başarısız oldu: {{message}}",
+    "phase": {
+      "queued": "Sırada",
+      "running": "Güncelleniyor",
+      "updated": "Güncellendi",
+      "failed": "Başarısız",
+      "rolled_back": "Geri alındı",
+      "cancelled": "İptal edildi",
+      "skipped": "Atlandı",
+      "unconfirmed": "Onaylanmadı"
+    },
+    "queued": {
+      "afterBackends": "Backend'ler bekleniyor.",
+      "oneAddon": "Eklentiler tek tek güncellenir.",
+      "waitingFor": "{{name}} bekleniyor.",
+      "plain": "Başlaması bekleniyor.",
+      "afterModels": "Modeller bekleniyor.",
+      "backendLimit": "Boş bir backend yuvası bekleniyor.",
+      "sameBackend": "Bu backend üzerindeki başka bir işlem bekleniyor.",
+      "oneModel": "Modeller tek tek güncellenir."
+    },
+    "detail": {
+      "updating": "Güncelleniyor",
+      "node": "{{count}} düğümün {{index}}. düğümü: {{message}}",
+      "failed": "{{reason}}. {{name}} hâlâ {{version}} sürümünde ve verilerin değişmedi.",
+      "rolledBack": "Yeni sürüm başlamadı: {{reason}}. {{name}} hâlâ {{version}} sürümünde ve verilerin değişmedi.",
+      "unconfirmed": "Doğrulanamadı. {{name}} öğesinin hangi sürümde olduğunu görmek için yeniden kontrol et.",
+      "cancelled": "İptal edildi. {{name}} hâlâ {{version}} sürümünde.",
+      "skipped": "Atlandı.",
+      "skippedWhy": "Atlandı: {{reason}}.",
+      "checking": "Güncellemenin uygulandığı kontrol ediliyor."
+    },
+    "details": {
+      "toggle": "Ayrıntılar",
+      "code": "Kod: {{code}}",
+      "node": "{{name}}: {{phase}}",
+      "none": "Sunucu başka ayrıntı vermedi."
+    },
+    "busy": "Bir güncelleme çalıştırması sürüyor.",
+    "unavailable": "Bu sunucuda güncelleme çalıştırmaları kullanılamıyor.",
+    "auto": "Otomatik güncelleme"
+  }
+}

@@ -1,0 +1,212 @@
+{
+    "title": {
+        "add": "Model Ekle",
+        "edit": "Model Düzenleyici"
+    },
+    "subtitle": {
+        "chooseModelType": "Başlamak için bir model türü seç",
+        "newModel": "Yeni model"
+    },
+    "actions": {
+        "backTo": "Geri dön: {{page}}",
+        "models": "Modeller",
+        "templates": "Şablonlar",
+        "createModel": "Model Oluştur",
+        "saveChanges": "Değişiklikleri Kaydet",
+        "saving": "Kaydediliyor...",
+        "saved": "Kaydedildi",
+        "switchWarning": "Sekme değiştirmeden önce değişiklikleri kaydet veya vazgeç.",
+        "discardAndSwitch": "Vazgeç ve Geç"
+    },
+    "tabs": {
+        "interactive": "Etkileşimli",
+        "yaml": "YAML",
+        "yamlDescription": "YAML'ı doğrudan düzenle. Oluşturmanın çalışması için model adı YAML içinde ayarlanmış olmalı."
+    },
+    "forms": {
+        "modelName": {
+            "label": "Model Adı",
+            "placeholder": "my-model-name",
+            "hint": "Yalnızca harf, rakam, tire, alt çizgi ve nokta kullan."
+        },
+        "empty": {
+            "nav": "Alan eklemek için yukarıdaki arama çubuğunu kullan",
+            "title": "Yapılandırılmış alan yok",
+            "text": "Yapılandırma alanlarını bulup eklemek için yukarıdaki arama çubuğunu kullan."
+        }
+    },
+    "proxyVision": {
+        "label": "Bu model görsellere bakabilir",
+        "hint": "Üstteki model görselleri kabul ediyorsa bunu aç. LocalAI bunu denetleyemez. Eklenen görseller mesajla birlikte modele gider."
+    },
+    "engineSettings": {
+        "title": "Çalışma zamanı ayarı",
+        "lead": "{{engine}} bu modeli nasıl yükler ve çalıştırır. Her alan bir {{binary}} bayrağıdır. Boş bir alan varsayılanı korur.",
+        "leadNoCommand": "{{engine}} bu modeli nasıl yükler ve çalıştırır. Boş bir alan varsayılanı korur.",
+        "loading": "{{engine}} ayarları yükleniyor",
+        "default": "Varsayılan",
+        "defaultIs": "Varsayılan ({{value}})",
+        "on": "Açık",
+        "off": "Kapalı",
+        "auto": "Otomatik",
+        "reset": "Sıfırla: {{name}}",
+        "groups": {
+            "memory": "Bellek",
+            "sampling": "Örnekleme varsayılanları",
+            "template": "Sohbet şablonu",
+            "speed": "Hız"
+        },
+        "fields": {
+            "context_size": "Bağlam boyutu",
+            "gpu_layers": "GPU katmanları",
+            "options_parallel": "Paralel slotlar",
+            "flash_attention": "Flash attention",
+            "cache_type_k": "KV önbellek türü (K)",
+            "cache_type_v": "KV önbellek türü (V)",
+            "parameters_batch": "Batch boyutu",
+            "threads": "İş parçacıkları",
+            "options_threads_batch": "Batch iş parçacıkları",
+            "options_fit": "Boş belleğe sığdır",
+            "options_no_op_offload": "No op offload",
+            "parameters_temperature": "Sıcaklık",
+            "parameters_top_p": "Top-p",
+            "parameters_top_k": "Top-k",
+            "parameters_min_p": "Min-p",
+            "options_use_jinja": "Jinja sohbet şablonu",
+            "load_mode": "Yükleme modu",
+            "options_ubatch": "Mikro batch boyutu"
+        },
+        "choices": {
+            "load_mode": {
+                "default": "Varsayılan (belleğe eşlenmiş)",
+                "none": "Yok (belleğe oku)",
+                "mmap": "mmap",
+                "mlock": "mlock",
+                "mmap_mlock": "mmap + mlock",
+                "direct_io": "Doğrudan G/Ç"
+            }
+        },
+        "hints": {
+            "load_mode": "Model dosyasının nasıl okunacağı. mmap, mmlock ve direct_io seçeneğini yazar."
+        },
+        "errors": {
+            "notInteger": "Bir tam sayı yaz.",
+            "notNumber": "Bir sayı yaz.",
+            "range": "{{min}} ile {{max}} arasında bir değer yaz.",
+            "min": "{{min}} veya daha büyük bir değer yaz.",
+            "max": "{{max}} veya daha küçük bir değer yaz.",
+            "enum": "Şunlardan birini kullan: {{values}}.",
+            "colon": "İki nokta üst üste değeri keser. Kaldır.",
+            "empty": "Bir girdi yaz veya satırı kaldır.",
+            "rawOwned": "{{name}} yukarıdaki bir alanla ayarlanıyor. O alanı kullan.",
+            "layerRange": "Her aralığın bir başlangıç ve bir bitiş katmanı olmalı; bitiş başlangıçtan önce olamaz.",
+            "overrideShape": "Her girdiyi pattern=buffer biçiminde yaz: {{entry}}",
+            "overrideTarget": "Buffer adı yalnızca harf, rakam ve alt çizgi içerebilir: {{target}}",
+            "overrideRegex": "Bu desen geçerli bir düzenli ifade değil: {{entry}}"
+        },
+        "placement": {
+            "title": "Tensör yerleşimi",
+            "modes": {
+                "off": "Kapalı ({{engine}} karar verir)",
+                "experts": "MoE uzmanları CPU'da",
+                "rest": "İlk N katman GPU'da, kalanların uzmanları CPU'da",
+                "ranges": "Seçilen katmanların uzmanları CPU'da",
+                "raw": "Özel regex"
+            },
+            "help": {
+                "off": "Hiçbir şey yazılmaz.",
+                "experts": "Her katmanın uzman ağırlıklarını sistem belleğinde tutar. Modelin geri kalanı GPU'da kalır.",
+                "rest": "İlk N katmanı GPU'da, sonraki her katmanın uzmanlarını CPU'da tutar. Toplam katman sayısıyla birlikte desen, kalanı tek bir aralık olarak listeler.",
+                "ranges": "Seçtiğin katmanların uzmanlarını sistem belleğinde tutar, örneğin 0-6 ve 18-23.",
+                "raw": "Değeri yazdığın gibi yazar."
+            },
+            "gpuLayers": "Uzmanları GPU'da olan katmanlar",
+            "layers": "Katmanlar",
+            "rangeN": "Aralık {{n}}",
+            "from": "İlk katman",
+            "to": "Son katman",
+            "addRange": "Aralık ekle",
+            "removeRange": "Aralığı kaldır: {{n}}",
+            "raw": "Geçersiz kılma değeri",
+            "rawHint": "Virgülle ayrılmış pattern=buffer girdileri, {{binary}} {{flag}} içindeki gibi.",
+            "generated": "Üretilen değer",
+            "nothing": "Hiçbir şey. Tensörleri {{engine}} yerleştirir.",
+            "mode": "Yerleşim",
+            "totalLayers": "Toplam katman",
+            "totalUnknown": "Bilinmiyor",
+            "failed": "Sunucu deseni oluşturamadı: {{message}}",
+            "building": "Desen oluşturuluyor"
+        },
+        "presets": {
+            "title": "Hazır bir kurulumla başla",
+            "bigMoe": {
+                "name": "Küçük GPU'da büyük MoE",
+                "text": "Tüm katmanlar GPU'da, uzmanlar CPU'da, 8 bit KV önbelleği."
+            },
+            "maxContext": {
+                "name": "Maksimum bağlam",
+                "text": "128K bağlam, flash attention ve 8 bit KV önbelleği."
+            },
+            "lowVram": {
+                "name": "Düşük VRAM",
+                "text": "4K bağlam, 4 bit KV önbelleği ve küçük bir mikro batch."
+            }
+        },
+        "applied": {
+            "title": "{{name}}: {{count}} ayar değişti.",
+            "none": "Hiçbir şey değişmedi. Form zaten bu değerlere sahipti.",
+            "note": "Alanlar düzenlenebilir kalır. Modeli kaydedene kadar hiçbir şey kaydedilmez.",
+            "undo": "Geri al",
+            "dismiss": "Gizle"
+        },
+        "raw": {
+            "title": "Gelişmiş seçenekler",
+            "hint": "Seçenek listesinin diğer girdileri, her satırda bir tane: ad:değer veya --flag:value gibi bir {{binary}} bayrağı.",
+            "empty": "Başka seçenek yok.",
+            "entry": "Seçenek {{n}}",
+            "remove": "Kaldır: {{entry}}",
+            "add": "Seçenek ekle"
+        },
+        "preview": {
+            "title": "Komut önizlemesi",
+            "aside": "Komut satırı",
+            "updating": "Güncelleniyor",
+            "loading": "Komut yükleniyor",
+            "copy": "Kopyala",
+            "copied": "Kopyalandı",
+            "copyFailed": "Kopyalanamadı",
+            "failed": "Önizleme kullanılamıyor.",
+            "note": "Bu ayarlara karşılık gelen {{binary}} komutu. LocalAI backend'i kendisi başlatır; bu satır karşılaştırma ve LocalAI dışında kullanım içindir."
+        },
+        "paste": {
+            "title": "Bir {{binary}} komutu yapıştır",
+            "hint": "Alanı olan bayraklar o alanı doldurur. Alanı olmayan bayraklar ham seçenek olarak tutulur ve aşağıda listelenir.",
+            "fill": "Formu doldur",
+            "failed": "Komut okunamadı.",
+            "source": "Yapıştırılan komut",
+            "filled": "Doldurulan ayar: {{count}}.",
+            "allMapped": "Her bayrak eşlendi.",
+            "modelFile": "Komut şu model dosyasını kullanıyor: {{file}}.",
+            "modelFileKept": "Sen başka bir şey seçene kadar bu model şunu korur: {{file}}.",
+            "useModelFile": "Bu dosyayı kullan",
+            "warnings": "Uyarı: {{count}}",
+            "unmapped": "Eşlenmeyen bayrak: {{count}}",
+            "unmappedNote": "Alanı olmayan bir bayrak ham seçenek olarak tutulur ve {{engine}} motoruna yazıldığı gibi iletilir. İstemediklerini kaldır.",
+            "keep": "Ham seçenek olarak tut",
+            "keepAll": "Hepsini tut",
+            "kept": "Tutuldu",
+            "ignored": "Yok sayıldı",
+            "drop": "Kaldır"
+        },
+        "schemaError": {
+            "title": "Çalışma zamanı ayarı kullanılamıyor.",
+            "body": "Sunucu {{engine}} ayarlarını göndermedi ({{message}}). Yine de her ayarı bu düzenleyicinin diğer sekmesinde metin olarak düzenleyebilirsin.",
+            "retry": "Yeniden dene",
+            "openYaml": "Metin olarak düzenle"
+        },
+        "readOnly": {
+            "title": "Salt okunur.",
+            "body": "Bu ayarları yalnızca bir yönetici değiştirebilir."
+        }
+    }
+}

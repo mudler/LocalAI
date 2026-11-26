@@ -1,0 +1,35 @@
+{
+  "generic": "Bir şeyler ters gitti",
+  "network": "Ağ hatası. Bağlantını kontrol edip yeniden dene.",
+  "unauthorized": "Bu işlemi yapmaya yetkin yok.",
+  "forbidden": "Erişim reddedildi.",
+  "notFound": "İstenen kaynak bulunamadı.",
+  "serverError": "Sunucu hatası. Lütfen daha sonra yeniden dene.",
+  "loadFailed": "Yüklenemedi: {{message}}",
+  "saveFailed": "Kaydetme başarısız: {{message}}",
+  "deleteFailed": "Silme başarısız: {{message}}",
+  "updateFailed": "Güncelleme başarısız: {{message}}",
+  "createFailed": "Oluşturma başarısız: {{message}}",
+  "operationFailed": "İşlem başarısız: {{message}}",
+  "invalidInput": "Geçersiz giriş. Lütfen formu kontrol edip yeniden dene.",
+  "tryAgain": "Lütfen yeniden dene.",
+  "contactAdmin": "Sorun sürerse yöneticinle iletişime geç.",
+  "route": {
+    "updated": {
+      "title": "LocalAI güncellendi",
+      "text": "Sunucu artık web arayüzünün daha yeni bir sürümünü çalıştırıyor. Kullanmak için sayfayı yeniden yükle."
+    },
+    "offline": {
+      "title": "Bağlantı yok",
+      "text": "Cihaz çevrimdışı olduğu için sayfanın bir kısmı yüklenemedi. Yeniden bağlan, sonra sayfayı yeniden yükle."
+    },
+    "generic": {
+      "title": "Bir şeyler ters gitti",
+      "text": "Bu sayfa bir hata nedeniyle durdu. Yeniden denemek için sayfayı yeniden yükle."
+    },
+    "reload": "Yeniden yükle",
+    "reloading": "Yeniden yükleniyor…",
+    "home": "Ana Sayfa'ya git",
+    "details": "Ayrıntılar"
+  }
+}

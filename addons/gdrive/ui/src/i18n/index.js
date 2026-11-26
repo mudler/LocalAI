@@ -10,6 +10,7 @@ import fr from './gdrive.fr.json'
 import zh from './gdrive.zh-CN.json'
 import id from './gdrive.id.json'
 import ko from './gdrive.ko.json'
+import tr from './gdrive.tr.json'
 import pt from './gdrive.pt-BR.json'
 
-registerAddonLocales('gdrive', { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt })
+registerAddonLocales('gdrive', { en, it, es, de, fr, 'zh-CN': zh, id, ko, tr, 'pt-BR': pt })

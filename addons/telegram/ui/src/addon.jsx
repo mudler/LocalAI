@@ -9,13 +9,14 @@ import fr from './i18n/telegram.fr.json'
 import zh from './i18n/telegram.zh-CN.json'
 import id from './i18n/telegram.id.json'
 import ko from './i18n/telegram.ko.json'
+import tr from './i18n/telegram.tr.json'
 import pt from './i18n/telegram.pt-BR.json'
 
 // A group or channel of Telegram has a negative ID; a person or a private chat a positive one.
 const isGroupId = (x) => /^-[0-9]+$/.test(x)
 
 // The words of the page, in every language of the web UI; a key a language lacks reads in English.
-registerLocales({ telegram: { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
+registerLocales({ telegram: { en, it, es, de, fr, 'zh-CN': zh, id, ko, tr, 'pt-BR': pt } })
 
 // The page of the Telegram add-on: the shared connector page with one bot
 // token and one allowlist of chat IDs, user IDs and @usernames.

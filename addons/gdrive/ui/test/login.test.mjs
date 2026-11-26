@@ -20,7 +20,7 @@ test('login: the page creates connections itself; it no longer says they are add
 })
 
 test('login: every language has the Connect button, the default name and the new first lines', () => {
-  for (const l of ['de', 'es', 'fr', 'id', 'it', 'ko', 'pt-BR', 'zh-CN']) {
+  for (const l of ['de', 'es', 'fr', 'id', 'it', 'ko', 'pt-BR', 'tr', 'zh-CN']) {
     const d = JSON.parse(read(`i18n/gdrive.${l}.json`))
     assert.ok(d.connect && d.defaultName, l)
     assert.ok(d.empty.includes(d.connect), `${l}: the empty text names the button`)

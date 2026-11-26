@@ -16,6 +16,7 @@ import fr from './i18n/github.fr.json'
 import zh from './i18n/github.zh-CN.json'
 import id from './i18n/github.id.json'
 import ko from './i18n/github.ko.json'
+import tr from './i18n/github.tr.json'
 import pt from './i18n/github.pt-BR.json'
 import ProposalCard from './ProposalCard'
 import { ANY_REPO, checkFailure, checkItem, CLASSIC_PREFIX, extraBody, extraForm, extraValid, followName, githubSecret, hasAnyRepo, parseRepos, PERMISSIONS, reposIssue, tokenProblem, WRITE_MODES, writeModeOf } from './repos'
@@ -23,7 +24,7 @@ import { finishTest, resultOf, startTest, subscribe } from './results'
 import './github.css'
 
 // The words of the page, in every language of the web UI; a key a language lacks reads in English.
-registerLocales({ github: { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
+registerLocales({ github: { en, it, es, de, fr, 'zh-CN': zh, id, ko, tr, 'pt-BR': pt } })
 
 const TOKEN_URL = 'https://github.com/settings/personal-access-tokens/new'
 

@@ -1,0 +1,149 @@
+{
+  "title": "Konuşma",
+  "subtitle": "gerçek zamanlı ses",
+  "stage": "Ses oturumu",
+  "picker": {
+    "title": "Ses hattı: dinle, düşün, konuş",
+    "heading": "Hat modelleri",
+    "label": "Hat modeli",
+    "none": "Hat yok",
+    "defaultVoice": "varsayılan ses",
+    "auto": "otomatik"
+  },
+  "view": {
+    "idle": {
+      "title": "Hazır",
+      "body": "Bir oturum başlat ve konuş. Mikrofon yalnızca bir oturum açıkken kullanılır.",
+      "note": "Oturum çalışırken mikrofonun yayın yapar. Sunucu konuşmayı bıraktığını fark eder ve kendiliğinden yanıt verir.",
+      "noteManual": "Oturum çalışırken mikrofonun yayın yapar. Bu modelde ses algılama yok, bu yüzden bir turu bitirdiğinde Konuşmam bitti'ye bas."
+    },
+    "connecting": {
+      "title": "Bağlanıyor",
+      "body": "Çağrı kuruluyor. Model henüz dinlemiyor."
+    },
+    "listening": {
+      "title": "Dinliyor",
+      "body": "Ne gerekiyorsa söyle. Sen durunca yanıt veririm.",
+      "hearing": "Konuştuğunu duyuyor.",
+      "manual": "Ne gerekiyorsa söyle, sonra Konuşmam bitti'ye bas."
+    },
+    "interrupted": {
+      "title": "Kesildi",
+      "body": "Durdum. Devam et, dinliyorum."
+    },
+    "thinking": {
+      "title": "Düşünüyor",
+      "body": "Bir yanıt hazırlanıyor."
+    },
+    "speaking": {
+      "title": "Konuşuyor",
+      "body": "Kesmek için istediğin zaman üstüme konuş."
+    },
+    "blocked": {
+      "title": "Mikrofon engellendi",
+      "body": "Tarayıcı bu sayfaya mikrofon erişimi vermedi.",
+      "cardTitle": "Mikrofona izin ver",
+      "card": "Adres çubuğundaki kilit simgesine tıkla, Mikrofon'u İzin Ver olarak ayarla, sonra yeniden dene. Hiçbir şey kaydedilmedi."
+    },
+    "lost": {
+      "title": "Bağlantı koptu",
+      "body": "Sunucuyla bağlantı düştü.",
+      "cardTitle": "Oturum sona erdi",
+      "card": "WebRTC bağlantısı başarısız oldu. Şimdiye kadarki konuşma dökümde kalır."
+    },
+    "error": {
+      "title": "Bir şeyler ters gitti",
+      "body": "Çağrı kurulamadı veya sunucu bir hata bildirdi."
+    },
+    "nopipe": {
+      "title": "Konuşma için bir hat modeli gerekir",
+      "body": "Hat modeli, bir konuşmadan metne modelini, bir sohbet modelini ve bir metinden konuşmaya modelini tek bir sesli asistanda birleştirir. Henüz hiçbiri yapılandırılmamış. Bir tane oluştur veya önce modelleri galeride bul.",
+      "create": "Hat modeli oluştur",
+      "gallery": "Galeriye göz at"
+    }
+  },
+  "detail": {
+    "tool": "{{name}} çalışıyor.",
+    "processing": "Bir yanıt hazırlanıyor.",
+    "generating": "Yanıt yazılıyor.",
+    "server": "Sunucu bir hata bildirdi: {{message}}",
+    "insecure": "Mikrofon erişimi için HTTPS veya localhost gerekir.",
+    "noMic": "Mikrofon bulunamadı.",
+    "failed": "Çağrı kurulamadı: {{message}}",
+    "unknown": "bilinmeyen hata"
+  },
+  "controls": {
+    "start": "Oturumu başlat",
+    "end": "Oturumu bitir",
+    "testTone": "Test sesi",
+    "endTurn": "Konuşmam bitti",
+    "diagnostics": "Tanılama",
+    "viewTraces": "İzleri görüntüle",
+    "retry": {
+      "blocked": "Yeniden dene",
+      "lost": "Yeniden bağlan",
+      "error": "Yeniden dene"
+    }
+  },
+  "transcript": {
+    "title": "Döküm",
+    "copy": "Kopyala",
+    "empty": "Söylediklerin ve modelin yanıtları, olduğu gibi burada görünür. Kaydedilmez.",
+    "emptyNoPipeline": "Henüz gösterilecek bir şey yok.",
+    "user": "Sen",
+    "assistant": "Yanıt",
+    "tool_call": "Araç",
+    "tool_result": "Sonuç",
+    "interrupted": "Yanıt kesildi",
+    "toneRequested": "Test sesi istendi"
+  },
+  "settings": {
+    "title": "Oturum ayarları",
+    "desc": "Oturum başladığında uygulanır.",
+    "close": "Kapat",
+    "voiceLanguage": "Ses ve dil",
+    "voice": "Ses",
+    "voicePlaceholder": "Ses adı (model varsayılanı için boş bırak)",
+    "language": "Transkripsiyon dili",
+    "languagePlaceholder": "Dil kodu, örneğin tr (boşsa algılar)",
+    "instructions": "Talimatlar",
+    "instructionsPlaceholder": "Model için sistem talimatları",
+    "instructionsHelp": "Oturum talimatları olarak gönderilir. Kısa tut: yanıtlar sesli okunur.",
+    "tools": "Araçlar",
+    "manage": "Yönetim modu",
+    "manageDesc": "Modelin LocalAI'yi sorgulamasına izin ver: modeller, backend'ler ve sistem bilgisi.",
+    "manageLocked": "Bir oturum açıkken sabit. Değiştirmek için oturumu bitir.",
+    "pipeline": "{{name}} ayrıntıları",
+    "anyToAny": "Konuşmadan konuşmaya modeli: tek bir model seni duyar, yanıtlar ve konuşur. Ayrı bir transkripsiyon, dil veya konuşma modeli gerektirmez.",
+    "noVad": "Ses algılama modeli ayarlanmamış. Her turdan sonra Konuşmam bitti'ye bas.",
+    "editConfig": "Model yapılandırmasını düzenle",
+    "editPipeline": "Hattı düzenle",
+    "slot": {
+      "vad": "Ses algılama",
+      "transcription": "Transkripsiyon",
+      "llm": "Dil modeli",
+      "tts": "Konuşma"
+    }
+  },
+  "diag": {
+    "title": "Ses tanılaması",
+    "waveform": "Dalga biçimi",
+    "spectrum": "Spektrum (FFT)",
+    "waiting": "İstatistikler bekleniyor...",
+    "peakFreq": "Tepe frekansı",
+    "thd": "THD",
+    "rms": "RMS düzeyi",
+    "sampleRate": "Örnekleme hızı",
+    "packetsRecv": "Alınan paketler",
+    "packetsLost": "Kaybolan paketler",
+    "jitter": "Jitter",
+    "concealed": "Gizlenen örnekler"
+  },
+  "toasts": {
+    "selectModel": "Önce bir hat modeli seç.",
+    "modelsFailed": "Gerçek zamanlı modeller yüklenemedi: {{message}}",
+    "viewTraces": "İzleri görüntüle",
+    "copied": "Döküm kopyalandı",
+    "copyFailed": "Panoya kopyalanamadı"
+  }
+}

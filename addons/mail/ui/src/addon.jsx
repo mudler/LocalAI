@@ -17,6 +17,7 @@ import fr from './i18n/mail.fr.json'
 import zh from './i18n/mail.zh-CN.json'
 import id from './i18n/mail.id.json'
 import ko from './i18n/mail.ko.json'
+import tr from './i18n/mail.tr.json'
 import pt from './i18n/mail.pt-BR.json'
 import ProposalCard from './ProposalCard'
 import { checkItems, fieldProblems, extraBody, extraForm, extraValid, followName, mailSecret, portAfterSecurity, SECURITY, WRITE_MODES, writeModeOf } from './settings'
@@ -24,7 +25,7 @@ import { finishTest, resultOf, startTest, subscribe } from './results'
 import './mail.css'
 
 // The words of the page, in every language of the web UI; a key a language lacks reads in English.
-registerLocales({ mail: { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
+registerLocales({ mail: { en, it, es, de, fr, 'zh-CN': zh, id, ko, tr, 'pt-BR': pt } })
 
 // No token field: the whole connection is the secret, made by the fields below.
 function NoToken() { return null }

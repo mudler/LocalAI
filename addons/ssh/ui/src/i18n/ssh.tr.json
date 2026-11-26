@@ -1,0 +1,131 @@
+{
+  "name": "Ad",
+  "agent": "Ajan",
+  "agentNone": "Bir ajan seç",
+  "agentCredentialsOnly": "Ajan yok (yalnızca kimlik bilgileri)",
+  "credentialsOnly": "Yalnızca kimlik bilgileri",
+  "agentNoModel": "{{name}} (model gerekli)",
+  "test": "Sına",
+  "save": "Kaydet",
+  "cancel": "İptal",
+  "editButton": "Düzenle",
+  "delete": "Sil",
+  "agentOf": "Ajan: {{name}}",
+  "inactive": "Çalışmıyor: {{reason}}.",
+  "title": "SSH",
+  "intro": "Sohbetlerin ve ajanlarının SSH üzerinden uzak bir makinede komut çalıştırmasına izin ver. Varsayılan olarak her komutu sen onaylarsın ve önce ana makineyi ve komutun tam metnini görürsün.",
+  "limits": "Bir komut, oturum açan kullanıcının dokunabileceği her şeyi değiştirebilir veya silebilir. Yalnızca görevin gerektirdiği haklara sahip özel bir kullanıcı kullan. \"Hemen çalıştırır\" modunda hiç kimse bir komut çalışmadan önce onu onaylamaz. Eklenti, terminalsiz ve girdisiz, her seferinde tek bir komut açar.",
+  "new": "Yeni SSH bağlantısı",
+  "edit": "SSH bağlantısını düzenle",
+  "host": "Ana makine",
+  "hostHelp": "Makinenin adı veya adresi, port 22 değilse portuyla birlikte: server.example.com veya 10.0.0.5:2222. Bir bağlantı bir ana makinedir. Başka her ana makine reddedilir.",
+  "hostShape": "Bu bir ana makine değil. İsteğe bağlı port ile bir ad veya adres yaz.",
+  "user": "Ana makinedeki kullanıcı adı",
+  "userHelp": "Komutların çalıştığı kullanıcı. Özel bir kullanıcı, kendi erişimine dokunmadan onun erişimini sonradan kaldırmanı sağlar.",
+  "userShape": "Kullanıcı adı yalnızca harf, rakam ve . _ - içerir.",
+  "login": {
+    "label": "Giriş yöntemi",
+    "hint": "Sır mühürlü saklanır ve bir daha gösterilmez.",
+    "password": "Şifre",
+    "key": "Özel anahtar"
+  },
+  "passwd": "Şifre",
+  "passwdHelp": "O kullanıcının şifresi. Kullanıcı adıyla birlikte user:password olarak kaydedilir.",
+  "key": "Özel anahtar",
+  "keyHelp": "Yalnızca LocalAI için oluşturulmuş, PEM veya OpenSSH biçiminde, parolasız bir anahtar yapıştır. Açık yarısını ana makinedeki authorized_keys dosyasına ekle.",
+  "credSaved": "Kaydedildi. Değiştirmek için yaz.",
+  "secretAgain": "Kullanıcıyı veya ana makineyi değiştirdin. Sırrı yeniden yaz.",
+  "userMissing": "Önce kullanıcı adını yaz.",
+  "keyShape": "Bu bir özel anahtar değil. -----BEGIN ile başlar.",
+  "keyPassphrase": "Parolalı anahtar desteklenmiyor. Parolasız bir anahtar kullan.",
+  "credControl": "Şifrede kontrol karakteri olamaz.",
+  "credLong": "Sır çok uzun.",
+  "hostKey": {
+    "label": "Ana makine anahtarı",
+    "hint": "İlk seferde eklenti, ana makinenin sunduğu anahtarı okur. Parmak izini makinenin gösterdiğiyle karşılaştır, sonra güven. Daha sonra farklı bir anahtar reddedilir.",
+    "check": "Ana makine anahtarını kontrol et",
+    "checking": "Kontrol ediliyor...",
+    "trust": "Bu parmak izini karşılaştırdım ve bu ana makineye güveniyorum.",
+    "needed": "Ana makine anahtarı Kaydet'e bastığında okunur ve güvenmen istenir.",
+    "unreachable": "Ana makineye ulaşılamadı.",
+    "failed": "Ana makine anahtarı okunamadı."
+  },
+  "hostKeyStep": {
+    "title": "Bu ana makineye güvenilsin mi?",
+    "reading": "Ana makine anahtarı okunuyor...",
+    "compare": "Bu parmak izini ana makinenin gösterdiğiyle karşılaştır. Yalnızca eşleşiyorlarsa güven.",
+    "confirm": "Güven ve kaydet",
+    "cancel": "İptal",
+    "retry": "Yeniden dene"
+  },
+  "testOk": "Giriş kaydedildi.",
+  "checkFailed": "Kaydedildi. Giriş kontrolü başarısız oldu: {{reason}}",
+  "checkSeveral": "Kontrol, tek bir SSH bağlantın olduğunda çalışır, çünkü bu sayfadan yapılan bir kontrol hangisini kastettiğini ayırt edemez. Bir sohbette bağlantıları Araçlar menüsünden etkinleştir.",
+  "empty": "Henüz SSH bağlantısı yok.",
+  "noHost": "Ana makine yok: bu bağlantı hiçbir yere ulaşmaz.",
+  "hostOf": "Ana makine: {{host}}",
+  "confirmDelete": {
+    "title": "{{name}} silinsin mi?",
+    "message": "Sohbetlerin artık bu ana makineye ulaşamaz ve onunla kaydedilen sır silinir. Yeniden kurmak için onu tekrar girmen gerekir.",
+    "confirm": "Sil"
+  },
+  "check": {
+    "title": "{{name}} kontrolü",
+    "running": "Ana makine kontrol ediliyor...",
+    "at": "Kontrol zamanı: {{time}}",
+    "ok": "{{user}} olarak bağlandı. {{system}}.",
+    "refused": "Ana makine girişi reddetti. Kullanıcıyı, şifreyi veya anahtarı kontrol et.",
+    "changed": "Ana makine anahtarı değişti. Hiçbir şey gönderilmedi. Yeni anahtarı kontrol edip güvenmek için bağlantıyı düzenle.",
+    "nopin": "Sabitlenmiş ana makine anahtarı yok. Bağlantıyı düzenle ve ana makine anahtarını kontrol et.",
+    "unreachable": "Ana makineye ulaşılamadı. Ana makineyi ve portu kontrol et.",
+    "busy": "Bu bağlantıda başka bir komut hâlâ çalışıyor.",
+    "failed": "Kontrol tamamlanmadı. Biraz sonra yeniden dene."
+  },
+  "setup": {
+    "title": "Nasıl kurulur",
+    "step1": "Ana makinede yalnızca LocalAI için, sadece görevin gerektirdiği haklara sahip bir kullanıcı oluştur.",
+    "step2": "Onun için bir anahtar çifti oluştur veya bir şifre seç. Açık anahtarı o kullanıcının authorized_keys dosyasına ekle.",
+    "step3": "Ana makineyi ve kullanıcıyı buraya yaz. Kaydet'e bastığında ana makine anahtarı okunur ve parmak izini karşılaştırırsın.",
+    "step4": "Bu sayfadaki sınırları okuyana kadar modu Önce sana sorar'da bırak.",
+    "fingerprint": "Ana makinenin parmak izi şununla görünür: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub"
+  },
+  "writeMode": {
+    "label": "Ajanın bu ana makinede yapabilecekleri",
+    "hint": "Bağlantıyı kontrol etmeye her zaman izin verilir. Komut çalıştırmak için Kapalı dışında bir mod gerekir.",
+    "off": "Kapalı",
+    "propose": "Önce sana sorar",
+    "auto": "Hemen çalıştırır",
+    "line": {
+      "off": "Hiçbir komut çalışmaz.",
+      "propose": "Her komut senin onayını bekler.",
+      "auto": "Komutlar onay olmadan çalışır."
+    },
+    "note": {
+      "off": "Komutlar kapalı: bu bağlantı yalnızca girişi kontrol eder.",
+      "propose": "Her komut, sen onaylayana kadar ana makine ve tam metniyle birlikte onaylarında bekler.",
+      "auto": "Komutlar onay olmadan hemen çalışır. Bunu yalnızca yanlış bir komutun zarar vermediği bir ana makine ve kullanıcı için seç."
+    },
+    "row": {
+      "off": "Kapalı",
+      "propose": "Önce sana sorar",
+      "auto": "Hemen çalıştırır"
+    }
+  },
+  "approval": {
+    "title": "{{host}} üzerinde komut çalıştır",
+    "physical": "Bu, sen onaylar onaylamaz gerçek bir makinede çalışır.",
+    "host": "Ana makine",
+    "user": "Kullanıcı",
+    "command": "Komut",
+    "lines": "{{count}} satır",
+    "timeout": "Süre sınırı",
+    "seconds": "{{count}} saniye",
+    "hostKey": "Ana makine anahtarı",
+    "as": "Şu olarak",
+    "asOne": "{{name}} bağlantısı",
+    "asFirst": "Bu ana makineyi listeleyen ilk bağlantı",
+    "asUnknown": "Bu ana makine için bir SSH bağlantısı",
+    "what": "Ne olacak",
+    "effect": "Yukarıdaki komutun aynısı, terminalsiz ve girdisiz bir kez çalışır. Çıktısı sohbete döner."
+  }
+}

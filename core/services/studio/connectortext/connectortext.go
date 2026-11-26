@@ -22,7 +22,7 @@ import (
 
 // Languages lists the translated languages. English is the source and has no
 // file.
-var Languages = []string{"it", "de", "es", "fr", "id", "ko", "pt-BR", "zh-CN"}
+var Languages = []string{"it", "de", "es", "fr", "id", "ko", "pt-BR", "tr", "zh-CN"}
 
 //go:embed locales/*.json
 var localeFS embed.FS

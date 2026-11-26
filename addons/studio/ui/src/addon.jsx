@@ -8,10 +8,11 @@ import de from './i18n/media.de.json'
 import zh from './i18n/media.zh-CN.json'
 import id from './i18n/media.id.json'
 import ko from './i18n/media.ko.json'
+import tr from './i18n/media.tr.json'
 import pt from './i18n/media.pt-BR.json'
 
 // The words of the pages are the host's own `media` locale files.
-registerLocales({ media: { en, it, es, de, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
+registerLocales({ media: { en, it, es, de, 'zh-CN': zh, id, ko, tr, 'pt-BR': pt } })
 
 export function createStudio() {
   // The shell passes the page, the rest of the path (the tab) and the query.

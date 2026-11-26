@@ -1,0 +1,48 @@
+{
+  "bar": {
+    "region": "Şu olarak görüntüle",
+    "readonlyTag": "Salt okunur",
+    "actingTag": "İşlem yapılıyor",
+    "readonlyLead": "{{name}} olarak görüntüleniyor.",
+    "readonlyRest": "Salt okunur.",
+    "actingLead": "{{name}} olarak işlem yapılıyor.",
+    "actingRest": "Değişiklikler {{name}} hesabında yapılır ve günlüğe kaydedilir.",
+    "allow": "Değişikliğe izin ver",
+    "exit": "Çık",
+    "exitLabel": "Şu olarak görüntülemeden çık: {{name}}"
+  },
+  "confirm": {
+    "title": "{{name}} hesabında değişikliğe izin verilsin mi?",
+    "intro": "{{name}} adına işlem yapmak üzeresin. Bu hemen geçerli olur ve Şu olarak görüntüle'yi izleyen her sayfa için geçerlidir.",
+    "can": "{{name}} hesabının projelerini oluşturabilir, düzenleyebilir ve silebilirsin.",
+    "logged": "Her değişiklik, işlemi yapan sen ve hesap {{name}} olarak günlüğe kaydedilir.",
+    "back": "Çubuktan istediğin zaman salt okunura geri dönebilirsin.",
+    "stay": "Salt okunur kal",
+    "allow": "Değişikliğe izin ver",
+    "close": "Kapat"
+  },
+  "scope": {
+    "chip": "{{name}} verileri",
+    "navMark": "{{name}} verilerini gösterir",
+    "legend": "Bu işaretli sayfalar {{name}} verilerini gösterir. Diğerleri seninkini gösterir.",
+    "notice": "Bu sayfa {{name}} verilerini değil, kendi verilerini gösteriyor."
+  },
+  "write": {
+    "hint": "Düzenlemek için değişikliğe izin ver",
+    "blocked": "Salt okunur. {{name}} verilerini düzenlemek için çubuktaki Değişikliğe izin ver seçeneğini aç."
+  },
+  "notice": {
+    "idle": "{{minutes}} dakika etkinlik olmadığı için değişiklikler kapatıldı. Salt okunura dönüldü.",
+    "ended": "{{name}} artık kullanılamıyor, bu yüzden Şu olarak görüntüle sona erdi."
+  },
+  "users": {
+    "action": "Şu olarak görüntüle",
+    "actionFor": "Şu olarak görüntüle: {{name}}",
+    "hint": "{{name}} neyi görüyorsa onu gör. Önce salt okunur."
+  },
+  "palette": {
+    "kind": "Şu olarak görüntüle",
+    "title": "Şu olarak görüntüle: {{name}}",
+    "where": "{{email}} · önce salt okunur"
+  }
+}

@@ -11,9 +11,10 @@ import de from './connector.de.json'
 import zh from './connector.zh-CN.json'
 import id from './connector.id.json'
 import ko from './connector.ko.json'
+import tr from './connector.tr.json'
 import pt from './connector.pt-BR.json'
 
-export const connectorLocales = { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt }
+export const connectorLocales = { en, it, es, de, fr, 'zh-CN': zh, id, ko, tr, 'pt-BR': pt }
 
 export function registerConnectorLocales() {
   registerLocales({ connector: connectorLocales })

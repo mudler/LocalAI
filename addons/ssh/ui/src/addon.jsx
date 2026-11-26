@@ -17,6 +17,7 @@ import fr from './i18n/ssh.fr.json'
 import zh from './i18n/ssh.zh-CN.json'
 import id from './i18n/ssh.id.json'
 import ko from './i18n/ssh.ko.json'
+import tr from './i18n/ssh.tr.json'
 import pt from './i18n/ssh.pt-BR.json'
 import ProposalCard from './ProposalCard'
 import { checkFailure, checkItem, credentialProblem, extraBody, extraForm, extraValid, fingerprintOfPin, followName, hostProblem, METHODS, methodOf, needsHostKeyStep, needsSecretAgain, normalizePin, scanHostKey, sshSecret, targetKey, trustedKey, userProblem, WRITE_MODES, writeModeOf, addressOf } from './ssh'
@@ -24,7 +25,7 @@ import { finishTest, resultOf, startTest, subscribe } from './results'
 import './ssh.css'
 
 // The words of the page, in every language of the web UI; a key a language lacks reads in English.
-registerLocales({ ssh: { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
+registerLocales({ ssh: { en, it, es, de, fr, 'zh-CN': zh, id, ko, tr, 'pt-BR': pt } })
 
 // How the page logs in: a password, or a private key. The secret is typed only
 // to replace the saved one, and it is sealed as one credential.

@@ -10,7 +10,8 @@ import es from './calendar.es.json'
 import fr from './calendar.fr.json'
 import id from './calendar.id.json'
 import ko from './calendar.ko.json'
+import tr from './calendar.tr.json'
 import pt_BR from './calendar.pt-BR.json'
 import zh_CN from './calendar.zh-CN.json'
 
-export const locales = { en, it, de, es, fr, id, ko, 'pt-BR': pt_BR, 'zh-CN': zh_CN }
+export const locales = { en, it, de, es, fr, id, ko, tr, 'pt-BR': pt_BR, 'zh-CN': zh_CN }

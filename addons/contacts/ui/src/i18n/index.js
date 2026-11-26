@@ -9,7 +9,8 @@ import es from './contacts.es.json'
 import fr from './contacts.fr.json'
 import id from './contacts.id.json'
 import ko from './contacts.ko.json'
+import tr from './contacts.tr.json'
 import pt_BR from './contacts.pt-BR.json'
 import zh_CN from './contacts.zh-CN.json'
 
-export const locales = { en, it, de, es, fr, id, ko, 'pt-BR': pt_BR, 'zh-CN': zh_CN }
+export const locales = { en, it, de, es, fr, id, ko, tr, 'pt-BR': pt_BR, 'zh-CN': zh_CN }

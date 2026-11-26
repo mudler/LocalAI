@@ -1,0 +1,863 @@
+{
+  "studio": {
+    "tabs": {
+      "images": "Görseller",
+      "video": "Video",
+      "tts": "TTS",
+      "sound": "Ses efekti",
+      "transform": "Dönüştür",
+      "threed": "3D",
+      "overview": "Genel bakış",
+      "diarization": "Konuşmacı ayrımı"
+    },
+    "tabState": {
+      "on": "(model kurulu)",
+      "off": "(kurulu model yok)"
+    },
+    "overview": {
+      "title": "Stüdyo",
+      "subtitle": "Bu makinedeki modellerle yapılan görsel, video, 3D, konuşma ve ses."
+    },
+    "groups": {
+      "create": "Oluştur",
+      "voice": "Ses",
+      "transform": "Dönüştür"
+    },
+    "composer": {
+      "title": "Ne yapmak istiyorsun?",
+      "lede": "Tarif et, Stüdyo türü önersin. Alt+1 ile 7 arası biri seçer.",
+      "startTyping": "yazmaya başla",
+      "prompt": "Prompt",
+      "placeholder": {
+        "images": "İstediğin görseli tarif et…",
+        "video": "Çekimi tarif et: konu, kamera hareketi, ışık…",
+        "tts": "Seslendirilecek sözleri yaz…",
+        "sound": "Sesi veya müziği tarif et…"
+      },
+      "fileLead": {
+        "threed": "3D, tek bir resmi nesneye dönüştürür. Aşağıdaki resimlerinden biriyle başla veya sonraki sayfada bir dosya ekle.",
+        "transform": "Dönüştür, bir kaydı temizler veya sesi değiştirir. Aşağıdaki kayıtlarından biriyle başla veya sonraki sayfada bir dosya ekle.",
+        "diarization": "Konuşmacı ayrımı, bir kayıtta kimin ne zaman konuştuğunu bulur. Aşağıdaki kayıtlarından biriyle başla veya sonraki sayfada bir dosya ekle."
+      },
+      "starters": "Başlangıçlar",
+      "soundsLike": "{{type}} gibi görünüyor.",
+      "soundsLikeMissing": "{{type}} gibi görünüyor, ancak henüz kurulu bir {{type}} modeli yok.",
+      "switchTo": "Şuna geç: {{type}}",
+      "seeNeeds": "Neye ihtiyacı olduğunu gör",
+      "model": "Model",
+      "noModel": "Kurulu model yok",
+      "size": "Boyut",
+      "count": "Kaç tane",
+      "countOption_one": "{{count}} görsel",
+      "countOption_other": "{{count}} görsel",
+      "startFrom": "Şuradan başla",
+      "sourceNone": "Sıfırdan başla",
+      "sourceOnPage": "Sonraki sayfada dosya ekle",
+      "fit": {
+        "fits": "{{need}} gerekiyor, {{amount}} GB boş alanla sığıyor",
+        "spill": "{{need}} gerekiyor, {{amount}} GB RAM'e taşıyor",
+        "over": "{{need}} gerekiyor, bu makinedekinden {{amount}} GB fazla"
+      },
+      "whyModel": "Önce {{type}} modelini kur",
+      "whyPrompt": "Önce bir prompt yaz",
+      "generate": "Oluştur",
+      "openType": "{{type}} aç",
+      "firstRun": "Henüz hiçbir şey kurulu değil. Önce istediğini kur. Diğerlerini sonra ekleyebilir veya hiç eklemeyebilirsin."
+    },
+    "starters": {
+      "images": [
+        {
+          "label": "Gün doğarken liman",
+          "text": "Gün doğarken bir balıkçı limanı, pastel renkli evler, uzun yansımalar, 35 mm film greni"
+        },
+        {
+          "label": "Kâğıttan dağlar",
+          "text": "Katmanlı turkuaz ve kehribar tonlarında kâğıt kesme dağlar, yumuşak sis"
+        },
+        {
+          "label": "Makro eğrelti otu",
+          "text": "Çiy kaplı bir eğrelti otunun makro fotoğrafı, sığ alan derinliği"
+        }
+      ],
+      "video": [
+        {
+          "label": "Sisli ormanda dolly",
+          "text": "Gün doğarken sisli bir çam ormanında yavaş dolly çekimi"
+        },
+        {
+          "label": "Siyah kumda dalgalar",
+          "text": "Siyah kumsala yuvarlanan dalgalar, dron çekimi"
+        }
+      ],
+      "tts": [
+        {
+          "label": "Karşılama cümlesi",
+          "text": "Liman turuna hoş geldiniz. İlk tekneler altıda kalkar, fırın ise beşte açılır."
+        },
+        {
+          "label": "Sürüm notu",
+          "text": "3.2 sürümü yayında. Daha hızlı bir zamanlayıcı ekliyor ve modeli kaldırma hatasını düzeltiyor."
+        }
+      ],
+      "sound": [
+        {
+          "label": "Lo-fi piyano",
+          "text": "Cam üstünde yağmur sesiyle lo-fi piyano"
+        },
+        {
+          "label": "Çamlarda rüzgâr",
+          "text": "Çamların arasından esen rüzgâr, müzik yok"
+        }
+      ],
+      "threed": [],
+      "transform": [],
+      "diarization": []
+    },
+    "install": {
+      "title": "Kurulu {{type}} modeli yok",
+      "size": "indirme boyutu {{size}}.",
+      "sizeUnknown": "için indirme boyutu listelenmemiş.",
+      "need": "Çalışırken yaklaşık {{need}} belleğe ihtiyaç duyar.",
+      "needUnknown": "Bellek ihtiyacı listelenmemiş.",
+      "free": "Şu an {{free}} boş.",
+      "nothingStarts": "Sen kurmadan hiçbir şey başlamaz.",
+      "button": "{{model}} kur",
+      "installing": "{{model}} kuruluyor",
+      "started": "{{model}} kuruluyor",
+      "failed": "Kurulum başlamadı: {{message}}",
+      "galleryDown": "Model galerisine ulaşılamadı, bu yüzden önerilecek bir şey yok. Bağlantını kontrol et veya elle bir model ekle.",
+      "noneListed": "Galeride {{type}} modeli yok.",
+      "browse": "Tüm modellere göz at"
+    },
+    "work": {
+      "title": "Çalışmaların",
+      "results_one": "{{count}} sonuç",
+      "results_other": "{{count}} sonuç",
+      "nResults_one": "{{count}} sonuç",
+      "nResults_other": "{{count}} sonuç",
+      "group": "İlişkili sonuçları grupla",
+      "clear": "Geçmişi temizle",
+      "clearTitle": "Çalışma geçmişin temizlensin mi?",
+      "clearBody": "Bu işlem sonuç ve favori listesini bu tarayıcıdan kaldırır. Zaten oluşturulmuş dosyalar sunucuda kalır.",
+      "clearConfirm": "Geçmişi temizle",
+      "filters": "Çalışmalarını filtrele",
+      "all": "Tümü",
+      "favourites": "Favoriler",
+      "favourite": "Favori",
+      "open": "{{title}} aç",
+      "openProject": "{{title}} aç, birbirinden türeyen {{count}} sonuç",
+      "project": "Proje",
+      "emptyTitle": "Burada henüz bir şey yok",
+      "emptyBody": "Yaptıkların burada görünür, böylece onları yeniden bulabilir ve üzerine ekleme yapabilirsin.",
+      "emptyFilterTitle": "Henüz {{filter}} yok",
+      "emptyFilterBody": "Başka bir filtre seç veya bir şey oluştur.",
+      "fileGone": "Dosya artık sunucuda değil",
+      "untitled": {
+        "images": "Resim",
+        "video": "Klip",
+        "threed": "3D nesne",
+        "tts": "Konuşma",
+        "sound": "Ses",
+        "transform": "Dönüştürülmüş ses",
+        "diarization": "Kayıt"
+      }
+    },
+    "lineage": {
+      "back": "Çalışmaların",
+      "sub_one": "{{count}} sonuç",
+      "sub_other": "birbirinden türeyen {{count}} sonuç",
+      "subOne": "Tek sonuç",
+      "board": "Bu sonuçların soldaki prompt'tan nasıl yapıldığı",
+      "prompt": "Prompt",
+      "file": "Dosya",
+      "suggested": "Önerilen",
+      "draft": "Taslak",
+      "needsModel": "{{type}} modeli gerekiyor",
+      "ready": "Hazır",
+      "dock": "Seçili sonuç",
+      "details": "Ayrıntıları göster",
+      "take": "Yeni bir deneme olarak çalıştır",
+      "branch": "Buradan dallandır",
+      "cancel": "İptal",
+      "openIn": "{{type}} içinde aç",
+      "newBranch": "Yeni dal: {{step}}",
+      "fromResult": "{{title}} kaynaklı",
+      "makeFrom": "Bu sonuçtan yap",
+      "targets": "Sırada ne yapılacak",
+      "describe": "Tarif et",
+      "keeps": "Orijinali korur. Çalışma alanını bunlar doldurulmuş olarak açar; orada Oluştur'a basana kadar hiçbir şey çalışmaz.",
+      "promptLabel": "Prompt",
+      "continue": "Bu sonuçtan devam et",
+      "download": "İndir",
+      "took": "{{seconds}} sn sürdü",
+      "speakers_one": "{{count}} konuşmacı",
+      "speakers_other": "{{count}} konuşmacı",
+      "noInput": "Orijinal girdi saklanmadı, bu yüzden bu tıpkısı gibi yeniden çalıştırılamaz.",
+      "noBranch": "Henüz hiçbir şey başlangıç noktası olarak {{type}} kabul etmiyor.",
+      "cannotStart": "{{page}} sayfası henüz {{what}} ile başlayamıyor.",
+      "goneTitle": "Bu sonuç artık bu tarayıcıda değil",
+      "goneBody": "Geçmişten temizlenmiş olabilir. Geriye ne kaldığını görmek için çalışmalarına dön."
+    },
+    "edges": {
+      "take": "deneme",
+      "animate": "canlandır",
+      "to-3d": "3D'ye",
+      "variation": "varyasyon",
+      "transform": "dönüştür",
+      "diarize": "kim konuştu",
+      "soundtrack": "film müziği",
+      "turntable": "döner tabla",
+      "upscale": "büyüt"
+    },
+    "steps": {
+      "animate": {
+        "title": "Canlandır",
+        "why": "Bu resmi kısa bir klibe dönüştür",
+        "template": "Yavaş yaklaşma, küçük doğal hareket"
+      },
+      "to-3d": {
+        "title": "3D yap",
+        "why": "Etrafında döndürebileceğin bir nesne oluştur",
+        "plain": "3D bu resimden başlar. Modeli ve seçenekleri sonraki sayfada seçersin."
+      },
+      "variation": {
+        "title": "Varyasyon",
+        "why": "Düzenlemelerle başka bir deneme"
+      },
+      "transform": {
+        "title": "Dönüştür",
+        "why": "Bu sesi temizle veya sesi değiştir",
+        "plain": "Dönüştür bu ses üzerinde çalışır. Modeli ve seçenekleri sonraki sayfada seçersin."
+      },
+      "diarize": {
+        "title": "Kimin konuştuğunu bul",
+        "why": "Her konuşmacıyı zaman çizelgesinde işaretle",
+        "plain": "Bu, kaydı Konuşmacı ayrımı içinde açar. Modeli sonraki sayfada seçersin."
+      },
+      "soundtrack": {
+        "title": "Film müziği ekle",
+        "why": "Çekime uyan ses"
+      },
+      "turntable": {
+        "title": "Döner tabla klibi",
+        "why": "Nesneyi her yönden göster"
+      },
+      "upscale": {
+        "title": "Büyüt",
+        "why": "Bu görselin çözünürlüğünü artır."
+      }
+    },
+    "kinds": {
+      "video": "video",
+      "mesh": "3D nesne"
+    },
+    "handoff": {
+      "aResult": "Stüdyo'dan bir sonuç",
+      "loading": "{{name}} başlangıç noktası olarak yükleniyor…",
+      "ready": "{{name}} ile başlanıyor.",
+      "missing": "Bunun yapıldığı sonuç artık bu tarayıcının geçmişinde değil, bu yüzden başlangıç noktası yok. Yine de aşağıdan bir dosya ekleyebilirsin.",
+      "error": "{{name}} yüklenemedi. Sunucu dosyayı temizlemiş olabilir. Aşağıdan bir dosya ekleyebilirsin.",
+      "remove": "Kaldır"
+    },
+    "error": {
+      "title": "Stüdyo kurulu modelleri okuyamadı",
+      "body": "Model listesi yüklenmedi, bu yüzden Stüdyo hangi türlerin hazır olduğunu söyleyemiyor. Aşağıdaki çalışmaların etkilenmedi.",
+      "retry": "Yeniden dene"
+    },
+    "workspace": {
+      "sourcesLabel": "Başlangıç noktaları",
+      "lede": {
+        "images": "Metinden görsele, görselden görsele, referans görseller",
+        "video": "Metinden videoya ve görselden videoya",
+        "threed": "Girdi olarak bir resim, çıktı olarak bir 3D nesne",
+        "tts": "Metinden konuşmaya, model klonlama yapıyorsa kayıtlı bir sesle",
+        "sound": "Bir tariften müzik ve ses",
+        "transform": "Bir kaydı temizle veya sesi değiştir",
+        "diarization": "Kimin ne zaman konuştuğunu bul"
+      },
+      "sources": {
+        "startImage": "Bir görselden başla",
+        "endImage": "Bitiş görseli",
+        "chosen": "Seçilen dosya",
+        "audio": "Ses",
+        "reference": "Referans"
+      },
+      "fields": {
+        "prompt": "metin",
+        "model": "model",
+        "size": "boyut",
+        "count": "adet",
+        "steps": "adım",
+        "seed": "seed",
+        "negative": "negatif prompt",
+        "duration": "süre",
+        "fps": "fps",
+        "frames": "kare",
+        "cfg": "CFG",
+        "quality": "kalite",
+        "background": "arka plan",
+        "voice": "ses",
+        "instructions": "okuma tarzı",
+        "mode": "mod",
+        "caption": "açıklama",
+        "lyrics": "şarkı sözü",
+        "bpm": "BPM",
+        "key": "ton",
+        "language": "dil",
+        "timesignature": "ölçü",
+        "instrumental": "enstrümantal",
+        "think": "düşünme modu",
+        "params": "parametreler",
+        "speakers": "konuşmacılar",
+        "detail": "ayrıntı"
+      },
+      "changedFrom": "Bu denemeden değişenler:",
+      "edited": "düzenlendi",
+      "runAgain": "Yeniden çalıştır",
+      "useIn": "Şurada kullan",
+      "rerun": "Düzenlemelerle yeniden çalıştır",
+      "lineage": "Soy ağacı",
+      "download": "İndir",
+      "tools": "Sonuç işlemleri",
+      "from": "kaynak:",
+      "fromGone": "artık bu tarayıcıda olmayan bir sonuçtan ({{edge}})",
+      "failed": {
+        "title": "Bu tamamlanmadı",
+        "note": "Prompt'un ve ayarların hâlâ burada.",
+        "retry": "Yeniden dene",
+        "traces": "Ayrıntılar için izleri görüntüle"
+      },
+      "strip": {
+        "title": "Son sonuçlar",
+        "allWork": "Tüm çalışmalar",
+        "noFavourites": "Henüz favori yok. Burada tutmak için bir sonuca yıldız ver."
+      },
+      "auto": "Otomatik",
+      "sound": {
+        "more": "Daha fazla seçenek",
+        "generated": "Ses oluşturuldu",
+        "noCaption": "Lütfen açıklama veya şarkı sözü gir"
+      },
+      "transform": {
+        "noModel": "Lütfen bir model seç",
+        "noAudio": "Lütfen bir ses dosyası seç",
+        "done": "Ses dönüştürüldü",
+        "inputGone": "O çalıştırmanın kullandığı ses artık sunucuda değil. Çalıştırmak için yeniden ekle.",
+        "loadReference": "Önce bir referans yükle",
+        "noMic": "Bu tarayıcı mikrofonu sunmuyor",
+        "recorded": "Mikrofon, referans yankısıyla birlikte kaydedildi. Yankı gidermeyi denemek için Dönüştür'e bas.",
+        "echoFailed": "Yankı testi başarısız: {{message}}",
+        "recording": "kayıt {{seconds}} sn",
+        "whyAudio": "Önce bir ses dosyası ekle",
+        "waiting": "Dönüştürülmeyi bekleyen sesin",
+        "paramCount_one": "{{count}} parametre",
+        "paramCount_other": "{{count}} parametre"
+      },
+      "threed": {
+        "whyImage": "Önce bir resim ekle"
+      },
+      "choose": "Seç",
+      "replace": "Değiştir",
+      "dropHint": "veya buraya bırak",
+      "diarization": {
+        "whyFile": "Önce bir kayıt seç",
+        "hint": "Ses veya video, ya da buraya bırak",
+        "timeline": "{{length}} boyunca {{count}} konuşmacının zaman çizelgesi",
+        "segmentCount_one": "{{count}} bölüm",
+        "segmentCount_other": "{{count}} bölüm",
+        "talk": "{{seconds}} sn konuşma, %{{percent}}",
+        "notKept": "Kayıt ve döküm saklanmaz, bu yüzden yalnızca bu çalıştırmanın özeti gösterilir. Zaman çizelgesini görmek için dosyayla yeniden çalıştır.",
+        "empty": "Kimin ne zaman konuştuğunu görmek için bir kayıt seç"
+      }
+    },
+    "upscale": {
+      "model": "Büyütme modeli",
+      "scale": "Ölçek",
+      "source": "Kaynak görsel",
+      "loading": "Büyütülüyor…",
+      "failed": "Büyütme başarısız: {{message}}",
+      "noResult": "Çıktı görseli döndürülmedi."
+    }
+  },
+  "image": {
+    "title": "Görsel Üretimi",
+    "labels": {
+      "model": "Model",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Üretmek istediğin görseli tarif et...",
+      "negativePrompt": "Negatif Prompt",
+      "negativePromptPlaceholder": "Nelerden kaçınılacağı...",
+      "size": "Boyut",
+      "count": "Adet (1-4)",
+      "advanced": "Gelişmiş Ayarlar",
+      "imageInputs": "Görsel Girdileri",
+      "steps": "Adım",
+      "stepsPlaceholder": "20",
+      "seed": "Seed",
+      "seedPlaceholder": "Rastgele",
+      "sourceImage": "Kaynak Görsel (img2img)",
+      "refImages": "Referans Görseller",
+      "refImagesAdded_one": "{{count}} görsel eklendi",
+      "refImagesAdded_other": "{{count}} görsel eklendi"
+    },
+    "actions": {
+      "view": "Görüntüle",
+      "generate": "Oluştur",
+      "generating": "Oluşturuluyor..."
+    },
+    "empty": "Üretilen görseller burada görünecek",
+    "toasts": {
+      "noPrompt": "Lütfen bir prompt gir",
+      "noModel": "Lütfen bir model seç",
+      "noResults": "Görsel üretilmedi"
+    }
+  },
+  "video": {
+    "title": "Video Üretimi",
+    "labels": {
+      "model": "Model",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Üretmek istediğin videoyu tarif et...",
+      "duration": "Süre (saniye)",
+      "fps": "FPS",
+      "size": "Boyut",
+      "advanced": "Gelişmiş Ayarlar",
+      "seed": "Seed",
+      "seedPlaceholder": "Rastgele",
+      "frames": "Kare",
+      "referenceMedia": "Referans medya",
+      "startImage": "Başlangıç görseli",
+      "endImage": "Bitiş görseli",
+      "avatarAudio": "Avatar sesi"
+    },
+    "actions": {
+      "generate": "Oluştur",
+      "generating": "Oluşturuluyor..."
+    },
+    "empty": "Üretilen video burada görünecek",
+    "toasts": {
+      "noPrompt": "Lütfen bir prompt gir",
+      "noModel": "Lütfen bir model seç",
+      "noResults": "Video üretilmedi"
+    }
+  },
+  "threed": {
+    "title": "3D Üretimi",
+    "animation": {
+      "skeletonHint": "Ağ veya kaplama olmadan animasyonlu bir iskelet üretir.",
+      "preview": "Animasyonlu iskelet önizlemesi",
+      "pause": "Duraklat",
+      "play": "Oynat",
+      "reset": "Görünümü sıfırla",
+      "timeline": "Zaman çizelgesi",
+      "zoom": "Yakınlaştır",
+      "inputTooLong": "Girdi {{limit}} bayt sınırını aşıyor.",
+      "fileTooLarge": "Seçilen dosya çok büyük.",
+      "readFailed": "Seçilen dosya okunamadı."
+    },
+    "labels": {
+      "model": "Model",
+      "image": "Girdi görseli",
+      "quality": "Kalite",
+      "quality_auto": "Otomatik (mevcut en iyi)",
+      "quality_coarse": "Kaba önizleme (hızlı)",
+      "quality_512": "512³ ince",
+      "quality_1024": "1024³ kademeli (yavaş)",
+      "background": "Arka plan",
+      "background_auto": "Düz arka planı otomatik kaldır",
+      "background_keep": "Orijinali koru",
+      "background_black": "Siyahı kaldır",
+      "background_white": "Beyazı kaldır",
+      "advanced": "Gelişmiş Ayarlar",
+      "steps": "Şekil adımları",
+      "textureSteps": "Malzeme adımları",
+      "guidance": "Yönlendirme",
+      "seed": "Seed",
+      "seedPlaceholder": "Rastgele"
+    },
+    "actions": {
+      "generate": "Oluştur",
+      "generating": "Oluşturuluyor...",
+      "remesh": "Yeniden ağ oluşturmayı uygula",
+      "remeshing": "Yeniden ağ oluşturma uygulanıyor...",
+      "showOriginal": "Orijinali göster",
+      "download": "GLB indir"
+    },
+    "remesh": {
+      "title": "Sızdırmaz baskı için yeniden ağ oluşturma",
+      "detail": "Yeniden ağ ayrıntısı",
+      "coarser": "Daha kaba · daha hızlı",
+      "finer": "Daha ince · daha yavaş",
+      "hint": "Ayrıntı, korunan en küçük özellikleri belirler. Çevreleyen ofset ona otomatik olarak uyar.",
+      "ready": "Sızdırmaz yeniden ağlanmış model önizleniyor. İndirilecek sürüm budur."
+    },
+    "viewer": {
+      "wireframe": "Tel kafes",
+      "autoRotate": "Otomatik döndür",
+      "noWebgl": "WebGL2 bu tarayıcıda kullanılamıyor — GLB dosyasını başka yerde görüntülemek için indir.",
+      "contextLost": "3D görünüm GPU bağlamını kaybetti — geri yüklemek için sayfayı yenile.",
+      "stats": "{{verts}} köşe · {{tris}} üçgen",
+      "hint": "sürükle: döndür · sıkıştır/tekerlek: yakınlaştır · iki parmak/sağ tuşla sürükle: kaydır · çift tıkla: sıfırla"
+    },
+    "empty": "Üretilen 3D model burada görünecek",
+    "toasts": {
+      "noImage": "Lütfen bir girdi görseli ver",
+      "noModel": "Lütfen bir model seç",
+      "noResults": "Model üretilmedi"
+    }
+  },
+  "tts": {
+    "title": "Metinden Konuşmaya",
+    "labels": {
+      "model": "Model",
+      "voice": "Ses",
+      "voicePlaceholder": "İsteğe bağlı konuşmacı veya ses kimliği",
+      "input": "Metin",
+      "inputPlaceholder": "Seslendirilecek metni gir...",
+      "instructions": "Yönergeler",
+      "instructionsPlaceholder": "Örneğin: Yavaş ve sıcak bir tonla konuş",
+      "instructionsHint": "İsteğe bağlı okuma yönergesi. Desteği backend'e bağlıdır."
+    },
+    "actions": {
+      "generate": "Oluştur",
+      "generating": "Oluşturuluyor..."
+    },
+    "empty": "Üretilen ses burada görünecek",
+    "toasts": {
+      "noText": "Lütfen metin gir",
+      "noModel": "Lütfen bir model seç",
+      "generated": "Konuşma oluşturuldu",
+      "generateFailed": "Üretim başarısız"
+    },
+    "voiceLibrary": {
+      "cloningReady": "Ses klonlama",
+      "loading": "Kayıtlı kişilikler yükleniyor…",
+      "modelDefault": "Model varsayılanını kullan",
+      "empty": "Henüz kayıtlı kişilik yok.",
+      "create": "Bir tane oluştur",
+      "manage": "Kişilik Kitaplığını Yönet",
+      "namedVoiceHint": "Bu model referans ses profillerini kabul etmiyor. Yine de backend'inin desteklediği adlandırılmış bir konuşmacı girebilirsin."
+    }
+  },
+  "voiceLibrary": {
+    "title": "Konuşma sesleri",
+    "subtitle": "Bir kayıt ve onun tam dökümü. Referans ses kabul eden metinden konuşmaya modelleri bununla konuşabilir.",
+    "loadFailed": "Konuşma sesleri yüklenemedi",
+    "loading": "Kayıtlı kişilikler yükleniyor…",
+    "listLabel": "Kayıtlı ses kişilikleri",
+    "status": {
+      "ready": "Hazır"
+    },
+    "summary": {
+      "label": "Ses kitaplığı durumu",
+      "profiles": "kayıtlı kişilik",
+      "modelsReady_one": "{{count}} uyumlu model hazır",
+      "modelsReady_other": "{{count}} uyumlu model hazır",
+      "noModels": "Kurulu uyumlu model yok"
+    },
+    "search": {
+      "label": "Ses profillerinde ara",
+      "placeholder": "Seslerde, dillerde veya dökümlerde ara"
+    },
+    "filters": {
+      "language": "Dile göre filtrele",
+      "allLanguages": "Tüm diller"
+    },
+    "empty": {
+      "title": "Henüz konuşma sesi yok",
+      "body": "İzni olan bir referans klibi kaydet veya yükle, tam dökümünü ekle ve sesi uyumlu metinden konuşmaya modellerinde yeniden kullan."
+    },
+    "noResults": {
+      "title": "Bu filtrelerle eşleşen ses yok",
+      "body": "Farklı bir arama dene veya tüm dilleri göster."
+    },
+    "detail": {
+      "eyebrow": "Referans kayıt ve tam döküm",
+      "close": "Kapat",
+      "emptyTitle": "İncelemek için bir ses seç",
+      "emptyBody": "Referans ses, döküm, uyumluluk ve izin ayrıntıları burada görünecek.",
+      "referenceAudio": "Referans ses",
+      "transcript": "Referans döküm"
+    },
+    "metadata": {
+      "language": "Dil",
+      "languageUnknown": "Belirtilmedi",
+      "duration": "Süre",
+      "sampleRate": "Örnekleme hızı",
+      "created": "Oluşturulma"
+    },
+    "consent": {
+      "label": "İzin",
+      "confirmed": "İzin onaylandı",
+      "confirmedAt": "{{date}} tarihinde onaylandı"
+    },
+    "modelSetup": {
+      "title": "Ses klonlama modeli kur",
+      "body": "Bu ses hazır, ancak referans ses kabul eden bir modele ihtiyaç duyuyor. Bu sunucunun doğruladığı birini seç.",
+      "loading": "Galerilerinde uyumlu modeller aranıyor…",
+      "backendUnknown": "Backend kurulum sırasında seçilir",
+      "install": "Kur",
+      "installing": "Kuruluyor…",
+      "loadFailed": "Uyumlu öneriler yüklenemedi.",
+      "noneAvailable": "Yapılandırılmış galerilerde kurulu olmayan uyumlu model yok.",
+      "capabilityNote": "Öneriler, tarayıcı tarafı bir model listesinden değil, model yetenek meta verilerinden gelir."
+    },
+    "api": {
+      "title": "API kullanımı ve uyumlu modeller",
+      "summary": "Bu sesi tarayıcı dışında kullan veya model desteğini kontrol et",
+      "body": "Her konuşma isteğiyle birlikte profilin sabit ses URI'sini gönder. LocalAI, özel referans sesi ve dökümü üretim sırasında çözer; modellerinin ayarları değişmez.",
+      "compatibleModels": "Kurulu uyumlu modeller",
+      "noInstalledModels": "Henüz yok. Bu isteği göndermeden önce yukarıdaki sunucu tarafından doğrulanmış modellerden birini kur.",
+      "curlExample": "cURL örneği",
+      "copy": "İsteği kopyala",
+      "endpointNote": "Aynı model, input ve voice alanları POST /tts ile de çalışır."
+    },
+    "actions": {
+      "create": "Konuşma sesi ekle",
+      "createFirst": "İlk konuşma sesini ekle",
+      "retry": "Yeniden dene",
+      "clearFilters": "Filtreleri temizle",
+      "useInTTS": "Metinden Konuşmaya'da kullan",
+      "delete": "Sesi sil",
+      "installModel": "Uyumlu bir model kur",
+      "browseModels": "Tüm modellere göz at"
+    },
+    "deleteDialog": {
+      "title": "Bu ses silinsin mi?",
+      "message": "“{{name}}” ve referans sesi kalıcı olarak kaldırılacak. Bu sesle ayarlanmış modeller değişmez.",
+      "deleting": "Siliniyor…"
+    },
+    "toasts": {
+      "deleted": "{{name}} silindi",
+      "installStarted": "{{name}} kuruluyor. İlerleme İşlemler bölümünde görülebilir.",
+      "installFailed": "Kurulum başlatılamadı: {{message}}",
+      "apiCopied": "API isteği kopyalandı",
+      "copyFailed": "API isteği kopyalanamadı"
+    }
+  },
+  "voiceCreate": {
+    "title": "Konuşma sesi ekle",
+    "subtitle": "Konuşma sesi, bir veya daha fazla temiz referans klip ile onların tam dökümlerinden oluşur. Referans ses kabul eden metinden konuşmaya modelleri bununla konuşabilir.",
+    "references": {
+      "add": "Başka bir referans ekle",
+      "additional": "Referans {{number}}",
+      "remove": "Kaldır"
+    },
+    "sections": {
+      "reference": {
+        "title": "Referans ses",
+        "body": "Tarayıcıda kaydet veya var olan bir klibi yükle. Konuşma temiz, doğal ve tek bir konuşmacıya ait olmalı."
+      },
+      "details": {
+        "title": "Kimlik ve döküm",
+        "body": "Sese tanınabilir bir ad ver ve klibi dolgu sözcükleri ve noktalama dahil tam olarak yazıya dök."
+      },
+      "consent": {
+        "title": "Yetkilendirme",
+        "body": "Ses klonlama hassas olabilir. Bu referans kaydedilmeden önce izni onayla."
+      }
+    },
+    "audio": {
+      "label": "Ses referansı",
+      "normalizing": "Güvenli bir PCM WAV hazırlanıyor…",
+      "preview": "Normalleştirilmiş referans",
+      "tooLarge": "Bu dosya 50 MiB'den büyük.",
+      "durationError": "Referans ses 1 saniye ile 2 dakika arasında olmalı.",
+      "decodeError": "Bu tarayıcı seçilen ses dosyasının kodunu çözemedi.",
+      "qualityReady": "Önerilen uzunluk",
+      "qualityHint": "6–30 saniye genellikle daha güçlü bir klon sağlar"
+    },
+    "fields": {
+      "name": "Ses adı",
+      "namePlaceholder": "ör. Belgesel anlatıcısı",
+      "language": "Dil (isteğe bağlı)",
+      "languagePlaceholder": "ör. tr-TR",
+      "description": "Açıklama (isteğe bağlı)",
+      "descriptionPlaceholder": "Ton, kaynak veya amaçlanan kullanım",
+      "transcript": "Tam döküm",
+      "transcriptPlaceholder": "Referans klipte konuşulan her sözcüğü yaz…",
+      "transcriptHint": "Kayıtla birebir eşleştir. Dilbilgisini düzeltme veya duraklamaları ve dolgu sözcüklerini kaldırma."
+    },
+    "consent": {
+      "title": "Bu sesin klonlanabileceğini onaylıyorum",
+      "body": "Bu kaydı sentezlenmiş konuşma için saklamak ve kullanmak üzere konuşmacının iznine veya başka bir yasal dayanağa sahibim."
+    },
+    "readiness": {
+      "title": "Profil hazırlığı",
+      "body": "Zorunlu her öğe tamamlandığında ses, Metinden Konuşmaya'da kullanılabilir hâle gelir.",
+      "audio": "Geçerli PCM-WAV referansı",
+      "quality": "6–30 saniyelik kalite aralığı",
+      "name": "Tanınabilir ses adı",
+      "transcript": "Tam referans dökümü",
+      "consent": "Yetkilendirme onaylandı"
+    },
+    "privacy": {
+      "title": "Varsayılan olarak özel. ",
+      "body": "Referans ses, LocalAI'nin veri dizininde kısıtlı dosya izinleriyle saklanır ve hiçbir zaman model klasörü yolu olarak açığa çıkmaz."
+    },
+    "actions": {
+      "back": "Kitaplığa dön",
+      "cancel": "İptal",
+      "save": "Sesi kaydet",
+      "saving": "Kaydediliyor…"
+    },
+    "toasts": {
+      "created": "{{name}} kullanıma hazır"
+    }
+  },
+  "sound": {
+    "title": "Ses Üretimi",
+    "labels": {
+      "model": "Model",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Üretmek istediğin sesi tarif et...",
+      "instrumental": "Enstrümantal",
+      "bpm": "BPM",
+      "duration": "Süre (saniye)",
+      "language": "Dil",
+      "timesignature": "Ölçü",
+      "keyscale": "Ton/Gam",
+      "vocalLanguage": "Vokal dili",
+      "vocalLanguagePlaceholder": "ör. Türkçe",
+      "caption": "Açıklama",
+      "lyrics": "Şarkı sözü",
+      "lyricsPlaceholder": "Vokal üretimi için şarkı sözü",
+      "simple": "Basit",
+      "advanced": "Gelişmiş",
+      "seed": "Seed",
+      "seedPlaceholder": "Rastgele",
+      "thinkMode": "Düşünme modu"
+    },
+    "actions": {
+      "generate": "Oluştur",
+      "generating": "Oluşturuluyor..."
+    },
+    "empty": "Üretilen ses burada görünecek",
+    "toasts": {
+      "noPrompt": "Lütfen bir prompt gir",
+      "noModel": "Lütfen bir model seç",
+      "generateFailed": "Üretim başarısız"
+    },
+    "expansion": {
+      "label": "Prompt genişletme modeli",
+      "placeholder": "Bir model veya backend varsayılanını seç",
+      "backendDefault": "Backend varsayılanı",
+      "choose": "Devam etmek için bir sohbet modeli veya Backend varsayılanını seç.",
+      "loading": "Kurulu sohbet modelleri yükleniyor…",
+      "error": "Sohbet modelleri yüklenemiyor. Backend varsayılanını seç veya yeniden denemek için bu sekmeye geri dön.",
+      "noChat": "Kurulu sohbet modeli yok. Ses backend'ini kullanmak için Backend varsayılanını seç.",
+      "help": "Sohbet modeli, tarifini stil ve şarkı sözüne genişletir. Backend varsayılanı, ses backend'inin mevcut prompt davranışını kullanır."
+    }
+  },
+  "audioTransform": {
+    "title": "Ses Dönüştürme",
+    "labels": {
+      "model": "Model",
+      "audio": "Ses (zorunlu)",
+      "reference": "Referans (isteğe bağlı)",
+      "referenceHelp": "Yankı giderme için geri döngü / uzak uç sinyali, ses dönüştürme için hedef konuşmacı. Koşulsuz dönüştürme için boş bırak.",
+      "advancedParameters": "Gelişmiş parametreler",
+      "advancedParametersHelp": "backend'e özel (satır başına bir anahtar=değer, ör. noise_gate=true)",
+      "advancedParametersPlaceholder": "# İsteğe bağlı. LocalVQE için:\n# noise_gate=true\n# noise_gate_threshold_dbfs=-50"
+    },
+    "input": {
+      "upload": "Yükle",
+      "uploadDescription": "Bir dosyayı buraya bırak veya",
+      "uploadBrowse": "gözat",
+      "record": "Kaydet",
+      "startRecording": "Kaydı başlat",
+      "stop": "Durdur",
+      "encoding": "Kodlanıyor...",
+      "clear": "Temizle",
+      "microphoneUnavailable": "Mikrofon yakalama bu tarayıcıda kullanılamıyor.",
+      "echoNotice": "Tarayıcılar çoğunlukla varsayılan olarak kendi WebRTC yankı giderme ve gürültü bastırmalarını uygular. Bu genellikle LocalVQE'yi ham ses üzerinde çalıştırmaktan daha kötü sonuç verir.",
+      "echoTest": "Yankı testi (referans çalarken mikrofonu kaydet)",
+      "stopEchoTest": "Yankı testini durdur"
+    },
+    "result": {
+      "audio": "Ses",
+      "reference": "Referans",
+      "inputSpectrum": "Girdi spektrumu",
+      "outputSpectrum": "Çıktı spektrumu",
+      "outputSpectrumHint": "Zayıflamayı karşılaştırmak için dönüştür",
+      "output": "Çıktı"
+    },
+    "actions": {
+      "transform": "Dönüştür",
+      "processing": "İşleniyor..."
+    },
+    "empty": "Dönüştürmek için bir ses dosyası (ve isteğe bağlı referans) seç"
+  },
+  "talk": {
+    "title": "Konuş",
+    "subtitle": "Gerçek zamanlı sesli konuşma",
+    "actions": {
+      "start": "Oturumu başlat",
+      "stop": "Oturumu bitir",
+      "connecting": "Bağlanıyor...",
+      "muted": "Sessizde",
+      "mute": "Sessize al",
+      "unmute": "Sesi aç"
+    },
+    "labels": {
+      "model": "Model",
+      "voice": "Ses",
+      "voicePlaceholder": "alloy",
+      "language": "Dil",
+      "languagePlaceholder": "tr",
+      "instructions": "Yönergeler",
+      "instructionsPlaceholder": "Asistanın kişiliğini belirle..."
+    },
+    "status": {
+      "idle": "Boşta",
+      "connecting": "Bağlanıyor...",
+      "listening": "Dinliyor...",
+      "speaking": "Konuşuyor...",
+      "ended": "Oturum bitti"
+    },
+    "toasts": {
+      "noModel": "Önce bir model seç",
+      "connectFailed": "Bağlanılamadı: {{message}}"
+    }
+  },
+  "history": {
+    "title": "Geçmiş",
+    "empty": "Henüz geçmiş yok",
+    "deleteEntry": "Kaydı sil",
+    "clear": "Geçmişi temizle",
+    "clearTitle": "Tüm geçmişi temizle",
+    "clearMessage": "Tüm geçmiş kayıtları kaldırılsın mı? Bu işlem geri alınamaz.",
+    "clearConfirm": "Temizle",
+    "cleared": "Geçmiş temizlendi"
+  },
+  "request": {
+    "heading": "İstek",
+    "copyCurl": "curl olarak kopyala",
+    "copied": "Kopyalandı"
+  },
+  "diarization": {
+    "title": "Konuşmacı ayrımı",
+    "subtitle": "Kimin ne zaman konuştuğunu görmek için bir kayıt yükle. Bir sesi hatırlamadan önce temiz konuşmayı önizle.",
+    "model": "Model",
+    "recording": "Kayıt",
+    "optIn": "Hatırlanacak konuşmacıları hazırla",
+    "warning": "Hatırlanan sesler bu sunucuda genel olarak paylaşılır ve yeniden başlatıldığında kaybolur. Hiçbir şey otomatik olarak hatırlanmaz.",
+    "manage": "Hatırlanan sesleri yönet",
+    "running": "Konuşmacılar ayrılıyor…",
+    "run": "Konuşmacıları ayır",
+    "unsupported": "Konuşmacı kodlayıcısı olan, profil destekli bir model seç veya normal konuşmacı ayrımını çalıştırmak için “Hatırlanacak konuşmacıları hazırla” seçeneğini kapat.",
+    "previewError": "Bu kayıt oynatılamadı. Tarayıcının ses biçimini desteklediğinden emin ol.",
+    "speakers": "Konuşmacılar",
+    "segments": "Bölümler",
+    "duration": "Temiz konuşma: {{seconds}} saniye",
+    "preview": "Önizleme {{number}}",
+    "insufficient": "Yeterli temiz konuşma yok veya kullanılabilir profil yok. Daha uzun, üst üste binmeyen konuşma içeren bir kayıt dene.",
+    "nameAndRemember": "Adlandır ve hatırla",
+    "name": "Ad",
+    "saving": "Kaydediliyor…",
+    "remember": "Hatırla",
+    "cancel": "İptal",
+    "stop": "Önizlemeyi durdur",
+    "missingProfiles": "Backend istenen konuşmacı profillerini döndürmedi."
+  }
+}

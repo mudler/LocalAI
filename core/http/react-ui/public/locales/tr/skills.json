@@ -1,0 +1,143 @@
+{
+  "title": "Yetenekler",
+  "subtitle": "Bir görev uyduğunda tüm sohbetlerinin kullanabileceği talimatlar. Ajanlar, kendilerine eklediklerini kullanır.",
+  "unavailable": {
+    "subtitle": "Yetenekler için Dosyalar gerekir ve Dosyalar bu sunucuda kapalı."
+  },
+  "actions": {
+    "newSkill": "Yeni yetenek",
+    "createSkill": "Yetenek oluştur",
+    "edit": "Düzenle",
+    "delete": "Sil",
+    "import": "İçe aktar",
+    "export": "Dışa aktar"
+  },
+  "search": {
+    "placeholder": "Yetenek ara",
+    "label": "Yetenek ara"
+  },
+  "card": {
+    "noDescription": "Açıklama yok",
+    "readOnly": "Salt okunur",
+    "editTitle": "Yeteneği düzenle",
+    "deleteTitle": "Yeteneği sil",
+    "invalid": "Atlandı: geçerli bir yetenek değil",
+    "invalidWhy": "Bu yetenek atlandı: {{reason}}",
+    "shadowed": "Bir {{layer}} yeteneği tarafından gizlendi",
+    "shadowedLong": "Aynı adlı bir {{layer}} yeteneği tarafından gizlendi",
+    "providedBy": "Sağlayan: {{name}}",
+    "proposedBy": "{{name}} önerdi ve sen onayladın. Yalnızca o ajan kullanır.",
+    "replacedBy": "Yerine geçen: {{name}}",
+    "notActive": "Etkin değil: yerleşik yetenek hizmet veriyor",
+    "notActiveBy": "Etkin değil: {{name}} sağlıyor",
+    "fallback": "{{name}} eklentisinin kendi yeteneği kapalı veya çalışmadığı için kullanımda",
+    "new": "Yeni",
+    "newTitle": "İçe aktarıldı ve henüz kullanılmadı",
+    "newLong": "İçe aktarıldı ve henüz kullanılmadı. Bir ajana eklemeden önce oku. Bir sohbet ilk kez kullandığında bu işaret kalkar.",
+    "exportTitle": "Bu yeteneği zip dosyası olarak indir"
+  },
+  "empty": {
+    "title": "Yetenekler, bir ajanın izleyebileceği talimatlardır",
+    "text": "Bir kez yaz, sonra onu izlemesi gereken ajanlara ekle. Kimsenin kullanmadığı bir yetenek kitaplıkta kalır.",
+    "stepWrite": "Bir yetenek yaz: bir ad, ne zaman kullanılacağını söyleyen bir satır ve talimatlar.",
+    "stepTry": "Listede kontrol et: kimin kullandığını ve ne dediğini gösterir.",
+    "stepAdd": "Kullanılmasını istediğinde bir ajana ekle."
+  },
+  "toasts": {
+    "loadFailed": "Yetenekler yüklenemedi",
+    "deleted": "\"{{name}}\" yeteneği silindi",
+    "deleteFailed": "Yetenek silinemedi",
+    "exportFailed": "Dışa aktarma başarısız: {{message}}"
+  },
+  "filters": {
+    "label": "Göster",
+    "all": "Tümü",
+    "used": "Kullanılan",
+    "unused": "Henüz kullanılmayan"
+  },
+  "list": {
+    "label": "Yetenekler",
+    "none": "Eşleşen yetenek yok.",
+    "countAll_one": "{{count}} yetenek",
+    "countAll_other": "{{count}} yetenek",
+    "countOf": "{{total}} yetenekten {{shown}} tanesi",
+    "menu": "İşlemler: {{name}}"
+  },
+  "pane": {
+    "back": "Tüm yetenekler",
+    "pick": "Ne dediğini ve kimin kullandığını görmek için bir yetenek seç.",
+    "tabs": "Yetenek bölümleri",
+    "tab": {
+      "overview": "Genel Bakış",
+      "instructions": "Talimatlar"
+    },
+    "tokens": "Yaklaşık {{count}} token",
+    "tokensTitle": "Tahmin: karakter sayısı dörde bölünür",
+    "tokensExplain": "Bir sohbet, yeteneği yalnızca bir görev açıklamasına uyduğunda okur, bu yüzden o zamana kadar hiçbir şey eklemez. Okunduğunda yaklaşık {{count}} token (tahmin).",
+    "noContent": "Bu yeteneğin talimatı yok.",
+    "startsWith": "Şununla başlar",
+    "showAll": "Tüm talimatları göster",
+    "loading": "Yükleniyor...",
+    "loadFailed": "Yetenek okunamadı."
+  },
+  "layers": {
+    "label": "Katman",
+    "personal": "Kişisel",
+    "agent": "Ajan",
+    "shared": "Paylaşılan",
+    "builtin": "Yerleşik",
+    "folder": "Çalışma alanı",
+    "addon": "Eklenti",
+    "project": "Proje"
+  },
+  "edit": {
+    "back": "Yeteneklere dön",
+    "titleNew": "Yeni yetenek",
+    "titleEdit": "Düzenle: {{name}}",
+    "basic": "Temel bilgiler",
+    "content": "İçerik",
+    "layer": "Katman",
+    "layerHelp": "Kişisel yalnızca senindir. Paylaşılanı her kullanıcı okur.",
+    "name": "Ad (küçük harf, yalnızca tire)",
+    "nameLocked": "Ad, oluşturulduktan sonra değiştirilemez.",
+    "description": "Açıklama (ne zaman kullanılacağı)",
+    "descriptionHelp": "Bir sohbet, yeteneğin göreve uyup uymadığına karar vermek için bu satırı okur.",
+    "body": "Yetenek içeriği (markdown)",
+    "cancel": "İptal",
+    "save": "Değişiklikleri kaydet",
+    "create": "Yetenek oluştur",
+    "saving": "Kaydediliyor...",
+    "created": "Yetenek oluşturuldu",
+    "updated": "Yetenek güncellendi",
+    "required": "Bir ad ve bir açıklama zorunlu",
+    "saveFailed": "Kaydetme başarısız",
+    "loadFailed": "Yetenek yüklenemedi",
+    "readOnly": "Bu yetenek burada salt okunur. Yerleşik yetenek sunucuyla birlikte gelir, dosyalarındaki bir yetenek ise Dosyalar'da değiştirilir.",
+    "counter": "{{count}} / {{max}}",
+    "nameInvalid": "Küçük harf, rakam ve tekil tire kullan.",
+    "bodyHelp": "Markdown ile yazılır. Bir sohbet, görev açıklamaya uyduğunda bunu okur."
+  },
+  "load": {
+    "title": "Yeteneklerin yüklenemedi."
+  },
+  "import": {
+    "failedTitle": "Yetenekler içe aktarılamadı",
+    "failed": "İçe aktarma başarısız oldu.",
+    "dismiss": "Kapat",
+    "done_one": "{{count}} yetenek içe aktarıldı",
+    "done_other": "{{count}} yetenek içe aktarıldı",
+    "scriptsStored": "Betikler ve diğer dosyalar olduğu gibi saklanır. Betikler saklanır, içe aktarma tarafından asla çalıştırılmaz.",
+    "newNote": "Bir sohbet kullanana kadar Yeni olarak işaretlenir."
+  },
+  "sort": {
+    "label": "Yetenekleri sırala",
+    "name": "Ad, A'dan Z'ye",
+    "name-desc": "Ad, Z'den A'ya",
+    "used": "En çok kullanılan",
+    "source": "Kaynağa göre grupla"
+  },
+  "source": {
+    "label": "Yetenekleri şuradan göster",
+    "all": "Tüm kaynaklar ({{count}})"
+  }
+}

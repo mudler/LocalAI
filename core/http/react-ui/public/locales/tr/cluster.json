@@ -1,0 +1,323 @@
+{
+  "group": {
+    "title": "Küme",
+    "hint": "Frontend'ler ve worker'lar nasıl bağlanır"
+  },
+  "unavailable": {
+    "title": "Bu sunucu bir kümenin parçası değil",
+    "body": "Küme ayarları, dağıtık mod açık olduğunda görünür."
+  },
+  "loadFailed": "Küme ayarları yüklenemedi.",
+  "sheet": {
+    "title": "Küme ayarları",
+    "description": "Frontend'ler ve worker'lar nasıl bağlanır. Değişiklikler saniyeler içinde her frontend'e ulaşır.",
+    "close": "Küme ayarlarını kapat",
+    "openSettings": "Ayarlar'da aç",
+    "done": "Bitti"
+  },
+  "bus": {
+    "title": "Yayın",
+    "note": "Frontend'ler ulaşabildikleri her veri yolunu dinler. NATS'a ulaşılabildiği sürece NATS üzerinden, aksi halde PostgreSQL üzerinden yayın yaparlar.",
+    "state": {
+      "nats": "NATS bağlı",
+      "postgres": "PostgreSQL",
+      "unknown": "Bilinmiyor"
+    },
+    "publishing": {
+      "nats": "NATS üzerinden yayınlıyor",
+      "postgres": "PostgreSQL üzerinden yayınlıyor",
+      "unknown": "Bilinmiyor"
+    },
+    "unreachable": "NATS yapılandırılmış ama bu frontend ona ulaşamıyor. PostgreSQL üzerinden yayın yapıyor ve NATS geri gelene kadar hazır değil.",
+    "noReplica": "Canlı frontend bildirilmedi.",
+    "replicas": "Frontend'ler",
+    "unknownVersion": "bilinmeyen sürüm",
+    "workers": "Worker'lar PostgreSQL'e asla bağlanmaz. Frontend'lerle aşağıdaki bağlantılar üzerinden konuşurlar."
+  },
+  "nats": {
+    "title": "NATS",
+    "note": "Kaydetmek, bu frontend'in NATS sunucusuna ulaştığını kontrol eder. Frontend'ler yeni adresi yeniden başlatmadan sonra kullanır.",
+    "state": {
+      "connected": "Erişilebilir",
+      "unreachable": "Erişilemiyor",
+      "off": "Ayarlanmamış"
+    },
+    "url": "NATS adresi",
+    "urlHint": "Frontend'ler buraya bağlanır.",
+    "workerUrl": "Worker'lara verilen adres",
+    "workerUrlHint": "Yalnızca worker'lar NATS'a farklı bir adresten ulaşıyorsa. Boş olması yukarıdaki adres demektir.",
+    "save": "Kaydet",
+    "saved": "Kaydedildi. Yeni adresi kullanmak için frontend'leri yeniden başlat.",
+    "savedReachable": "Kaydedildi. Bu frontend NATS sunucusuna ulaşıyor. Yeni adresi kullanmak için frontend'leri yeniden başlat.",
+    "failed": "Ayarlar kaydedilmedi."
+  },
+  "weights": {
+    "title": "Bağlantı tercihi",
+    "note": "Bir worker NATS, WebSocket veya P2P üzerinden, hepsi aynı anda katılabilir. İki worker bir isteğe eşit derecede uyuyorsa, ağırlığı daha yüksek bağlantı üzerinden ulaşılan olan isteği alır. Ağırlık hiçbir zaman uygunluğu geçemez. 0, başka hiçbir şey uymadığında kullan demektir.",
+    "about": {
+      "nats": "En hızlısı. Worker'lar mesaj yoluna bağlanır.",
+      "websocket": "Her yerde çalışır. Worker'lar bu sunucuya bağlanır.",
+      "p2p": "Davet bağlantısı. Bir relay üzerinden geçebilir."
+    },
+    "sliderLabel": "{{connection}} ağırlığı",
+    "resetOne": "Varsayılana dön, {{value}}",
+    "default": "Varsayılan {{value}}",
+    "error": {
+      "empty": "0 ile 1000 arasında bir tam sayı gir.",
+      "whole": "0 ile 1000 arasında bir tam sayı kullan.",
+      "range": "Ağırlık 0 ile 1000 arasındadır."
+    },
+    "live": "İki worker eşit derecede uyuyorsa, {{sentence}}.",
+    "wins": "{{winner}}, {{loser}} karşısında öncelikli olur",
+    "ties": "{{a}} ve {{b}} eşit olur",
+    "apply": "Ağırlıkları uygula",
+    "useDefaults": "Varsayılanları kullan",
+    "saved": "Kaydedildi. Her frontend yeni ağırlıkları birkaç saniye içinde kullanır.",
+    "defaultsBack": "Varsayılan ağırlıklar geri geldi. Her frontend bunları birkaç saniye içinde kullanır.",
+    "failed": "Ağırlıklar kaydedilmedi."
+  },
+  "joining": {
+    "title": "Katılım",
+    "note": "Yeni bir worker katılım token'ıyla katıldığında nasıl içeri alınır.",
+    "autoApprove": "Worker'ları otomatik onayla",
+    "autoApproveHint": "Varsayılan olarak kapalı. Token ile katılan bir worker, onaylamanı bekler. Oluşturduğun bir token yine de farklı seçebilir.",
+    "autoApproveOn": "Geçerli bir katılım token'ına sahip olan herkes onayın olmadan katılır. Token'ları kısa ömürlü ve tek kullanımlık tut.",
+    "failed": "Ayar kaydedilmedi."
+  },
+  "page": {
+    "supporting": "Modellerini çalıştıran makineler. {{total}} içinden {{online}} tanesi çevrimiçi.",
+    "supportingEmpty": "Modellerini çalıştıran makineler.",
+    "add": "Worker ekle",
+    "search": "Worker'larda ara",
+    "searchPlaceholder": "Worker, model, etiket ara",
+    "chip": {
+      "all": "Tümü",
+      "healthy": "Sağlıklı",
+      "attention": "İlgi bekliyor",
+      "offline": "Çevrimdışı",
+      "pending": "Bekliyor"
+    },
+    "type": {
+      "backend": "backend",
+      "agent": "ajan",
+      "model-split": "model bölmeli"
+    },
+    "reason": "İlgi bekleme nedeni",
+    "anyReason": "Herhangi bir neden"
+  },
+  "pill": {
+    "frontends_one": "{{count}} frontend",
+    "frontends_other": "{{count}} frontend"
+  },
+  "strip": {
+    "label": "Filo özeti",
+    "online": "Çevrimiçi worker",
+    "ofTotal": "/ {{total}}",
+    "models": "Yüklü modeller",
+    "onWorkers_one": "{{count}} worker üzerinde",
+    "onWorkers_other": "{{count}} worker üzerinde",
+    "inFlight": "Süren",
+    "requests_one": "istek",
+    "requests_other": "istek",
+    "attention": "İlgi bekleyen",
+    "allClear": "Her şey yolunda",
+    "offline": "{{count}} çevrimdışı",
+    "degraded": "{{count}} düşük performanslı"
+  },
+  "roster": {
+    "worker": "Worker",
+    "state": "Durum",
+    "connections": "Bağlantılar",
+    "load": "Yük",
+    "seen": "Görülme",
+    "splitMark": "Model bölmeli",
+    "splitGroup": "Model bölmeli worker'lar",
+    "attachedTo": "bağlı olduğu düğüm: {{node}}",
+    "lends": "{{memory}} ödünç verir"
+  },
+  "conn": {
+    "label": "Bağlantılar",
+    "of": "{{name}} bağlantıları",
+    "name": {
+      "nats": "NATS",
+      "websocket": "WebSocket",
+      "p2p": "P2P",
+      "heartbeat": "Heartbeat"
+    },
+    "live": "canlı",
+    "reconnecting": "yeniden bağlanıyor",
+    "down": "kapalı",
+    "notReported": "Bildirilmedi",
+    "state": {
+      "live": "Canlı",
+      "reconnecting": "Yeniden bağlanıyor",
+      "down": "Kapalı"
+    },
+    "path": {
+      "direct": "doğrudan",
+      "holePunched": "hole punching ile",
+      "relayed": "{{relay}} üzerinden aktarılıyor",
+      "relayedUnknown": "aktarılıyor",
+      "none": "yol yok"
+    },
+    "rtt": "{{ms}} ms",
+    "limited": "Sınırlı",
+    "limitedHint": "Relay, bu bağlantının veri miktarını veya süresini sınırlar. Model dosyaları buradan geçmez."
+  },
+  "inspector": {
+    "kicker": "Worker",
+    "splitKicker": "Model bölmeli worker",
+    "connections": "Bağlantılar",
+    "noConnections": "Bu worker henüz bir bağlantı bildirmedi.",
+    "weight": "Ağırlık {{weight}}",
+    "heartbeat": "heartbeat {{ago}}",
+    "update": "Backend'leri güncelle",
+    "splitNote": "Belleğini, makineler arasında çalışan büyük bir modele ödünç verir. Backend'i ve yerleştirme kuralları yoktur."
+  },
+  "add": {
+    "title": "Worker ekle",
+    "supporting": "Yeni bir makineyi üç adımda bağla.",
+    "cancel": "İptal",
+    "back": "Geri",
+    "continue": "Devam",
+    "backToWorker": "Katılım token'lı bir worker'a dön",
+    "stepsLabel": "Adımlar",
+    "step": {
+      "choose": "Bağlantıları seç",
+      "run": "Komutu çalıştır",
+      "wait": "Worker'ı bekle"
+    },
+    "choose": {
+      "title": "Worker nasıl bağlanmalı?",
+      "note": "Bir veya daha fazlasını seç. Bir worker hepsini aynı anda kullanabilir. Daha sonra daha fazlasını ekleyebilirsin.",
+      "none": "En az bir bağlantı seç."
+    },
+    "availability": "Kullanılabilirlik",
+    "needs": "Gereksinim",
+    "weight": "Tercih ağırlığı {{weight}}",
+    "way": {
+      "nats": {
+        "name": "NATS",
+        "tag": "En hızlısı",
+        "about": "En hızlısı. Worker mesaj yoluna bağlanır.",
+        "needs": "NATS adresine worker'dan erişilebilmeli.",
+        "ready": "Kullanılabilir, NATS bağlı",
+        "unreachable": "Yapılandırılmış ama bu frontend ona ulaşamıyor",
+        "off": "Kullanılamıyor",
+        "offNote": "NATS kurulu değil.",
+        "offLink": "Küme ayarlarında kur"
+      },
+      "websocket": {
+        "name": "WebSocket",
+        "tag": "Her yerde çalışır",
+        "about": "Worker bu sunucunun adresine bir token ile bağlanır. NAT ve güvenlik duvarlarının arkasında çalışır.",
+        "needs": "Yalnızca bu sunucunun adresi.",
+        "ready": "Kullanılabilir"
+      },
+      "p2p": {
+        "name": "P2P",
+        "tag": "Davet bağlantısı",
+        "about": "Bir davet bağlantısıyla katıl. Açık port gerekmez. Bir relay üzerinden geçebilir.",
+        "needs": "P2P paylaşımı açık olmalı.",
+        "ready": "Kullanılabilir",
+        "off": "Kullanılamıyor",
+        "checking": "Kontrol ediliyor",
+        "offNote": "P2P paylaşımı kapalı.",
+        "offLink": "Paylaşım'da aç"
+      }
+    },
+    "split": {
+      "question": "Büyük bir modeli birkaç makinede mi çalıştırıyorsun?",
+      "answer": "Bunun yerine bir model bölmeli worker ekle.",
+      "action": "Model bölmeli worker"
+    },
+    "single": {
+      "splitNote": "Model bölmeli bir worker için küme gerekmez."
+    },
+    "run": {
+      "title": "Komutu yeni makinede çalıştır",
+      "attach": "Bu worker şu yol(lar) üzerinden bağlanacak: {{ways}}",
+      "weights": "ağırlıklar {{weights}}",
+      "change": "Bağlantıları değiştir",
+      "ran": "Çalıştırdım, worker'ı bekle"
+    },
+    "token": {
+      "title": "Katılım token'ı",
+      "show": "Token'ı göster",
+      "hide": "Token'ı gizle",
+      "copy": "Token'ı kopyala",
+      "expires": "Geçerlilik",
+      "in": "içinde",
+      "expired": "Süresi doldu",
+      "connections": "Bağlantılar",
+      "any": "Herhangi",
+      "uses": "Kullanım",
+      "one": "1 worker",
+      "many": "Birkaç",
+      "count": "Kaç worker",
+      "max": "En fazla {{max}}.",
+      "usesHint": "Bu token ile kaç worker katılabilir. Kubernetes veya Compose için birkaç tane kullan.",
+      "valid": "Geçerlilik süresi",
+      "ttl": {
+        "600": "10 dakika",
+        "3600": "1 saat",
+        "86400": "24 saat"
+      },
+      "again": "Yenisini oluştur",
+      "retry": "Yeniden dene",
+      "making": "Katılım token'ı oluşturuluyor…",
+      "failed": "Katılım token'ı oluşturulamadı: {{message}}",
+      "expiredNote": "Bu token'ın süresi doldu. Çalışan bir komut için yenisini oluştur.",
+      "hiddenNote": "Token burada gizli ve kopyaladığında eklenir.",
+      "shownNote": "Token burada gösteriliyor. Ekranını paylaşmadan önce gizle."
+    },
+    "tabs": {
+      "label": "Worker'ı çalıştırma yolları",
+      "install": "Kurulum betiği",
+      "docker": "Docker",
+      "compose": "Docker Compose",
+      "kubernetes": "Kubernetes",
+      "manual": "Manuel"
+    },
+    "tabNote": {
+      "compose": "Birkaç replika birlikte başlayabilir: token'ı kaç worker'ın kullanabileceğini seç.",
+      "kubernetes": "Bir Secret ve bir StatefulSet uygular. Çalıştırdığın replikalar için token'ı kaç worker'ın kullanabileceğini seç."
+    },
+    "os": {
+      "label": "İşletim sistemi",
+      "unix": "Linux ve macOS",
+      "windows": "Windows"
+    },
+    "copyCommand": "Komutu kopyala",
+    "copiedShort": "Kopyalandı",
+    "copied": "Panoya kopyalandı",
+    "copyFailed": "Kopyalanamadı. Metni seç ve kopyala.",
+    "invite": {
+      "title": "P2P daveti",
+      "note": "Tek kullanımlık bir davet bağlantısı. Worker onunla P2P üzerinden katılır: token ve açık port gerekmez.",
+      "ready": "Davet hazır",
+      "single": "Tek kullanımlık",
+      "making": "Davet oluşturuluyor…",
+      "hardware": "Donanım",
+      "how": "Nasıl çalıştırılır",
+      "cli": "Komut satırı"
+    },
+    "wait": {
+      "title": "Worker'ı bekle",
+      "listening": "Worker dinleniyor",
+      "listeningNote": "Komutu yeni makinede başlat. Bu sayfa bağlandığında güncellenir. O zamana kadar hiçbir şey saklanmaz.",
+      "valid": "Token {{time}} boyunca geçerli",
+      "found_one": "Worker bulundu",
+      "found_other": "{{count}} worker bulundu",
+      "open": "Aç",
+      "usesLeft_one": "Token'ın {{count}} kullanım hakkı kaldı.",
+      "usesLeft_other": "Token'ın {{count}} kullanım hakkı kaldı.",
+      "usedUp": "Token'ın kullanım hakkı kalmadı.",
+      "checkPeer": "Onaylamadan önce makinedeki peer ID'yi kontrol et.",
+      "stuck": "Henüz bir şey yok mu? Makinenin bu sunucuya ulaştığını ve komutun hatasız çalıştığını kontrol et.",
+      "stuckInvite": "Henüz bir şey yok mu? Makinenin komutu davet bağlantısıyla çalıştırdığını ve bağlantının süresinin dolmadığını kontrol et.",
+      "another": "Başka bir worker ekle",
+      "done": "Bitti"
+    }
+  }
+}

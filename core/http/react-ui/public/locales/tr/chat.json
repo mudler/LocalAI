@@ -1,0 +1,1092 @@
+{
+  "activity": {
+    "thought": "Düşünce",
+    "tool": "Araç",
+    "result": "Sonuç",
+    "toolResult": "{{name}} sonucu",
+    "thinking": "Düşünüyor...",
+    "toolCall": "Araç çağrısı",
+    "toolCalls_one": "{{count}} araç çağrısı",
+    "toolCalls_other": "{{count}} araç çağrısı"
+  },
+  "header": {
+    "manageModeTooltip": "Bu sohbet, LocalAI ile konuşarak model kurabilir, yapılandırma düzenleyebilir ve backend'leri yönetebilir.",
+    "modelInfo": "Model bilgisi",
+    "chatSettings": "Sohbet ayarları",
+    "modelInfoTitle": "Model Bilgisi: {{model}}",
+    "editConfig": "Yapılandırmayı düzenle",
+    "close": "Kapat",
+    "chatName": "Sohbet adı",
+    "find": "Sohbette bul",
+    "more": "Daha fazla"
+  },
+  "modelInfo": {
+    "backend": "Backend",
+    "modelFile": "Model dosyası",
+    "contextSize": "Bağlam boyutu",
+    "threads": "İş parçacığı",
+    "mcp": "MCP",
+    "configured": "Yapılandırıldı",
+    "chatTemplate": "Sohbet şablonu",
+    "yes": "Evet",
+    "gpuLayers": "GPU katmanları"
+  },
+  "settings": {
+    "title": "Sohbet Ayarları",
+    "manageMode": "Yönetim modu",
+    "focusMode": "Odak modu",
+    "focusModeDesc": "Bir konuşma etkinken kenar çubuğunu daralt ve başlığı inceltir. Esc bunları geçici olarak geri getirir; tam düzeni korumak için bunu kapat.",
+    "behaviour": "Davranış",
+    "conversation": "Bu konuşma",
+    "serverKept": "Sunucu bu sohbeti ve ayarlarını saklar. Yeni bir model veya başlık için sohbetin boşta olması gerekir.",
+    "manageModeOn": "Bu sohbette LocalAI yönetim araçları var. Başka bir tane başlatmak için /assistant kullan.",
+    "agent": "Ajan",
+    "agentHelp": "Bu sohbet {{name}} ajanıyla çalışır: onun yönergeleri ve yalnızca onun verdiği araçlarla.",
+    "editAgent": "Ajanı düzenle",
+    "deleteHelp": "Bu sohbeti ve mesajlarını kalıcı olarak sil.",
+    "collections": "Koleksiyonlar",
+    "collectionsHelp": "Bu sohbet yalnızca bu koleksiyonları kullanabilir.",
+    "answers": "Yanıtlar",
+    "answersHelp": "Bunlar bir sonraki turdan itibaren geçerli olur. Boş alanlar modelin kendi değerlerini kullanır.",
+    "systemPrompt": "Sistem prompt'u",
+    "systemPromptPlaceholder": "Bu sohbetin yönergelerine eklenir",
+    "temperature": "Sıcaklık",
+    "topP": "Top P",
+    "topK": "Top K",
+    "contextSize": "Bağlam boyutu (token)",
+    "reasoningEffort": "Akıl yürütme eforu",
+    "modelDefault": "Model varsayılanı",
+    "effort": {
+      "default": "Varsayılan",
+      "none": "Yok",
+      "minimal": "Asgari",
+      "low": "Düşük",
+      "medium": "Orta",
+      "high": "Yüksek"
+    },
+    "invalid": {
+      "temperature": "0 ile 2 arasında bir sayı kullan.",
+      "topP": "0'dan büyük ve en fazla 1 olan bir sayı kullan.",
+      "topK": "0 veya daha büyük bir tam sayı kullan.",
+      "contextSize": "512 ile 4194304 arasında bir tam sayı kullan.",
+      "effort": "Listelenen değerlerden birini seç."
+    },
+    "save": "Ayarları kaydet",
+    "saving": "Kaydediliyor...",
+    "saved": "Kaydedildi. Sonraki tur bu ayarları kullanır.",
+    "saveFailed": "Ayarlar kaydedilemedi.",
+    "sliderOf": "{{name}} kaydırıcısı",
+    "reset": "{{name}} için model varsayılanını kullan",
+    "hint": {
+      "temperature": "Yüksek değerler daha çeşitli yanıtlar verir. 0 ile 2 arasında.",
+      "topP": "Toplamı bu paya ulaşan en olası sözcükler arasından seçer. 0'dan büyük, en fazla 1.",
+      "topK": "En olası sözcüklerden bu kadarı arasından seçer. 0 veya daha büyük bir tam sayı.",
+      "contextSize": "512 ile 4194304 token arasında.",
+      "effort": "Hemen geçerli olur, sonraki turdan itibaren."
+    }
+  },
+  "empty": {
+    "manageTitle": "LocalAI'yi sohbet ederek yönet",
+    "manageText": "Model kurmasını, backend değiştirmesini, yapılandırma düzenlemesini veya durumu kontrol etmesini iste. Asistan, bir şeyi değiştirmeden önce yapacaklarını özetler ve onayını bekler.",
+    "suggestionsManage": [
+      "Neler kurulu?",
+      "Bir sohbet modeli kur",
+      "Sistem durumunu göster",
+      "Bir backend'i güncelle"
+    ],
+    "suggestionsChat": [
+      "Bunun nasıl çalıştığını açıkla",
+      "Kod yazmama yardım et",
+      "Bir belgeyi özetle",
+      "Fikir üret"
+    ],
+    "title": "Neyin üzerinde çalışıyoruz?",
+    "try": "Dene",
+    "warmReady": "{{model}} yüklü ve hazır.",
+    "coldReady": "{{model}} henüz yüklü değil. İlk yanıt onu yükler.",
+    "hintKeys": "Enter gönderir, Shift+Enter yeni satır ekler. Tüm sohbetler için Ctrl K'ye bas."
+  },
+  "errors": {
+    "viewTraces": "Ayrıntılar için izleri görüntüle"
+  },
+  "actions": {
+    "copy": "Kopyala",
+    "regenerate": "Yeniden oluştur",
+    "jumpToLatest": "En sona git",
+    "reuse": "Düzenle ve yeniden gönder",
+    "editMessage": "Mesajı düzenle",
+    "editHelp": "Düzenlemeyi göndermek, bu mesajdan sonrasını kaldırır ve sohbeti yeniden çalıştırır.",
+    "editSend": "Düzenlemeyi gönder",
+    "editCancel": "İptal",
+    "branch": "Buradan dallandır"
+  },
+  "streaming": {
+    "transferring": "Model aktarılıyor...",
+    "transferringTo": "Model {{node}} düğümüne aktarılıyor...",
+    "waiting": "Yanıt bekleniyor"
+  },
+  "input": {
+    "send": "Mesaj gönder",
+    "stopGenerating": "Üretimi durdur",
+    "placeholderModel": "{{model}} modeline mesaj yaz...",
+    "placeholderNoModel": "Sohbete başlamak için bir model kur",
+    "selectModelFirst": "Önce bir model seç",
+    "placeholderPick": "Başlamak için bir model seç",
+    "placeholderQueue": "Model çalışıyor. Şimdi gönderilen mesaj, modelin bir sonraki adımını bekler."
+  },
+  "deleteAllDialog": {
+    "title": "Tüm Sohbetleri Sil",
+    "message": "Tüm sohbetler silinsin mi? Bu işlem geri alınamaz.",
+    "confirm": "Tümünü sil"
+  },
+  "toasts": {
+    "selectModel": "Lütfen bir model seç",
+    "copied": "Panoya kopyalandı",
+    "copyFailed": "Panoya kopyalanamadı",
+    "chatCopied": "Sohbet panoya kopyalandı",
+    "newChatForModel": "Bir sohbet modelini korur. {{model}} ile yeni bir sohbet başlatıldı.",
+    "branched": "Yeni bir sohbete dallandırıldı.",
+    "notAChat": "Bu dosya bir sohbet dışa aktarımı değil.",
+    "imported": "\"{{title}}\" içe aktarıldı.",
+    "importFailed": "Sohbet içe aktarılamadı: {{message}}",
+    "modelChanged": "Sonraki tur {{model}} modelini kullanır.",
+    "windowSet": "{{model}} modelinin bağlam penceresi artık {{window}} token."
+  },
+  "menu": {
+    "trigger": "Sohbetler",
+    "triggerTitle": "Konuşmalar (Ctrl/Cmd+K)",
+    "search": "Konuşmalarda ara...",
+    "clearSearch": "Aramayı temizle",
+    "noMatch": "Aramanla eşleşen konuşma yok",
+    "noConversations": "Henüz konuşma yok",
+    "rename": "Yeniden adlandır",
+    "copyChat": "Sohbeti kopyala",
+    "exportMarkdown": "Markdown olarak dışa aktar",
+    "deleteChat": "Sohbeti sil",
+    "newChat": "Yeni sohbet",
+    "clearAll": "Tümünü temizle",
+    "deleteAllTitle": "Tüm konuşmaları sil",
+    "title": "Konuşmalar",
+    "noModel": "Model yok",
+    "group": {
+      "today": "Bugün",
+      "yesterday": "Dün",
+      "week": "Bu hafta daha önce",
+      "older": "Daha eski"
+    },
+    "keys": {
+      "move": "gezin",
+      "open": "aç",
+      "rename": "yeniden adlandır",
+      "delete": "sil",
+      "clear": "temizle"
+    },
+    "deleted": "\"{{title}}\" silindi",
+    "undo": "Geri al",
+    "dismiss": "Kapat",
+    "untitled": "Yeni sohbet",
+    "origin": {
+      "trigger": "Bir tetikleyici başlattı",
+      "connector": "Bir bağlayıcıdan",
+      "job": "Bir iş başlattı",
+      "page": "Bir sayfa başlattı",
+      "other": "Başka bir şey başlattı"
+    },
+    "exportJson": "JSON olarak dışa aktar",
+    "importChat": "Sohbeti içe aktar",
+    "originBadge": {
+      "trigger": "Tetikleyici",
+      "connector": "Bağlayıcı",
+      "job": "İş",
+      "page": "Sayfa",
+      "other": "Otomatik"
+    },
+    "find": {
+      "searching": "Aranıyor…",
+      "count_one": "{{count}} sonuç",
+      "count_other": "{{count}} sonuç",
+      "more_one": "Bu sohbette {{count}} eşleşme daha",
+      "more_other": "Bu sohbette {{count}} eşleşme daha",
+      "indexing": "Eski sohbetler hâlâ dizinleniyor. Sonuçlar eksik olabilir.",
+      "partial": "{{total}} sohbetten en yeni {{searched}} tanesinde arandı.",
+      "failed": "Arama başarısız oldu.",
+      "retry": "Yeniden dene",
+      "noMatchFor": "“{{query}}” ile eşleşen sohbet yok.",
+      "noMatchFiltered": "Bu filtrelerle “{{query}}” ile eşleşen sohbet yok.",
+      "inTitle": "Başlıkla eşleşiyor",
+      "you": "Sen",
+      "assistant": "Asistan",
+      "filters": "Arama filtreleri",
+      "agent": "Ajan",
+      "anyAgent": "Herhangi bir ajan",
+      "origin": "Kaynak",
+      "anyOrigin": "Her yer",
+      "originName": {
+        "person": "Sohbetlerim",
+        "automated": "Eklentiler ve otomasyonlar",
+        "trigger": "Tetikleyiciler",
+        "connector": "Mesajlaşma uygulamaları",
+        "job": "İşler",
+        "page": "Sayfalar"
+      },
+      "when": "Zaman",
+      "anyTime": "Her zaman",
+      "range": {
+        "day": "Son 24 saat",
+        "week": "Son 7 gün",
+        "month": "Son 30 gün",
+        "year": "Geçen yıl",
+        "custom": "Tarih seç…"
+      },
+      "from": "Başlangıç",
+      "to": "Bitiş",
+      "reset": "Filtreleri sıfırla"
+    },
+    "clearShown": "Gösterilenleri temizle"
+  },
+  "message": {
+    "you": "Sen",
+    "assistant": "Asistan",
+    "loopRun": "Döngü çalıştırması {{run}}"
+  },
+  "error": {
+    "title": "Yanıt başarısız oldu",
+    "kept": "Şimdiye kadar yazılanlar yukarıda saklanıyor.",
+    "retry": "Yeniden dene",
+    "detail": "Teknik ayrıntı",
+    "reason": {
+      "unknown": "Ajan bir hata nedeniyle durdu. Turu yeniden çalıştırmak için yeniden dene.",
+      "model_backend_missing": "\"{{model}}\" modeli başlatılamadı: backend'i kurulu değil.",
+      "model_backend_missing_anon": "Model başlatılamadı: backend'i kurulu değil.",
+      "model_cooldown": "\"{{model}}\" modeli az önce başlatılamadı ve dinleniyor.",
+      "model_cooldown_anon": "Model az önce başlatılamadı ve dinleniyor.",
+      "model_load_failed": "\"{{model}}\" modeli başlatılamadı.",
+      "model_load_failed_anon": "Model başlatılamadı.",
+      "model_not_found": "\"{{model}}\" modeli bulunamadı.",
+      "model_not_found_anon": "Model bulunamadı.",
+      "upstream_key": "Üst sunucu anahtarı reddetti.",
+      "upstream_path": "Üst sunucu bu isteği o adreste kabul etmiyor.",
+      "upstream_unreachable": "Üst sunucu adresine ulaşılamadı.",
+      "upstream": "Modelin arkasındaki sağlayıcı bir hata döndürdü.",
+      "timeout": "Modelin yanıt vermesi çok uzun sürdü.",
+      "cancelled": "Tur, model yanıt vermeden önce iptal edildi.",
+      "interrupted": "Sunucu yanıt verirken yeniden başladı.",
+      "model_backend_outdated": "\"{{model}}\" modeli başlatılamadı: backend onun için çok eski olabilir.",
+      "model_backend_outdated_anon": "Model başlatılamadı: backend onun için çok eski olabilir."
+    },
+    "hint": {
+      "model_backend_missing": "Başka bir model seç veya bir yöneticiden backend'i kurmasını iste.",
+      "model_backend_missing_admin": "Başka bir model seç veya backend'i Backend'ler sayfasından kur.",
+      "model_cooldown": "{{seconds}} saniye sonra yeniden dene.",
+      "model_load_failed": "Modelin yapılandırmasını ve backend'ini kontrol et, ardından yeniden dene.",
+      "model_not_found": "Başka bir model seç veya bunu Modeller sayfasından kur.",
+      "upstream_key": "Modelin ayarlarındaki API anahtarını kontrol et.",
+      "upstream_path": "Üst sunucu adresi tam endpoint olmalı, örneğin .../v1/chat/completions.",
+      "upstream_unreachable": "Modelin ayarlarındaki adresi kontrol et.",
+      "upstream": "Biraz sonra yeniden dene. Başarısız olmaya devam ederse sağlayıcının adresini ve anahtarını kontrol et.",
+      "timeout": "Yeniden dene veya daha küçük ya da daha hızlı bir model kullan.",
+      "cancelled": "Hazır olduğunda yeniden dene.",
+      "model_backend_outdated": "Bir yöneticiden backend'i güncellemesini iste, ardından yeniden dene.",
+      "model_backend_outdated_admin": "Backend'i Güncellemeler sayfasından güncelle, ardından yeniden dene."
+    },
+    "openBackends": "Backend'leri aç",
+    "titleInterrupted": "Yanıt yarıda kesildi",
+    "resume": {
+      "waiting": "{{seconds}} saniye sonra devam edilecek (deneme {{attempt}} / {{max}}).",
+      "resuming": "Durduğu yerden devam ediliyor.",
+      "server": "Sunucu durduğu yerden devam ediyor.",
+      "exhausted": "{{max}} denemeden sonra devam edilemedi. Tekrar denemek için yeniden dene.",
+      "stop": "Denemeyi bırak"
+    },
+    "updateBackend": "{{backend}} güncelle",
+    "updateBackendBusy": "Güncelleniyor...",
+    "updateBackendStarted": "{{backend}} güncellemesi başladı. Bittiğinde yeniden dene.",
+    "updateBackendFailed": "Güncelleme başlatılamadı.",
+    "openUpdates": "Güncellemeleri aç"
+  },
+  "slash": {
+    "group": {
+      "chat": "Sohbet",
+      "view": "Görünüm",
+      "context": "Bağlam",
+      "skills": "Yetenekler ve ajanlar",
+      "help": "Yardım",
+      "yours": "Senin olanlar"
+    },
+    "model": {
+      "label": "Modeli değiştir",
+      "desc": "Farklı bir sohbet modeli seç"
+    },
+    "new": {
+      "label": "Yeni sohbet",
+      "desc": "Boş bir konuşma başlat"
+    },
+    "chats": {
+      "label": "Konuşmalar",
+      "desc": "Sohbetlerinin listesini aç"
+    },
+    "assistant": {
+      "label": "Yönetim modu",
+      "desc": "LocalAI'yi yönetebilen bir sohbet başlat"
+    },
+    "find": {
+      "label": "Sohbette bul",
+      "desc": "Bu konuşmada ara"
+    },
+    "settings": {
+      "label": "Sohbet ayarları",
+      "desc": "Odak modu, ajan ve model bilgisi"
+    },
+    "export": {
+      "label": "Markdown olarak dışa aktar",
+      "desc": "Bu konuşmayı indir"
+    },
+    "delete": {
+      "label": "Sohbeti sil",
+      "desc": "Bu konuşmayı sil"
+    },
+    "models": {
+      "label": "Modeller",
+      "desc": "Model listesini aç"
+    },
+    "skill": {
+      "label": "Bir yetenek çalıştır",
+      "desc": "Bu sohbetin yeteneklerinden birini seç"
+    },
+    "skills": {
+      "label": "Yetenekleri yönet",
+      "desc": "Yetenek yazmak ve değiştirmek için Yetenekler sayfasını aç"
+    },
+    "agent": {
+      "label": "Kayıtlı bir ajana sor",
+      "desc": "Bir görevi ajanlarından birine ver",
+      "enable": "Bu sohbet için kayıtlı ajanları aç",
+      "enableDesc": "Sonra ajanı seç"
+    },
+    "compact": {
+      "label": "Bağlamı sıkıştır",
+      "desc": "Model için yer açmak üzere eski mesajları özetle"
+    },
+    "clear": {
+      "label": "Bağlamı temizle",
+      "desc": "Bu sohbette baştan başla; mesajlar kalır"
+    },
+    "attach": {
+      "label": "Dosya ekle",
+      "desc": "Gönderilecek dosyaları seç",
+      "clearDesc": "Gönderilmeyi bekleyen dosyaları kaldır"
+    },
+    "help": {
+      "label": "Tüm komutlar",
+      "desc": "Her komutu ne yaptığıyla listele"
+    },
+    "about": {
+      "label": "Bu sohbet hakkında",
+      "desc": "Model, araçlar, yetenekler ve bağlam boyutu"
+    },
+    "args": {
+      "skill": "Yetenekler",
+      "agent": "Kayıtlı ajanlar",
+      "model": "Modeller",
+      "attach": "Dosyalar",
+      "loop": "Döngüler",
+      "goal": "Hedef"
+    },
+    "badge": {
+      "builtin": "yerleşik",
+      "addon": "eklenti",
+      "shared": "paylaşılan",
+      "yours": "senin",
+      "prompt": "prompt",
+      "tool": "araç"
+    },
+    "collides": "yalnızca /skill ile",
+    "errors": {
+      "skill": "Bu sohbette \"{{name}}\" adlı bir yetenek yok.",
+      "agent": "\"{{name}}\" adlı kayıtlı bir ajanın yok.",
+      "agentTask": "{{name}} için görevi addan sonra yaz.",
+      "agentsOff": "Bu sohbet için kayıtlı ajanlar kapalı. Bunları Araçlar menüsünden aç."
+    },
+    "loop": {
+      "label": "Bir prompt'u tekrarla",
+      "desc": "Bu sohbette bir prompt'u tekrar tekrar çalıştır: /loop 5m check the build",
+      "listDesc": "Bu sohbetin döngülerini göster",
+      "stopDesc": "Bir döngüyü veya hepsini durdur",
+      "stopAll": "Tüm döngüler",
+      "stopAllDesc": "Bu sohbetin her döngüsünü durdur"
+    },
+    "goal": {
+      "label": "Hedef",
+      "desc": "Sohbetin kendi kendine üzerinde çalışmaya devam edeceği bir hedef belirle",
+      "clearDesc": "Hedefi kaldır",
+      "resumeDesc": "Hedefe devam et"
+    },
+    "effort": {
+      "label": "Akıl yürütme eforu",
+      "desc": "Modelin ne kadar çok düşüneceğini seç"
+    },
+    "userTool": "{{tool}} aracını kullan.",
+    "unavailable": "araç kullanılamıyor"
+  },
+  "shortcuts": {
+    "title": "Klavye kısayolları",
+    "conversations": "Konuşmalarını aç",
+    "find": "Bu sohbette ara",
+    "actions": "İşlemler",
+    "send": "Gönder",
+    "newline": "Yeni satır",
+    "editLast": "Son mesajını düzenle",
+    "inEmptyBox": "boş kutuda",
+    "stop": "Yanıtı durdur",
+    "moveMessages": "Mesajlar arasında gezin",
+    "onMessage": "Bir mesajda: kopyala, düzenle, dallandır, yeniden oluştur",
+    "close": "Kapat"
+  },
+  "picker": {
+    "readyNow": "şimdi hazır",
+    "fits": "{{amount}} GB boş",
+    "spill": "{{amount}} GB CPU üzerinde çalışır",
+    "over": "Bu makinedekinden {{amount}} GB fazla",
+    "memory": "Bellek",
+    "gpuMemory": "GPU belleği",
+    "memoryUsed": "{{total}} {{unit}} içinden {{used}} kullanımda"
+  },
+  "find": {
+    "placeholder": "Bu sohbette ara",
+    "count": "{{current}} / {{total}}",
+    "none": "Eşleşme yok",
+    "previous": "Önceki eşleşme",
+    "next": "Sonraki eşleşme",
+    "close": "Aramayı kapat"
+  },
+  "load": {
+    "title": "Yükleniyor",
+    "bytes": "{{total}} içinden {{sent}}",
+    "queued": "Mesajın kuyrukta ve model hazır olunca gönderilir. Durdur bunu iptal eder.",
+    "cold": "Bu model henüz yüklü değil, bu yüzden ilk yanıt daha uzun sürer. Mesajın hazır olur olmaz gönderilir."
+  },
+  "noModel": {
+    "title": "Sohbet için bir dil modeli gerekiyor",
+    "body": "Sohbete başlamak için bir tane kur. Buraya yazdıkların kurulum sürerken kalır.",
+    "bodyMember": "Bu sunucuda henüz kurulu bir sohbet modeli yok. Bir yöneticiden bir tane kurmasını iste.",
+    "gallery": "Galeriye göz at",
+    "import": "Model içe aktar"
+  },
+  "tools": {
+    "label": "Araçlar",
+    "title": "Bu sohbetin kullanabileceği araçlar",
+    "heading": "Bu sohbet için araçlar",
+    "draftNote": "Yeni bir sohbet bu anahtarlarla başlar. Kapalı bir araç modele sunulmaz.",
+    "note": "Burada kapalı olan bir araç, bu sohbette modele sunulmaz.",
+    "count": "{{total}} içinden {{on}} açık",
+    "selectAll": "Tümünü seç",
+    "disableAll": "Tümünü devre dışı bırak",
+    "groupOn": "Tümü açık",
+    "groupOff": "Tümü kapalı",
+    "groupOnLabel": "{{group}} grubunun tümünü aç",
+    "groupOffLabel": "{{group}} grubunun tümünü kapat",
+    "groupCount": "{{total}} içinden {{on}}",
+    "optIn": "Sen açana kadar kapalı. Tümünü seç bunu kapalı bırakır.",
+    "empty": "Bu sohbette değiştirilecek bir şey yok.",
+    "failed": "Kaydedilemedi. Anahtar eski hâline döndü.",
+    "unavailable": "Bu sohbette kullanılamıyor",
+    "toolCount_one": "{{count}} araç",
+    "toolCount_other": "{{count}} araç",
+    "optionsOf": "{{name}} seçenekleri",
+    "projectCollections": "Projeden koleksiyonlar: {{names}}."
+  },
+  "skills": {
+    "label": "Yetenekler",
+    "manage": "Yetenekleri yönet",
+    "title": "Bu sohbetin kullanabileceği yetenekler",
+    "heading": "Bu sohbet için yetenekler",
+    "count": "{{total}} içinden {{on}} açık",
+    "selectAll": "Tümünü seç",
+    "disableAll": "Tümünü devre dışı bırak",
+    "selectShown": "Gösterilenleri seç",
+    "disableShown": "Gösterilenleri devre dışı bırak",
+    "search": "Yeteneklerde ara",
+    "noMatch": "“{{query}}” ile eşleşen yetenek yok.",
+    "later": "Sonradan eklediğin yetenekler açık başlar.",
+    "failed": "Kaydedilemedi. Hiçbir şey değişmedi.",
+    "source": {
+      "builtin": "Yerleşik",
+      "personal": "Kişisel",
+      "shared": "Paylaşılan",
+      "folder": "Çalışma alanı",
+      "addon": "{{name}}",
+      "addonFrom": "{{name}} kaynaklı"
+    },
+    "replacedBy": "{{name}} ile değiştirildi",
+    "fallback_one": "Yerleşik {{skills}} kullanımda: {{name}} eklentisinin kendi yeteneği kapalı veya burada çalışmıyor.",
+    "fallback_other": "Yerleşik {{skills}} kullanımda: {{name}} eklentisinin kendi yetenekleri kapalı veya burada çalışmıyor.",
+    "fromProject": "Projeden"
+  },
+  "agent": {
+    "label": "Ajan",
+    "title": "Bu sohbet için kayıtlı ajan",
+    "heading": "Bir ajanla başla",
+    "note": "Ajan, sohbete kendi yönergelerini ve yalnızca verdiği araçları sağlar.",
+    "none": "Ajan yok",
+    "fixed": "Bu sohbetin ajanı"
+  },
+  "assistant": {
+    "chatTitle": "LocalAI asistanı"
+  },
+  "browserImport": {
+    "found_one": "Bu tarayıcıda eski sohbet sayfasından hâlâ {{count}} sohbet var.",
+    "found_other": "Bu tarayıcıda eski sohbet sayfasından hâlâ {{count}} sohbet var.",
+    "import": "İçe aktar",
+    "dismiss": "Şimdi değil",
+    "done": "{{imported}} içe aktarıldı, {{skipped}} atlandı, {{failed}} başarısız.",
+    "failed": "Eski sohbetler içe aktarılamadı: {{message}}"
+  },
+  "meter": {
+    "usedOf": "{{used}} / {{limit}} token (%{{pct}})",
+    "used": "{{used}} token",
+    "speed": "{{speed}} tok/sn",
+    "title": "Son model isteğinin kullandığı bağlam",
+    "ofLimit": "{{used}} / {{limit}} token",
+    "left": "{{left}} kaldı"
+  },
+  "files": {
+    "title": "Bu sohbetteki dosyalar",
+    "button": "Dosyalar",
+    "buttonTitle": "Bu sohbetteki dosyalar: eklediklerin ve asistanın oluşturduğu veya değiştirdikleri",
+    "close": "Dosyaları kapat",
+    "emptyTitle": "Bu sohbette henüz dosya yok",
+    "emptyBody": "Bir sonraki mesajına eklemek için dosyaları buraya bırak. Asistanın oluşturduğu veya değiştirdiği dosyalar da burada görünür.",
+    "dropHint": "Bir sonraki mesajına eklemek için dosyaları buraya bırak.",
+    "groups": {
+      "uploaded": "Senin verdiklerin",
+      "created": "Oluşturulan ve değiştirilen",
+      "working": "Çalışma dosyaları"
+    },
+    "turn": "tur {{n}}",
+    "media": "Bağlamda",
+    "mediaTitle": "Model bu dosyayı mesajınla birlikte görsel veya video olarak aldı",
+    "changedTag": "Düzenlendi",
+    "changedTitle": "Asistan bu dosyayı değiştirdi",
+    "download": "{{name}} indir",
+    "downloadAll": "Tüm dosyaları ZIP olarak indir",
+    "zipName": "chat-files.zip",
+    "zipError": "Dosyalar ZIP olarak indirilemedi.",
+    "error": "Bu sohbetin dosyaları okunamadı.",
+    "workingNote": "Asistanın yol boyunca ürettiği betikler, veriler ve günlükler. Bu sohbetin çalışma klasöründe saklanır."
+  },
+  "steps": {
+    "verb": {
+      "read": "Okundu",
+      "list": "Listelendi",
+      "write": "Kaydedildi",
+      "create": "Oluşturuldu",
+      "change": "Değiştirildi",
+      "move": "Taşındı",
+      "delete": "Silindi",
+      "search": "Arandı",
+      "run": "Çalıştırıldı",
+      "fetch": "Getirildi",
+      "websearch": "Web'de arandı:",
+      "webfetch": "Okundu",
+      "delegate": "Bir ajana soruldu",
+      "used": "Kullanıldı"
+    },
+    "worked": "{{duration}} çalıştı",
+    "thoughtFor": "{{duration}} düşündü",
+    "working": "Çalışıyor",
+    "thinking": "Düşünüyor",
+    "noMatches": "eşleşme yok",
+    "noResults": "sonuç yok",
+    "emptyFolder": "boş klasör",
+    "size": "{{size}}",
+    "seconds": "{{value}} sn",
+    "minutes": "{{min}} dk {{sec}} sn",
+    "tool": "Araç",
+    "input": "Girdi",
+    "showLess": "Daha az göster",
+    "running": "Çalışıyor",
+    "failed": "Başarısız",
+    "count_one": "{{count}} adım",
+    "count_other": "{{count}} adım",
+    "files_one": "{{count}} dosya",
+    "files_other": "{{count}} dosya",
+    "items_one": "{{count}} öğe",
+    "items_other": "{{count}} öğe",
+    "matches_one": "{{count}} eşleşme",
+    "matches_other": "{{count}} eşleşme",
+    "results_one": "{{count}} sonuç",
+    "results_other": "{{count}} sonuç",
+    "lines_one": "{{count}} satır",
+    "lines_other": "{{count}} satır",
+    "showAll_one": "{{count}} satırın tümünü göster",
+    "showAll_other": "{{count}} satırın tümünü göster",
+    "details": "Ayrıntıları göster",
+    "openFile": "{{path}} dosyasını Dosyalar'da aç",
+    "savedFiles": "Dosyalarına kaydedildi:",
+    "fileOp": {
+      "changed": "değiştirildi",
+      "deleted": "silindi"
+    },
+    "moreFiles": "ve {{count}} tane daha",
+    "alsoSavedWorking_one": "Ayrıca {{count}} çalışma dosyası kaydedildi",
+    "alsoSavedWorking_other": "Ayrıca {{count}} çalışma dosyası kaydedildi",
+    "savedWorking_one": "{{count}} çalışma dosyası kaydedildi",
+    "savedWorking_other": "{{count}} çalışma dosyası kaydedildi",
+    "workingTitle": "Çalışma dosyası (bir betik, günlük veya taslak): {{path}} dosyasını aç",
+    "group": {
+      "used_one": "{{count}} araç kullanıldı",
+      "used_other": "{{count}} araç kullanıldı",
+      "calls_one": "{{count}} çağrı",
+      "calls_other": "{{count}} çağrı",
+      "failed_one": "{{count}} başarısız",
+      "failed_other": "{{count}} başarısız"
+    }
+  },
+  "allChats": {
+    "title": "Tüm sohbetler",
+    "supporting": "Sakladığın tüm sohbetler. Ara, yeniden adlandır, dışa aktar veya sil.",
+    "loadFailed": "Sohbetlerin yüklenemedi.",
+    "emptyTitle": "Henüz sohbet yok",
+    "emptyBody": "Bir sohbet Ana Sayfa'da başlar: bir mesaj yaz ve gönder. Sohbetlerin bundan sonra burada listelenir.",
+    "start": "Sohbet başlat",
+    "tabsLabel": "Sohbet listeleri",
+    "tab": {
+      "mine": "Sohbetlerim",
+      "automated": "Eklentilerden ve otomasyonlardan"
+    },
+    "automated": {
+      "intro": "Senin dışında bir şeyin, örneğin bir bağlayıcının, tetikleyicinin veya işin başlattığı konuşmalar. Sohbet listelerinde yer almazlar.",
+      "empty": "Henüz hiçbir şey kendi kendine sohbet başlatmadı.",
+      "kind": {
+        "trigger": "Tetikleyiciler",
+        "connector": "Bağlayıcılar",
+        "job": "İşler",
+        "page": "Sayfalar",
+        "other": "Diğer"
+      },
+      "badge": {
+        "trigger": "Tetikleyici",
+        "connector": "Bağlayıcı",
+        "job": "İş",
+        "page": "Sayfa",
+        "other": "Otomatik"
+      },
+      "chats": "Sohbet sayısı: {{count}}",
+      "lastActive": "Son etkinlik {{when}}",
+      "running": "Çalışıyor",
+      "waiting": "Seni bekliyor",
+      "waitingCount": "Seni bekleyen sohbet sayısı: {{count}}",
+      "open": "{{title}} aç",
+      "showAll": "{{count}} tanesinin tümünü göster",
+      "showLess": "Daha az göster"
+    }
+  },
+  "foot": {
+    "state": {
+      "ready": "Hazır",
+      "nomodel": "Model yok",
+      "sending": "Gönderiliyor",
+      "loading": "Model yükleniyor",
+      "thinking": "Düşünüyor",
+      "tool": "{{tool}} çalışıyor",
+      "answering": "Yanıtlıyor",
+      "waiting": "Seni bekliyor",
+      "stopped": "Durduruldu",
+      "failed": "Başarısız",
+      "interrupted": "Yarıda kesildi",
+      "paused": "Duraklatıldı",
+      "compacting": "Bağlam sıkıştırılıyor",
+      "clearing": "Bağlam temizleniyor"
+    },
+    "tool": {
+      "search": "Arıyor",
+      "list": "Listeliyor",
+      "read": "Okuyor",
+      "create": "Oluşturuyor",
+      "write": "Yazıyor",
+      "change": "Değiştiriyor",
+      "move": "Taşıyor",
+      "delete": "Siliyor",
+      "run": "Bir komut çalıştırıyor",
+      "fetch": "Getiriyor",
+      "delegate": "Bir alt ajana soruyor"
+    },
+    "hint": "Göndermek için Enter · Yeni satır için Shift+Enter",
+    "meter": {
+      "label": "Bağlam %{{pct}} dolu. Bağlamı ve hızı göster",
+      "labelNoLimit": "Bağlam {{used}} token. Bağlamı ve hızı göster"
+    },
+    "details": {
+      "title": "Bağlam ve hız",
+      "context": "Bağlam",
+      "contextOf": "{{limit}} token içinden {{used}} (%{{pct}})",
+      "contextUsed": "{{used}} token",
+      "contextLeft": "{{left}} token kaldı",
+      "contextHelp": "Bağlam, modelin her istekte okuduğu şeydir: yönergeler, bu sohbetin şu ana kadarki kısmı ve araç sonuçları.",
+      "nearFull": "Bu sohbet sınıra yakın. Sunucu, modelin devam edebilmesi için eski kısmı sıkıştırır. Döküm her mesajı saklar.",
+      "limitUnknown": "Sunucu bağlam penceresinin ne kadar büyük olduğunu bildirmedi.",
+      "lastRequest": "Son istek",
+      "model": "Model",
+      "backend": "Backend",
+      "node": "Düğüm",
+      "tokensIn": "Giren token",
+      "tokensOut": "Çıkan token",
+      "firstToken": "İlk token'a kadar süre",
+      "promptTime": "Prompt işleme",
+      "speed": "Hız",
+      "speedLive": "Hız, akış sırasında tahmini",
+      "average": "Son {{count}} isteğin ortalaması",
+      "note": "Bu rakamlar bu sayfanın gördüğü isteklerden gelir. Sunucu bunları saklamaz, bu yüzden yenileme onları temizler."
+    },
+    "paused": {
+      "after": "{{count}} adımdan sonra",
+      "atLimit": "adım sınırında",
+      "continue": "Devam et",
+      "continueTitle": "Model bir turun tüm adımlarını kullandı. Durduğu yerden devam etmesine izin ver.",
+      "message": "Durduğun yerden devam et."
+    }
+  },
+  "attachments": {
+    "label": "Ekli dosyalar",
+    "open": "{{name}} aç",
+    "showMore": "{{count}} tane daha göster",
+    "missing": "Dosya artık mevcut değil"
+  },
+  "preview": {
+    "open": "Önizlemeyi aç",
+    "created": "Asistan oluşturdu",
+    "changed": "Asistan değiştirdi",
+    "yours": "Senin verdiğin",
+    "fromReply": "Yanıttan",
+    "download": "İndir",
+    "downloadCode": "Kodu indir",
+    "copy": "Kopyala",
+    "copied": "Kopyalandı",
+    "openInFiles": "Dosyalar'da aç",
+    "actions": "Dosya işlemleri",
+    "opened": "Önizleme açıldı: {{name}}",
+    "chip": {
+      "created": "Oluşturuldu",
+      "changed": "Değiştirildi",
+      "label": "{{verb}}: {{name}}, önizlemeyi aç",
+      "row": "Bu yanıttaki dosyalar"
+    }
+  },
+  "goal": {
+    "label": "Hedef",
+    "states": {
+      "active": "Üzerinde çalışıyor",
+      "paused": "Duraklatıldı",
+      "done": "Ulaşıldı",
+      "blocked": "Seni bekliyor"
+    },
+    "pausedBy": {
+      "user": "Sen duraklattın.",
+      "turn_limit": "Tüm otomatik turlarını kullandı. Daha fazlasını vermek için sürdür.",
+      "step_limit": "Tüm adımlarını kullandı. Daha fazlasını vermek için sürdür.",
+      "error": "Bir tur başarısız oldu. Yeniden denemek için sürdür.",
+      "interrupted": "Sunucu bir tur sırasında durdu. Devam etmek için sürdür."
+    },
+    "blockedNote": "Senden gereken: {{note}}",
+    "doneNote": "{{note}}",
+    "replaced": "Değiştirildi: {{text}}",
+    "pause": "Duraklat",
+    "pauseTitle": "Çalışan turu durdur ve hedefi duraklat",
+    "resume": "Sürdür",
+    "resumeTitle": "Hedefe devam et",
+    "clear": "Temizle",
+    "clearTitle": "Hedefi kaldır",
+    "progress": "Hedef · tur {{turn}} / {{max}}",
+    "progressStart": "Hedef · başlıyor",
+    "markers": {
+      "set": "Hedef belirlendi",
+      "replaced": "Hedef değiştirildi",
+      "continue": "Hedefe doğru devam ediliyor · tur {{turn}}",
+      "continueStart": "Hedefe doğru devam ediliyor",
+      "paused": "Hedef duraklatıldı",
+      "resumed": "Hedef sürdürüldü",
+      "done": "Hedefe ulaşıldı",
+      "blocked": "Hedef engellendi",
+      "cleared": "Hedef temizlendi"
+    },
+    "announce": {
+      "set": "Hedef belirlendi: {{text}}",
+      "paused": "Hedef duraklatıldı. {{why}}",
+      "resumed": "Hedef sürdürüldü",
+      "done": "Hedefe ulaşıldı: {{note}}",
+      "blocked": "Hedef için sen gerekiyorsun: {{note}}",
+      "cleared": "Hedef temizlendi"
+    },
+    "card": {
+      "title": "Hedef",
+      "none": "Bu sohbetin bir hedefi yok. /goal yaz ve yapılmasını istediğin şeyi ekle, sohbet bunun üzerinde kendi kendine çalışmaya devam eder.",
+      "turns": "Tur {{turn}} / {{max}}",
+      "steps": "{{max}} adımdan {{steps}} tanesi",
+      "clear": "/goal clear onu kaldırır.",
+      "resume": "/goal resume ona devam eder.",
+      "turnsLabel": "Otomatik turlar",
+      "stepsLabel": "Adımlar",
+      "setLabel": "Belirlenme",
+      "stateLabel": "Durum",
+      "noteLabel": "Not"
+    },
+    "errors": {
+      "empty": "/goal sonrasına hedefin ne olduğunu yaz.",
+      "notAllowed": "Yalnızca senin başlattığın bir sohbetin hedefi olabilir."
+    }
+  },
+  "invoked": {
+    "skill": "Yetenek: {{name}}",
+    "agent": "Ajan: {{name}}"
+  },
+  "marker": {
+    "compacted": "Bağlam sıkıştırıldı: {{before}} token'dan {{after}} token'a",
+    "cleared": "Bağlam temizlendi",
+    "clearedHint": "Model bu çizginin üstündeki mesajları görmez."
+  },
+  "cmdcard": {
+    "close": "Kapat",
+    "helpTitle": "Komutlar",
+    "helpSkills_one": "Yetenek: {{names}}. / yaz ve adını ekle.",
+    "helpSkills_other": "{{count}} yetenek: {{names}}. / yaz ve adını ekle.",
+    "helpKeys": "Listeyi açmak için kutuya / yaz. Tab tamamlar, Enter çalıştırır, Esc kapatır.",
+    "aboutTitle": "Bu sohbet",
+    "model": "Model",
+    "state": "Durum",
+    "loaded": "Yüklü",
+    "notLoaded": "Yüklü değil",
+    "backend": "Backend",
+    "tools": "Araçlar",
+    "toolsOn_one": "{{count}} açık",
+    "toolsOn_other": "{{count}} açık",
+    "skills": "Yetenekler",
+    "skillsOn_one": "{{count}} yetenek",
+    "skillsOn_other": "{{count}} yetenek",
+    "commands": "Komutlar",
+    "isolated": "Yalıtılmış çalıştır",
+    "host": "Bu makinede çalıştır",
+    "noCommands": "Çalıştırılamaz",
+    "context": "Bağlam",
+    "contextOf": "{{limit}} token içinden {{used}}",
+    "contextUsed": "{{used}} token",
+    "unknown": "Henüz bilinmiyor",
+    "commandsUnknown": "Komut yalıtımı bilinmiyor"
+  },
+  "agentFolder": {
+    "home": "Ana klasör",
+    "chip": "{{name}}, {{mode}}",
+    "read": "salt okunur",
+    "write": "okuma ve değiştirme",
+    "titleRead": "Bu sohbet yalnızca {{path}} klasörünü görür ve okuyabilir",
+    "titleWrite": "Bu sohbet yalnızca {{path}} klasörünü görür, okuyabilir ve değiştirebilir",
+    "toolsRead": "Dosyalar: yalnızca {{path}}, salt okunur. Paylaşılan klasörler ve yetenekler okunabilir kalır.",
+    "toolsWrite": "Dosyalar: yalnızca {{path}}, okuma ve değiştirme. Paylaşılan klasörler ve yetenekler okunabilir kalır.",
+    "chipMissing": "Klasör eksik",
+    "missing": "Bu ajanın klasörü yok. Ajanda başka bir klasör seç.",
+    "startError": "Bu ajanın klasörü eksik, bu yüzden sohbet başlayamıyor. Ajan için başka bir klasör seç.",
+    "editAgent": "Ajanı düzenle",
+    "toolsMany": "Dosyalar: yalnızca {{n}} klasör: {{list}}. Paylaşılan klasörler ve yetenekler okunabilir kalır.",
+    "projectPaused": "Bu ajan duraklatıldı çünkü projesi arşivlendi veya silindi. Projeyi aç ve geri yükle.",
+    "projectChanged": "Bu ajan duraklatıldı çünkü projesinin klasörleri değişti. Ajanı aç ve yeniden bağla."
+  },
+  "origin": {
+    "banner": "Bu konuşmayı {{title}} başlattı.",
+    "open": "{{title}} aç",
+    "kindFallback": {
+      "trigger": "bir tetikleyici",
+      "connector": "bir bağlayıcı",
+      "job": "bir iş",
+      "page": "bir sayfa",
+      "other": "başka bir şey"
+    }
+  },
+  "connector": {
+    "header": "Mesajlaşma konuşması",
+    "unknownSender": "Bilinmeyen gönderen",
+    "people": "Bu konuşmadaki kişiler",
+    "inThread": "Konu",
+    "openThread": "Mesajlaşma uygulamasında aç",
+    "where": {
+      "direct": "Doğrudan mesaj",
+      "channel": "Kanal {{name}}",
+      "group": "Kanal veya grup"
+    },
+    "standing": {
+      "owner": "Sahip",
+      "verified": "Rolü var",
+      "listed": "Listedeki kişi",
+      "channel": "Kanal üyesi",
+      "anyone": "Herkes"
+    },
+    "standingHelp": {
+      "owner": "Doğrulanmış kişi: bu hesabı sahibi denetler.",
+      "verified": "Sahibin hak tanıdığı bir role sahip.",
+      "listed": "Bu bağlantının listesinde.",
+      "channel": "Kanal veya grup listede olduğu için içeri alındı.",
+      "anyone": "Bağlantı herkesi kabul ettiği için içeri alındı."
+    },
+    "threadEarlier": "Konuda daha önce ({{count}} mesaj)",
+    "threadCut": "Konunun eski mesajları gösterilmiyor.",
+    "note": {
+      "paired": "Bu botla doğrulandı",
+      "unsupported": "Mesaj okunmadı",
+      "too_long": "Mesaj çok uzun",
+      "no_upload": "Dosyalar kabul edilmiyor",
+      "rate": "Çok fazla mesaj",
+      "held_back": "Bazı araçlar bu göndericiye sunulmadı",
+      "new_chat": "Yeni sohbet başlatıldı",
+      "refused": "Mesaj reddedildi",
+      "hold_waiting": "Doğrulanmış bir kişinin onaylaması bekleniyor",
+      "hold_confirmed": "Sohbette onaylandı",
+      "hold_cancelled": "Sohbette iptal edildi",
+      "hold_expired": "Zamanında onaylanmadı",
+      "hold_failed": "Yapılamadı",
+      "other": "Not",
+      "why": "Neden"
+    }
+  },
+  "connection": {
+    "lost": "Bağlantı koptu. Yeniden bağlanılıyor."
+  },
+  "reasoning": {
+    "chip": "Efor",
+    "title": "Bu sohbet için akıl yürütme eforu",
+    "note": "Sonraki turdan itibaren geçerli olur. Yok, modelden düşünmemesini ister."
+  },
+  "setup": {
+    "chip": "Ön ayar",
+    "title": "Yeni sohbetleri kayıtlı bir ön ayardan başlat",
+    "edited": "düzenlendi",
+    "menuTitle": "Ön ayarlar",
+    "empty": "Henüz ön ayar yok. Kullandığın modeli, araçları ve eforu bir ön ayar olarak kaydet.",
+    "active": "Kullanımda",
+    "noneOff": "Varsayılan araçlar",
+    "toolsOff_one": "{{count}} anahtar kapalı",
+    "toolsOff_other": "{{count}} anahtar kapalı",
+    "effort": "Efor: {{level}}",
+    "saveAs": "Geçerli ön ayarı şu adla kaydet…",
+    "manage": "Ön ayarları yönet",
+    "agentReason": "Kayıtlı bir ajan bu sohbetin modeline ve araçlarına karar verir.",
+    "modelMissing": "Bu ön ayarın “{{model}}” modeli kurulu değil. Geçerli model kalır.",
+    "line": {
+      "noTools": "Araç yok",
+      "toolCount_one": "{{count}} araç",
+      "toolCount_other": "{{count}} araç"
+    },
+    "update": "“{{name}}” ön ayarını güncelle",
+    "saveNew": "Yeni olarak kaydet…",
+    "reset": "Sıfırla",
+    "nameLabel": "Ön ayar adı",
+    "namePlaceholder": "Bu ön ayara bir ad ver",
+    "save": "Kaydet",
+    "cancel": "İptal",
+    "limit": "En fazla 50 ön ayarın olabilir.",
+    "defaultName": "Varsayılanım",
+    "savedToast": "Bu sohbet ön ayarı “{{name}}” olarak kaydedildi. Yeni sohbetler bundan başlar.",
+    "rename": "Yeniden adlandır",
+    "manageTitle": "Ön ayarları yönet",
+    "manageNote": "Varsayılan ön ayar, yeni sohbetlerin başladığı ön ayardır. Son mesajını gönderdiğin ön ayarı izler.",
+    "manageEmpty": "Henüz ön ayar yok.",
+    "done": "Bitti",
+    "default": "Varsayılan",
+    "makeDefault": "Varsayılan yap",
+    "moveUp": "{{name}} yukarı taşı",
+    "moveDown": "{{name}} aşağı taşı",
+    "renameLabel": "Ön ayarın adı",
+    "remove": "Sil",
+    "removeConfirm": "“{{name}}” silinsin mi?",
+    "removeYes": "Sil",
+    "noModel": "Model yok"
+  },
+  "live": {
+    "button": "Canlı",
+    "title": "Bu sohbetle eller serbest konuş",
+    "mode": "Standart",
+    "waiting": "Yanıt bekleniyor",
+    "reason": {
+      "insecure": {
+        "short": "HTTPS veya localhost gerekiyor",
+        "detail": "Tarayıcın mikrofon erişimini yalnızca HTTPS, localhost veya 127.0.0.1 üzerinden verir. Canlı'yı kullanmak için bu sayfayı bu adreslerden birinden aç."
+      },
+      "no-mic": {
+        "short": "Mikrofon yok",
+        "detail": "Bu tarayıcı bu sayfaya bir mikrofon sunmuyor. Canlı'yı kullanmak için başka bir tarayıcı dene."
+      }
+    },
+    "state": {
+      "off": "Kapalı",
+      "starting": "Tarayıcı izni bekleniyor",
+      "listening": "Dinliyor",
+      "hearing": "Seni duyuyor",
+      "transcribing": "Yazıya döküyor",
+      "thinking": "Düşünüyor",
+      "speaking": "Konuşuyor",
+      "blocked": "Ses seni bekliyor",
+      "paused": "Duraklatıldı",
+      "error": "Canlı'nın ilgiye ihtiyacı var"
+    },
+    "mute": "Sessize al",
+    "unmute": "Sesi aç",
+    "stop": "Durdur",
+    "typeInstead": "Bunun yerine yaz",
+    "end": "Canlı'yı bitir",
+    "retry": "Yeniden dene",
+    "play": "Oynat",
+    "blocked": "Tarayıcın sesi engelledi. Yanıtı duymak için Oynat'a bas.",
+    "hidden": "Bu sekme arka plandayken Canlı duraklatılır. Geri döndüğünde devam eder.",
+    "error": {
+      "denied": "Mikrofon erişimi engellendi. Tarayıcında bu site için mikrofona izin ver, ardından Yeniden dene'ye bas. Bunun yerine yazabilirsin de.",
+      "unavailable": "Mikrofon açılamadı. Bağlı olduğunu ve başka bir uygulama tarafından kullanılmadığını kontrol et, ardından Yeniden dene'ye bas.",
+      "transcribe": "Konuşman metne dönüştürülemedi. Yazıya dökme modelini kontrol et, ardından Yeniden dene'ye bas.",
+      "send": "Mesajın sohbete gönderilemedi. Yeniden dinlemek için Yeniden dene'ye bas.",
+      "turn": "Sohbetin yanıtı okunamadı, bu yüzden seslendirilmedi. Yeniden dinlemek için Yeniden dene'ye bas.",
+      "speech": "Yanıt sesi oynatılamadı. Konuşma modelini kontrol et, ardından Yeniden dene'ye bas.",
+      "generic": "Canlı devam edemedi."
+    },
+    "setup": {
+      "title": "Canlı'yı kur",
+      "description": "Canlı, konuşmanı metne çevirmek için bir modele ve konuşmak için bir modele ihtiyaç duyar. İkisi de bu LocalAI örneğinde çalışır.",
+      "part": {
+        "stt": "Konuşmadan metne",
+        "tts": "Ses"
+      },
+      "hint": {
+        "stt": "Söylediklerini metne çevirir.",
+        "tts": "Yanıtı yüksek sesle okur."
+      },
+      "install": "Kur",
+      "installing": "Kuruluyor",
+      "installLabel": "{{model}} kur",
+      "retryLabel": "{{model}} kurulumunu yeniden dene",
+      "installed": "Kuruldu",
+      "progress": "{{model}} kurulum ilerlemesi",
+      "failed": "{{model}} kurulumu başarısız oldu.",
+      "failedGeneric": "Kurulum başlatılamadı.",
+      "adminTitle": "Bu modelleri bir yönetici kurmalı.",
+      "adminNote": "Bu örneğin bir yöneticisinden yukarıdaki modelleri kurmasını iste. Canlı, ikisi de kurulduğunda çalışır.",
+      "working": "{{models}} kuruluyor",
+      "ready": "İki model de kurulu. Canlı hazır.",
+      "start": "Canlı'yı başlat",
+      "close": "Kapat",
+      "notShown": "Kuruldu, ancak model görünmedi. Yeniden dene veya sayfayı yenile."
+    }
+  },
+  "readAloud": {
+    "read": "Sesli oku",
+    "stop": "Okumayı durdur",
+    "ask": "Varsayılan metinden konuşmaya modelin her seferinde sorulacak şekilde ayarlı. Sesli okumak için Varsayılanlar'da bir model seç.",
+    "none": "Kurulu metinden konuşmaya modeli yok.",
+    "missing": "Varsayılan metinden konuşmaya modelin kurulu değil. Varsayılanlar'da başka bir tane seç.",
+    "failed": "Bu sesli okunamadı.",
+    "omitted": {
+      "code": "Kod bloğu atlandı.",
+      "table": "Tablo atlandı."
+    }
+  },
+  "deleteShownDialog": {
+    "title": "Gösterilen sohbetleri sil",
+    "message_one": "{{project}} içinde gösterilen {{count}} sohbet silinsin mi? Bu işlem geri alınamaz.",
+    "message_other": "{{project}} içinde gösterilen {{count}} sohbet silinsin mi? Bu işlem geri alınamaz.",
+    "confirm": "Gösterilenleri sil"
+  }
+}

@@ -12,11 +12,12 @@ import fr from './i18n/discord.fr.json'
 import zh from './i18n/discord.zh-CN.json'
 import id from './i18n/discord.id.json'
 import ko from './i18n/discord.ko.json'
+import tr from './i18n/discord.tr.json'
 import pt from './i18n/discord.pt-BR.json'
 import { DISCORD_LISTS, PERMISSIONS, isChannelId, PERMISSION_INTEGER, badEntries, discordSecret, inviteUrl, tokenProblem } from './ids'
 
 // The words of the page, in every language of the web UI; a key a language lacks reads in English.
-registerLocales({ discord: { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
+registerLocales({ discord: { en, it, es, de, fr, 'zh-CN': zh, id, ko, tr, 'pt-BR': pt } })
 
 // The bot token. It is typed only to replace it.
 function DiscordToken({ form, setForm, t }) {

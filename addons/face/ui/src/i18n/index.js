@@ -10,7 +10,8 @@ import es from './face.es.json'
 import fr from './face.fr.json'
 import id from './face.id.json'
 import ko from './face.ko.json'
+import tr from './face.tr.json'
 import pt_BR from './face.pt-BR.json'
 import zh_CN from './face.zh-CN.json'
 
-export const locales = { en, it, de, es, fr, id, ko, 'pt-BR': pt_BR, 'zh-CN': zh_CN }
+export const locales = { en, it, de, es, fr, id, ko, tr, 'pt-BR': pt_BR, 'zh-CN': zh_CN }

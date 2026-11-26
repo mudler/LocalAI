@@ -1,0 +1,342 @@
+{
+  "cluster": {
+    "vram": "Küme VRAM",
+    "ram": "Küme RAM",
+    "nodesOnline": "{{healthy}}/{{total}} düğüm çevrimiçi"
+  },
+  "resourceGpu": "GPU",
+  "resourceRam": "RAM",
+  "greeting": {
+    "morning": "Günaydın",
+    "afternoon": "İyi günler",
+    "evening": "İyi akşamlar",
+    "night": "Geç saatte çalışıyorsun"
+  },
+  "statusLine": {
+    "modelsLoaded_one": "{{count}} model yüklü",
+    "modelsLoaded_other": "{{count}} model yüklü",
+    "noModelsLoaded": "Yüklü model yok",
+    "nodes_one": "{{count}} düğüm",
+    "nodes_other": "{{count}} düğüm",
+    "loadedLabel": "Yüklü",
+    "nodesLabel": "Düğümler"
+  },
+  "assistant": {
+    "title": "LocalAI'yi sohbet ederek yönet",
+    "description": "LocalAI ile konuşarak model kur, backend değiştir, yapılandırmaları düzenle ve durumu kontrol et.",
+    "open": "Asistanı aç",
+    "tooltip": "LocalAI'yi sohbet ederek yönet",
+    "dismiss": "Gizle",
+    "noModel": "Önce bir sohbet modeli seç.",
+    "startFailed": "Asistan sohbeti başlatılamadı: {{message}}",
+    "chatTitle": "LocalAI Asistanı"
+  },
+  "input": {
+    "placeholder": "Mesaj...",
+    "attachFile": "Dosya ekle",
+    "dropFiles": "Eklemek için dosyaları bırak",
+    "dropFilesNote": "Dosyaları mesaja eklemek için bırak.",
+    "enterToSend": "Göndermek için Enter",
+    "selectModelFirst": "Önce bir model seç",
+    "sendMessage": "Mesaj gönder",
+    "selectModelToast": "Lütfen önce bir model seç",
+    "pdfReadFailed": "{{name}} dosyasından metin okunamadı. Taranmış, şifreli veya hasarlı olabilir.",
+    "placeholderFirstRun": "Sohbete başlamak için bir model kur",
+    "label": "Mesaj",
+    "slashHint": "İşlemler için <kbd>/</kbd> yaz",
+    "enterHint": "Göndermek için Enter, yeni satır için Shift+Enter",
+    "send": "Gönder",
+    "removeFile": "{{name}} dosyasını kaldır",
+    "stop": "Durdur",
+    "dictate": "Dikte et (konuşmadan metne)",
+    "dictateStop": "Kaydı durdur",
+    "dictateBusy": "Yazıya dökülüyor…",
+    "dictateEmpty": "Konuşma algılanmadı.",
+    "dictateFailed": "Yazıya dökme başarısız oldu: {{error}}",
+    "dictateNoMic": "Mikrofon kullanılamıyor: {{error}}",
+    "pdfScannedAsImages": "{{name}} dosyasında metin katmanı yok (tarama). {{total}} sayfanın {{count}} tanesi, görüntü anlayan bir model için görsel olarak eklendi."
+  },
+  "quickLinks": {
+    "manageByChat": "Sohbetle yönet",
+    "installedModels": "Kurulu Modeller",
+    "browseGallery": "Galeriye Göz At",
+    "importModel": "Model İçe Aktar",
+    "documentation": "Dokümantasyon"
+  },
+  "loadedModels": {
+    "heading": "Etkin modeller",
+    "count_one": "{{count}} model yüklü",
+    "count_other": "{{count}} model yüklü",
+    "stop": "Modeli durdur",
+    "stopAll": "Tümünü durdur",
+    "serving": "Hizmet veriyor"
+  },
+  "stopDialog": {
+    "title": "Modeli Durdur",
+    "message": "{{model}} modeli durdurulsun mu?",
+    "confirm": "{{model}} modelini durdur",
+    "stopAllTitle": "Tüm Modelleri Durdur",
+    "stopAllMessage": "Yüklü {{count}} modelin tümü durdurulsun mu?",
+    "stopAllConfirm": "Tümünü durdur",
+    "stoppedToast": "{{model}} durduruldu",
+    "allStoppedToast": "Tüm modeller durduruldu",
+    "stopFailed": "Durdurulamadı: {{message}}"
+  },
+  "wizard": {
+    "getStarted": "{{name}} ile başla",
+    "intro": "Başlamak için ilk modelini kur. Galeriye göz at ya da kendi modelini içe aktar.",
+    "steps": {
+      "step1Title": "Model Galerisine Göz At",
+      "step1Body": "Seçilmiş koleksiyonumuzdan ihtiyacına uygun modeli bul.",
+      "step2Title": "Bir Model Kur",
+      "step2Body": "Kur'a tıkla, model otomatik olarak indirilip yapılandırılsın.",
+      "step3Title": "Sohbete Başla",
+      "step3Body": "Modelinle doğrudan tarayıcıdan sohbet et ya da API'yi kullan.",
+      "step4Title": "Ajanlarını bağla",
+      "step4Body": "Bir API anahtarı oluştur, sonra bir kodlama ajanı bağla: {{agents}}. Rehber adresi ve anahtarı senin için doldurur.",
+      "step5Title": "LocalAI'yi bir eklentiyle genişlet",
+      "step5Body": "Eklentiler LocalAI'ye yeni yetenekler getirir. Onları kitaplıktan kur."
+    },
+    "browseGallery": "Model Galerisine Göz At",
+    "importModel": "Model İçe Aktar",
+    "docs": "Dokümanlar",
+    "noModelsTitle": "Kullanılabilir Model Yok",
+    "noModelsBody": "Henüz kurulu model yok. Sohbete başlayabilmen için yöneticinden modelleri kurmasını iste.",
+    "guideLabel": "Başlarken",
+    "connectAgents": "Bir kodlama ajanı bağla",
+    "browseAddons": "Eklentilere göz at"
+  },
+  "starters": {
+    "title": "Makinen için önerilenler",
+    "tier": {
+      "cpu": "Yalnızca CPU",
+      "gpu-small": "Küçük GPU",
+      "gpu-mid": "Orta seviye GPU",
+      "gpu-large": "Büyük GPU"
+    },
+    "cpuNote": "GPU algılanmadı. Bu modeller işlemcide de akıcı kalır.",
+    "gpuNote": "Ekran kartına sığacak ve tam bir sohbete yer bırakacak şekilde seçildi.",
+    "install": "Kur",
+    "installing": "Kuruluyor",
+    "installStarted": "{{model}} kuruluyor…",
+    "installFailed": "Kurulum başarısız oldu: {{message}}",
+    "undetected": "Donanımını algılayamadık, bu yüzden bunlar GPU'suz bir bilgisayar için olan modeller.",
+    "cluster": "Kümendeki en iyi makineye göre boyutlandırıldı.",
+    "nothingFits": "Önerilen modellerin hiçbiri bu makineye sığmıyor. Bu en küçüğü; yavaş çalışabilir veya yüklenemeyebilir.",
+    "facts": {
+      "size": "{{size}} indirme",
+      "window": "{{window}} bağlam",
+      "memory": "yaklaşık {{memory}} kullanımda"
+    },
+    "fit": {
+      "tight": "Zor sığıyor",
+      "does_not_fit": "Sığmıyor"
+    },
+    "reasons": {
+      "little_headroom": "Sığıyor ama çok az boş bellek bırakıyor.",
+      "below_chat_minimum": "Bağlam penceresi sohbet için çok küçük olurdu.",
+      "exceeds_memory": "Bu makinenin sahip olduğundan daha fazla belleğe ihtiyaç duyuyor.",
+      "estimate_unavailable": "Bellek kullanımı tahmin edilemedi.",
+      "hardware_unknown": "Donanımın okunamadı, bu yüzden sığıp sığmadığı kontrol edilmedi."
+    },
+    "more": "Daha fazla model",
+    "fewer": "Daha az model",
+    "askAdmin": "Yalnızca bir yönetici model kurabilir. Yöneticinden bunlardan birini kurmasını iste.",
+    "installModel": "{{model}} modelini kur"
+  },
+  "connect": {
+    "title": "Tek endpoint, her API",
+    "subtitle": "LocalAI kendi tam API'sini sunar: görsel ve video üretimi, derinlik, nesne algılama, yeniden sıralama (reranking), ses, yüz ve ses tanıma, ayrıca WebRTC ve WebSocket üzerinden gerçek zamanlı ses. Bunun üstüne, hazır bir uyumluluk katmanı OpenAI, Anthropic, Ollama veya OpenAI Responses için yazılmış her uygulamanın onunla değişiklik yapmadan konuşmasını sağlar.",
+    "nativeTitle": "Yerel API",
+    "compatTitle": "Hazır uyumluluk",
+    "apiReference": "Tam API başvurusu",
+    "copy": "Kopyala",
+    "copied": "Kopyalandı",
+    "browse": "API'ye göz at",
+    "hide": "Endpoint'leri gizle",
+    "dismiss": "Gizle",
+    "hideSection": "Bu bölümü gizle",
+    "agentsLink": "Bir kodlama ajanı bağla: bir API anahtarı oluştur ve yapılandırmasını kopyala"
+  },
+  "jump": {
+    "heading": "Kaldığın yerden devam et",
+    "move": "gezin",
+    "resume": "Devam et",
+    "group": {
+      "today": "Bugün",
+      "yesterday": "Dün",
+      "week": "Bu hafta daha önce",
+      "older": "Daha eski"
+    },
+    "messages_one": "{{count}} mesaj",
+    "messages_other": "{{count}} mesaj",
+    "delete": "Konuşmayı sil",
+    "deleteNamed": "Konuşmayı sil: {{title}}",
+    "deleted": "\"{{title}}\" silindi",
+    "undo": "Geri al",
+    "dismissToast": "Gizle",
+    "showMore_one": "{{count}} eski konuşmayı göster",
+    "showMore_other": "{{count}} eski konuşmayı göster",
+    "emptyTitle": "Konuşmaların burada seni bekleyecek.",
+    "emptyBody": "Güne göre ve yanıtlayan modelle birlikte gruplanırlar. j ve k ile gez, Enter ile devam et.",
+    "hasImage": "Görsel içeriyor",
+    "noModel": "Model yok",
+    "examples": "Slash işlemleri",
+    "allChats": "Tüm sohbetler"
+  },
+  "picker": {
+    "loading": "Modeller yükleniyor",
+    "none": "Sohbet modeli yok",
+    "noneSelected": "Seçili model yok",
+    "chooseModel": "Bir model seç",
+    "defaultMissing": "Varsayılan modelin {{model}} kurulu değil. Bir model seç.",
+    "title": "Bu mesaj için modeli seç",
+    "filter": "Modelleri filtrele",
+    "label": "Model",
+    "heading": "Sohbet modelleri",
+    "noMatch": "Eşleşen model yok.",
+    "warm": "hazır",
+    "cold": "yüklü değil",
+    "loadedNow": "Şu an yüklü",
+    "installed": "Kurulu",
+    "vision": "Görselleri anlar",
+    "aliasOf": "{{target}} takma adı",
+    "aliasBroken": "bozuk takma ad",
+    "disabled": "devre dışı",
+    "pinned": "sabitlenmiş",
+    "useTyped": "\"{{name}}\" kullan",
+    "empty": "Kullanılabilir model yok",
+    "add": "Model ekle",
+    "remove": "{{name}} öğesini kaldır",
+    "clear": "Temizle"
+  },
+  "slash": {
+    "label": "İşlemler",
+    "move": "gezin",
+    "close": "kapat",
+    "commandDiagnostics": "Uygulama komutu tanılama",
+    "apps": {
+      "label": "Uygulamalar",
+      "desc": "Kurulu uygulamalara göz at"
+    },
+    "group": {
+      "addons": "Uygulamalar",
+      "chat": "Sohbet",
+      "models": "Modeller",
+      "go": "Git"
+    },
+    "model": {
+      "label": "Model değiştir",
+      "desc": "Farklı bir sohbet modeli seç"
+    },
+    "new": {
+      "label": "Yeni sohbet",
+      "desc": "Boş bir konuşma başlat"
+    },
+    "chat": {
+      "label": "Tüm sohbetler",
+      "desc": "Sohbetlerini bul, yeniden adlandır ve sil"
+    },
+    "assistant": {
+      "label": "Sohbetle yönet",
+      "desc": "Konuşarak model kur ve yapılandır"
+    },
+    "gallery": {
+      "label": "Galeriye göz at",
+      "desc": "Model bul ve kur"
+    },
+    "installed": {
+      "label": "Kurulu modeller",
+      "desc": "Kurulu olanları gör ve yönet"
+    },
+    "import": {
+      "label": "Model içe aktar",
+      "desc": "Kendi model dosyalarını ekle"
+    },
+    "stop": {
+      "label": "Bir modeli durdur",
+      "desc": "Bir modeli bellekten kaldırarak bellek boşalt"
+    },
+    "settings": {
+      "label": "Ayarlar",
+      "desc": "LocalAI'nin nasıl çalışacağını değiştir"
+    },
+    "docs": {
+      "label": "Dokümantasyon",
+      "desc": "localai.io adresini yeni sekmede aç"
+    },
+    "agents": {
+      "label": "Ajanlar",
+      "desc": "Kayıtlı ajanların, tetikleyicilerin ve yeteneklerin"
+    },
+    "mcp": {
+      "label": "MCP bağlayıcıları",
+      "desc": "Sohbetlerinin kullanabileceği MCP sunucuları"
+    },
+    "memory": {
+      "label": "Bilgi",
+      "desc": "Sohbetlerinin arayabileceği bilgi"
+    },
+    "complete": "tamamla"
+  },
+  "strip": {
+    "label": "Bellek",
+    "noneLoaded": "Yüklü model yok",
+    "modelsLoaded_one": "model yüklü",
+    "modelsLoaded_other": "model yüklü",
+    "modelsOn_one": "model açık",
+    "modelsOn_other": "model açık",
+    "nodes_one": "düğüm",
+    "nodes_other": "düğüm",
+    "gpus_one": "{{count}} GPU",
+    "gpus_other": "{{count}} GPU",
+    "memoryLabel": "Kullanımdaki bellek",
+    "ramLabel": "Kullanımdaki sistem RAM'i",
+    "nodesLabel": "Düğümler",
+    "progress": "{{name}} ilerlemesi",
+    "staging": "{{name}} hazırlanıyor",
+    "stagingTo": "hedef: {{node}}",
+    "failed": "hazırlanamadı",
+    "firstRun": "Çalışan model yok. Bir model yüklendiğinde bellek kullanımı burada görünür."
+  },
+  "notice": {
+    "appUnavailable": "Uygulama artık kullanılamıyor.",
+    "loadFailedTitle": "LocalAI modellerini yükleyemedi",
+    "loadFailedBody": "Sunucu yanıt vermedi. Çalıştığını kontrol et, sonra yeniden dene.",
+    "retry": "Yeniden dene",
+    "stagingFailedTitle": "{{name}} hazırlanamadı",
+    "stagingFailedBody": "Model bir düğüme gönderilemedi. Başka hiçbir şey değiştirilmedi.",
+    "stagingFailedBodyNode": "Model {{node}} düğümüne gönderilemedi. Başka hiçbir şey değiştirilmedi.",
+    "openActivity": "Etkinliği aç",
+    "details": "Ayrıntılar",
+    "addonsOffTitle": "Bu sunucuda eklentiler kapalı",
+    "addonsOffAdmin": "{{name}} bir eklenti. LocalAI'yi eklentiler açık olarak başlat, sonra Eklentiler'den kur.",
+    "addonsOffReader": "{{name}} bir eklenti. Bir yöneticiden eklentileri açmasını iste.",
+    "addonsDownTitle": "Eklentiler şu an yanıt vermiyor",
+    "addonsDownBody": "{{name}} bir eklenti. Birazdan yeniden dene.",
+    "addonsRetry": "Yeniden dene",
+    "thisPage": "O sayfa",
+    "addonsDocs": "Eklentiler nasıl açılır",
+    "dismiss": "Gizle"
+  },
+  "library": {
+    "label": "Kitaplık"
+  },
+  "remoteSetup": {
+    "where": {
+      "title": "Modellerin nerede çalışıyor?",
+      "local": "Bu makinede",
+      "remote": "Başka bir sunucuda veya hizmette",
+      "remoteIntro": "Başka bir yerde zaten çalışan bir modele bağlan. Yerel modelleri sonra kurabilirsin.",
+      "remoteNote": "Uzak modeller için önerilen model ve bağlam boyutu kontrolleri atlanır."
+    },
+    "step1Title": "Bir uzak örneğe bağlan",
+    "step1Body": "Türü seç, sonra LocalAI'nin ona ulaşabildiğini kontrol et.",
+    "step2Title": "Modelleri seç",
+    "step2Body": "Seçtiğin her model burada bir model olur.",
+    "done": "{{name}} bağlandı. {{count}} model eklendi.",
+    "done_other": "{{name}} bağlandı. {{count}} model eklendi.",
+    "skipped": "{{count}} model eklenmedi:",
+    "skipped_other": "{{count}} model eklenmedi:"
+  }
+}

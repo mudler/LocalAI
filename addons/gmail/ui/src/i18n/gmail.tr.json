@@ -1,0 +1,83 @@
+{
+  "title": "Gmail",
+  "intro": "Ajanlarının Google hesabındaki postayı okumasına izin ver. İzin verirsen taslak da kaydedebilir ve gönderebilirler; Hepsine izin ver'i seçmediysen her birini sen onaylarsın.",
+  "limits": "Bağlantı eklemek ve Google hesabında oturum açmak için Google ile bağlan'ı seç. Bu sayfa her bağlantının etiketlerini ve yazma modunu ayarlar. Bir ajan, posta kutunda yalnızca bir sohbette ondan istediğinde çalışır.",
+  "edit": "Gmail bağlantısını düzenle",
+  "name": "Ad",
+  "labels": "Ajanın kullanabileceği etiketler",
+  "labelsHelp": "Her satıra bir etiket adı veya kimliği. Boşluklu adı tire ile yaz. {{count}} listelendi. Ajan yalnızca bu etiketlerden birini taşıyan postaya ulaşır. Tüm posta kutusunu vermek için ALL yaz.",
+  "labelsShape": "\"{{entry}}\" bir etiket değil. Bir etiketin adını veya kimliğini ya da ALL kullan.",
+  "labelsMany": "En fazla 50 etiket.",
+  "allNote": "ALL, ajana bu hesabın okuyabildiği her postayı, her etiketle birlikte, bir modelin görmesini hiç istemediğin postalar dahil verir. Mümkünse bunun yerine bir etiket kullan.",
+  "agent": "Ajan",
+  "agentNone": "Bir ajan seç",
+  "agentCredentialsOnly": "Ajan yok (yalnızca kimlik bilgileri)",
+  "agentOptionalHint": "İsteğe bağlı. Ajan olmadan bu bağlantı yalnızca girişi, etiket listesini ve sohbetlerin için yazma modunu tutar. Hiçbir mesaja yanıt vermez ve hiçbir şeyi dinlemez.",
+  "credentialsOnly": "Yalnızca kimlik bilgileri",
+  "agentNoModel": "{{name}} (model gerekli)",
+  "test": "Sına",
+  "testOk": "{{bot}} olarak bağlandı.",
+  "checkFailed": "Kaydedildi. Kontrol başarısız oldu: {{reason}}",
+  "save": "Kaydet",
+  "cancel": "İptal",
+  "editButton": "Düzenle",
+  "delete": "Sil",
+  "empty": "Henüz Gmail bağlantısı yok. Eklemek için Google ile bağlan'ı seç.",
+  "connect": "Google ile bağlan",
+  "defaultName": "Gmail",
+  "noLabels": "Listelenmiş etiket yok: ajan hiçbir şey okuyamaz.",
+  "labelsOf": "{{count}} etiket: {{list}}",
+  "allMailbox": "Tüm posta kutusu",
+  "agentOf": "Ajan: {{name}}",
+  "inactive": "Çalışmıyor: {{reason}}.",
+  "confirmDelete": {
+    "title": "{{name}} silinsin mi?",
+    "message": "Ajan artık bu posta kutusuna ulaşamaz. LocalAI, Google'dan girişi iptal etmesini ister, sonra onu unutur.",
+    "confirm": "Sil"
+  },
+  "setup": {
+    "title": "Etiketler nasıl seçilir",
+    "step1": "Bir Gmail etiketinin adını yaz, örneğin Work, veya INBOX ya da STARRED gibi bir sistem etiketi. Boşluklu bir ad tire ile yazılır.",
+    "step2": "Ajan yalnızca etiketi taşıyan postaya ulaşır. Spam ve çöp kutusu hiçbir zaman aranmaz. Ajan tüm posta kutusunu okuyabilecekse yalnızca o zaman ALL yaz.",
+    "step3": "Aşağıdaki yazma modu için, bağlanırken isteğe bağlı erişime de izin verilmesi gerekir. Onsuz ajan yalnızca okuyabilir."
+  },
+  "writeMode": {
+    "label": "Ajanın postanla yapabilecekleri",
+    "hint": "Taslak kaydedebilir ve var olan bir taslağı gönderebilir. Postayı asla silmez, çöpe atmaz, etiketlemez veya iletmez ve ayarlarını asla değiştirmez.",
+    "off": "Salt okunur",
+    "propose": "Önce sana sorar",
+    "auto": "Hepsine izin ver",
+    "line": {
+      "off": "Hiçbir şey kaydedemez veya gönderemez.",
+      "propose": "Her taslak ve her gönderim senin onayını bekler.",
+      "auto": "Sohbetlerin taslakları kaydeder ve hemen gönderir."
+    },
+    "note": {
+      "off": "Yazma erişimi kapalı: bu bağlantı yalnızca okur.",
+      "propose": "Her taslak ve her gönderim, sen onaylayana kadar onaylarında bekler. Önce alıcıları ve metni görürsün. Ayrıca bağlanırken izin verdiğin isteğe bağlı yazma erişimi gerekir.",
+      "auto": "Senin bir sohbetin taslakları kaydeder ve postayı sormadan hemen gönderir. Gönderilen posta geri alınamaz. Sen yokken çalışan işler yine de onayını bekler. Ayrıca bağlanırken izin verdiğin isteğe bağlı yazma erişimi gerekir."
+    },
+    "row": {
+      "off": "Salt okunur",
+      "propose": "Önce sana sorar",
+      "auto": "Hepsine izin ver"
+    }
+  },
+  "approval": {
+    "action": {
+      "create-draft": "Taslak kaydet",
+      "send-draft": "E-posta gönder"
+    },
+    "to": "Kime",
+    "cc": "Cc",
+    "bcc": "Bcc",
+    "subject": "Konu",
+    "none": "(yok)",
+    "replyTo": "Yanıt adresi",
+    "attachments": "Ekler",
+    "text": "Metin ({{bytes}} bayt)",
+    "cut": "Burada gösterilen metin kısaltıldı. Metnin tamamı, {{bytes}} bayt, kaydedilir.",
+    "draftNote": "Bu, Gmail'inde bir taslak kaydeder. Göndermez.",
+    "sendNote": "Bu, Gmail'inden yukarıdaki kişilere bir e-posta gönderir. Gönderilen e-posta geri alınamaz."
+  }
+}

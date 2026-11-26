@@ -1,0 +1,415 @@
+{
+  "manage": {
+    "title": "Sistem",
+    "subtitle": "Kurulu modelleri ve backend'leri yönet"
+  },
+  "settings": {
+    "title": "Ayarlar",
+    "subtitle": "LocalAI çalışma zamanı ayarlarını yapılandır",
+    "saved": "Ayarlar başarıyla kaydedildi",
+    "saveFailed": "Kaydedilemedi: {{message}}",
+    "loadFailed": "Ayarlar yüklenemedi: {{message}}",
+    "autoUpgradeAddons": "Eklentileri otomatik güncelle",
+    "sections": {
+      "branding": "Markalama",
+      "watchdog": "Watchdog",
+      "memory": "Bellek",
+      "backends": "Backend'ler",
+      "performance": "Performans",
+      "tracing": "İzleme",
+      "api": "API ve CORS",
+      "p2p": "P2P",
+      "galleries": "Galeriler",
+      "apikeys": "API Anahtarları",
+      "agents": "Ajan İşleri",
+      "agentpool": "Ajan Havuzu",
+      "assistant": "LocalAI Asistanı",
+      "distributed": "Dağıtık",
+      "responses": "Responses"
+    },
+    "loadFailedTitle": "Ayarlar yüklenemedi.",
+    "egress": {
+      "title": "Komutların ağı",
+      "intro": "İzole çalışan komutlar ağa yalnızca, her bağlantıyı LocalAI'ye soran bir proxy üzerinden ulaşır. Sınırı, yeni bir sohbetin ön ayarını, portları, ek kayıt defterlerini ve denetim saklama süresini aşağıda belirle; her sohbetin ön ayarını sınıra kadar bir kişi o sohbetin Araçlar menüsünden seçer ve engellenmiş bir ana makineye bir kart üzerinden izin verir.",
+      "serves": "Komutlar {{name}} eklentisinde izole çalışır",
+      "servesHost": "Komutlar bu makinede {{name}} üzerinden çalışır",
+      "servesNone": "Henüz komut çalıştıran bir eklenti yok",
+      "hostNote": "Ana makine backend'i komutları bu makinede, onun ağıyla çalıştırır: bu ayarlar onlar için geçerli değildir.",
+      "counts": "Son 24 saat: {{allowed}} izin verildi, {{blocked}} engellendi.",
+      "private": "Bir yöneticinin kuralının özel ağlara ulaşmasına izin ver",
+      "privateWarning": "Bir yöneticinin izin verdiği ana makine, ağının içindeki adreslere ulaşabilir. Tek başına bir ön ayar bunu asla yapmaz ve bulut meta verisi ile sunucu adresleri reddedilmeye devam eder.",
+      "typePhrase": "Açmak için şunu yaz: {{phrase}}",
+      "registries": "Paket kayıt defterleri ({{count}})",
+      "showAudit": "Denetimi göster",
+      "hideAudit": "Denetimi gizle",
+      "loadFailed": "Komutların ağ ayarları okunamadı",
+      "audit": {
+        "verdict": "Karar",
+        "host": "Ana makine",
+        "user": "Kullanıcı",
+        "at": "Ne zaman",
+        "reason": "Neden",
+        "bytes": "Giden / gelen bayt",
+        "refresh": "Yenile",
+        "empty": "Eşleşen istek yok.",
+        "loadFailed": "Denetim okunamadı",
+        "verdicts": {
+          "any": "Herhangi bir karar",
+          "allow": "İzin verildi",
+          "block": "Engellendi",
+          "done": "Bitti"
+        }
+      }
+    },
+    "addons": {
+      "title": "Eklentiler",
+      "hint": "Eklentilerin getirdiği ayarlar",
+      "intro": "Her eklenti ayarlarını kendi sayfasında, ayrıntılarının Ayarlar sekmesinde tutar. Değiştirmek için birini aç.",
+      "off": "Kapalı. Ayarlarını değiştirmek için aç.",
+      "open": "Ayarları aç",
+      "openNamed": "{{name}} ayarlarını aç",
+      "count_one": "Ayarı olan {{count}} eklenti",
+      "count_other": "Ayarı olan {{count}} eklenti"
+    },
+    "hosts": {
+      "add": "Ekle",
+      "listLabel": "Her zaman izin verilen ana makineler",
+      "remove": "{{host}} öğesini kaldır",
+      "empty": "Henüz ana makine yok. Bir ana makine adı ya da portu sabitlemek için host:port yaz.",
+      "hint": "Yalnızca tam adlar. Bir porta izin vermek için :port ekle; aksi halde komutların ağ portları geçerli olur.",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "Bir ana makine adı yaz.",
+        "wildcard": "\"{{value}}\": bir desen değil, tam bir ana makine adı yaz.",
+        "shape": "\"{{value}}\" bir ana makine adı değil. Yalnızca ana makineyi yaz, şema veya yol olmasın.",
+        "port": "\"{{value}}\": port 1 ile 65535 arasında olmalı ve 22 ile 25 her zaman reddedilir.",
+        "private": "\"{{value}}\" özel veya yerel bir adres. Önce özel ağ anahtarını aç.",
+        "numeric": "\"{{value}}\": bir IP adresini dört ondalık sayı olarak yaz.",
+        "duplicate": "\"{{value}}\" zaten listede.",
+        "full": "Liste en fazla {{max}} ana makine alır."
+      }
+    },
+    "network": {
+      "title": "Komutların ağı",
+      "where": "{{name}}, çalıştırdığı komutların ağ ayarlarını kendi sayfasında tutar."
+    },
+    "addonUpdates": {
+      "label": "Eklenti güncellemeleri",
+      "note": "Bu ayarı eklentinin sahibi uygular. Yeni nesiller çalıştırılabilir kod çalıştırabilir.",
+      "unavailable": "Sahip ayarları kullanılamıyor veya değişti: {{message}}",
+      "reload": "Yeniden yükle ve düzenlemeleri yeniden uygula",
+      "retry": "Aynı işlemi yeniden dene",
+      "policy": "Sahip politikası · revizyon {{revision}}",
+      "apply": "Güncelleme ayarını uygula"
+    }
+  },
+  "traces": {
+    "title": "İzler",
+    "subtitle": "Kaydedilen API isteklerini, yanıtlarını ve backend işlemlerini görüntüle"
+  },
+  "users": {
+    "title": "Kullanıcılar",
+    "subtitle": "Giriş yapabilen kişiler ve her birinin neleri kullanabildiği.",
+    "invite": "Birini davet et",
+    "summary": {
+      "label": "Kullanıcılara bir bakış",
+      "total": "Kullanıcılar",
+      "totalUnit": "toplam",
+      "active": "Etkin",
+      "activeUnit": "giriş yapabilir",
+      "waiting": "Onay bekleyen",
+      "waitingUnit": "kayıt",
+      "admins": "Yöneticiler",
+      "adminsUnit": "/ {{count}}"
+    },
+    "filters": {
+      "label": "Kullanıcıları filtrele",
+      "all": "Tümü",
+      "pending": "Bekleyen",
+      "admins": "Yöneticiler",
+      "disabled": "Devre dışı",
+      "inactive": "30+ gün pasif"
+    },
+    "popover": {
+      "signIn": "Giriş yöntemi",
+      "access": "Erişim",
+      "any": "Herhangi",
+      "custom": "Özel erişim"
+    },
+    "search": {
+      "label": "Ada veya e-postaya göre ara",
+      "placeholder": "Ad veya e-posta ara"
+    },
+    "sort": {
+      "label": "Sırala",
+      "name": "Ad",
+      "role": "Rol",
+      "status": "Durum",
+      "provider": "Giriş",
+      "lastActive": "Son etkinlik",
+      "keys": "API anahtarları"
+    },
+    "refresh": "Kullanıcıları yenile",
+    "loading": "Kullanıcılar yükleniyor",
+    "region": "Kullanıcılar",
+    "caption": "Rolü, erişimi, durumu, son etkinliği ve API anahtarlarıyla kullanıcılar",
+    "columns": {
+      "user": "Kullanıcı",
+      "role": "Rol",
+      "access": "Erişim",
+      "status": "Durum",
+      "lastActive": "Son etkinlik",
+      "keys": "Anahtarlar",
+      "actions": "İşlemler"
+    },
+    "role": {
+      "admin": "yönetici",
+      "user": "kullanıcı"
+    },
+    "state": {
+      "active": "Etkin",
+      "pending": "Bekliyor",
+      "disabled": "Devre dışı"
+    },
+    "access": {
+      "all": "Tüm erişim",
+      "default": "Varsayılan erişim",
+      "models_one": "Yalnızca {{count}} model",
+      "models_other": "Yalnızca {{count}} model",
+      "more_one": "{{count}} özellik fazla",
+      "more_other": "{{count}} özellik fazla",
+      "fewer_one": "{{count}} özellik eksik",
+      "fewer_other": "{{count}} özellik eksik",
+      "limits_one": "{{count}} sınır",
+      "limits_other": "{{count}} sınır"
+    },
+    "noName": "(adsız)",
+    "you": "sen",
+    "created": "Oluşturulma: {{date}}",
+    "never": "Hiç",
+    "approve": "Kullanıcıyı onayla",
+    "approveShort": "Onayla",
+    "enable": "Etkinleştir",
+    "disable": "Kullanıcıyı devre dışı bırak",
+    "disableFor": "{{name}} kullanıcısını devre dışı bırak",
+    "editAccessFor": "{{name}} için erişimi düzenle",
+    "actionsFor": "{{name}} için işlemler",
+    "showing": "{{total}} kullanıcıdan {{shown}} tanesi gösteriliyor.",
+    "cancel": "İptal",
+    "undo": "Geri al",
+    "dismiss": "Gizle",
+    "menu": {
+      "editAccess": "Erişimi düzenle",
+      "makeAdmin": "Yönetici yap",
+      "makeUser": "Kullanıcı yap",
+      "resetPassword": "Şifreyi sıfırla",
+      "delete": "Sil…"
+    },
+    "sheet": {
+      "account": "Hesap",
+      "activity": "Etkinlik",
+      "apiKeys": "API anahtarları"
+    },
+    "empty": {
+      "title": "Henüz kullanıcı yok",
+      "body": "Kişiler kayıt olduğunda veya bir daveti kabul ettiğinde burada görünür."
+    },
+    "noMatch": {
+      "title": "Eşleşen kullanıcı yok",
+      "body": "Farklı bir arama veya filtre dene.",
+      "clear": "Filtreleri temizle"
+    },
+    "error": {
+      "title": "Kullanıcılar yüklenemedi.",
+      "stale": "Sunucuya ulaşılamıyor.",
+      "staleNote": "Aşağıdaki liste şu zamandan: {{when}}."
+    },
+    "toast": {
+      "approved": "{{name}} onaylandı",
+      "disabled": "{{name}} devre dışı bırakıldı",
+      "approveFailed": "Kullanıcı onaylanamadı: {{message}}",
+      "disableFailed": "Kullanıcı devre dışı bırakılamadı: {{message}}",
+      "disabledUndo": "{{name}} devre dışı bırakıldı. Geri al, kullanıcıyı yeniden etkin yapar.",
+      "restored": "{{name}} yeniden etkin",
+      "restoreFailed": "Kullanıcı geri yüklenemedi: {{message}}",
+      "roleChanged": "{{name}} artık {{role}}",
+      "roleFailed": "Rol güncellenemedi: {{message}}",
+      "deleted": "Kullanıcı silindi",
+      "deleteFailed": "Kullanıcı silinemedi: {{message}}",
+      "passwordReset": "{{name}} için şifre sıfırlandı",
+      "resetFailed": "Şifre sıfırlanamadı: {{message}}"
+    },
+    "reset": {
+      "title": "Şifreyi sıfırla",
+      "description": "{{name}} için yeni bir şifre belirle. Mevcut tüm oturumlar geçersiz kılınacak.",
+      "label": "Yeni şifre",
+      "placeholder": "Yeni şifre (en az 12 karakter)",
+      "confirm": "Şifreyi sıfırla",
+      "busy": "Sıfırlanıyor…",
+      "anyway": "Yine de bu şifreyi kullan"
+    },
+    "delete": {
+      "title": "Kullanıcıyı sil",
+      "description": "Bu, oturumlarını ve API anahtarlarını da kaldırır. Bu işlem geri alınamaz.",
+      "type": "Onaylamak için <n>{{name}}</n> yaz",
+      "confirm": "Sil",
+      "busy": "Siliniyor…"
+    }
+  },
+  "usage": {
+    "title": "Kullanım",
+    "subtitle": "API token kullanım istatistikleri",
+    "sources": {
+      "tab": "Kaynaklar",
+      "mixTitle": "Kaynak dağılımı",
+      "ribbonAria": "%{{apikey}} API anahtarı, %{{web}} Web arayüzü, %{{legacy}} Eski",
+      "topSources": "Zaman içinde en çok kullanılan kaynaklar",
+      "searchPlaceholder": "Ada veya önek ile ara",
+      "sortBy": "Sırala",
+      "sortTokens": "Token'lar",
+      "sortRequests": "İstekler",
+      "sortLastUsed": "Son kullanım",
+      "sortName": "Ad",
+      "sortUser": "Kullanıcı",
+      "webUI": "Web arayüzü",
+      "legacy": "Eski",
+      "revoked": "geçersiz kılındı",
+      "filteredTo": "Filtre: {{name}}",
+      "clearFilter": "Filtreyi temizle",
+      "other": "Diğer ({{count}})",
+      "noTrafficShort": "Bu dönemde istek yok.",
+      "noKeysYet": "İstekler gelmeye başladığında burada dökümünü göreceksin.",
+      "createKey": "İlk API anahtarını oluştur",
+      "truncatedWarning": "En çok kullanılan 200 anahtar gösteriliyor. Daha fazla daraltmak için bir filtre uygula."
+    }
+  },
+  "tabs": {
+    "users": "Kullanıcılar",
+    "invites": "Davetler",
+    "keys": "API anahtarları"
+  },
+  "settingsTools": {
+    "intro": "Sohbetlerin, bir eklentinin değiştirebileceği birkaç yerleşik aracı vardır. Eklenti kurulu, çalışıyor ve bir sohbet için açıksa sohbet aynı adla eklentinin aracını kullanır.",
+    "empty": "Bu sunucuda yönetilebilecek yerleşik araç yok.",
+    "loadFailed": "Yerleşik araçlar okunamadı",
+    "switch": "Açık",
+    "byBuiltin": "Yerleşik",
+    "byAddon": "Eklenti: {{name}}",
+    "byNone": "Kapalı",
+    "unavailable": "Bu sunucu bunu çalıştıramıyor: {{reason}}.",
+    "replaceExplain": "Bu eklentiler {{tool}} aracının yerini alır: seçilen, açık ve çalışır durumda olduğu her sohbette onu sunar ve yerleşik olan gizlenir. Yalnızca biri etkin olabilir. Sen seçene kadar ilk kurulan sunar.",
+    "defaultInstalledFirst": "Varsayılan: ilk kurulan",
+    "installedOn": "Kurulum: {{when}}",
+    "choose_one": "{{count}} eklenti {{tool}} aracının yerini alıyor: hangisinin kullanılacağını seç.",
+    "choose_other": "{{count}} eklenti {{tool}} aracının yerini alıyor: hangisinin kullanılacağını seç.",
+    "labels": {
+      "bash": "Komutlar (bash)",
+      "web_search": "Web araması",
+      "web_fetch": "İnternetteki sayfaları oku",
+      "list_agents": "Kayıtlı ajanlar",
+      "localai_client": "LocalAI istemci araçları",
+      "localai_admin": "LocalAI yönetici araçları"
+    },
+    "descriptions": {
+      "bash": "Hiçbir eklenti bash sunmadığında sohbetler için komutları ve kodu doğrudan bu makinede çalıştırır. Komutları izole çalıştıran bir eklenti onun yerini alır.",
+      "web_search": "Sohbetler için anahtarsız web araması yapar (DuckDuckGo, sonra Brave Search, sonra Bing) ya da ayarlanmışsa kendi SearXNG örneğinle.",
+      "web_fetch": "Sohbetler için herkese açık bir web sayfasını veya dosyayı adresiyle okur. Ağının içindeki adresler, izin vermediğin sürece reddedilir.",
+      "list_agents": "Bir sohbetin kullanıcının kayıtlı ajanlarını listelemesini ve birini alt ajan olarak başlatmasını sağlar. Her sohbet bunu kendi Araçlar menüsünden açar.",
+      "localai_client": "Sohbetlerin, burada kurulu modelleri görsel, konuşma, ses, video, embedding ve algılama için, her kullanıcının izinleri dahilinde çalıştırmasını sağlar.",
+      "localai_admin": "Yöneticilerin sohbetlerinin bu sunucuyu yönetmesini sağlar: modeller, backend'ler, ayarlar ve durum. Her sohbet ya da kayıtlı ajan bunu açar."
+    },
+    "bash": {
+      "switch": "Sohbetlerin bu makinede komut çalıştırmasına izin ver",
+      "modeLegend": "Komutları kimler çalıştırabilir",
+      "ask": "Her seferinde sor.",
+      "askHint": "Yalnızca yöneticilerin sohbetleri bunu alır ve her komut, sohbette onların evet demesini bekler.",
+      "on": "Herkese izin ver.",
+      "onHint": "Her kullanıcının sohbetleri burada komutları sormadan çalıştırır; zamanlanmış çalıştırmalar ve alt ajanlar da dahil.",
+      "default": "Ayarlanmamış: varsayılan geçerli ({{mode}}).",
+      "warning": "Komutlar, LocalAI'nin çalıştığı kullanıcı olarak, izolasyon olmadan ve bu makinenin ağıyla çalışır: LocalAI'nin okuyabildiğini okuyabilir; internete, ağına ve LocalAI API'sine ulaşabilir. Her komut günlüğe kaydedilir. Komutları izole eden bir eklenti kur."
+    },
+    "modes": {
+      "off": "kapalı",
+      "ask": "her seferinde sor",
+      "on": "herkese izin verildi"
+    },
+    "skillsTitle": "Eklentilerin yerini aldığı yetenekler",
+    "skillsIntro": "Bir eklenti, yerleşik bir yeteneğin yerine kendi araçları için yazılmış kendi yeteneğini koyabilir. Birden fazla eklenti birinin yerini alıyorsa sunacak olanı seç.",
+    "skillLabel": "{{skill}} yeteneği",
+    "skillNotRunning": "Seçilen eklenti çalışmıyor: yerleşik yetenek sunuyor.",
+    "toolNotRunning": "Bu aracın yerini alan eklenti çalışmıyor: yerleşik araç sunuyor.",
+    "stopped": "durduruldu",
+    "webTest": {
+      "intro": "Kayıtlı ayarlardaki her arama sağlayıcısıyla bir sorgu çalıştırır ve her birinin ne yaptığını gösterir. Önce değişikliklerini uygula.",
+      "queryLabel": "Sorgu",
+      "run": "Aramayı test et",
+      "running": "Test ediliyor…",
+      "answered": "Sohbetler {{host}} sonuçlarını alır.",
+      "noneAnswered": "Hiçbir sağlayıcı yanıt vermedi.",
+      "failed": "Test çalıştırılamadı: {{error}}",
+      "results_one": "{{count}} sonuç",
+      "results_other": "{{count}} sonuç",
+      "outcomes": {
+        "ok": "Çalışıyor",
+        "no_results": "Sonuç yok",
+        "challenged": "Bot kontrolü",
+        "blocked": "Engellendi",
+        "timeout": "Çok yavaş",
+        "error": "Hata",
+        "skipped": "Atlandı"
+      }
+    },
+    "addonSettings": "{{name}} ayarları"
+  },
+  "invites": {
+    "title": "Birini davet et",
+    "description": "Bir kişinin kayıt olmasını sağlayan bir bağlantı oluştur. Bağlantı, süresi dolana kadar çalışır.",
+    "close": "Kapat",
+    "lifetime": "Yeni davet bağlantısı şu süre geçerli",
+    "life": {
+      "24": "1 gün",
+      "168": "7 gün",
+      "720": "30 gün"
+    },
+    "generate": "Davet bağlantısı oluştur",
+    "created": "Davet bağlantısı oluşturuldu",
+    "createFailed": "Davet oluşturulamadı: {{message}}",
+    "copiedToast": "Davet URL'si panoya kopyalandı",
+    "copyFailed": "URL kopyalanamadı",
+    "copyUrl": "Davet URL'sini kopyala",
+    "copy": "Kopyala",
+    "revoked": "Davet geçersiz kılındı",
+    "revokeFailed": "Davet geçersiz kılınamadı: {{message}}",
+    "loading": "Davetler yükleniyor",
+    "loadFailed": "Davetler yüklenemedi.",
+    "region": "Davetler",
+    "caption": "Kimin oluşturduğu ve kullandığıyla davet bağlantıları",
+    "empty": {
+      "title": "Davet bağlantısı yok.",
+      "body": "Birinin kayıt olmasını sağlamak için bir tane oluştur."
+    },
+    "columns": {
+      "link": "Davet bağlantısı",
+      "createdBy": "Oluşturan",
+      "usedBy": "Kullanan",
+      "expires": "Geçerlilik",
+      "actions": "İşlemler"
+    },
+    "state": {
+      "open": "Kullanılabilir",
+      "used": "Kullanıldı",
+      "expired": "Süresi doldu"
+    },
+    "revoke": "Geçersiz kıl",
+    "revokeTitle": "Daveti geçersiz kıl",
+    "revokeDialog": {
+      "title": "Daveti geçersiz kıl",
+      "description": "Bağlantı hemen çalışmayı bırakır. Onunla zaten kayıt olmuş kişiler hesaplarını korur.",
+      "body": "{{prefix}} ile başlayan davet bağlantısı geçersiz kılınsın mı?"
+    }
+  },
+  "apiKeys": {
+    "title": "API anahtarları",
+    "subtitle": "Bu sunucuyu çağıran programlar için kendi anahtarların."
+  }
+}
