@@ -169,23 +169,88 @@ var _ = Describe("convertORToolsToOpenAIFormat", func() {
 	})
 })
 
-var _ = Describe("splitResponsesToolName", func() {
-	DescribeTable("splits only flattened namespace names", func(flat, wantNamespace, wantName string) {
-		namespace, name := splitResponsesToolName(flat)
-		Expect(namespace).To(Equal(wantNamespace))
-		Expect(name).To(Equal(wantName))
-	},
-		Entry("flattened name", "ns_mcp__docs___search", "mcp__docs", "search"),
-		Entry("plain function", "exec_command", "", "exec_command"),
-		Entry("prefix without separator", "ns_docs", "", "ns_docs"),
-		Entry("empty member name", "ns_docs___", "", "ns_docs___"),
+var _ = Describe("namespace tool names", func() {
+	namespaceTool := func(namespace string, members ...string) schema.ORFunctionTool {
+		tool := schema.ORFunctionTool{Type: "namespace", Name: namespace}
+		for _, m := range members {
+			tool.Tools = append(tool.Tools, schema.ORFunctionTool{Type: "function", Name: m})
+		}
+		return tool
+	}
+	call := func(name string) schema.ORItemField {
+		return schema.ORItemField{Type: "function_call", CallID: "call_1", Name: name, Arguments: "{}"}
+	}
+	output := func(tools []schema.ORFunctionTool, name string) schema.ORItemField {
+		input := &schema.OpenResponsesRequest{Tools: tools}
+		response := buildORResponse("resp_1", 1, nil, schema.ORStatusCompleted, input, []schema.ORItemField{call(name)}, nil, false)
+		Expect(response.Output).To(HaveLen(1))
+		return response.Output[0]
+	}
+
+	DescribeTable("returns the namespace and name the client declared",
+		func(namespace, name string) {
+			tools := []schema.ORFunctionTool{namespaceTool(namespace, name)}
+			item := output(tools, responsesToolName(namespace, name))
+			Expect(item.Namespace).To(Equal(namespace))
+			Expect(item.Name).To(Equal(name))
+		},
+		Entry("plain namespace", "mcp__docs", "search"),
+		// Codex sanitizes the server "docs-" to the namespace "mcp__docs_".
+		Entry("namespace ending in _", "mcp__docs_", "search"),
+		Entry("namespace containing ___", "mcp___docs", "search"),
+		Entry("member name starting with _", "mcp__docs", "_search"),
 	)
 
-	It("round-trips responsesToolName", func() {
-		namespace, name := splitResponsesToolName(responsesToolName("mcp__docs", "search"))
-		Expect(namespace).To(Equal("mcp__docs"))
-		Expect(name).To(Equal("search"))
-		Expect(responsesToolName("", "search")).To(Equal("search"))
+	It("does not split a plain function whose name looks flattened", func() {
+		tools := []schema.ORFunctionTool{{Type: "function", Name: "ns_x___y"}}
+		item := output(tools, "ns_x___y")
+		Expect(item.Namespace).To(BeEmpty())
+		Expect(item.Name).To(Equal("ns_x___y"))
+	})
+
+	It("does not split a call to an undeclared name", func() {
+		item := output(nil, "ns_mcp__docs___search")
+		Expect(item.Namespace).To(BeEmpty())
+		Expect(item.Name).To(Equal("ns_mcp__docs___search"))
+	})
+
+	It("keeps a plain function when a namespace member flattens to its name", func() {
+		tools := []schema.ORFunctionTool{
+			namespaceTool("x", "y"),
+			{Type: "function", Name: "ns_x___y"},
+		}
+		converted := convertORToolsToOpenAIFormat(tools)
+		Expect(converted).To(HaveLen(1))
+		Expect(converted[0].Function.Name).To(Equal("ns_x___y"))
+
+		item := output(tools, "ns_x___y")
+		Expect(item.Namespace).To(BeEmpty())
+		Expect(item.Name).To(Equal("ns_x___y"))
+	})
+
+	It("skips a later namespace member that flattens to the same name", func() {
+		// ("a", "b___c") and ("a___b", "c") both flatten to "ns_a___b___c".
+		tools := []schema.ORFunctionTool{
+			namespaceTool("a", "b___c"),
+			namespaceTool("a___b", "c"),
+		}
+		converted := convertORToolsToOpenAIFormat(tools)
+		Expect(converted).To(HaveLen(1))
+		Expect(converted[0].Function.Name).To(Equal("ns_a___b___c"))
+
+		item := output(tools, "ns_a___b___c")
+		Expect(item.Namespace).To(Equal("a"))
+		Expect(item.Name).To(Equal("b___c"))
+	})
+
+	It("drops namespace members that are not functions", func() {
+		tools := []schema.ORFunctionTool{{Type: "namespace", Name: "mcp__docs", Tools: []schema.ORFunctionTool{
+			{Type: "custom", Name: "apply_patch"},
+			{Type: "function", Name: "search"},
+		}}}
+		converted := convertORToolsToOpenAIFormat(tools)
+		Expect(converted).To(HaveLen(1))
+		Expect(converted[0].Function.Name).To(Equal("ns_mcp__docs___search"))
 	})
 })
 

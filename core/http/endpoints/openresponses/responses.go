@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -484,9 +483,10 @@ func convertORItemToMessage(item *schema.ORItemField, responseID string) (schema
 		reasoning := extractReasoningContentFromORItem(item)
 		return schema.Message{Role: "assistant", Reasoning: stringPtr(reasoning)}, nil
 	case "function_call":
+		name := responsesToolName(item.Namespace, item.Name)
 		callID := item.CallID
 		if callID == "" {
-			callID = fmt.Sprintf("call_%s", item.Name)
+			callID = fmt.Sprintf("call_%s", name)
 		}
 		return schema.Message{
 			Role: "assistant",
@@ -494,7 +494,7 @@ func convertORItemToMessage(item *schema.ORItemField, responseID string) (schema
 				Index:        0,
 				ID:           callID,
 				Type:         "function",
-				FunctionCall: schema.FunctionCall{Name: responsesToolName(item.Namespace, item.Name), Arguments: item.Arguments},
+				FunctionCall: schema.FunctionCall{Name: name, Arguments: item.Arguments},
 			}},
 		}, nil
 	default:
@@ -651,7 +651,7 @@ func convertOROutputItemsToMessages(outputItems []schema.ORItemField) ([]schema.
 				}},
 			}
 			if msg.ToolCalls[0].ID == "" {
-				msg.ToolCalls[0].ID = fmt.Sprintf("call_%s", item.Name)
+				msg.ToolCalls[0].ID = fmt.Sprintf("call_%s", msg.ToolCalls[0].FunctionCall.Name)
 			}
 			messages = append(messages, msg)
 		case "function_call_output":
@@ -859,7 +859,8 @@ func convertORToolsToFunctions(input *schema.OpenResponsesRequest, cfg *config.M
 	}
 
 	var funcs functions.Functions
-	for _, tool := range flattenNamespaceTools(input.Tools) {
+	flattened, _ := flattenNamespaceTools(input.Tools)
+	for _, tool := range flattened {
 		if tool.Type == "function" {
 			// Skip if not in allowed list (when allowed_tools is specified)
 			if len(allowedSet) > 0 && !allowedSet[tool.Name] {
@@ -1116,6 +1117,8 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 
 // handleBackgroundStream handles background streaming responses with event buffering
 func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, shouldStore bool, mcpExecutor mcpTools.ToolExecutor, evaluator *templates.Evaluator) (*schema.ORResponseResource, error) {
+	// Calls to namespace members leave with their namespace and name restored.
+	toolNames := namespacedToolNames(input.Tools)
 	// Populate openAIReq fields for ComputeChoices
 	openAIReq.Tools = convertORToolsToOpenAIFormat(input.Tools)
 	openAIReq.ToolsChoice = input.ToolChoice
@@ -1129,7 +1132,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 
 	// Emit response.created
 	responseCreated := buildORResponse(responseID, createdAt, nil, schema.ORStatusInProgress, input, []schema.ORItemField{}, nil, shouldStore)
-	bufferEvent(store, responseID, &schema.ORStreamEvent{
+	bufferEvent(store, responseID, toolNames, &schema.ORStreamEvent{
 		Type:           "response.created",
 		SequenceNumber: sequenceNumber,
 		Response:       responseCreated,
@@ -1137,7 +1140,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 	sequenceNumber++
 
 	// Emit response.in_progress
-	bufferEvent(store, responseID, &schema.ORStreamEvent{
+	bufferEvent(store, responseID, toolNames, &schema.ORStreamEvent{
 		Type:           "response.in_progress",
 		SequenceNumber: sequenceNumber,
 		Response:       responseCreated,
@@ -1174,7 +1177,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 			Role:    "assistant",
 			Content: []schema.ORContentPart{},
 		}
-		bufferEvent(store, responseID, &schema.ORStreamEvent{
+		bufferEvent(store, responseID, toolNames, &schema.ORStreamEvent{
 			Type:           "response.output_item.added",
 			SequenceNumber: sequenceNumber,
 			OutputIndex:    &outputIndex,
@@ -1185,7 +1188,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 		// Emit content_part.added
 		currentContentIndex := 0
 		emptyPart := makeOutputTextPart("")
-		bufferEvent(store, responseID, &schema.ORStreamEvent{
+		bufferEvent(store, responseID, toolNames, &schema.ORStreamEvent{
 			Type:           "response.content_part.added",
 			SequenceNumber: sequenceNumber,
 			ItemID:         currentMessageID,
@@ -1206,7 +1209,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 			accumulatedText += token
 
 			// Buffer text delta
-			bufferEvent(store, responseID, &schema.ORStreamEvent{
+			bufferEvent(store, responseID, toolNames, &schema.ORStreamEvent{
 				Type:           "response.output_text.delta",
 				SequenceNumber: sequenceNumber,
 				ItemID:         currentMessageID,
@@ -1269,7 +1272,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 
 			if hasMCPCalls {
 				// Close the current message
-				bufferEvent(store, responseID, &schema.ORStreamEvent{
+				bufferEvent(store, responseID, toolNames, &schema.ORStreamEvent{
 					Type: "response.output_text.done", SequenceNumber: sequenceNumber,
 					ItemID: currentMessageID, OutputIndex: &outputIndex,
 					ContentIndex: &currentContentIndex, Text: strPtr(accumulatedText),
@@ -1277,7 +1280,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 				})
 				sequenceNumber++
 				textPart := makeOutputTextPart(accumulatedText)
-				bufferEvent(store, responseID, &schema.ORStreamEvent{
+				bufferEvent(store, responseID, toolNames, &schema.ORStreamEvent{
 					Type: "response.content_part.done", SequenceNumber: sequenceNumber,
 					ItemID: currentMessageID, OutputIndex: &outputIndex,
 					ContentIndex: &currentContentIndex, Part: &textPart,
@@ -1287,7 +1290,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 					Type: "message", ID: currentMessageID, Status: "completed",
 					Role: "assistant", Content: []schema.ORContentPart{textPart},
 				}
-				bufferEvent(store, responseID, &schema.ORStreamEvent{
+				bufferEvent(store, responseID, toolNames, &schema.ORStreamEvent{
 					Type: "response.output_item.done", SequenceNumber: sequenceNumber,
 					OutputIndex: &outputIndex, Item: completedMsg,
 				})
@@ -1305,12 +1308,12 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 						Type: "function_call", ID: tc.ID, Status: "completed",
 						CallID: tc.ID, Name: tc.FunctionCall.Name, Arguments: tc.FunctionCall.Arguments,
 					}
-					bufferEvent(store, responseID, &schema.ORStreamEvent{
+					bufferEvent(store, responseID, toolNames, &schema.ORStreamEvent{
 						Type: "response.output_item.added", SequenceNumber: sequenceNumber,
 						OutputIndex: &outputIndex, Item: functionCallItem,
 					})
 					sequenceNumber++
-					bufferEvent(store, responseID, &schema.ORStreamEvent{
+					bufferEvent(store, responseID, toolNames, &schema.ORStreamEvent{
 						Type: "response.output_item.done", SequenceNumber: sequenceNumber,
 						OutputIndex: &outputIndex, Item: functionCallItem,
 					})
@@ -1335,12 +1338,12 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 						Type: "function_call_output", ID: fmt.Sprintf("fco_%s", uuid.New().String()),
 						Status: "completed", CallID: tc.ID, Output: toolResult,
 					}
-					bufferEvent(store, responseID, &schema.ORStreamEvent{
+					bufferEvent(store, responseID, toolNames, &schema.ORStreamEvent{
 						Type: "response.output_item.added", SequenceNumber: sequenceNumber,
 						OutputIndex: &outputIndex, Item: outputItem,
 					})
 					sequenceNumber++
-					bufferEvent(store, responseID, &schema.ORStreamEvent{
+					bufferEvent(store, responseID, toolNames, &schema.ORStreamEvent{
 						Type: "response.output_item.done", SequenceNumber: sequenceNumber,
 						OutputIndex: &outputIndex, Item: outputItem,
 					})
@@ -1353,7 +1356,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 
 		// No MCP tools — close the message and break
 		streamEventLogprobs := convertLogprobsForStreaming(lastLogprobs)
-		bufferEvent(store, responseID, &schema.ORStreamEvent{
+		bufferEvent(store, responseID, toolNames, &schema.ORStreamEvent{
 			Type:           "response.output_text.done",
 			SequenceNumber: sequenceNumber,
 			ItemID:         currentMessageID,
@@ -1365,7 +1368,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 		sequenceNumber++
 
 		textPart := makeOutputTextPartWithLogprobs(accumulatedText, lastLogprobs)
-		bufferEvent(store, responseID, &schema.ORStreamEvent{
+		bufferEvent(store, responseID, toolNames, &schema.ORStreamEvent{
 			Type:           "response.content_part.done",
 			SequenceNumber: sequenceNumber,
 			ItemID:         currentMessageID,
@@ -1382,7 +1385,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 			Role:    "assistant",
 			Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(accumulatedText, lastLogprobs)},
 		}
-		bufferEvent(store, responseID, &schema.ORStreamEvent{
+		bufferEvent(store, responseID, toolNames, &schema.ORStreamEvent{
 			Type:           "response.output_item.done",
 			SequenceNumber: sequenceNumber,
 			OutputIndex:    &outputIndex,
@@ -1403,7 +1406,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 	}, shouldStore)
 
 	// Emit response.completed
-	bufferEvent(store, responseID, &schema.ORStreamEvent{
+	bufferEvent(store, responseID, toolNames, &schema.ORStreamEvent{
 		Type:           "response.completed",
 		SequenceNumber: sequenceNumber,
 		Response:       response,
@@ -1413,8 +1416,8 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 }
 
 // bufferEvent stores an SSE event in the response store for streaming resume
-func bufferEvent(store *ResponseStore, responseID string, event *schema.ORStreamEvent) {
-	normalizeORStreamEvent(event)
+func bufferEvent(store *ResponseStore, responseID string, toolNames map[string]namespacedTool, event *schema.ORStreamEvent) {
+	normalizeORStreamEvent(event, toolNames)
 	if err := store.AppendEvent(responseID, event); err != nil {
 		xlog.Error("Failed to buffer event", "response_id", responseID, "error", err)
 	}
@@ -1709,6 +1712,8 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 
 // handleOpenResponsesStream handles streaming responses
 func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, shouldStore bool, mcpExecutor mcpTools.ToolExecutor, evaluator *templates.Evaluator) error {
+	// Calls to namespace members leave with their namespace and name restored.
+	toolNames := namespacedToolNames(input.Tools)
 	c.Response().Header().Set("Content-Type", "text/event-stream")
 	c.Response().Header().Set("Cache-Control", "no-cache")
 	c.Response().Header().Set("Connection", "keep-alive")
@@ -1717,7 +1722,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 	// Emit response.created - use helper to create response with all required fields
 	responseCreated := buildORResponse(responseID, createdAt, nil, "in_progress", input, []schema.ORItemField{}, nil, shouldStore)
-	sendSSEEvent(c, &schema.ORStreamEvent{
+	sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 		Type:           "response.created",
 		SequenceNumber: sequenceNumber,
 		Response:       responseCreated,
@@ -1725,7 +1730,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	sequenceNumber++
 
 	// Emit response.in_progress
-	sendSSEEvent(c, &schema.ORStreamEvent{
+	sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 		Type:           "response.in_progress",
 		SequenceNumber: sequenceNumber,
 		Response:       responseCreated,
@@ -1830,7 +1835,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 					if !inToolCallMode && currentMessageID != "" {
 						// Close the current message content part
 						textPart := makeOutputTextPart(functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig))
-						sendSSEEvent(c, &schema.ORStreamEvent{
+						sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 							Type:           "response.content_part.done",
 							SequenceNumber: sequenceNumber,
 							ItemID:         currentMessageID,
@@ -1857,7 +1862,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 							Name:      tc.Name,
 							Arguments: "",
 						}
-						sendSSEEvent(c, &schema.ORStreamEvent{
+						sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 							Type:           "response.output_item.added",
 							SequenceNumber: sequenceNumber,
 							OutputIndex:    &outputIndex,
@@ -1867,7 +1872,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 						// Emit arguments delta
 						if tc.Arguments != "" {
-							sendSSEEvent(c, &schema.ORStreamEvent{
+							sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 								Type:           "response.function_call_arguments.delta",
 								SequenceNumber: sequenceNumber,
 								ItemID:         toolCallID,
@@ -1877,7 +1882,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 							sequenceNumber++
 
 							// Emit arguments done
-							sendSSEEvent(c, &schema.ORStreamEvent{
+							sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 								Type:           "response.function_call_arguments.done",
 								SequenceNumber: sequenceNumber,
 								ItemID:         toolCallID,
@@ -1889,7 +1894,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 							// Emit function_call item done
 							functionCallItem.Status = "completed"
 							functionCallItem.Arguments = tc.Arguments
-							sendSSEEvent(c, &schema.ORStreamEvent{
+							sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 								Type:           "response.output_item.done",
 								SequenceNumber: sequenceNumber,
 								OutputIndex:    &outputIndex,
@@ -1922,7 +1927,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 							Name:      tc.Name,
 							Arguments: tc.Arguments,
 						}
-						sendSSEEvent(c, &schema.ORStreamEvent{
+						sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 							Type:           "response.output_item.added",
 							SequenceNumber: sequenceNumber,
 							OutputIndex:    &outputIndex,
@@ -1930,7 +1935,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 						})
 						sequenceNumber++
 
-						sendSSEEvent(c, &schema.ORStreamEvent{
+						sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 							Type:           "response.output_item.done",
 							SequenceNumber: sequenceNumber,
 							OutputIndex:    &outputIndex,
@@ -1968,7 +1973,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 								ID:     currentReasoningID,
 								Status: "in_progress",
 							}
-							sendSSEEvent(c, &schema.ORStreamEvent{
+							sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 								Type:           "response.output_item.added",
 								SequenceNumber: sequenceNumber,
 								OutputIndex:    &outputIndex,
@@ -1979,7 +1984,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 							// Emit content_part.added for reasoning
 							currentReasoningContentIndex = 0
 							emptyPart := makeOutputTextPart("")
-							sendSSEEvent(c, &schema.ORStreamEvent{
+							sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 								Type:           "response.content_part.added",
 								SequenceNumber: sequenceNumber,
 								ItemID:         currentReasoningID,
@@ -1992,7 +1997,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 						// Emit reasoning delta if there's new content
 						if reasoningDelta != "" {
-							sendSSEEvent(c, &schema.ORStreamEvent{
+							sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 								Type:           "response.output_text.delta",
 								SequenceNumber: sequenceNumber,
 								ItemID:         currentReasoningID,
@@ -2019,7 +2024,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 								Role:    "assistant",
 								Content: []schema.ORContentPart{},
 							}
-							sendSSEEvent(c, &schema.ORStreamEvent{
+							sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 								Type:           "response.output_item.added",
 								SequenceNumber: sequenceNumber,
 								OutputIndex:    &outputIndex,
@@ -2030,7 +2035,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 							// Emit content_part.added
 							currentContentIndex = 0
 							emptyPart := makeOutputTextPart("")
-							sendSSEEvent(c, &schema.ORStreamEvent{
+							sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 								Type:           "response.content_part.added",
 								SequenceNumber: sequenceNumber,
 								ItemID:         currentMessageID,
@@ -2042,7 +2047,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 						}
 
 						// Emit text delta
-						sendSSEEvent(c, &schema.ORStreamEvent{
+						sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 							Type:           "response.output_text.delta",
 							SequenceNumber: sequenceNumber,
 							ItemID:         currentMessageID,
@@ -2065,7 +2070,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			choices, ccTokenUsage, chatDeltas, err := openaiEndpoint.ComputeChoices(openAIReq, predInput, cfg, cl, appConfig, ml, ccCb, tokenCallback)
 			if err != nil {
 				xlog.Error("Open Responses stream model inference failed", "error", err)
-				sendSSEEvent(c, &schema.ORStreamEvent{
+				sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 					Type:           "error",
 					SequenceNumber: sequenceNumber,
 					Error: &schema.ORErrorPayload{
@@ -2076,7 +2081,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				sequenceNumber++
 				responseFailed := responseCreated
 				responseFailed.Status = "failed"
-				sendSSEEvent(c, &schema.ORStreamEvent{
+				sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 					Type:           "response.failed",
 					SequenceNumber: sequenceNumber,
 					Response:       responseFailed,
@@ -2115,7 +2120,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			// Close reasoning item if it exists and wasn't closed yet
 			if currentReasoningID != "" && finalReasoning != "" {
 				// Emit output_text.done for reasoning
-				sendSSEEvent(c, &schema.ORStreamEvent{
+				sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 					Type:           "response.output_text.done",
 					SequenceNumber: sequenceNumber,
 					ItemID:         currentReasoningID,
@@ -2128,7 +2133,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 				// Emit content_part.done for reasoning
 				reasoningPart := makeOutputTextPart(finalReasoning)
-				sendSSEEvent(c, &schema.ORStreamEvent{
+				sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 					Type:           "response.content_part.done",
 					SequenceNumber: sequenceNumber,
 					ItemID:         currentReasoningID,
@@ -2145,7 +2150,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 					Status:  "completed",
 					Content: []schema.ORContentPart{reasoningPart},
 				}
-				sendSSEEvent(c, &schema.ORStreamEvent{
+				sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 					Type:           "response.output_item.done",
 					SequenceNumber: sequenceNumber,
 					OutputIndex:    &outputIndex,
@@ -2244,12 +2249,12 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 							Type: "function_call", ID: tcID, Status: "completed",
 							CallID: tcID, Name: tc.Name, Arguments: tc.Arguments,
 						}
-						sendSSEEvent(c, &schema.ORStreamEvent{
+						sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 							Type: "response.output_item.added", SequenceNumber: sequenceNumber,
 							OutputIndex: &outputIndex, Item: functionCallItem,
 						})
 						sequenceNumber++
-						sendSSEEvent(c, &schema.ORStreamEvent{
+						sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 							Type: "response.output_item.done", SequenceNumber: sequenceNumber,
 							OutputIndex: &outputIndex, Item: functionCallItem,
 						})
@@ -2280,12 +2285,12 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 							Type: "function_call_output", ID: fmt.Sprintf("fco_%s", uuid.New().String()),
 							Status: "completed", CallID: tcID, Output: toolResult,
 						}
-						sendSSEEvent(c, &schema.ORStreamEvent{
+						sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 							Type: "response.output_item.added", SequenceNumber: sequenceNumber,
 							OutputIndex: &outputIndex, Item: outputItem,
 						})
 						sequenceNumber++
-						sendSSEEvent(c, &schema.ORStreamEvent{
+						sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 							Type: "response.output_item.done", SequenceNumber: sequenceNumber,
 							OutputIndex: &outputIndex, Item: outputItem,
 						})
@@ -2316,7 +2321,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			// Close message if we have text content
 			if currentMessageID != "" && textContent != "" && !inToolCallMode {
 				// Emit output_text.done
-				sendSSEEvent(c, &schema.ORStreamEvent{
+				sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 					Type:           "response.output_text.done",
 					SequenceNumber: sequenceNumber,
 					ItemID:         currentMessageID,
@@ -2329,7 +2334,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 				// Emit content_part.done (with actual logprobs)
 				textPart := makeOutputTextPartWithLogprobs(textContent, lastStreamLogprobs)
-				sendSSEEvent(c, &schema.ORStreamEvent{
+				sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 					Type:           "response.content_part.done",
 					SequenceNumber: sequenceNumber,
 					ItemID:         currentMessageID,
@@ -2347,7 +2352,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 					Role:    "assistant",
 					Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(textContent, lastStreamLogprobs)},
 				}
-				sendSSEEvent(c, &schema.ORStreamEvent{
+				sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 					Type:           "response.output_item.done",
 					SequenceNumber: sequenceNumber,
 					OutputIndex:    &outputIndex,
@@ -2373,7 +2378,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 					Name:      tc.Name,
 					Arguments: tc.Arguments,
 				}
-				sendSSEEvent(c, &schema.ORStreamEvent{
+				sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 					Type:           "response.output_item.added",
 					SequenceNumber: sequenceNumber,
 					OutputIndex:    &outputIndex,
@@ -2381,7 +2386,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				})
 				sequenceNumber++
 
-				sendSSEEvent(c, &schema.ORStreamEvent{
+				sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 					Type:           "response.output_item.done",
 					SequenceNumber: sequenceNumber,
 					OutputIndex:    &outputIndex,
@@ -2442,7 +2447,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			},
 		}, shouldStore)
 
-		sendSSEEvent(c, &schema.ORStreamEvent{
+		sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 			Type:           "response.completed",
 			SequenceNumber: sequenceNumber,
 			Response:       responseCompleted,
@@ -2473,7 +2478,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		Role:    "assistant",
 		Content: []schema.ORContentPart{},
 	}
-	sendSSEEvent(c, &schema.ORStreamEvent{
+	sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 		Type:           "response.output_item.added",
 		SequenceNumber: sequenceNumber,
 		OutputIndex:    &messageOutputIndex,
@@ -2484,7 +2489,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	// Emit content_part.added
 	currentContentIndex = 0
 	emptyTextPart := makeOutputTextPart("")
-	sendSSEEvent(c, &schema.ORStreamEvent{
+	sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 		Type:           "response.content_part.added",
 		SequenceNumber: sequenceNumber,
 		ItemID:         currentMessageID,
@@ -2522,7 +2527,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 					ID:     currentReasoningID,
 					Status: "in_progress",
 				}
-				sendSSEEvent(c, &schema.ORStreamEvent{
+				sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 					Type:           "response.output_item.added",
 					SequenceNumber: sequenceNumber,
 					OutputIndex:    &reasoningOutputIndex,
@@ -2533,7 +2538,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				// Emit content_part.added for reasoning
 				currentReasoningContentIndex = 0
 				emptyPart := makeOutputTextPart("")
-				sendSSEEvent(c, &schema.ORStreamEvent{
+				sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 					Type:           "response.content_part.added",
 					SequenceNumber: sequenceNumber,
 					ItemID:         currentReasoningID,
@@ -2546,7 +2551,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 			// Emit reasoning delta if there's new content
 			if reasoningDelta != "" {
-				sendSSEEvent(c, &schema.ORStreamEvent{
+				sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 					Type:           "response.output_text.delta",
 					SequenceNumber: sequenceNumber,
 					ItemID:         currentReasoningID,
@@ -2563,7 +2568,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		// Only emit message content if there's actual content (not just reasoning)
 		if contentDelta != "" {
 			// Emit text delta
-			sendSSEEvent(c, &schema.ORStreamEvent{
+			sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 				Type:           "response.output_text.delta",
 				SequenceNumber: sequenceNumber,
 				ItemID:         currentMessageID,
@@ -2585,7 +2590,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	noToolChoices, noToolTokenUsage, noToolChatDeltas, err := openaiEndpoint.ComputeChoices(openAIReq, predInput, cfg, cl, appConfig, ml, noToolCb, tokenCallback)
 	if err != nil {
 		xlog.Error("Open Responses stream model inference failed", "error", err)
-		sendSSEEvent(c, &schema.ORStreamEvent{
+		sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 			Type:           "error",
 			SequenceNumber: sequenceNumber,
 			Error: &schema.ORErrorPayload{
@@ -2596,7 +2601,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		sequenceNumber++
 		responseFailed := responseCreated
 		responseFailed.Status = "failed"
-		sendSSEEvent(c, &schema.ORStreamEvent{
+		sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 			Type:           "response.failed",
 			SequenceNumber: sequenceNumber,
 			Response:       responseFailed,
@@ -2632,7 +2637,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	// Close reasoning item if it exists and wasn't closed yet
 	if currentReasoningID != "" && finalReasoning != "" {
 		// Emit output_text.done for reasoning
-		sendSSEEvent(c, &schema.ORStreamEvent{
+		sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 			Type:           "response.output_text.done",
 			SequenceNumber: sequenceNumber,
 			ItemID:         currentReasoningID,
@@ -2645,7 +2650,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 		// Emit content_part.done for reasoning
 		reasoningPart := makeOutputTextPart(finalReasoning)
-		sendSSEEvent(c, &schema.ORStreamEvent{
+		sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 			Type:           "response.content_part.done",
 			SequenceNumber: sequenceNumber,
 			ItemID:         currentReasoningID,
@@ -2662,7 +2667,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			Status:  "completed",
 			Content: []schema.ORContentPart{reasoningPart},
 		}
-		sendSSEEvent(c, &schema.ORStreamEvent{
+		sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 			Type:           "response.output_item.done",
 			SequenceNumber: sequenceNumber,
 			OutputIndex:    &reasoningOutputIndex,
@@ -2695,7 +2700,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	mcpStreamLogprobs := convertLogprobsForStreaming(noToolLogprobs)
 
 	// Emit output_text.done
-	sendSSEEvent(c, &schema.ORStreamEvent{
+	sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 		Type:           "response.output_text.done",
 		SequenceNumber: sequenceNumber,
 		ItemID:         currentMessageID,
@@ -2708,7 +2713,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 	// Emit content_part.done (with actual logprobs)
 	resultPart := makeOutputTextPartWithLogprobs(result, noToolLogprobs)
-	sendSSEEvent(c, &schema.ORStreamEvent{
+	sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 		Type:           "response.content_part.done",
 		SequenceNumber: sequenceNumber,
 		ItemID:         currentMessageID,
@@ -2721,7 +2726,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	// Emit output_item.done (with actual logprobs)
 	messageItem.Status = "completed"
 	messageItem.Content = []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, noToolLogprobs)}
-	sendSSEEvent(c, &schema.ORStreamEvent{
+	sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 		Type:           "response.output_item.done",
 		SequenceNumber: sequenceNumber,
 		OutputIndex:    &messageOutputIndex,
@@ -2744,14 +2749,14 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			Name:      fc.Name,
 			Arguments: fc.Arguments,
 		}
-		sendSSEEvent(c, &schema.ORStreamEvent{
+		sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 			Type:           "response.output_item.added",
 			SequenceNumber: sequenceNumber,
 			OutputIndex:    &outputIndex,
 			Item:           functionCallItem,
 		})
 		sequenceNumber++
-		sendSSEEvent(c, &schema.ORStreamEvent{
+		sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 			Type:           "response.output_item.done",
 			SequenceNumber: sequenceNumber,
 			OutputIndex:    &outputIndex,
@@ -2775,7 +2780,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			ReasoningTokens: reasoningTokens,
 		},
 	}, shouldStore)
-	sendSSEEvent(c, &schema.ORStreamEvent{
+	sendSSEEvent(c, toolNames, &schema.ORStreamEvent{
 		Type:           "response.completed",
 		SequenceNumber: sequenceNumber,
 		Response:       responseCompleted,
@@ -2795,8 +2800,8 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 }
 
 // sendSSEEvent sends a Server-Sent Event
-func sendSSEEvent(c echo.Context, event *schema.ORStreamEvent) {
-	normalizeORStreamEvent(event)
+func sendSSEEvent(c echo.Context, toolNames map[string]namespacedTool, event *schema.ORStreamEvent) {
+	normalizeORStreamEvent(event, toolNames)
 	data, err := json.Marshal(event)
 	if err != nil {
 		xlog.Error("Failed to marshal SSE event", "error", err)
@@ -2807,11 +2812,11 @@ func sendSSEEvent(c echo.Context, event *schema.ORStreamEvent) {
 
 // normalizeORStreamEvent ensures required fields like Summary are never null
 // and gives a call to a namespace tool its namespace back.
-func normalizeORStreamEvent(event *schema.ORStreamEvent) {
+func normalizeORStreamEvent(event *schema.ORStreamEvent, toolNames map[string]namespacedTool) {
 	if event.Item != nil && event.Item.Summary == nil {
 		event.Item.Summary = []schema.ORContentPart{}
 	}
-	restoreToolNamespace(event.Item)
+	restoreToolNamespace(event.Item, toolNames)
 }
 
 // getTopLogprobs returns the top_logprobs value, defaulting to 0 if nil
@@ -2895,11 +2900,12 @@ func buildORResponse(responseID string, createdAt int64, completedAt *int64, sta
 	}
 
 	// Ensure Summary is never null on any output item
+	toolNames := namespacedToolNames(input.Tools)
 	for i := range outputItems {
 		if outputItems[i].Summary == nil {
 			outputItems[i].Summary = []schema.ORContentPart{}
 		}
-		restoreToolNamespace(&outputItems[i])
+		restoreToolNamespace(&outputItems[i], toolNames)
 	}
 
 	// Ensure tools is never null - always an array
@@ -3062,12 +3068,20 @@ func sendOpenResponsesError(c echo.Context, statusCode int, errorType, message, 
 // Clients such as Codex group tools in "namespace" entries (one per MCP
 // server) and route a returned call by its (namespace, name) pair. The model
 // only sees functions, so namespace members are flattened to
-// "ns_{namespace}___{name}", the form llama.cpp's server uses, and split back
-// on the calls returned. A namespace must not contain "___".
+// "ns_{namespace}___{name}", the form llama.cpp's server uses. The returned
+// calls are mapped back through the request's own tools, not by parsing the
+// name: a namespace can end in "_" or contain "___", and a plain function can
+// itself be called "ns_x___y".
 const (
 	responsesNamespacePrefix    = "ns_"
 	responsesNamespaceSeparator = "___"
 )
+
+// namespacedTool is the (namespace, name) pair a flattened tool name stands for.
+type namespacedTool struct {
+	Namespace string
+	Name      string
+}
 
 // responsesToolName flattens a namespaced tool name. It returns name unchanged
 // when namespace is empty.
@@ -3078,24 +3092,21 @@ func responsesToolName(namespace, name string) string {
 	return responsesNamespacePrefix + namespace + responsesNamespaceSeparator + name
 }
 
-// splitResponsesToolName splits a flattened tool name into (namespace, name).
-// Any other name comes back with an empty namespace.
-func splitResponsesToolName(name string) (string, string) {
-	rest, ok := strings.CutPrefix(name, responsesNamespacePrefix)
-	if !ok {
-		return "", name
-	}
-	namespace, tool, ok := strings.Cut(rest, responsesNamespaceSeparator)
-	if !ok || namespace == "" || tool == "" {
-		return "", name
-	}
-	return namespace, tool
-}
-
 // flattenNamespaceTools replaces each namespace entry with its function
-// members under their flattened names.
-func flattenNamespaceTools(tools []schema.ORFunctionTool) []schema.ORFunctionTool {
+// members under their flattened names, and returns the map from each
+// flattened name back to its namespace and name. A flattened name must be
+// unique: a member whose flattened name is already the name of a plain tool,
+// or of an earlier member, is skipped, so a call is never ambiguous.
+func flattenNamespaceTools(tools []schema.ORFunctionTool) ([]schema.ORFunctionTool, map[string]namespacedTool) {
+	taken := make(map[string]bool, len(tools))
+	for _, t := range tools {
+		if t.Type != "namespace" {
+			taken[t.Name] = true
+		}
+	}
+
 	result := make([]schema.ORFunctionTool, 0, len(tools))
+	var names map[string]namespacedTool
 	for _, t := range tools {
 		if t.Type != "namespace" {
 			result = append(result, t)
@@ -3103,22 +3114,42 @@ func flattenNamespaceTools(tools []schema.ORFunctionTool) []schema.ORFunctionToo
 		}
 		for _, member := range t.Tools {
 			if t.Name == "" || member.Type != "function" || member.Name == "" {
+				xlog.Debug("Open Responses: dropping namespace member the model cannot call", "namespace", t.Name, "type", member.Type, "name", member.Name)
 				continue
 			}
-			member.Name = responsesToolName(t.Name, member.Name)
+			flat := responsesToolName(t.Name, member.Name)
+			if taken[flat] {
+				xlog.Warn("Open Responses: skipping namespace member, its flattened name is already in use", "namespace", t.Name, "name", member.Name, "flattened", flat)
+				continue
+			}
+			taken[flat] = true
+			if names == nil {
+				names = make(map[string]namespacedTool)
+			}
+			names[flat] = namespacedTool{Namespace: t.Name, Name: member.Name}
+			member.Name = flat
 			result = append(result, member)
 		}
 	}
-	return result
+	return result, names
 }
 
-// restoreToolNamespace splits a flattened name on a function_call item back
-// into its namespace and name.
-func restoreToolNamespace(item *schema.ORItemField) {
+// namespacedToolNames returns the map from flattened name to (namespace,
+// name) for the namespace tools of a request.
+func namespacedToolNames(tools []schema.ORFunctionTool) map[string]namespacedTool {
+	_, names := flattenNamespaceTools(tools)
+	return names
+}
+
+// restoreToolNamespace gives a function_call item for a namespace member its
+// namespace and name back. Names not in names are left as they are.
+func restoreToolNamespace(item *schema.ORItemField, names map[string]namespacedTool) {
 	if item == nil || item.Type != "function_call" || item.Namespace != "" {
 		return
 	}
-	item.Namespace, item.Name = splitResponsesToolName(item.Name)
+	if tool, ok := names[item.Name]; ok {
+		item.Namespace, item.Name = tool.Namespace, tool.Name
+	}
 }
 
 // convertORToolsToOpenAIFormat converts only tools that have an equivalent in
@@ -3127,7 +3158,8 @@ func restoreToolNamespace(item *schema.ORItemField) {
 // contribute their function members under flattened names.
 func convertORToolsToOpenAIFormat(orTools []schema.ORFunctionTool) []functions.Tool {
 	result := make([]functions.Tool, 0, len(orTools))
-	for _, t := range flattenNamespaceTools(orTools) {
+	flattened, _ := flattenNamespaceTools(orTools)
+	for _, t := range flattened {
 		if t.Type != "function" {
 			continue
 		}

@@ -285,7 +285,7 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, connectio
 	if generate != nil && !*generate {
 		responseCreated := buildORResponse(responseID, createdAt, nil, schema.ORStatusInProgress, input, []schema.ORItemField{}, nil, shouldStore)
 		store.StoreBackgroundOwned(responseID, input, responseCreated, reqCancel, true, owner)
-		bufferEvent(store, responseID, &schema.ORStreamEvent{
+		bufferEvent(store, responseID, namespacedToolNames(input.Tools), &schema.ORStreamEvent{
 			Type:           "response.created",
 			SequenceNumber: 0,
 			Response:       responseCreated,
@@ -300,7 +300,7 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, connectio
 			}
 			return
 		}
-		bufferEvent(store, responseID, &schema.ORStreamEvent{
+		bufferEvent(store, responseID, namespacedToolNames(input.Tools), &schema.ORStreamEvent{
 			Type:           "response.completed",
 			SequenceNumber: 1,
 			Response:       responseCompleted,
@@ -438,7 +438,7 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, connectio
 					Message: bgErr.Error(),
 				},
 			}
-			normalizeORStreamEvent(failureEvent)
+			normalizeORStreamEvent(failureEvent, nil)
 			if err := store.AppendEventNext(responseID, failureEvent); err != nil {
 				xlog.Error("WebSocket Responses: failed to buffer failure event", "response_id", responseID, "error", err)
 			}
@@ -606,7 +606,7 @@ func writeWSForwardingFailure(conn wsEventWriter, release func(), responseID str
 			Message: fmt.Sprintf("response stream failed: %v", forwardingErr),
 		},
 	}
-	normalizeORStreamEvent(event)
+	normalizeORStreamEvent(event, nil)
 	return conn.writeTerminalJSON(event, release)
 }
 

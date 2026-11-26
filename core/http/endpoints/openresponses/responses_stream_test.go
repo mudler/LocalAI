@@ -148,55 +148,67 @@ var _ = Describe("Responses stream item consistency", func() {
 })
 
 var _ = Describe("Responses stream namespace tools", func() {
-	It("returns a call to a namespace member with its namespace", func() {
-		originalInference := backend.ModelInferenceFunc
-		DeferCleanup(func() { backend.ModelInferenceFunc = originalInference })
-		call := `<tool_call>{"name":"ns_mcp__docs___search","arguments":{"q":"x"}}</tool_call>`
-		backend.ModelInferenceFunc = func(
-			ctx context.Context, prompt string, messages schema.Messages,
-			images, videos, audios []string, loader *model.ModelLoader,
-			cfg *config.ModelConfig, cl *config.ModelConfigLoader, app *config.ApplicationConfig,
-			tokenCallback func(string, backend.TokenUsage) bool, tools, toolChoice string,
-			logprobs, topLogprobs *int, logitBias map[string]float64, metadata map[string]string,
-		) (func() (backend.LLMResponse, error), error) {
-			return func() (backend.LLMResponse, error) {
-				tokenCallback(call, backend.TokenUsage{})
-				return backend.LLMResponse{Response: call}, nil
-			}, nil
-		}
-		cfg := &config.ModelConfig{}
-		cfg.FunctionsConfig.AutomaticToolParsingFallback = true
-		cfg.FunctionsConfig.JSONRegexMatch = []string{`(?s)<tool_call>(.*?)</tool_call>`}
-		recorder := httptest.NewRecorder()
-		request := httptest.NewRequest("POST", "/v1/responses", nil)
-		c := echo.New().NewContext(request, recorder)
-		input := &schema.OpenResponsesRequest{Model: "test-model", Input: "hello", Stream: true}
-		err := handleOpenResponsesStream(c, "resp_test", 1, input, cfg, nil, nil, config.NewApplicationConfig(), "hello", &schema.OpenAIRequest{Context: request.Context()}, nil, false, false, nil, nil)
-		Expect(err).NotTo(HaveOccurred())
+	DescribeTable("returns a call with the namespace and name the client declared",
+		func(toolsJSON, called, wantNamespace, wantName string) {
+			originalInference := backend.ModelInferenceFunc
+			DeferCleanup(func() { backend.ModelInferenceFunc = originalInference })
+			call := `<tool_call>{"name":"` + called + `","arguments":{"q":"x"}}</tool_call>`
+			backend.ModelInferenceFunc = func(
+				ctx context.Context, prompt string, messages schema.Messages,
+				images, videos, audios []string, loader *model.ModelLoader,
+				cfg *config.ModelConfig, cl *config.ModelConfigLoader, app *config.ApplicationConfig,
+				tokenCallback func(string, backend.TokenUsage) bool, tools, toolChoice string,
+				logprobs, topLogprobs *int, logitBias map[string]float64, metadata map[string]string,
+			) (func() (backend.LLMResponse, error), error) {
+				return func() (backend.LLMResponse, error) {
+					tokenCallback(call, backend.TokenUsage{})
+					return backend.LLMResponse{Response: call}, nil
+				}, nil
+			}
+			cfg := &config.ModelConfig{}
+			cfg.FunctionsConfig.AutomaticToolParsingFallback = true
+			cfg.FunctionsConfig.JSONRegexMatch = []string{`(?s)<tool_call>(.*?)</tool_call>`}
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest("POST", "/v1/responses", nil)
+			c := echo.New().NewContext(request, recorder)
+			input := &schema.OpenResponsesRequest{Model: "test-model", Input: "hello", Stream: true}
+			Expect(json.Unmarshal([]byte(toolsJSON), &input.Tools)).To(Succeed())
+			err := handleOpenResponsesStream(c, "resp_test", 1, input, cfg, nil, nil, config.NewApplicationConfig(), "hello", &schema.OpenAIRequest{Context: request.Context()}, nil, false, false, nil, nil)
+			Expect(err).NotTo(HaveOccurred())
 
-		var calls []schema.ORItemField
-		for _, line := range strings.Split(recorder.Body.String(), "\n") {
-			if !strings.HasPrefix(line, "data: ") || line == "data: [DONE]" {
-				continue
-			}
-			var event schema.ORStreamEvent
-			Expect(json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &event)).To(Succeed())
-			if event.Item != nil && event.Item.Type == "function_call" {
-				calls = append(calls, *event.Item)
-			}
-			if event.Type == "response.completed" {
-				for _, item := range event.Response.Output {
-					if item.Type == "function_call" {
-						calls = append(calls, item)
+			var calls []schema.ORItemField
+			for _, line := range strings.Split(recorder.Body.String(), "\n") {
+				if !strings.HasPrefix(line, "data: ") || line == "data: [DONE]" {
+					continue
+				}
+				var event schema.ORStreamEvent
+				Expect(json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &event)).To(Succeed())
+				if event.Item != nil && event.Item.Type == "function_call" {
+					calls = append(calls, *event.Item)
+				}
+				if event.Type == "response.completed" {
+					for _, item := range event.Response.Output {
+						if item.Type == "function_call" {
+							calls = append(calls, item)
+						}
 					}
 				}
 			}
-		}
-		Expect(calls).To(HaveLen(3), "output_item.added, output_item.done and response.completed")
-		for _, item := range calls {
-			Expect(item.Namespace).To(Equal("mcp__docs"))
-			Expect(item.Name).To(Equal("search"))
-			Expect(item.Arguments).To(MatchJSON(`{"q":"x"}`))
-		}
-	})
+			Expect(calls).To(HaveLen(3), "output_item.added, output_item.done and response.completed")
+			for _, item := range calls {
+				Expect(item.Namespace).To(Equal(wantNamespace))
+				Expect(item.Name).To(Equal(wantName))
+				Expect(item.Arguments).To(MatchJSON(`{"q":"x"}`))
+			}
+		},
+		Entry("namespace member",
+			`[{"type":"namespace","name":"mcp__docs","tools":[{"type":"function","name":"search"}]}]`,
+			"ns_mcp__docs___search", "mcp__docs", "search"),
+		Entry("namespace ending in _",
+			`[{"type":"namespace","name":"mcp__docs_","tools":[{"type":"function","name":"search"}]}]`,
+			"ns_mcp__docs____search", "mcp__docs_", "search"),
+		Entry("plain function whose name looks flattened",
+			`[{"type":"function","name":"ns_x___y"}]`,
+			"ns_x___y", "", "ns_x___y"),
+	)
 })
