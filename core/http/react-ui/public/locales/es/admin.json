@@ -101,7 +101,8 @@
       "retry": "Reintentar la misma operación",
       "policy": "Política del propietario · revisión {{revision}}",
       "apply": "Aplicar el ajuste de actualización"
-    }
+    },
+    "memoryCluster": "Se aplica a cada nodo worker. Para un valor distinto en un nodo, usa la página Nodos."
   },
   "backends": {
     "lifecycle": {

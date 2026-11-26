@@ -101,7 +101,8 @@
       "retry": "같은 작업 다시 시도",
       "policy": "소유자 정책 · 리비전 {{revision}}",
       "apply": "업데이트 설정 적용"
-    }
+    },
+    "memoryCluster": "모든 워커 노드에 적용됩니다. 한 노드에 다른 값을 쓰려면 노드 페이지에서 설정하세요."
   },
   "backends": {
     "lifecycle": {

@@ -251,6 +251,11 @@ export async function mockSwarm(page, {
         return route.fulfill(json({ message: 'ok' }))
       }
       if (rest?.startsWith('labels') || rest === 'max-replicas-per-model' || rest === 'vram-budget') { record(); return route.fulfill(json({})) }
+      if (rest === 'limits') {
+        if (method !== 'GET') record()
+        return route.fulfill(json({ max_active_backends: 0, vram_budget: '', memory_reclaimer_enabled: false, memory_reclaimer_threshold: 0.95, model_swap: true,
+          sources: { max_active_backends: 'cluster', vram_budget: 'cluster', memory_reclaimer_threshold: 'cluster', model_swap: 'cluster' } }))
+      }
       if (rest === 'split-server' && method === 'PUT') {
         record()
         const on = request.postDataJSON().split_server

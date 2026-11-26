@@ -99,9 +99,14 @@ export const FIELDS = [
     min: 50, max: 100, fallback: 0.8, default: 0.95, ...WATCHDOG_LIVE, needs: 'memory_reclaimer_enabled' },
   { key: 'max_active_backends', group: 'memory', was: 'backends', kind: 'int', label: 'Models kept loaded',
     desc: 'Maximum models to keep loaded at once. 0 means no limit, 1 keeps a single model.',
+    extra: (settings) => (settings.memory_scope === 'cluster' ? 'In distributed mode this is the limit of each worker node.' : null),
     placeholder: '0', default: 0, min: 0, ...WATCHDOG_LIVE },
+  { key: 'model_swap', group: 'memory', was: 'backends', kind: 'bool', label: 'Swap models when memory is full',
+    desc: 'When a node has no room for a model, unload the least recently used idle model to make room. When off, the request waits, then gets a 503 with Retry-After.',
+    default: true, apply: 'live' },
   { key: 'vram_budget', group: 'memory', was: 'performance', kind: 'text', label: 'GPU memory budget',
     desc: 'Cap the VRAM used for model allocation on this node. A percentage (80%) or an amount (12GB). Empty uses all detected VRAM.',
+    extra: (settings) => (settings.memory_scope === 'cluster' ? 'In distributed mode the budget applies on each worker node that sets none of its own.' : null),
     placeholder: 'e.g. 80% or 12GB', default: '', apply: 'live' },
 
   // ---- Speed and defaults --------------------------------------------------

@@ -101,7 +101,8 @@
       "retry": "重试同一操作",
       "policy": "所有者策略 · 修订 {{revision}}",
       "apply": "应用更新设置"
-    }
+    },
+    "memoryCluster": "适用于每个工作节点。如需为某个节点设置不同的值，请在“节点”页面中设置。"
   },
   "backends": {
     "lifecycle": {

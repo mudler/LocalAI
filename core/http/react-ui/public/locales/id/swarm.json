@@ -191,5 +191,33 @@
   },
   "failover": {
     "lostConnection": "Koneksi:"
+  },
+  "limits": {
+    "title": "Batas",
+    "sub": "Pengaturan memori node ini. Nilai yang diatur di sini mengalahkan lingkungan worker dan pengaturan cluster (Pengaturan, Model di memori).",
+    "maxActive": "Model yang tetap dimuat",
+    "vramBudget": "Anggaran memori GPU",
+    "vramBudgetPlaceholder": "mis. 80% atau 12GB",
+    "threshold": "Ambang memori",
+    "thresholdOff": "Mati ({{pct}}% saat aktif)",
+    "swap": "Tukar model saat memori penuh",
+    "noLimit": "Tanpa batas",
+    "none": "Tidak ada",
+    "on": "Aktif",
+    "off": "Mati",
+    "edit": "Ubah",
+    "save": "Simpan",
+    "cancel": "Batal",
+    "reset": "Atur ulang semua",
+    "saved": "Batas disimpan di {{name}}",
+    "resetDone": "Penimpaan di {{name}} dihapus",
+    "failed": "Tidak dapat mengubah batas: {{error}}",
+    "loadFailed": "Tidak dapat membaca batas node ini",
+    "source": {
+      "override": "Diatur di sini",
+      "worker": "Lingkungan worker",
+      "cluster": "Cluster",
+      "default": "Bawaan"
+    }
   }
 }

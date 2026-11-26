@@ -101,7 +101,8 @@
       "retry": "Riprova la stessa operazione",
       "policy": "Criterio del proprietario · revisione {{revision}}",
       "apply": "Applica l'impostazione di aggiornamento"
-    }
+    },
+    "memoryCluster": "Vale per ogni nodo worker. Per impostare un valore diverso su un nodo, usa la pagina Nodi."
   },
   "backends": {
     "lifecycle": {

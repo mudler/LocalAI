@@ -15,6 +15,7 @@ import { Tabs } from '../components/ui'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ActionMenu from '../components/ActionMenu'
 import CapacityEditor from '../components/nodes/CapacityEditor'
+import NodeLimitsPane from '../components/nodes/NodeLimitsPane'
 import KeyValueChips from '../components/nodes/KeyValueChips'
 import { formatVRAM, timeAgo } from '../components/nodes/nodeStatus'
 import NodeState from '../components/swarm/NodeState'
@@ -442,6 +443,13 @@ export default function NodeDetail() {
                 <h2 className="sw-h2">{t('detail.replicaCap')}</h2>
                 <p className="sw-note">{t('detail.replicaCapSub')}</p>
                 <CapacityEditor node={node} loadedModelCounts={loadedCounts} confirmShrink={confirmShrink} addToast={addToast} onUpdate={() => refresh({ quiet: true })} />
+              </section>
+            )}
+            {!isAgent && (
+              <section>
+                <h2 className="sw-h2">{t('limits.title')}</h2>
+                <p className="sw-note">{t('limits.sub')}</p>
+                <NodeLimitsPane node={node} addToast={addToast} />
               </section>
             )}
             <section>

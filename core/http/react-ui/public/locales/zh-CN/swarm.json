@@ -191,5 +191,33 @@
   },
   "failover": {
     "lostConnection": "连接："
+  },
+  "limits": {
+    "title": "限制",
+    "sub": "此节点的内存设置。此处设置的值优先于工作节点的环境变量和集群设置（设置，内存中的模型）。",
+    "maxActive": "保持加载的模型数",
+    "vramBudget": "GPU 内存预算",
+    "vramBudgetPlaceholder": "例如 80% 或 12GB",
+    "threshold": "内存阈值",
+    "thresholdOff": "关闭（开启时为 {{pct}}%）",
+    "swap": "内存已满时切换模型",
+    "noLimit": "无限制",
+    "none": "无",
+    "on": "开启",
+    "off": "关闭",
+    "edit": "编辑",
+    "save": "保存",
+    "cancel": "取消",
+    "reset": "全部重置",
+    "saved": "已在 {{name}} 上保存限制",
+    "resetDone": "已清除 {{name}} 上的覆盖值",
+    "failed": "无法更改限制：{{error}}",
+    "loadFailed": "无法读取此节点的限制",
+    "source": {
+      "override": "在此设置",
+      "worker": "工作节点环境",
+      "cluster": "集群",
+      "default": "默认"
+    }
   }
 }

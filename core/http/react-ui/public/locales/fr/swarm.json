@@ -191,5 +191,33 @@
   },
   "failover": {
     "lostConnection": "Connexion :"
+  },
+  "limits": {
+    "title": "Limites",
+    "sub": "Réglages mémoire de ce nœud. Une valeur définie ici l'emporte sur l'environnement du worker et sur les réglages du cluster (Réglages, Modèles en mémoire).",
+    "maxActive": "Modèles gardés chargés",
+    "vramBudget": "Budget de mémoire GPU",
+    "vramBudgetPlaceholder": "ex. 80% ou 12GB",
+    "threshold": "Seuil de mémoire",
+    "thresholdOff": "Désactivé ({{pct}}% une fois activé)",
+    "swap": "Échanger les modèles quand la mémoire est pleine",
+    "noLimit": "Aucune limite",
+    "none": "Aucun",
+    "on": "Activé",
+    "off": "Désactivé",
+    "edit": "Modifier",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "reset": "Tout réinitialiser",
+    "saved": "Limites enregistrées sur {{name}}",
+    "resetDone": "Valeurs propres supprimées sur {{name}}",
+    "failed": "Impossible de modifier les limites : {{error}}",
+    "loadFailed": "Impossible de lire les limites de ce nœud",
+    "source": {
+      "override": "Défini ici",
+      "worker": "Environnement du worker",
+      "cluster": "Cluster",
+      "default": "Par défaut"
+    }
   }
 }

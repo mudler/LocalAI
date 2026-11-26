@@ -101,7 +101,8 @@
       "retry": "Tentar a mesma operação de novo",
       "policy": "Política do proprietário · revisão {{revision}}",
       "apply": "Aplicar a configuração de atualização"
-    }
+    },
+    "memoryCluster": "Vale para cada nó worker. Para um valor diferente em um nó, use a página Nós."
   },
   "backends": {
     "lifecycle": {

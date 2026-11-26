@@ -191,5 +191,33 @@
   },
   "failover": {
     "lostConnection": "Conexión:"
+  },
+  "limits": {
+    "title": "Límites",
+    "sub": "Ajustes de memoria de este nodo. Un valor definido aquí tiene prioridad sobre el entorno del worker y los ajustes del clúster (Ajustes, Modelos en memoria).",
+    "maxActive": "Modelos mantenidos cargados",
+    "vramBudget": "Presupuesto de memoria GPU",
+    "vramBudgetPlaceholder": "p. ej. 80% o 12GB",
+    "threshold": "Umbral de memoria",
+    "thresholdOff": "Desactivado ({{pct}}% cuando está activo)",
+    "swap": "Cambiar modelos cuando la memoria esté llena",
+    "noLimit": "Sin límite",
+    "none": "Ninguno",
+    "on": "Activado",
+    "off": "Desactivado",
+    "edit": "Editar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "reset": "Restablecer todo",
+    "saved": "Límites guardados en {{name}}",
+    "resetDone": "Valores propios eliminados en {{name}}",
+    "failed": "No se pudieron cambiar los límites: {{error}}",
+    "loadFailed": "No se pudieron leer los límites de este nodo",
+    "source": {
+      "override": "Definido aquí",
+      "worker": "Entorno del worker",
+      "cluster": "Clúster",
+      "default": "Predeterminado"
+    }
   }
 }

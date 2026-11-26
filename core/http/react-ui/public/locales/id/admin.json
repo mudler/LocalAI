@@ -101,7 +101,8 @@
       "retry": "Coba operasi yang sama lagi",
       "policy": "Kebijakan pemilik · revisi {{revision}}",
       "apply": "Terapkan pengaturan pembaruan"
-    }
+    },
+    "memoryCluster": "Berlaku untuk setiap node worker. Atur nilai lain untuk satu node di halaman Node."
   },
   "backends": {
     "lifecycle": {

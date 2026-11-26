@@ -220,6 +220,7 @@ export const API_CONFIG = {
     nodeLabelKey: (id, key) => `/api/nodes/${id}/labels/${key}`,
     nodeMaxReplicasPerModel: (id) => `/api/nodes/${id}/max-replicas-per-model`,
     nodeVramBudget: (id) => `/api/nodes/${id}/vram-budget`,
+    nodeLimits: (id) => `/api/nodes/${id}/limits`,
     nodeSplitServer: (id) => `/api/nodes/${id}/split-server`,
     clusterSettings: '/api/cluster/settings',
     clusterJoinTokens: '/api/cluster/join-tokens',

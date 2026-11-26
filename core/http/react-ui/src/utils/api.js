@@ -1417,6 +1417,18 @@ export const nodesApi = {
   resetVramBudget: (id) => fetchJSON(API_CONFIG.endpoints.nodeVramBudget(id), {
     method: 'DELETE',
   }),
+  // The memory limits a node runs with, each with its source (override,
+  // worker, cluster, default). setLimits sends only the keys that change;
+  // resetLimits clears every override of the node.
+  getLimits: (id) => fetchJSON(API_CONFIG.endpoints.nodeLimits(id)),
+  setLimits: (id, limits) => fetchJSON(API_CONFIG.endpoints.nodeLimits(id), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(limits),
+  }),
+  resetLimits: (id) => fetchJSON(API_CONFIG.endpoints.nodeLimits(id), {
+    method: 'DELETE',
+  }),
   listScheduling: () => fetchJSON(API_CONFIG.endpoints.nodesScheduling),
   allModels: () => fetchJSON(API_CONFIG.endpoints.nodesModels),
   setScheduling: (config) => postJSON(API_CONFIG.endpoints.nodesScheduling, config),

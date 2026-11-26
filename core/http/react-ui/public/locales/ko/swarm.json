@@ -191,5 +191,33 @@
   },
   "failover": {
     "lostConnection": "연결:"
+  },
+  "limits": {
+    "title": "제한",
+    "sub": "이 노드의 메모리 설정입니다. 여기서 설정한 값은 워커의 환경 변수와 클러스터 설정(설정, 메모리의 모델)보다 우선합니다.",
+    "maxActive": "로드 상태로 유지할 모델 수",
+    "vramBudget": "GPU 메모리 예산",
+    "vramBudgetPlaceholder": "예: 80% 또는 12GB",
+    "threshold": "메모리 임계값",
+    "thresholdOff": "꺼짐 (켜면 {{pct}}%)",
+    "swap": "메모리가 가득 차면 모델 교체",
+    "noLimit": "제한 없음",
+    "none": "없음",
+    "on": "켜짐",
+    "off": "꺼짐",
+    "edit": "편집",
+    "save": "저장",
+    "cancel": "취소",
+    "reset": "모두 초기화",
+    "saved": "{{name}}에 제한을 저장했습니다",
+    "resetDone": "{{name}}의 재정의를 지웠습니다",
+    "failed": "제한을 변경할 수 없습니다: {{error}}",
+    "loadFailed": "이 노드의 제한을 읽을 수 없습니다",
+    "source": {
+      "override": "여기서 설정",
+      "worker": "워커 환경",
+      "cluster": "클러스터",
+      "default": "기본값"
+    }
   }
 }

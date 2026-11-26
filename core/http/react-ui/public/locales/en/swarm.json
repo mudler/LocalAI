@@ -694,5 +694,33 @@
       "rules": "Rules",
       "failover": "Failover"
     }
+  },
+  "limits": {
+    "title": "Limits",
+    "sub": "Memory settings of this node. A value set here wins over the worker's environment and the cluster settings (Settings, Models in memory).",
+    "maxActive": "Models kept loaded",
+    "vramBudget": "GPU memory budget",
+    "vramBudgetPlaceholder": "e.g. 80% or 12GB",
+    "threshold": "Memory threshold",
+    "thresholdOff": "Off ({{pct}}% when on)",
+    "swap": "Swap models when memory is full",
+    "noLimit": "No limit",
+    "none": "None",
+    "on": "On",
+    "off": "Off",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "reset": "Reset all",
+    "saved": "Limits saved on {{name}}",
+    "resetDone": "Overrides cleared on {{name}}",
+    "failed": "Could not change the limits: {{error}}",
+    "loadFailed": "Could not read the limits of this node",
+    "source": {
+      "override": "Set here",
+      "worker": "Worker environment",
+      "cluster": "Cluster",
+      "default": "Default"
+    }
   }
 }

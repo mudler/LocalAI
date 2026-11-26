@@ -191,5 +191,33 @@
   },
   "failover": {
     "lostConnection": "Verbindung:"
+  },
+  "limits": {
+    "title": "Limits",
+    "sub": "Speichereinstellungen dieses Knotens. Ein hier gesetzter Wert hat Vorrang vor der Umgebung des Workers und den Cluster-Einstellungen (Einstellungen, Modelle im Speicher).",
+    "maxActive": "Geladen gehaltene Modelle",
+    "vramBudget": "GPU-Speicherbudget",
+    "vramBudgetPlaceholder": "z. B. 80% oder 12GB",
+    "threshold": "Speicherschwelle",
+    "thresholdOff": "Aus ({{pct}}% wenn an)",
+    "swap": "Modelle tauschen, wenn der Speicher voll ist",
+    "noLimit": "Kein Limit",
+    "none": "Keins",
+    "on": "An",
+    "off": "Aus",
+    "edit": "Bearbeiten",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "reset": "Alle zurücksetzen",
+    "saved": "Limits auf {{name}} gespeichert",
+    "resetDone": "Überschreibungen auf {{name}} entfernt",
+    "failed": "Die Limits konnten nicht geändert werden: {{error}}",
+    "loadFailed": "Die Limits dieses Knotens konnten nicht gelesen werden",
+    "source": {
+      "override": "Hier gesetzt",
+      "worker": "Worker-Umgebung",
+      "cluster": "Cluster",
+      "default": "Standard"
+    }
   }
 }

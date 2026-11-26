@@ -101,7 +101,8 @@
       "retry": "Retry same operation",
       "policy": "Owner policy · revision {{revision}}",
       "apply": "Apply update setting"
-    }
+    },
+    "memoryCluster": "Applies to every worker node. Set a different value for one node on the Nodes page."
   },
   "traces": {
     "title": "Traces",

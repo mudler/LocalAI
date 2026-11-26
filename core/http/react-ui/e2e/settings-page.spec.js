@@ -404,3 +404,23 @@ test.describe('Settings: reduced motion', () => {
     expect(sw).toBeLessThan(0.001)
   })
 })
+
+test.describe('Settings: model swap', () => {
+  test('turns model swap off and says it applies to every node in a cluster', async ({ page }) => {
+    const state = await mockSettings(page, { model_swap: true, memory_scope: 'cluster', memory_revision: 3 })
+    await page.goto('/app/settings')
+    await expect(page.getByTestId('settings-memory-cluster')).toContainText('Applies to every worker node')
+    await expect(row(page, 'model_swap')).toContainText('Swap models when memory is full')
+    await expect(page.getByTestId('st-extra-vram_budget')).toContainText('on each worker node')
+    await sw(page, 'model_swap').click()
+    await page.getByRole('button', { name: 'Apply' }).click()
+    await expect.poll(() => state.posts.at(-1)).toMatchObject({ model_swap: false })
+  })
+
+  test('shows no cluster note on a single server', async ({ page }) => {
+    await mockSettings(page)
+    await page.goto('/app/settings')
+    await expect(row(page, 'model_swap')).toBeVisible()
+    await expect(page.getByTestId('settings-memory-cluster')).toHaveCount(0)
+  })
+})

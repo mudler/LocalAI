@@ -18,7 +18,7 @@ Open **Admin → Settings** in the web UI (`/app/settings`). The page lists ever
 
 | Group | Settings it holds |
 |---|---|
-| Models in memory | Watchdog (idle and busy checks, timeouts, interval), eviction (force when busy, largest first, retries, retry interval), free memory automatically and its threshold, models kept loaded, GPU memory budget |
+| Models in memory | Watchdog (idle and busy checks, timeouts, interval), eviction (force when busy, largest first, retries, retry interval), free memory automatically and its threshold, models kept loaded, swap models when memory is full, GPU memory budget |
 | Speed and defaults | Default threads, default context size, artifact download concurrency, F16 |
 | Backends and galleries | Automatic backend upgrades, development backends, gallery loading on boot, the persistent VRAM cache, the model and backend gallery lists |
 | Access and security | CORS and allowed origins, CSRF protection, shared API keys, whether MCP connectors may reach private networks |
@@ -84,6 +84,23 @@ By default, LocalAI will skip evicting models that have active API calls to prev
 4. If all retries are exhausted, the system will proceed (which may cause out-of-memory errors if resources are truly exhausted). With **Swap models when memory is full** off, the request gets `503` with `Retry-After` instead
 
 You can configure these settings via the web UI or through environment variables. See [VRAM Management]({{%relref "/models/vram-management" %}}) for more details.
+
+#### Memory settings in distributed mode
+
+In distributed mode the settings of **Models in memory** are cluster settings: they are stored once for all frontends (see [Memory settings across frontends]({{%relref "/administration/distributed-mode#memory-settings-across-frontends" %}})) and each one applies to every worker node. The Settings page says so above the group. Four of them can differ per node ([Per-node memory limits]({{%relref "/administration/distributed-mode#per-node-memory-limits" %}})).
+
+| Setting | Single mode | Distributed mode |
+|---|---|---|
+| `max_active_backends` (Models kept loaded) | Models loaded on this machine | Models on each node: loaded, loading and staging replicas. Per node |
+| `model_swap` (Swap models when memory is full) | Unload the least recently used idle model for a new one | The same on each node. Off: a full node is skipped; when every node is full the request gets `503` with `Retry-After`. Per node |
+| `size_aware_eviction` | Unload the largest model first | Unload the largest replica first (size from the load estimate) |
+| `lru_eviction_max_retries`, `lru_eviction_retry_interval` | The wait for a busy model to become idle | The same, capped by the request's own wait |
+| `force_eviction_when_busy` | Unload a model that serves requests | Unload a replica that serves requests |
+| `watchdog_idle_*` | Unload models idle longer than the timeout | Unload replicas idle longer than the timeout, also of models with no scheduling rule; a rule's `min_replicas`, pinned models and warm failover targets stay |
+| `memory_reclaimer_*` | Unload when this machine's memory passes the threshold | Unload on each node whose memory passes its threshold, and keep `(1 - threshold)` of the node's memory free when placing a model. Per node (threshold); `0.90` on unified-memory nodes when the cluster names no reclaimer setting |
+| `vram_budget` (GPU memory budget) | Cap of this machine | Cap of each worker that sets none of its own. Per node |
+
+The busy watchdog (`watchdog_busy_*`) still acts only on the backends that a frontend starts itself. In distributed mode a frontend's own watchdog handles only the backends it started; the replicas on the workers are the cluster's to unload.
 
 ### Performance Settings
 

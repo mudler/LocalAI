@@ -4,7 +4,7 @@ import { Link, Navigate, useLocation, useOutletContext, useSearchParams } from '
 import { useTranslation } from 'react-i18next'
 import { settingsApi, resourcesApi, brandingApi } from '../utils/api'
 import { useBranding } from '../contexts/BrandingContext'
-import { Button, EmptyState, LoadError, SearchField, SkeletonRows } from '../components/ui'
+import { Button, Callout, EmptyState, LoadError, SearchField, SkeletonRows } from '../components/ui'
 import { HubHeader } from '../components/hub/HubHeader'
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import HomeUndoToast from '../components/home/HomeUndoToast'
@@ -453,6 +453,9 @@ export default function Settings() {
               <h2 className="st-h2" id="st-group-title">{active.label}<span className="st-sub">{active.hint}</span></h2>
               {group === 'backends' && settings.addon_host_settings_authority && <AddonUpgradeSettings />}
               {group === 'backends' && settings.addon_host_settings_authority && <ConnectorFilesSettings />}
+              {group === 'memory' && settings.memory_scope === 'cluster' && (
+                <Callout testId="settings-memory-cluster">{t('settings.memoryCluster')}</Callout>
+              )}
               {group === 'memory' && <MemoryNow resources={resources} settings={settings} onRefresh={fetchResources} />}
               {group === 'access' && (
                 <p className="st-note">Sign-in, users, invites and per-user API keys are under Access when authentication is on.</p>

@@ -11,6 +11,45 @@ async function mockNode(page, overrides = {}) {
     body: JSON.stringify([{ name: 'llama-cpp', is_system: true, installed_at: '2026-06-01T00:00:00Z' }]) }))
 }
 
+test.describe('Node limits pane', () => {
+  test('shows each limit with its source, saves an override and resets it', async ({ page }) => {
+    await mockNode(page)
+    let limits = { max_active_backends: 2, vram_budget: '', memory_reclaimer_enabled: false, memory_reclaimer_threshold: 0.95, model_swap: true,
+      sources: { max_active_backends: 'worker', vram_budget: 'cluster', memory_reclaimer_threshold: 'cluster', model_swap: 'cluster' } }
+    const sent = []
+    await page.route(`**/api/nodes/${ID}/limits`, r => {
+      const method = r.request().method()
+      if (method === 'PUT') {
+        const body = r.request().postDataJSON()
+        sent.push(body)
+        limits = { ...limits, ...body, sources: { ...limits.sources, model_swap: 'override' } }
+      } else if (method === 'DELETE') {
+        sent.push('reset')
+        limits = { ...limits, model_swap: true, sources: { ...limits.sources, model_swap: 'cluster' } }
+      }
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(limits) })
+    })
+    await page.goto(`/app/nodes/${ID}?tab=config`)
+
+    const pane = page.getByTestId('node-limits')
+    await expect(pane).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('limits-value-max_active_backends')).toHaveText('2')
+    await expect(page.getByTestId('limits-source-max_active_backends')).toHaveText('Worker environment')
+    await expect(page.getByTestId('limits-value-model_swap')).toHaveText('On')
+
+    await page.getByTestId('limits-edit').click()
+    await page.getByTestId('limits-swap-switch').click()
+    await pane.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByTestId('limits-value-model_swap')).toHaveText('Off')
+    await expect(page.getByTestId('limits-source-model_swap')).toHaveText('Set here')
+    expect(sent[0]).toEqual({ model_swap: false })
+
+    await page.getByTestId('limits-reset').click()
+    await expect(page.getByTestId('limits-value-model_swap')).toHaveText('On')
+    expect(sent[1]).toBe('reset')
+  })
+})
+
 test.describe('Node detail page', () => {
   test('renders the header, the vitals and each tab for a node', async ({ page }) => {
     await mockNode(page)

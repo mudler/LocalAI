@@ -101,7 +101,8 @@
       "retry": "Denselben Vorgang wiederholen",
       "policy": "Eigentümer-Richtlinie · Revision {{revision}}",
       "apply": "Aktualisierungseinstellung anwenden"
-    }
+    },
+    "memoryCluster": "Gilt für jeden Worker-Knoten. Einen anderen Wert für einen Knoten setzt du auf der Seite Knoten."
   },
   "backends": {
     "lifecycle": {

@@ -101,7 +101,8 @@
       "retry": "Réessayer la même opération",
       "policy": "Politique du propriétaire · révision {{revision}}",
       "apply": "Appliquer le réglage de mise à jour"
-    }
+    },
+    "memoryCluster": "S'applique à chaque nœud worker. Pour une autre valeur sur un nœud, utilisez la page Nœuds."
   },
   "traces": {
     "title": "Traces",
