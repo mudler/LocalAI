@@ -471,7 +471,7 @@ a call may reach. The model never sees or sets either.
   this version does not have. Tools of such an add-on name no `resourceId`.
 - A tool with `uiOnly: true` (see the `uiOnly` field of a tool definition) gets no credential and no resource, even in an add-on that declares a slot. It is for the add-on's own page, which has no chat to name a connection, so it works with no connection or with several. The Home Assistant add-on keeps the limits for all its connections this way.
 
-- The secret is an opaque string of at most 4096 bytes, and the host never reads
+- The secret is an opaque string of at most 16384 bytes (16 KiB), and the host never reads
   it. An add-on whose service needs more than a token (servers, a login and a
   password) can seal a small versioned JSON record as the secret and keep only
   the resource name in the list, as the Mail add-on does (see
@@ -638,7 +638,7 @@ characters (such as bidirectional overrides) from the account name, folds white
 space and keeps at most 128 characters, so "Connected as" cannot show another
 account than the one linked. The outcome is one of `ok`, `denied`,
 `invalid_state`, `provider_error`, `exchange_failed`, `scopes_missing`,
-`token_too_large` (the access token is larger than the 4096 bytes a request
+`token_too_large` (the access token is larger than the 16384 bytes a request
 carries) and `unavailable`; nothing the service wrote is copied into it.
 
 Every credentialed call reads the grant:
@@ -663,7 +663,7 @@ Every credentialed call reads the grant:
 | Network error, timeout or 5xx | the call fails as an outage and may be repeated | unchanged |
 | 429 | `rate_limited` with the `Retry-After` of the service | unchanged |
 | `invalid_grant`, `invalid_client`, another refusal | `reconnect_needed` | secrets wiped, state `reconnect_needed` |
-| an access token over 4096 bytes | `reconnect_needed`, reason `token_too_large` | secrets wiped |
+| an access token over 16384 bytes | `reconnect_needed`, reason `token_too_large` | secrets wiped |
 | a `scope` without a required scope | `reconnect_needed`, reason `scopes_missing` | secrets wiped |
 | a `scope` with other scopes | the token is used | the granted scopes become those of the login that the service still grants; a scope the login never had is not added |
 | (descriptor changed, not approved yet) | `reconnect_needed` to the call; the connection shows `needs_approval`, and no token is used or sent | secrets kept, state `needs_approval` |
@@ -682,7 +682,7 @@ same step.
 
 The token client follows no redirect, reaches public addresses only, waits at
 most 30 s and reads at most 64 KiB. It accepts bearer tokens only, an access
-token must fit in 4096 bytes, and `expires_in` is clamped to one minute through
+token must fit in 16384 bytes, and `expires_in` is clamped to one minute through
 one day. A granted `scope` must be RFC 6749 scope tokens of at most 128 bytes,
 the rule `Request.GrantedScopes` is checked with, so an answer with any other
 scope fails the login or the refresh instead of every later call. Its errors
