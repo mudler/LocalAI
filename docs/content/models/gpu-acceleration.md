@@ -71,6 +71,58 @@ For AMD GPUs, use `HIP_VISIBLE_DEVICES` instead:
 docker run --device /dev/dri --device /dev/kfd -e HIP_VISIBLE_DEVICES=0,1 ...
 ```
 
+#### llama.cpp tensor split (lower latency on several NVIDIA GPUs) {#llama-cpp-tensor-split}
+
+llama.cpp has two useful ways to split one model across GPUs. Set the mode with the `split_mode` option:
+
+| Mode | What it does | Use it when |
+|---|---|---|
+| `layer` (default) | Each GPU holds a block of whole layers. A token goes through the GPUs one after the other. | The model does not fit on one GPU and you want fast prompt processing or many parallel requests. Works on any interconnect. |
+| `tensor` | Each layer is split across all GPUs, with its KV cache. The GPUs work on every token together and exchange results after each layer. | You want the fastest token generation for one or few requests. Experimental upstream. Needs a fast GPU interconnect. |
+
+Use this configuration as a starting point for `tensor`:
+
+```yaml
+name: my-model-tensor-split
+backend: llama-cpp
+parameters:
+  model: my-model.gguf
+# Tensor split needs flash attention. "auto" also turns it on in this mode;
+# "on" makes a failure explicit.
+flash_attention: "on"
+# Unquantized KV cache: the safe choice for tensor split.
+cache_type_k: f16
+cache_type_v: f16
+# Auto-fit does not work with tensor split, so set the context size yourself.
+context_size: 16384
+# Optional: share of each GPU, in device order. Without it, tensor split
+# divides the tensors evenly.
+# tensor_split: "1,1"
+options:
+  - split_mode:tensor
+  - fit_params:false
+```
+
+What to know before you use it:
+
+- **Fit the model yourself.** llama.cpp's auto-fit is not implemented for tensor split. With `fit_params` left on, llama.cpp logs that it cannot fit and loads with the values you gave. If the load runs out of GPU memory, lower `context_size` first, then `parallel`, and only then `gpu_layers` (layers on the CPU are much slower).
+- **Not every architecture supports it.** The load fails with `LLAMA_SPLIT_MODE_TENSOR not implemented for architecture '...'` for many MoE, hybrid and state-space families (for example DeepSeek2, Nemotron-H, Granite-Hybrid, Jamba, Mamba, Minimax-M2) and for some others (OLMo2, Gemma-3n, T5). Use `split_mode:layer` for those. Upstream keeps the full list in [llama.cpp's multi-GPU guide](https://github.com/ggml-org/llama.cpp/blob/master/docs/multi-gpu.md).
+- **KV cache type.** The example uses `f16`. `bf16` and `f32` also work. The llama.cpp version that LocalAI ships also accepts quantized KV cache (`q8_0`, ...) with tensor split; check the output quality if you use it.
+- **`tensor_split`** gives the share of each GPU, in the order llama.cpp lists the devices (`"3,1"` puts 75% on the first GPU). Use it when the GPUs have different memory sizes.
+- **Validate the output.** Upstream marks tensor split as experimental. Compare a few answers with `split_mode:layer` before you rely on it.
+
+**NCCL.** In tensor mode the GPUs add up partial results after every layer. On NVIDIA GPUs llama.cpp does this with NCCL (NVIDIA Collective Communications Library) when the backend has it, and with its own slower code when it does not. The CUDA 12 and CUDA 13 `llama-cpp` backends for x86_64, and the CUDA 13 backend for arm64, ship NCCL in the backend's `lib/` directory, so there is nothing to install. The Jetson (CUDA 12 arm64) backend does not ship it, because NVIDIA does not provide NCCL for Jetson. NCCL is only used when a model runs with `split_mode:tensor` on two or more GPUs. With one GPU, or with `layer` split, nothing changes.
+
+If NCCL cannot start (for example when CUDA virtual devices are in use), llama.cpp logs a warning and uses its own code. These environment variables of llama.cpp change the behavior. Set them on the LocalAI process or container, and the backend inherits them:
+
+| Variable | Effect |
+|---|---|
+| `GGML_CUDA_ALLREDUCE=internal` | Do not use NCCL; use llama.cpp's own code (it supports exactly two GPUs and falls back further otherwise). Useful to compare speed with and without NCCL. |
+| `GGML_CUDA_ALLREDUCE=none` | Use the simplest generic fallback. For troubleshooting only. |
+| `GGML_CUDA_P2P=1` | Let the GPUs copy data directly to each other. Usually faster, but it needs driver support and can crash or corrupt output on some motherboards (for example with IOMMU on). Remove it if you see problems. |
+
+NCCL is distributed under the BSD-3-Clause license. Its notice is in `licenses/NCCL-LICENSE.txt` in the backend directory.
+
 #### diffusers
 
 For multi-GPU support with diffusers, configure the model with `tensor_parallel_size` set to the number of GPUs you want to use.

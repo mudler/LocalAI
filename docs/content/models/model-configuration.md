@@ -285,7 +285,7 @@ These settings apply to most LLM backends (llama.cpp, vLLM, etc.):
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `tensor_split` | string | Comma-separated GPU memory allocation (e.g., `"0.8,0.2"` for 80%/20%) |
+| `tensor_split` | string | Comma-separated GPU memory allocation (e.g., `"0.8,0.2"` for 80%/20%). With the llama.cpp option `split_mode:tensor` it sets the share of each tensor that goes to each GPU; see [tensor split]({{%relref "/models/gpu-acceleration#llama-cpp-tensor-split" %}}) |
 | `main_gpu` | string | Main GPU identifier for multi-GPU setups |
 | `cuda` | bool | Explicitly enable/disable CUDA |
 

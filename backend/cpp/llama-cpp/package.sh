@@ -49,6 +49,10 @@ if [ -f "$GPU_LIB_SCRIPT" ]; then
     package_gpu_libs
 fi
 
+# The transitive sweep above already copies libnccl.so.2 when the CUDA build
+# links it; this fails the build when it did not, or when CMake missed NCCL.
+bash "${REPO_ROOT}/scripts/build/check-nccl-bundle.sh" "$CURDIR/package"
+
 echo "Packaging completed successfully" 
 ls -liah $CURDIR/package/
 ls -liah $CURDIR/package/lib/

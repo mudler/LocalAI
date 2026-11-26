@@ -484,6 +484,18 @@ export const SHARED_BUILD_INPUTS = [
     darwin: never,
   },
   {
+    // NCCL for llama.cpp's tensor split. backend/Dockerfile.llama-cpp
+    // bind-mounts the installer and backend/cpp/llama-cpp/package.sh runs the
+    // check; no other image uses either. Without this rule the check script
+    // would fall to the scripts/build/ catch-all and rebuild every backend.
+    matches: file =>
+      file === ".docker/install-nccl.sh" ||
+      file === "scripts/build/check-nccl-bundle.sh",
+    linux: item => dockerfilePath(item) === "backend/Dockerfile.llama-cpp",
+    darwin: never,
+    windows: never,
+  },
+  {
     matches: file => file === "scripts/build/python-darwin.sh",
     linux: never,
     darwin: isDarwinPython,
