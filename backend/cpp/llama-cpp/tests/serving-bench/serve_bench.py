@@ -5,7 +5,8 @@
 Standard library only. Works against LocalAI and against llama-server. Used for
 the paged serving A/B (see README.md in this directory).
 
-  serve_bench.py gen --workload overcommit|mixed|steady|shared|single [--seed 1] [--max-tokens N] > trace.jsonl
+  serve_bench.py gen --workload overcommit|mixed|steady|shared|single [--seed 1] [--n N] [--max-tokens N]
+                     [--words W] [--chats C] [--long-words L] > trace.jsonl
   serve_bench.py run --url URL --model NAME --trace trace.jsonl --arm A --rep 0 --workload W --out req.jsonl
   serve_bench.py ab  --url URL --trace trace.jsonl --workload W --reps 5 --out req.jsonl ARM=MODEL [ARM=MODEL ...]
   serve_bench.py sum req.jsonl [...] [--ref ARM]
@@ -37,13 +38,13 @@ def gen(a):
     if a.workload == "overcommit":
         # burst: N requests of about 600 prompt tokens, all at t=0
         for i in range(a.n or 8):
-            reqs.append(dict(id=i, t=0.0, kind="burst", prompt=f"Request {i}. " + text(rng, 600),
+            reqs.append(dict(id=i, t=0.0, kind="burst", prompt=f"Request {i}. " + text(rng, a.words),
                              max_tokens=a.max_tokens or 200))
     elif a.workload == "mixed":
-        # 4 chat streams with long outputs from t=0, one long prompt at t=3 s
-        for i in range(4):
+        # chat streams with long outputs from t=0, one long prompt at t=3 s
+        for i in range(a.chats):
             reqs.append(dict(id=i, t=0.2 * i, kind="chat", prompt=f"Chat {i}. " + text(rng, 60), max_tokens=a.chat_out))
-        reqs.append(dict(id=4, t=3.0, kind="long", prompt="Document. " + text(rng, a.long_words), max_tokens=32))
+        reqs.append(dict(id=a.chats, t=3.0, kind="long", prompt="Document. " + text(rng, a.long_words), max_tokens=32))
     elif a.workload in ("steady", "shared"):
         # Poisson arrivals of chat-sized prompts; "shared" prepends one system prompt
         t = 0.0
@@ -256,6 +257,8 @@ if __name__ == "__main__":
     g.add_argument("--n", type=int, default=0); g.add_argument("--rate", type=float, default=1.0)
     g.add_argument("--chat-out", type=int, default=256); g.add_argument("--long-words", type=int, default=3600)
     g.add_argument("--max-tokens", type=int, default=0)
+    g.add_argument("--words", type=int, default=600, help="overcommit: prompt words per request")
+    g.add_argument("--chats", type=int, default=4, help="mixed: chat streams")
     r = sp.add_parser("run")
     r.add_argument("--url", required=True); r.add_argument("--model", default="m")
     r.add_argument("--trace", required=True); r.add_argument("--arm", required=True); r.add_argument("--rep", type=int, default=0)

@@ -21,11 +21,11 @@ one arm holds memory at a time.
 | Arm | Options |
 |---|---|
 | A0 | A backend built without the patches (the unpatched llama.cpp pin), for example as an external gRPC backend |
-| A | The patched backend, no paged options |
-| B0 | `paged_kv`, `paged_preempt:false` |
+| A | The patched backend with paged serving off: `paged_kv:false`, `prefill_budget:0` |
+| B0 | `paged_kv`, `paged_preempt:false`, `prefill_budget:0` |
 | B1 | B0 plus `prefill_budget:256` |
 | B2 | B0 plus `prefill_budget:512` |
-| B3 | `paged_kv`, `kv_output_reserve:64` (preemption on) |
+| B3 | `paged_kv`, `kv_output_reserve:64`, `prefill_budget:0` (preemption on) |
 
 Example model file for arm B1 of the mixed workload:
 
@@ -36,7 +36,6 @@ context_size: 16384
 parameters:
   model: Qwen3-0.6B-Q8_0.gguf
 options:
-  - paged_kv
   - paged_preempt:false
   - prefill_budget:256
   - parallel:5
@@ -52,6 +51,10 @@ options:
 | steady | `gen --workload steady`: 24 Poisson arrivals, 1 per second | `context_size: 8192`, `parallel:4` |
 | shared | `gen --workload shared`: steady with a common 300-token system prompt | same |
 | single | `gen --workload single`: 6 serial requests | `context_size: 4096`, `parallel:1` |
+| concurrent N | `gen --workload overcommit --n N --words 300 --max-tokens 256`: N requests at t=0 that fit the pool | `context_size: 32768`, `parallel:N` |
+
+On a GPU, scale the mixed workload up, for example `--chats 8 --long-words 8000`
+with `context_size: 65536` and `parallel:9`.
 
 All requests are greedy, with `ignore_eos`, so every arm generates the same
 number of tokens.
