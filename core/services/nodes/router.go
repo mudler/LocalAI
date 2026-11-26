@@ -141,6 +141,11 @@ type SmartRouterOptions struct {
 	// caller, never the load: the job keeps running either way. Zero selects
 	// config.DefaultModelLoadWait; config.ModelLoadWaitUnbounded waits forever.
 	ModelLoadWait time.Duration
+	// ModelLoadStall is how long a running load may make no progress (no new
+	// phase, file or bytes) before a request starts a load of the same model
+	// on another node instead of waiting for it. Zero selects
+	// config.DefaultModelLoadStall; config.ModelLoadStallNever never starts one.
+	ModelLoadStall time.Duration
 	// LoadOptionsFinalizer, when set, completes a copy of the load options
 	// right before LoadModel is sent to a worker: for a fresh load and for a
 	// reconciler replay of stored options alike. It is how a secret (the key
@@ -250,6 +255,8 @@ type SmartRouter struct {
 	// modelLoadWait bounds the REQUEST's wait for a running cold load, not the
 	// load itself (see SmartRouterOptions.ModelLoadWait).
 	modelLoadWait time.Duration
+	// modelLoadStall: see SmartRouterOptions.ModelLoadStall.
+	modelLoadStall time.Duration
 	// finalizeLoad completes the options sent to a worker (see
 	// SmartRouterOptions.LoadOptionsFinalizer).
 	finalizeLoad func(ctx context.Context, modelID string, opts *pb.ModelOptions) error
@@ -323,6 +330,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		stagingStallWindow:   opts.StagingStallWindow,
 		modelLoadAbsoluteMax: opts.ModelLoadAbsoluteMax,
 		modelLoadWait:        opts.ModelLoadWait,
+		modelLoadStall:       opts.ModelLoadStall,
 		finalizeLoad:         opts.LoadOptionsFinalizer,
 		loadWaiters:          map[string]*loadWaiter{},
 	}
@@ -400,9 +408,10 @@ func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode, backend
 // processKey, port, and the registry row all agree.
 //
 // restrictTo, when non-empty, limits the nodes the replica may go to (see
-// scheduleNewModel).
+// scheduleNewModel). placed, when not nil, is a placement chosen before the
+// load job was claimed: the load goes there and restrictTo is not used.
 func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, trackingKey, modelName string,
-	configRevision string, modelOpts *pb.ModelOptions, parallel bool, initialInFlight int, restrictTo []string) (*scheduleLoadResult, error) {
+	configRevision string, modelOpts *pb.ModelOptions, parallel bool, initialInFlight int, restrictTo []string, placed *replicaPlacement) (*scheduleLoadResult, error) {
 
 	// With a database every cold load runs under a job row. Mark the path so a
 	// registry write that lost its ownership value is refused, not waved through.
@@ -410,7 +419,18 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		ctx = withLoadPath(ctx)
 	}
 
-	node, backendAddr, replicaIndex, err := r.scheduleNewModel(ctx, backendType, trackingKey, modelOpts, restrictTo)
+	var (
+		node         *BackendNode
+		backendAddr  string
+		replicaIndex int
+		err          error
+	)
+	if placed != nil {
+		node, replicaIndex = placed.node, placed.replicaIdx
+		backendAddr, err = r.installPlacement(ctx, placed, backendType, trackingKey, modelOpts)
+	} else {
+		node, backendAddr, replicaIndex, err = r.scheduleNewModel(ctx, backendType, trackingKey, modelOpts, restrictTo)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("no available nodes: %w", err)
 	}
@@ -710,23 +730,32 @@ func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string
 		return nil, fmt.Errorf("unmarshalling stored model options for %s: %w", modelName, err)
 	}
 
-	// The reconciler is a load owner like a request is. It claims the job
-	// before any remote work, so a request for the same model waits for this
-	// load instead of scheduling a second copy, and a stale owner is stopped
-	// by the same loop.
-	job, claimed, err := r.registry.ClaimLoadJob(ctx, modelName, ReplicaID())
+	// The reconciler is a load owner like a request is. It chooses the node,
+	// then claims the job of the model on that node before any remote work,
+	// so a request for the same model waits for this load instead of
+	// scheduling a second copy there, and a stale owner is stopped by the
+	// same loop. A node that already runs or holds a load of the model is
+	// skipped: its load is not this one's to repeat.
+	jobs, err := r.registry.ListLoadJobs(ctx, modelName)
 	if err != nil {
-		return nil, fmt.Errorf("claiming the load of model %s: %w", modelName, err)
+		return nil, fmt.Errorf("reading the loads of model %s: %w", modelName, err)
+	}
+	placed, err := r.placeNewReplica(ctx, modelName, &modelOpts, candidateNodeIDs, busyLoadNodes(jobs, time.Now()))
+	if err != nil {
+		return nil, err
+	}
+	job, claimed, err := r.registry.ClaimLoadJobOn(ctx, modelName, placed.node.ID, ReplicaID())
+	if err != nil {
+		return nil, fmt.Errorf("claiming the load of model %s on node %s: %w", modelName, placed.node.Name, err)
 	}
 	if !claimed {
-		return nil, fmt.Errorf("model %s (job state %s, node %q): %w", modelName, job.State, job.NodeName, ErrLoadInProgress)
+		return nil, fmt.Errorf("model %s on node %s (job state %s): %w", modelName, placed.node.Name, job.State, ErrLoadInProgress)
 	}
 
 	var node *BackendNode
 	err = r.runLoadOwner(ctx, job.Ref(), func(ownerCtx context.Context) error {
 		// initialInFlight=0: reconciler is pre-loading, not serving a request.
-		// scheduleAndLoad picks both the node and the replica slot internally.
-		result, err := r.scheduleAndLoad(ownerCtx, backendType, modelName, modelName, revision, &modelOpts, false, 0, candidateNodeIDs)
+		result, err := r.scheduleAndLoad(ownerCtx, backendType, modelName, modelName, revision, &modelOpts, false, 0, nil, placed)
 		if err != nil {
 			return err
 		}
@@ -846,7 +875,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	if result := r.tryWarmPath(loadCtx, att); result != nil {
 		return result, nil
 	}
-	return r.coldLoad(loadCtx, att, 1)
+	return r.coldLoad(loadCtx, att, 1, nil)
 }
 
 // routeAttempt is the per-request routing state shared by the warm path, the
@@ -950,8 +979,8 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 // coldLoad schedules the model onto a node and loads it, returning a route to
 // the replica it landed on. initialInFlight reserves the slot for the calling
 // request; the job runner passes 0 because it is loading on nobody's behalf.
-func (r *SmartRouter) coldLoad(ctx context.Context, att *routeAttempt, initialInFlight int) (*RouteResult, error) {
-	result, err := r.scheduleAndLoad(ctx, att.backendType, att.trackingKey, att.modelName, att.configRevision, att.modelOpts, att.parallel, initialInFlight, nil)
+func (r *SmartRouter) coldLoad(ctx context.Context, att *routeAttempt, initialInFlight int, placed *replicaPlacement) (*RouteResult, error) {
+	result, err := r.scheduleAndLoad(ctx, att.backendType, att.trackingKey, att.modelName, att.configRevision, att.modelOpts, att.parallel, initialInFlight, nil, placed)
 	if err != nil {
 		return nil, err
 	}
@@ -1261,11 +1290,18 @@ func (r *SmartRouter) nodeMatchesScheduling(ctx context.Context, node *BackendNo
 	return true
 }
 
-// scheduleNewModel picks the best node for loading a new model and allocates
-// the replica slot.
-// Strategy: filter to nodes with a free slot for this model → VRAM-aware →
-// idle-first → least-loaded → eviction.
-// Sends backend.install via NATS so the chosen node has the right backend running.
+// replicaPlacement is the node and replica slot chosen for a new replica,
+// before anything runs on the node. The load job is claimed for that node
+// next, so a model can load on several nodes at once, one job per node.
+type replicaPlacement struct {
+	node          *BackendNode
+	replicaIdx    int
+	estimatedVRAM uint64
+	sched         *ModelSchedulingConfig
+}
+
+// scheduleNewModel places a new replica (placeNewReplica) and installs its
+// backend (installPlacement).
 //
 // Returns (node, gRPC address, replicaIndex, err). replicaIndex is the slot
 // the worker has been told to use; the caller must pass the same index into
@@ -1274,6 +1310,28 @@ func (r *SmartRouter) nodeMatchesScheduling(ctx context.Context, node *BackendNo
 // restrictTo, when non-empty, narrows the candidates to those nodes. When no
 // node is left after that, it fails instead of falling back to any node.
 func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID string, modelOpts *pb.ModelOptions, restrictTo []string) (*BackendNode, string, int, error) {
+	p, err := r.placeNewReplica(ctx, modelID, modelOpts, restrictTo, nil)
+	if err != nil {
+		return nil, "", 0, err
+	}
+	addr, err := r.installPlacement(ctx, p, backendType, modelID, modelOpts)
+	if err != nil {
+		return nil, "", 0, err
+	}
+	return p.node, addr, p.replicaIdx, nil
+}
+
+// placeNewReplica picks the best node for a new replica and allocates the
+// replica slot. It runs nothing on the node.
+// Strategy: filter to nodes with a free slot for this model → VRAM-aware →
+// idle-first → least-loaded → eviction.
+//
+// restrictTo, when non-empty, narrows the candidates to those nodes. When no
+// node is left after that, it fails instead of falling back to any node.
+// exclude names nodes that already run or hold a load of this model; they are
+// not candidates. When they were the only candidates it fails with
+// ErrLoadInProgress.
+func (r *SmartRouter) placeNewReplica(ctx context.Context, modelID string, modelOpts *pb.ModelOptions, restrictTo, exclude []string) (*replicaPlacement, error) {
 	// Estimate VRAM required for the model
 	var estimatedVRAM uint64
 	if modelOpts != nil {
@@ -1289,20 +1347,23 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	// "any healthy node".
 	sched, err := r.governingRule(ctx, modelID)
 	if err != nil {
-		return nil, "", 0, err
+		return nil, err
 	}
 	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, modelID, sched)
 	if err != nil {
-		return nil, "", 0, err
+		return nil, err
 	}
 	if len(restrictTo) > 0 {
 		candidateNodeIDs = restrictCandidates(candidateNodeIDs, restrictTo)
 		if len(candidateNodeIDs) == 0 {
-			return nil, "", 0, fmt.Errorf("none of the requested nodes match the scheduling rule of %s: %w", modelID, ErrNoAvailableNodes)
+			return nil, fmt.Errorf("none of the requested nodes match the scheduling rule of %s: %w", modelID, ErrNoAvailableNodes)
 		}
 	}
+	if candidateNodeIDs, err = r.withoutLoadingNodes(ctx, modelID, candidateNodeIDs, exclude); err != nil {
+		return nil, err
+	}
 	if candidateNodeIDs, err = r.narrowByRoutable(ctx, modelID, candidateNodeIDs); err != nil {
-		return nil, "", 0, err
+		return nil, err
 	}
 
 	// Apply concurrency-group anti-affinity (#9659): prefer nodes that don't
@@ -1311,7 +1372,7 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	// per-node watchdog evicts on arrival.
 	candidateNodeIDs, err = r.narrowByGroupAntiAffinity(ctx, modelID, candidateNodeIDs)
 	if err != nil {
-		return nil, "", 0, err
+		return nil, err
 	}
 
 	// Narrow candidates to nodes that can physically STORE the model.
@@ -1323,7 +1384,7 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	// it sixteen minutes into a transfer, from the worker, as a 500.
 	candidateNodeIDs, err = r.narrowByDiskHeadroom(ctx, modelID, modelOpts, candidateNodeIDs)
 	if err != nil {
-		return nil, "", 0, err
+		return nil, err
 	}
 
 	// Narrow candidates to nodes that still have a free replica slot for this
@@ -1427,7 +1488,7 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 		preferred := r.withoutNodes(ctx, candidateNodeIDs, limited)
 		if stagesOverRelay {
 			if len(preferred) == 0 {
-				return nil, "", 0, fmt.Errorf("every node that can serve %s is reached only over a data-limited relay, and this placement needs model files pushed to it: %w", modelID, ErrNoAvailableNodes)
+				return nil, fmt.Errorf("every node that can serve %s is reached only over a data-limited relay, and this placement needs model files pushed to it: %w", modelID, ErrNoAvailableNodes)
 			}
 			candidateNodeIDs = preferred
 		}
@@ -1444,11 +1505,11 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	// Any other error left the question unanswered, and evicting on it costs a
 	// healthy model its place for no evidence.
 	if node == nil && selectErr != nil && !errors.Is(selectErr, gorm.ErrRecordNotFound) {
-		return nil, "", 0, fmt.Errorf("selecting a node for %s: %w", modelID, selectErr)
+		return nil, fmt.Errorf("selecting a node for %s: %w", modelID, selectErr)
 	}
 
 	if node == nil && memoryShort {
-		return nil, "", 0, insufficientMemoryError(modelID, estimatedVRAM)
+		return nil, insufficientMemoryError(modelID, estimatedVRAM)
 	}
 
 	// 4. Preemptive eviction: if no suitable node found, evict the LRU model
@@ -1459,9 +1520,9 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 		evictedNode, evictErr := r.evictLRUAndFreeNodeFrom(ctx, candidateNodeIDs)
 		if evictErr != nil {
 			if errors.Is(evictErr, ErrEvictionBusy) {
-				return nil, "", 0, fmt.Errorf("no healthy nodes available: %w", errors.Join(evictErr, ErrNoAvailableNodes))
+				return nil, fmt.Errorf("no healthy nodes available: %w", errors.Join(evictErr, ErrNoAvailableNodes))
 			}
-			return nil, "", 0, fmt.Errorf("no healthy nodes available and eviction failed: %w", errors.Join(evictErr, ErrNoAvailableNodes))
+			return nil, fmt.Errorf("no healthy nodes available and eviction failed: %w", errors.Join(evictErr, ErrNoAvailableNodes))
 		}
 		node = evictedNode
 	}
@@ -1481,7 +1542,7 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 		// lookup made the scheduler evict loaded models it had no evidence to
 		// evict, and they thrashed.
 		if !errors.Is(slotErr, ErrNoFreeSlot) {
-			return nil, "", 0, fmt.Errorf("determining free replica slot on %s: %w", node.Name, slotErr)
+			return nil, fmt.Errorf("determining free replica slot on %s: %w", node.Name, slotErr)
 		}
 
 		// All slots on this node are taken — fall back to eviction. This is
@@ -1497,15 +1558,23 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 		}
 		evictedNode, evictErr := r.evictLRUAndFreeNodeFrom(ctx, evictFrom)
 		if evictErr != nil {
-			return nil, "", 0, fmt.Errorf("no replica slot on %s and eviction failed: %w", node.Name, evictErr)
+			return nil, fmt.Errorf("no replica slot on %s and eviction failed: %w", node.Name, evictErr)
 		}
 		node = evictedNode
 		replicaIdx, slotErr = r.registry.NextFreeReplicaIndex(ctx, node.ID, modelID, node.MaxReplicasPerModel)
 		if slotErr != nil {
-			return nil, "", 0, fmt.Errorf("no replica slot on %s after eviction: %w", node.Name, slotErr)
+			return nil, fmt.Errorf("no replica slot on %s after eviction: %w", node.Name, slotErr)
 		}
 	}
 
+	return &replicaPlacement{node: node, replicaIdx: replicaIdx, estimatedVRAM: estimatedVRAM, sched: sched}, nil
+}
+
+// installPlacement reserves the estimated VRAM on the placed node and sends
+// backend.install, so the worker starts the backend process for this (model,
+// replica) slot. It returns the gRPC address of that process.
+func (r *SmartRouter) installPlacement(ctx context.Context, p *replicaPlacement, backendType, modelID string, modelOpts *pb.ModelOptions) (string, error) {
+	node, replicaIdx, estimatedVRAM, sched := p.node, p.replicaIdx, p.estimatedVRAM, p.sched
 	// Soft-reserve VRAM up front so a second scheduling tick within the same
 	// heartbeat window can't pick this node based on stale free-VRAM
 	// numbers. The worker's next heartbeat resets reserved_vram to the
@@ -1535,7 +1604,7 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 		if reserved {
 			_ = r.registry.ReleaseVRAM(ctx, node.ID, estimatedVRAM)
 		}
-		return nil, "", 0, fmt.Errorf("installing backend on node %s: %w", node.Name, installErr)
+		return "", fmt.Errorf("installing backend on node %s: %w", node.Name, installErr)
 	}
 
 	// One line per placement, with the rule that allowed it. Without it a
@@ -1547,7 +1616,35 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	xlog.Info("Placed cold load", "model", modelID, "node", node.Name, "replica", replicaIdx,
 		"rule", rule, "selector", selector, "estimated_vram", vram.FormatBytes(estimatedVRAM))
 
-	return node, addr, replicaIdx, nil
+	return addr, nil
+}
+
+// withoutLoadingNodes removes the nodes in exclude from candidates. A nil
+// candidates means every healthy node. When no node is left, the remaining
+// candidates all run or hold a load of the model already, which is reported as
+// ErrLoadInProgress: the caller waits for those loads, it did not fail.
+func (r *SmartRouter) withoutLoadingNodes(ctx context.Context, modelID string, candidates, exclude []string) ([]string, error) {
+	if len(exclude) == 0 {
+		return candidates, nil
+	}
+	base := candidates
+	if base == nil {
+		all, err := r.registry.FindNodesBySelector(ctx, nil)
+		if err != nil {
+			return nil, fmt.Errorf("listing nodes for %s: %w", modelID, err)
+		}
+		base = extractNodeIDs(all)
+	}
+	kept := make([]string, 0, len(base))
+	for _, id := range base {
+		if !slices.Contains(exclude, id) {
+			kept = append(kept, id)
+		}
+	}
+	if len(kept) == 0 {
+		return nil, fmt.Errorf("every node that can take model %s already runs or holds a load of it: %w", modelID, ErrLoadInProgress)
+	}
+	return kept, nil
 }
 
 // narrowByDiskHeadroom drops candidate nodes that cannot store the model and

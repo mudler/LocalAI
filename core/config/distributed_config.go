@@ -129,6 +129,12 @@ type DistributedConfig struct {
 	// records the operator asking for unbounded waiting with
 	// LOCALAI_MODEL_LOAD_WAIT=0.
 	ModelLoadWait time.Duration
+	// ModelLoadStall is how long a running cold load of a model may make no
+	// progress before a request starts a load of the same model on another
+	// matching node instead of waiting for it. Zero means unset
+	// (DefaultModelLoadStall applies); ModelLoadStallNever records
+	// LOCALAI_MODEL_LOAD_STALL=0.
+	ModelLoadStall time.Duration
 
 	MaxUploadSize int64 // Maximum upload body size in bytes (default 50 GB)
 
@@ -406,6 +412,18 @@ func WithModelLoadWait(d time.Duration) AppOption {
 	}
 }
 
+// WithModelLoadStall sets how long a running load may make no progress before
+// a request starts another load of the model on another node. A zero d means
+// never.
+func WithModelLoadStall(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		if d == 0 {
+			d = ModelLoadStallNever
+		}
+		o.Distributed.ModelLoadStall = d
+	}
+}
+
 // WithModelConfigResyncInterval sets how often a frontend resyncs its model
 // configs from the shared models directory. Zero means the default.
 func WithModelConfigResyncInterval(d time.Duration) AppOption {
@@ -570,7 +588,16 @@ const (
 	// LocalAI (with progress the client can act on) rather than from a proxy
 	// dropping the connection.
 	DefaultModelLoadWait = 60 * time.Second
+	// DefaultModelLoadStall is how long a running load may sit without
+	// progress before requests start a load on another node. A checkpoint
+	// load reports no progress while the backend reads its weights, so this
+	// is well above the time of a healthy phase change.
+	DefaultModelLoadStall = 5 * time.Minute
 )
+
+// ModelLoadStallNever records LOCALAI_MODEL_LOAD_STALL=0: requests never start
+// a second load because the first one stalls.
+const ModelLoadStallNever = -1 * time.Second
 
 // ModelLoadWaitUnbounded records LOCALAI_MODEL_LOAD_WAIT=0 — "wait as long as
 // it takes" — which a plain zero cannot express, since zero also means "unset,

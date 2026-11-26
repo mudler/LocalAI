@@ -18,7 +18,7 @@ import (
 // for a 503 depend on which modality the model happens to be.
 //
 // @Summary Report the progress of an in-flight model load.
-// @Description Returns the live state of a distributed cold load: job id, phase, node, byte progress, ETA, lease freshness, and for a failed attempt the cause, whether the stop is pending and when the model is released. 404 means no load exists for the model. A database error is 503, never an empty answer. This is the same `loading` object the 503 response carries while a model is still staging.
+// @Description Returns the live state of a distributed cold load (when the model loads on several nodes, the load that is furthest along): job id, phase, node, byte progress, ETA, lease freshness, and for a failed attempt the cause, whether the stop is pending and when the model is released. 404 means no load exists for the model. A database error is 503, never an empty answer. This is the same `loading` object the 503 response carries while a model is still staging.
 // @Tags models
 // @Produce json
 // @Param id path string true "Model ID"
@@ -53,7 +53,10 @@ func ModelLoadStatusEndpoint(loadJobs func() nodes.LoadJobStore) echo.HandlerFun
 			return c.JSON(http.StatusNotFound, notLoading)
 		}
 
-		job, err := store.GetLoadJob(c.Request().Context(), modelID)
+		// A model may load on several nodes at once; report the load that is
+		// furthest along.
+		jobs, err := store.ListLoadJobs(c.Request().Context(), modelID)
+		job := nodes.MostAdvancedLoadJob(jobs)
 		if err != nil {
 			// Fail closed: a database error must not read as "no load is
 			// running", or a caller would start a second one.

@@ -101,7 +101,21 @@ func (rc *ReplicaReconciler) reclaimAbandonedLoads(ctx context.Context) {
 // costs one scheduling opportunity; reclaiming a row out from under a live
 // transfer restarts a multi-gigabyte load.
 func (rc *ReplicaReconciler) loadAbandoned(ctx context.Context, row NodeModel, jobReleased bool) bool {
-	job, err := rc.registry.GetLoadJob(ctx, row.ModelName)
+	// Jobs are per (model, node). The row's own attempt is found by its
+	// generation. A row with no generation is matched to a job of its node, or
+	// to a job with no node, which an older binary may still drive.
+	var (
+		job *ModelLoadJob
+		err error
+	)
+	if row.LoadGeneration != "" {
+		job, err = rc.registry.GetLoadJobByRef(ctx, LoadJobRef{TrackingKey: row.ModelName, Generation: row.LoadGeneration})
+	} else {
+		job, err = rc.registry.GetLoadJobOn(ctx, row.ModelName, row.NodeID)
+		if err == nil && job == nil {
+			job, err = rc.registry.GetLoadJobOn(ctx, row.ModelName, "")
+		}
+	}
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound), err == nil && job == nil:
 		if row.LoadGeneration != "" {
@@ -117,9 +131,8 @@ func (rc *ReplicaReconciler) loadAbandoned(ctx context.Context, row NodeModel, j
 			"model", row.ModelName, "error", err)
 		return false
 	default:
-		// A job exists. The row is abandoned only if the job is another
-		// attempt's.
-		return row.LoadGeneration != "" && job.Generation != row.LoadGeneration
+		// The attempt that made this row still has its job.
+		return false
 	}
 }
 

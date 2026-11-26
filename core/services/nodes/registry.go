@@ -444,7 +444,12 @@ type PendingBackendOp struct {
 // record of what is loaded, and keeping finished jobs would create a second
 // source of truth about it.
 type ModelLoadJob struct {
+	// A job is keyed by the model and the node it loads on, so a slow load on
+	// one node never blocks a load of the same model on another node. A row
+	// with an empty NodeID was written before the node was chosen first (an
+	// older binary), and is treated as a load on an unknown node.
 	TrackingKey string `gorm:"primaryKey;size:255" json:"tracking_key"`
+	NodeID      string `gorm:"primaryKey;size:36;not null;default:''" json:"node_id"`
 	// Generation names one attempt to load the model. It is immutable for the
 	// life of the row, and every write of the row is conditional on it, so an
 	// owner that lost the job cannot change its successor. The empty string
@@ -452,7 +457,6 @@ type ModelLoadJob struct {
 	Generation   string `gorm:"size:36;not null;default:''" json:"-"`
 	State        string `gorm:"size:16;not null;index" json:"state"`
 	OwnerReplica string `gorm:"size:64" json:"owner_replica"`
-	NodeID       string `gorm:"size:36" json:"node_id"`
 	NodeName     string `gorm:"size:255" json:"node_name"`
 	ReplicaIndex int    `json:"replica_index"`
 	BytesSent    int64  `json:"bytes_sent"`
@@ -473,6 +477,11 @@ type ModelLoadJob struct {
 	// minutes, so a reaper keyed on byte movement would reclaim a healthy job
 	// mid-load. Byte progress is measured separately, by load_deadline.go.
 	LastProgress time.Time `gorm:"index" json:"last_progress_at"`
+	// ProgressAt is when the load last moved forward: a new phase, a new file
+	// or more bytes. Unlike LastProgress it does not move while a load sits
+	// still, so a request can tell a stalled load from a slow one. Nil on rows
+	// an older binary wrote; CreatedAt stands in for it.
+	ProgressAt *time.Time `json:"progress_at,omitempty"`
 	// LeaseUntil is the owner's lease, in database time. The owner pushes it
 	// forward with every heartbeat. A running job whose lease is missing or in
 	// the past has no live owner.
@@ -647,7 +656,13 @@ const heartbeatMaterialDelta = 256 << 20 // 256 MiB
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
+		if err := prepareLoadJobKeyMigration(db); err != nil {
+			return err
+		}
 		if err := db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &ModelConfigState{}, &NodeSplitReport{}); err != nil {
+			return err
+		}
+		if err := migrateLoadJobKey(db); err != nil {
 			return err
 		}
 		return dropRemovedNodeColumns(db)

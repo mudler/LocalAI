@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"runtime"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -178,20 +179,23 @@ func (f *fakeModelRouter) LoadedReplicaStats(_ context.Context, modelName string
 
 // fakeLoadJobStore is an in-memory LoadJobStore so tests that build a
 // SmartRouter over a fake registry get the real claim/wait semantics without a
-// database.
+// database. Jobs are keyed by (model, node), as in the registry.
 type fakeLoadJobStore struct {
 	mu   sync.Mutex
 	jobs map[string]*ModelLoadJob
 }
 
-func (s *fakeLoadJobStore) ClaimLoadJob(_ context.Context, trackingKey, owner string) (*ModelLoadJob, bool, error) {
+func fakeJobKey(trackingKey, nodeID string) string { return trackingKey + "\x00" + nodeID }
+
+func (s *fakeLoadJobStore) ClaimLoadJobOn(_ context.Context, trackingKey, nodeID, owner string) (*ModelLoadJob, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.jobs == nil {
 		s.jobs = map[string]*ModelLoadJob{}
 	}
 	now := time.Now()
-	if existing, ok := s.jobs[trackingKey]; ok {
+	key := fakeJobKey(trackingKey, nodeID)
+	if existing, ok := s.jobs[key]; ok {
 		past := func(t *time.Time) bool { return t != nil && now.After(*t) }
 		reclaim := existing.State == LoadJobStateFailed && past(existing.StopDeadline) ||
 			existing.State != LoadJobStateFailed && past(existing.LeaseUntil)
@@ -201,31 +205,57 @@ func (s *fakeLoadJobStore) ClaimLoadJob(_ context.Context, trackingKey, owner st
 		}
 	}
 	lease := now.Add(loadJobLeaseTTL)
-	job := &ModelLoadJob{TrackingKey: trackingKey, Generation: uuid.NewString(), State: LoadJobStatePending, OwnerReplica: owner, CreatedAt: now, UpdatedAt: now, LastProgress: now, LeaseUntil: &lease}
-	s.jobs[trackingKey] = job
+	job := &ModelLoadJob{TrackingKey: trackingKey, NodeID: nodeID, Generation: uuid.NewString(), State: LoadJobStatePending, OwnerReplica: owner, CreatedAt: now, UpdatedAt: now, LastProgress: now, ProgressAt: &now, LeaseUntil: &lease}
+	s.jobs[key] = job
 	cp := *job
 	return &cp, true, nil
 }
 
-func (s *fakeLoadJobStore) GetLoadJob(_ context.Context, trackingKey string) (*ModelLoadJob, error) {
+// ClaimLoadJob claims the job of the empty node, as the registry's does.
+func (s *fakeLoadJobStore) ClaimLoadJob(ctx context.Context, trackingKey, owner string) (*ModelLoadJob, bool, error) {
+	return s.ClaimLoadJobOn(ctx, trackingKey, "", owner)
+}
+
+func (s *fakeLoadJobStore) ListLoadJobs(_ context.Context, trackingKey string) ([]ModelLoadJob, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	job, ok := s.jobs[trackingKey]
-	if !ok {
-		return nil, nil
+	out := []ModelLoadJob{}
+	for _, job := range s.jobs {
+		if job.TrackingKey == trackingKey {
+			out = append(out, *job)
+		}
 	}
-	cp := *job
-	return &cp, nil
+	slices.SortFunc(out, func(a, b ModelLoadJob) int { return strings.Compare(a.NodeID, b.NodeID) })
+	return out, nil
+}
+
+func (s *fakeLoadJobStore) GetLoadJob(ctx context.Context, trackingKey string) (*ModelLoadJob, error) {
+	jobs, err := s.ListLoadJobs(ctx, trackingKey)
+	return MostAdvancedLoadJob(jobs), err
+}
+
+func (s *fakeLoadJobStore) GetLoadJobByRef(_ context.Context, ref LoadJobRef) (*ModelLoadJob, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if job := s.owned(ref); job != nil {
+		cp := *job
+		return &cp, nil
+	}
+	return nil, nil
 }
 
 // owned returns the row ref still names, or nil when the attempt lost it.
 // Callers hold s.mu.
 func (s *fakeLoadJobStore) owned(ref LoadJobRef) *ModelLoadJob {
-	job, ok := s.jobs[ref.TrackingKey]
-	if !ok || !ref.owned() || job.Generation != ref.Generation {
+	if !ref.owned() {
 		return nil
 	}
-	return job
+	for _, job := range s.jobs {
+		if job.TrackingKey == ref.TrackingKey && job.Generation == ref.Generation {
+			return job
+		}
+	}
+	return nil
 }
 
 func (s *fakeLoadJobStore) UpdateLoadJob(_ context.Context, ref LoadJobRef, u LoadJobUpdate) error {
@@ -238,8 +268,10 @@ func (s *fakeLoadJobStore) UpdateLoadJob(_ context.Context, ref LoadJobRef, u Lo
 	if u.State != "" {
 		job.State = u.State
 	}
-	if u.NodeID != "" {
+	if u.NodeID != "" && job.NodeID == "" {
 		job.NodeID = u.NodeID
+	}
+	if u.NodeID != "" {
 		job.ReplicaIndex = u.ReplicaIndex
 	}
 	if u.NodeName != "" {
@@ -275,6 +307,10 @@ func (s *fakeLoadJobStore) FailLoadJob(_ context.Context, ref LoadJobRef, msg st
 	return nil
 }
 
+func (s *fakeLoadJobStore) remove(job *ModelLoadJob) {
+	delete(s.jobs, fakeJobKey(job.TrackingKey, job.NodeID))
+}
+
 func (s *fakeLoadJobStore) DeleteLoadJob(_ context.Context, ref LoadJobRef) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -282,7 +318,7 @@ func (s *fakeLoadJobStore) DeleteLoadJob(_ context.Context, ref LoadJobRef) erro
 	if job == nil || job.State == LoadJobStateFailed {
 		return ErrStaleLoadJob
 	}
-	delete(s.jobs, ref.TrackingKey)
+	s.remove(job)
 	return nil
 }
 
@@ -304,7 +340,7 @@ func (s *fakeLoadJobStore) DeleteFailedLoadJob(_ context.Context, ref LoadJobRef
 	if job == nil || job.State != LoadJobStateFailed || job.StopDeadline == nil || time.Now().Before(*job.StopDeadline) {
 		return ErrStaleLoadJob
 	}
-	delete(s.jobs, ref.TrackingKey)
+	s.remove(job)
 	return nil
 }
 

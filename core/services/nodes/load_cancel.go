@@ -82,31 +82,36 @@ func (s *LoadCancelService) cancel(ctx context.Context, ref LoadJobRef, reason s
 		return LoadCancelResult{State: LoadCancelStopped}, nil
 	}
 	result := LoadCancelResult{State: LoadCancelStopping}
-	if fresh, gerr := s.Registry.GetLoadJob(ctx, ref.TrackingKey); gerr == nil && fresh != nil && fresh.StopDeadline != nil {
+	if fresh, gerr := s.Registry.GetLoadJobByRef(ctx, ref); gerr == nil && fresh != nil && fresh.StopDeadline != nil {
 		result.RetryAfter = max(time.Until(*fresh.StopDeadline), time.Second)
 	}
 	return result, nil
 }
 
-// CancelModelOnNode cancels the load of modelName that runs on nodeID, or has
-// no node yet. A load placed on another node is left alone: unloading a replica
-// here must not cancel a load there. It reports the attempts it cancelled.
+// CancelModelOnNode cancels the loads of modelName that run on nodeID, or have
+// no node (rows an older binary wrote before it chose one). A load on another
+// node is left alone: unloading a replica here must not cancel a load there.
+// It reports the attempts it cancelled.
 //
 // An unload of a loaded replica calls this first and then carries on with the
 // normal unload: stopping the load's operation never stops a model that
 // finished loading, because the worker refuses a stop whose operation ended.
 func (s *LoadCancelService) CancelModelOnNode(ctx context.Context, nodeID, modelName string) ([]LoadJobRef, error) {
-	job, err := s.Registry.GetLoadJob(ctx, modelName)
-	if err != nil || job == nil {
+	jobs, err := s.Registry.ListLoadJobs(ctx, modelName)
+	if err != nil {
 		return nil, err
 	}
-	if job.NodeID != "" && job.NodeID != nodeID {
-		return nil, nil
+	var refs []LoadJobRef
+	for _, job := range jobs {
+		if job.NodeID != "" && job.NodeID != nodeID {
+			continue
+		}
+		if _, err := s.Cancel(ctx, job.Ref()); err != nil && !errors.Is(err, ErrLoadCancelConflict) {
+			return refs, err
+		}
+		refs = append(refs, job.Ref())
 	}
-	if _, err := s.Cancel(ctx, job.Ref()); err != nil && !errors.Is(err, ErrLoadCancelConflict) {
-		return nil, err
-	}
-	return []LoadJobRef{job.Ref()}, nil
+	return refs, nil
 }
 
 // CancelNodeLoads cancels every load placed on nodeID. Deregistering or

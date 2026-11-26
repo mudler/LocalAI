@@ -9,6 +9,11 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/workerctl"
+	grpcPkg "github.com/mudler/LocalAI/pkg/grpc"
+	"github.com/mudler/LocalAI/pkg/grpc/base"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/nats-io/nats.go"
+	"google.golang.org/protobuf/proto"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -173,4 +178,117 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 	// 2. SmartRouter.Route() → gRPC LoadModel(node.Address) directly
 	// 3. [inference via gRPC]
 	// 4. NATS backend.stop → worker stops gRPC process
+})
+
+// slowLoadLLM is a gRPC backend whose Load blocks until release is closed. It
+// stands in for a node where a checkpoint load takes a very long time.
+type slowLoadLLM struct {
+	base.Base
+	release <-chan struct{}
+	started chan<- struct{}
+}
+
+func (s *slowLoadLLM) Load(_ *pb.ModelOptions) error {
+	select {
+	case s.started <- struct{}{}:
+	default:
+	}
+	<-s.release
+	return nil
+}
+
+// Load jobs are keyed by (model, node). A request-path load that is slow on
+// one node must not stop the reconciler from loading the same model on
+// another node: before the jobs were per node, the reconciler was refused
+// with "already being loaded by another owner" until the slow load ended.
+var _ = Describe("Load jobs per node", Label("Distributed"), func() {
+	It("lets the reconciler load on node 2 while a slow load runs on node 1", func() {
+		infra := SetupInfra("localai_load_job_per_node_test")
+		db, err := gorm.Open(pgdriver.Open(infra.PGURL), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+		Expect(err).ToNot(HaveOccurred())
+		registry, err := nodes.NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		ctx, cancel := context.WithCancel(infra.Ctx)
+		defer cancel()
+
+		_, err = infra.NC.Conn().Subscribe("nodes.*.backend.install", func(msg *nats.Msg) {
+			data, _ := json.Marshal(workerctl.BackendInstallReply{Success: true})
+			_ = msg.Respond(data)
+		})
+		Expect(err).ToNot(HaveOccurred())
+		// The scheduler checks that a node answers on the bus before it uses it.
+		_, err = infra.NC.Conn().Subscribe("nodes.*.models.running", func(msg *nats.Msg) {
+			data, _ := json.Marshal(workerctl.ModelsRunningReply{})
+			_ = msg.Respond(data)
+		})
+		Expect(err).ToNot(HaveOccurred())
+		FlushNATS(infra.NC)
+
+		release := make(chan struct{})
+		slowStarted := make(chan struct{}, 1)
+		slowAddr, stopSlow, err := startTestGRPCServer(grpcPkg.AIModel(&slowLoadLLM{release: release, started: slowStarted}))
+		Expect(err).ToNot(HaveOccurred())
+		fastAddr, stopFast, err := startTestGRPCServer(grpcPkg.AIModel(&trackingTestLLM{}))
+		Expect(err).ToNot(HaveOccurred())
+		// Stop the reconciler first, then let the slow load return, so that
+		// the graceful stop of its server does not wait for it.
+		defer func() {
+			cancel()
+			close(release)
+			stopSlow()
+			stopFast()
+		}()
+
+		const model = "model-x"
+		blob, err := proto.Marshal(&pb.ModelOptions{Model: "model-x.gguf"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(registry.UpsertModelLoadInfo(ctx, model, "llama-cpp", blob)).To(Succeed())
+
+		// Only node 1 exists when the first request arrives, so the request
+		// starts its load there.
+		node1 := &nodes.BackendNode{Name: "node-1", NodeType: nodes.NodeTypeBackend, Address: slowAddr}
+		Expect(registry.Register(ctx, node1, true)).To(Succeed())
+
+		unloader := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
+		router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{Unloader: unloader, DB: db})
+
+		served := make(chan *nodes.RouteResult, 1)
+		go func() {
+			defer GinkgoRecover()
+			res, err := router.Route(ctx, model, "model-x.gguf", "llama-cpp", "", &pb.ModelOptions{Model: "model-x.gguf"}, false)
+			Expect(err).ToNot(HaveOccurred())
+			served <- res
+		}()
+		Eventually(slowStarted, 30*time.Second).Should(Receive(), "the request load reached LoadModel on node 1")
+
+		// Node 2 joins, and the model must keep two replicas.
+		node2 := &nodes.BackendNode{Name: "node-2", NodeType: nodes.NodeTypeBackend, Address: fastAddr}
+		Expect(registry.Register(ctx, node2, true)).To(Succeed())
+		Expect(registry.SetModelScheduling(ctx, &nodes.ModelSchedulingConfig{ModelName: model, MinReplicas: 2})).To(Succeed())
+
+		reconciler := nodes.NewReplicaReconciler(nodes.ReplicaReconcilerOptions{
+			Registry: registry, Scheduler: router, Unloader: unloader, DB: db, Interval: 200 * time.Millisecond,
+		})
+		go reconciler.Run(ctx)
+
+		Eventually(func() []string {
+			found, _ := registry.FindNodesWithModel(ctx, model)
+			ids := []string{}
+			for _, n := range found {
+				ids = append(ids, n.ID)
+			}
+			return ids
+		}, 60*time.Second, 200*time.Millisecond).Should(ContainElement(node2.ID), "the reconciler loaded on node 2")
+
+		slow, err := registry.GetLoadJobOn(ctx, model, node1.ID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(slow).ToNot(BeNil(), "the slow load on node 1 is still running")
+		Expect(slow.State).ToNot(Equal(nodes.LoadJobStateFailed))
+
+		// The waiting request is served by the replica that became ready.
+		var res *nodes.RouteResult
+		Eventually(served, 30*time.Second).Should(Receive(&res))
+		Expect(res.Node.ID).To(Equal(node2.ID))
+		res.Release()
+	})
 })

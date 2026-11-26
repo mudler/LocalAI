@@ -226,7 +226,7 @@ var _ = Describe("Load operations on the worker", func() {
 		var stops []workerctl.ModelStopRequest
 
 		// Not before the deadline.
-		_, claimed, err := registry.ClaimLoadJob(ctx, "ops-hang", "other-frontend")
+		_, claimed, err := registry.ClaimLoadJobOn(ctx, "ops-hang", node.ID, "other-frontend")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(claimed).To(BeFalse())
 

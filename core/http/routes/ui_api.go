@@ -363,11 +363,19 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				if err != nil {
 					xlog.Warn("Failed to list durable model load jobs", "error", err)
 				} else {
+					shownJobs := map[string]*nodes.ModelLoadJob{}
 					for i := range jobs {
 						job := &jobs[i]
 						if job.State != nodes.LoadJobStateStaging {
 							continue
 						}
+						// A model can stage onto several nodes at once, one
+						// job per node. Show the one furthest along, so the
+						// operation keeps its one-per-model shape.
+						if prev, ok := shownJobs[job.TrackingKey]; ok && prev.Progress() >= job.Progress() {
+							continue
+						}
+						shownJobs[job.TrackingKey] = job
 						op := map[string]any{
 							"id":           "staging:" + job.TrackingKey,
 							"name":         job.TrackingKey,

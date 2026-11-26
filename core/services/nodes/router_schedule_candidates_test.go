@@ -82,8 +82,8 @@ var _ = Describe("ScheduleAndLoadModel candidate nodes", func() {
 	})
 
 	It("reports a load that another owner holds as in progress, not as a failure", func() {
-		register("node-a", nil)
-		_, claimed, err := registry.ClaimLoadJob(ctx, modelName, "another-replica")
+		only := register("node-a", nil)
+		_, claimed, err := registry.ClaimLoadJobOn(ctx, modelName, only.ID, "another-replica")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(claimed).To(BeTrue())
 

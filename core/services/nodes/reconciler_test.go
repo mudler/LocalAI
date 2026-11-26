@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,6 +21,9 @@ import (
 // ---------------------------------------------------------------------------
 
 type fakeScheduler struct {
+	// mu guards scheduleCalls: the reconciler runs the loads of one
+	// scale-up in parallel.
+	mu            sync.Mutex
 	scheduleNode  *BackendNode
 	scheduleErr   error
 	scheduleCalls []scheduleCall
@@ -31,6 +35,8 @@ type scheduleCall struct {
 }
 
 func (f *fakeScheduler) ScheduleAndLoadModel(_ context.Context, modelName string, candidateNodeIDs []string) (*BackendNode, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.scheduleCalls = append(f.scheduleCalls, scheduleCall{modelName, candidateNodeIDs})
 	return f.scheduleNode, f.scheduleErr
 }

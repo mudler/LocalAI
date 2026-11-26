@@ -1051,7 +1051,20 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 			return
 		}
 
-		needed := cfg.MinReplicas - int(current)
+		// A load of the model that runs on a matching node now will count
+		// once it finishes. Starting another one for it would overshoot the
+		// floor, and the node it runs on is not free for a second load anyway.
+		inProgress, lerr := rc.registry.CountLiveLoadJobs(ctx, target, candidateNodeIDs)
+		if lerr != nil {
+			xlog.Warn("Reconciler: failed to count loads in progress", "model", target, "error", lerr)
+			return
+		}
+		needed := cfg.MinReplicas - int(current) - inProgress
+		if needed <= 0 {
+			xlog.Debug("Reconciler: loads in progress cover the minimum", "model", target,
+				"current", current, "loading", inProgress, "min", cfg.MinReplicas)
+			return
+		}
 		if capacity == 0 {
 			// No capacity right now. Bump hysteresis; trip cooldown if it
 			// crosses the threshold. ClearAllUnsatisfiable resets this on
@@ -1066,7 +1079,7 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 			needed = capacity
 		}
 		xlog.Info("Reconciler: scaling up to meet minimum", "model", target,
-			"current", current, "min", cfg.MinReplicas, "adding", needed)
+			"current", current, "loading", inProgress, "min", cfg.MinReplicas, "adding", needed)
 		if rc.scaleUp(ctx, cfg, needed) {
 			// A real (or partial) scale-up clears the hysteresis so a future
 			// dip starts fresh. If scaleUp added nothing (scheduler errored or
@@ -1218,40 +1231,66 @@ func (rc *ReplicaReconciler) scaleUp(ctx context.Context, cfg ModelSchedulingCon
 		return false
 	}
 
-	scheduled := 0
-	for i := 0; i < count; i++ {
-		node, err := rc.scheduler.ScheduleAndLoadModel(ctx, model, candidateNodeIDs)
-		if errors.Is(err, ErrLoadInProgress) {
-			// Another owner is loading the model. Nothing failed: leave the
-			// backoff as it is and look again on the next tick.
-			xlog.Info("Reconciler: model is being loaded by another owner; retrying on the next tick",
-				"model", model, "detail", err)
-			break
-		}
-		if err != nil {
-			state.count++
-			delay := scaleUpBackoffDelay(state.count)
-			state.until = now.Add(delay)
-			rc.scaleUpMu.Lock()
-			rc.scaleUpFailures[model] = state
-			rc.scaleUpMu.Unlock()
-			// A model nobody has served yet is not a fault of any node: it
-			// repeats until the first request, so it stays at debug level.
-			level := xlog.Warn
-			if errors.Is(err, ErrNoLoadInfo) {
-				level = xlog.Debug
-			}
-			level("Reconciler: failed to scale up replica", "model", model,
-				"consecutive_failures", state.count, "retry_in", delay, "error", err)
-			break // stop trying on first failure
-		}
-		scheduled++
-		xlog.Info("Reconciler: scaled up replica", "model", model, "node", node.Name)
+	// The loads run in parallel, each on its own node: every load claims the
+	// job of the model on the node it chose, and the next one skips nodes
+	// that already have a load of the model. A slow load on one node then
+	// does not delay the replicas the floor needs on the others.
+	type outcome struct {
+		node *BackendNode
+		err  error
 	}
-	if scheduled > 0 {
+	results := make([]outcome, count)
+	var wg sync.WaitGroup
+	for i := range count {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			node, err := rc.scheduler.ScheduleAndLoadModel(ctx, model, candidateNodeIDs)
+			results[i] = outcome{node, err}
+		}()
+	}
+	wg.Wait()
+
+	scheduled := 0
+	var failure error
+	for _, res := range results {
+		switch {
+		case res.err == nil:
+			scheduled++
+			name := ""
+			if res.node != nil {
+				name = res.node.Name
+			}
+			xlog.Info("Reconciler: scaled up replica", "model", model, "node", name)
+		case errors.Is(res.err, ErrLoadInProgress):
+			// Another owner is loading the model there. Nothing failed: look
+			// again on the next tick.
+			xlog.Info("Reconciler: model is being loaded by another owner; retrying on the next tick",
+				"model", model, "detail", res.err)
+		case failure == nil:
+			failure = res.err
+		}
+	}
+	switch {
+	case scheduled > 0:
 		rc.scaleUpMu.Lock()
 		delete(rc.scaleUpFailures, model)
 		rc.scaleUpMu.Unlock()
+	case failure != nil:
+		state.count++
+		delay := scaleUpBackoffDelay(state.count)
+		state.until = now.Add(delay)
+		rc.scaleUpMu.Lock()
+		rc.scaleUpFailures[model] = state
+		rc.scaleUpMu.Unlock()
+		// A model nobody has served yet is not a fault of any node: it
+		// repeats until the first request, so it stays at debug level.
+		level := xlog.Warn
+		if errors.Is(failure, ErrNoLoadInfo) {
+			level = xlog.Debug
+		}
+		level("Reconciler: failed to scale up replica", "model", model,
+			"consecutive_failures", state.count, "retry_in", delay, "error", failure)
 	}
 	return scheduled > 0
 }

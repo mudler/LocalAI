@@ -139,6 +139,36 @@ var _ = Describe("Load job lease and reclaim", func() {
 		})
 	})
 
+	Describe("one node's lease", func() {
+		It("does not fail or hold the load of the same model on another node", func() {
+			dead, _, err := registry.ClaimLoadJobOn(ctx, "model-x", "node-a", "frontend-a")
+			Expect(err).ToNot(HaveOccurred())
+			alive, _, err := registry.ClaimLoadJobOn(ctx, "model-x", "node-b", "frontend-b")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(db.Exec("UPDATE model_load_jobs SET lease_until = now() - interval '1 second' WHERE generation = ?", dead.Generation).Error).To(Succeed())
+
+			sweep, err := registry.SweepLoadJobs(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sweep.Expired).To(Equal(1))
+
+			failed, err := registry.GetLoadJobByRef(ctx, dead.Ref())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(failed.State).To(Equal(LoadJobStateFailed))
+			running, err := registry.GetLoadJobByRef(ctx, alive.Ref())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(running.State).To(Equal(LoadJobStatePending))
+			Expect(registry.UpdateLoadJob(ctx, alive.Ref(), LoadJobUpdate{State: LoadJobStateStaging})).To(Succeed())
+
+			// The failed node is held for its stop window; a third node is free.
+			_, claimed, err := registry.ClaimLoadJobOn(ctx, "model-x", "node-a", "frontend-c")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(claimed).To(BeFalse())
+			_, claimed, err = registry.ClaimLoadJobOn(ctx, "model-x", "node-c", "frontend-c")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(claimed).To(BeTrue())
+		})
+	})
+
 	Describe("clock skew", func() {
 		It("lets the database clock decide the lease, not the frontend clock", func() {
 			for _, skew := range []time.Duration{10 * time.Minute, -10 * time.Minute} {

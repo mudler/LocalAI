@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"runtime"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -175,6 +176,83 @@ var _ = Describe("Route cold-load jobs", func() {
 		current, err := registry.GetLoadJob(context.Background(), "big-model")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(current).ToNot(BeNil(), "the job keeps running; only the wait ended")
+	})
+
+	It("starts a load on another node when the running load has stalled", func() {
+		other := &BackendNode{Name: "worker-2", NodeType: NodeTypeBackend, Address: "10.0.0.2:50051",
+			TotalVRAM: 64_000_000_000, AvailableVRAM: 64_000_000_000}
+		Expect(registry.Register(context.Background(), other, true)).To(Succeed())
+
+		// The first load hangs in LoadModel, as a slow checkpoint load on a
+		// wrong or overloaded node does. Later loads finish at once.
+		release := make(chan struct{})
+		defer func() {
+			select {
+			case <-release:
+			default:
+				close(release)
+			}
+		}()
+		var calls atomic.Int32
+		backend.loadHook = func(*pb.ModelOptions) {
+			if calls.Add(1) == 1 {
+				<-release
+			}
+		}
+		router := NewSmartRouter(registry, SmartRouterOptions{
+			Unloader: unloader, ClientFactory: factory, DB: db,
+			ModelLoadStall: time.Second,
+		})
+
+		first := make(chan error, 1)
+		go func() {
+			defer GinkgoRecover()
+			_, err := router.Route(context.Background(), "big-model", "models/big.gguf", "llama-cpp", "",
+				&pb.ModelOptions{Model: "models/big.gguf"}, false)
+			first <- err
+		}()
+		var stuck *ModelLoadJob
+		Eventually(func() string {
+			stuck, _ = registry.GetLoadJob(context.Background(), "big-model")
+			if stuck == nil {
+				return ""
+			}
+			return stuck.State
+		}, 10*time.Second, 50*time.Millisecond).Should(Equal(LoadJobStateLoading))
+
+		// Past the stall time the next request does not wait for the stuck
+		// load: it loads on the other node and is served from it.
+		time.Sleep(1500 * time.Millisecond)
+		res, err := router.Route(context.Background(), "big-model", "models/big.gguf", "llama-cpp", "",
+			&pb.ModelOptions{Model: "models/big.gguf"}, false)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res.Node.ID).ToNot(Equal(stuck.NodeID))
+		res.Release()
+
+		still, err := registry.GetLoadJobByRef(context.Background(), stuck.Ref())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(still).ToNot(BeNil(), "the stuck load is left to run")
+
+		// The first request is served too, from the replica that is ready.
+		Eventually(first, 10*time.Second).Should(Receive(BeNil()))
+	})
+
+	It("answers an expired wait with the load that is furthest along", func() {
+		other := &BackendNode{Name: "worker-2", NodeType: NodeTypeBackend, Address: "10.0.0.2:50051"}
+		Expect(registry.Register(context.Background(), other, true)).To(Succeed())
+		ctx := context.Background()
+		slow, _, err := registry.ClaimLoadJobOn(ctx, "two-loads", "node-a", "frontend-a")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(registry.UpdateLoadJob(ctx, slow.Ref(), LoadJobUpdate{State: LoadJobStateStaging, NodeName: "node-a", BytesSent: 5, TotalBytes: 100})).To(Succeed())
+		fast, _, err := registry.ClaimLoadJobOn(ctx, "two-loads", "node-b", "frontend-b")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(registry.UpdateLoadJob(ctx, fast.Ref(), LoadJobUpdate{State: LoadJobStateStaging, NodeName: "node-b", BytesSent: 70, TotalBytes: 100})).To(Succeed())
+
+		err = newRouter().loadingAnswer(ctx, "two-loads", time.Minute)
+		var loading *ModelLoadingError
+		Expect(errors.As(err, &loading)).To(BeTrue())
+		Expect(loading.Status.Node).To(Equal("node-b"))
+		Expect(loading.Status.JobID).To(Equal(fast.Generation))
 	})
 
 	It("reports the load's real failure to every waiter", func() {

@@ -93,8 +93,15 @@ var _ = Describe("ModelLoadCancelEndpoint", func() {
 		return rec
 	}
 	cancelBody := func(jobID string) string { return `{"job_id":"` + jobID + `"}` }
+	placedOn := func(model, nodeID, nodeName string) *nodes.ModelLoadJob {
+		job, claimed, err := registry.ClaimLoadJobOn(ctx, model, nodeID, "frontend-a")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(claimed).To(BeTrue())
+		Expect(registry.UpdateLoadJob(ctx, job.Ref(), nodes.LoadJobUpdate{State: nodes.LoadJobStateLoading, NodeID: nodeID, NodeName: nodeName})).To(Succeed())
+		return job
+	}
 	placed := func(model string) *nodes.ModelLoadJob {
-		job, claimed, err := registry.ClaimLoadJob(ctx, model, "frontend-a")
+		job, claimed, err := registry.ClaimLoadJobOn(ctx, model, node.ID, "frontend-a")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(claimed).To(BeTrue())
 		Expect(registry.UpdateLoadJob(ctx, job.Ref(), nodes.LoadJobUpdate{State: nodes.LoadJobStateLoading, NodeID: node.ID, NodeName: node.Name})).To(Succeed())
@@ -213,8 +220,7 @@ var _ = Describe("ModelLoadCancelEndpoint", func() {
 		It("cancels the in-flight load and still unloads the loaded replica", func() {
 			job := placed("both")
 			Expect(registry.SetNodeModel(ctx, node.ID, "both", 1, "loaded", "10.0.0.1:9001", 0)).To(Succeed())
-			other := placed("elsewhere")
-			Expect(registry.UpdateLoadJob(ctx, other.Ref(), nodes.LoadJobUpdate{NodeID: "another-node", NodeName: "n2"})).To(Succeed())
+			placedOn("elsewhere", "another-node", "n2")
 
 			e := echo.New()
 			e.POST("/api/nodes/:id/models/unload", localai.UnloadModelOnNodeEndpoint(sender, registry))
@@ -308,6 +314,6 @@ var _ = Describe("ModelLoadStatusEndpoint activity", func() {
 // brokenStore fails every read, like a database that is down.
 type brokenStore struct{ nodes.LoadJobStore }
 
-func (brokenStore) GetLoadJob(context.Context, string) (*nodes.ModelLoadJob, error) {
+func (brokenStore) ListLoadJobs(context.Context, string) ([]nodes.ModelLoadJob, error) {
 	return nil, errors.New("database unreachable")
 }

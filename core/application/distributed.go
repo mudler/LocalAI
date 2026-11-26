@@ -650,6 +650,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		// Bounds the REQUEST, not the load: a caller out of budget gets 503 with
 		// live staging progress while the job keeps running underneath.
 		ModelLoadWait:        cfg.Distributed.ModelLoadWait,
+		ModelLoadStall:       cfg.Distributed.ModelLoadStall,
 		LoadOptionsFinalizer: finalizeLoad,
 	})
 

@@ -139,6 +139,35 @@ var _ = Describe("/api/operations with durable staging jobs", func() {
 		Expect(operationByID(operations, "staging:loading-model")).To(BeNil())
 	})
 
+	It("shows one operation per model when it stages onto two nodes", func() {
+		db := operationsDB()
+		registry, err := nodes.NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{})
+		ctx := context.Background()
+		for _, n := range []struct {
+			id    string
+			bytes int64
+		}{{"node-a", 20}, {"node-b", 80}} {
+			job, claimed, err := registry.ClaimLoadJobOn(ctx, "split-model", n.id, "replica-a")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(claimed).To(BeTrue())
+			Expect(registry.UpdateLoadJob(ctx, job.Ref(), nodes.LoadJobUpdate{
+				State: nodes.LoadJobStateStaging, NodeName: n.id, BytesSent: n.bytes, TotalBytes: 100,
+			})).To(Succeed())
+		}
+
+		operations := serveOperations(applicationWithDistributedServices(registry, router))
+		matches := 0
+		for _, operation := range operations {
+			if operation["id"] == "staging:split-model" {
+				matches++
+				Expect(operation).To(HaveKeyWithValue("nodeID", "node-b"), "the load furthest along")
+			}
+		}
+		Expect(matches).To(Equal(1))
+	})
+
 	It("overlays a matching tracker snapshot without duplicating the durable job", func() {
 		db := operationsDB()
 		registry, err := nodes.NewNodeRegistry(db)

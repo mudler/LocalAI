@@ -76,6 +76,35 @@ var _ = Describe("Load jobs on SQLite", func() {
 		Expect(again.Generation).To(Equal(before))
 	})
 
+	It("rebuilds a table keyed by model alone into one keyed by model and node", func() {
+		Expect(db.Migrator().CreateTable(&legacyLoadJob{})).To(Succeed())
+		Expect(db.Exec(`INSERT INTO model_load_jobs (tracking_key, state, owner_replica, node_id, last_progress, created_at, updated_at)
+			VALUES ('model-x', 'staging', 'old-frontend', 'node-a', ?, ?, ?)`, time.Now(), time.Now(), time.Now()).Error).To(Succeed())
+		Expect(db.Exec(`INSERT INTO model_load_jobs (tracking_key, state, owner_replica, last_progress, created_at, updated_at)
+			VALUES ('model-y', 'pending', 'old-frontend', ?, ?, ?)`, time.Now(), time.Now(), time.Now()).Error).To(Succeed())
+
+		registry, err := NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+
+		kept, err := registry.GetLoadJobOn(ctx, "model-x", "node-a")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(kept).ToNot(BeNil())
+		Expect(kept.Generation).ToNot(BeEmpty())
+		noNode, err := registry.GetLoadJobOn(ctx, "model-y", "")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(noNode).ToNot(BeNil(), "a row without a node keeps the empty node")
+
+		_, claimed, err := registry.ClaimLoadJobOn(ctx, "model-x", "node-b", "new-frontend")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(claimed).To(BeTrue())
+
+		_, err = NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred(), "the migration runs once")
+		jobs, err := registry.ListLoadJobs(ctx, "model-x")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(jobs).To(HaveLen(2))
+	})
+
 	It("claims, heartbeats and releases a job, and fences a replaced attempt", func() {
 		registry, err := NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())

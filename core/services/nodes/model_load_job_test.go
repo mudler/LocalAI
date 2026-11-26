@@ -10,9 +10,18 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"gorm.io/gorm"
 )
+
+// advisorylockWith holds the advisory lock key while fn runs.
+func advisorylockWith(ctx context.Context, db *gorm.DB, key int64, fn func()) error {
+	return advisorylock.WithLockCtx(ctx, db, key, func() error {
+		fn()
+		return nil
+	})
+}
 
 var _ = Describe("ModelLoadJob", func() {
 	var (
@@ -116,6 +125,164 @@ var _ = Describe("ModelLoadJob", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(claimed).To(BeTrue(), "a dead replica must not wedge the model permanently")
 			Expect(job.OwnerReplica).To(Equal("live-replica"))
+		})
+	})
+
+	Describe("jobs per node", func() {
+		It("lets one model load on two nodes at once", func() {
+			a, claimed, err := registry.ClaimLoadJobOn(ctx, "model-x", "node-a", "replica-a")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(claimed).To(BeTrue())
+			b, claimed, err := registry.ClaimLoadJobOn(ctx, "model-x", "node-b", "replica-b")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(claimed).To(BeTrue(), "a load on node-a must not hold the model on node-b")
+			Expect(b.Generation).ToNot(Equal(a.Generation))
+
+			jobs, err := registry.ListLoadJobs(ctx, "model-x")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(jobs).To(HaveLen(2))
+			Expect([]string{jobs[0].NodeID, jobs[1].NodeID}).To(Equal([]string{"node-a", "node-b"}))
+		})
+
+		It("still gives one node one load", func() {
+			_, claimed, err := registry.ClaimLoadJobOn(ctx, "model-x", "node-a", "replica-a")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(claimed).To(BeTrue())
+			job, claimed, err := registry.ClaimLoadJobOn(ctx, "model-x", "node-a", "replica-b")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(claimed).To(BeFalse())
+			Expect(job.OwnerReplica).To(Equal("replica-a"))
+		})
+
+		It("does not wait for the claim lock of another node", func() {
+			// Hold the claim lock of node-a, as a slow claim would.
+			held := make(chan struct{})
+			release := make(chan struct{})
+			go func() {
+				defer GinkgoRecover()
+				_ = advisorylockWith(ctx, db, loadJobLockKey("model-x", "node-a"), func() {
+					close(held)
+					<-release
+				})
+			}()
+			<-held
+			defer close(release)
+
+			done := make(chan bool, 1)
+			go func() {
+				defer GinkgoRecover()
+				_, claimed, err := registry.ClaimLoadJobOn(ctx, "model-x", "node-b", "replica-b")
+				Expect(err).ToNot(HaveOccurred())
+				done <- claimed
+			}()
+			Eventually(done, 5*time.Second).Should(Receive(BeTrue()))
+		})
+
+		It("reads one attempt by its ref, whatever node it is on", func() {
+			_, _, err := registry.ClaimLoadJobOn(ctx, "model-x", "node-a", "replica-a")
+			Expect(err).ToNot(HaveOccurred())
+			b, _, err := registry.ClaimLoadJobOn(ctx, "model-x", "node-b", "replica-b")
+			Expect(err).ToNot(HaveOccurred())
+
+			got, err := registry.GetLoadJobByRef(ctx, b.Ref())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got.NodeID).To(Equal("node-b"))
+
+			Expect(registry.DeleteLoadJob(ctx, b.Ref())).To(Succeed())
+			got, err = registry.GetLoadJobByRef(ctx, b.Ref())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got).To(BeNil())
+			left, err := registry.ListLoadJobs(ctx, "model-x")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(left).To(HaveLen(1), "finishing one node's load leaves the other")
+		})
+
+		It("reports the load that is furthest along", func() {
+			a, _, err := registry.ClaimLoadJobOn(ctx, "model-x", "node-a", "replica-a")
+			Expect(err).ToNot(HaveOccurred())
+			b, _, err := registry.ClaimLoadJobOn(ctx, "model-x", "node-b", "replica-b")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(registry.UpdateLoadJob(ctx, a.Ref(), LoadJobUpdate{State: LoadJobStateStaging, BytesSent: 10, TotalBytes: 100})).To(Succeed())
+			Expect(registry.UpdateLoadJob(ctx, b.Ref(), LoadJobUpdate{State: LoadJobStateStaging, BytesSent: 60, TotalBytes: 100})).To(Succeed())
+
+			job, err := registry.GetLoadJob(ctx, "model-x")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(job.NodeID).To(Equal("node-b"))
+
+			Expect(registry.UpdateLoadJob(ctx, a.Ref(), LoadJobUpdate{State: LoadJobStateLoading})).To(Succeed())
+			job, err = registry.GetLoadJob(ctx, "model-x")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(job.NodeID).To(Equal("node-a"), "a later phase is further along")
+
+			Expect(registry.FailLoadJob(ctx, a.Ref(), "boom", false)).To(Succeed())
+			job, err = registry.GetLoadJob(ctx, "model-x")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(job.NodeID).To(Equal("node-b"), "a running load is reported before a failed one")
+		})
+
+		It("moves progress_at only when the load moves", func() {
+			job, _, err := registry.ClaimLoadJobOn(ctx, "model-x", "node-a", "replica-a")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(registry.UpdateLoadJob(ctx, job.Ref(), LoadJobUpdate{State: LoadJobStateStaging, BytesSent: 10, TotalBytes: 100})).To(Succeed())
+			first, err := registry.GetLoadJobByRef(ctx, job.Ref())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(first.ProgressAt).ToNot(BeNil())
+
+			time.Sleep(20 * time.Millisecond)
+			Expect(registry.UpdateLoadJob(ctx, job.Ref(), LoadJobUpdate{BytesSent: 10, TotalBytes: 100})).To(Succeed())
+			still, err := registry.GetLoadJobByRef(ctx, job.Ref())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(still.ProgressAt.Equal(*first.ProgressAt)).To(BeTrue(), "a heartbeat with no new bytes is not progress")
+			Expect(still.LastProgress.After(first.LastProgress)).To(BeTrue(), "the heartbeat still renews")
+
+			time.Sleep(20 * time.Millisecond)
+			Expect(registry.UpdateLoadJob(ctx, job.Ref(), LoadJobUpdate{BytesSent: 20, TotalBytes: 100})).To(Succeed())
+			moved, err := registry.GetLoadJobByRef(ctx, job.Ref())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(moved.ProgressAt.After(*first.ProgressAt)).To(BeTrue())
+		})
+
+		It("counts the live loads of a model on the given nodes", func() {
+			a, _, err := registry.ClaimLoadJobOn(ctx, "model-x", "node-a", "replica-a")
+			Expect(err).ToNot(HaveOccurred())
+			_, _, err = registry.ClaimLoadJobOn(ctx, "model-x", "node-b", "replica-b")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(registry.FailLoadJob(ctx, a.Ref(), "boom", false)).To(Succeed())
+
+			n, err := registry.CountLiveLoadJobs(ctx, "model-x", nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n).To(Equal(1))
+			n, err = registry.CountLiveLoadJobs(ctx, "model-x", []string{"node-a"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n).To(BeZero())
+		})
+	})
+
+	Describe("the key migration", func() {
+		It("moves a table keyed by model alone to (model, node) and keeps its rows", func() {
+			fresh := testutil.SetupTestDB()
+			Expect(fresh.Migrator().CreateTable(&legacyLoadJob{})).To(Succeed())
+			Expect(fresh.Exec(`INSERT INTO model_load_jobs (tracking_key, state, owner_replica, node_id, last_progress, created_at, updated_at)
+				VALUES ('model-x', 'staging', 'old-frontend', 'node-a', now(), now(), now()),
+				       ('model-y', 'pending', 'old-frontend', NULL, now(), now(), now())`).Error).To(Succeed())
+
+			reg, err := NewNodeRegistry(fresh)
+			Expect(err).ToNot(HaveOccurred())
+			jobs, err := reg.ListLoadJobs(ctx, "model-y")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(jobs).To(HaveLen(1))
+			Expect(jobs[0].NodeID).To(BeEmpty())
+
+			_, claimed, err := reg.ClaimLoadJobOn(ctx, "model-x", "node-b", "replica-b")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(claimed).To(BeTrue(), "the old key would refuse a second row of model-x")
+
+			// A second start migrates nothing.
+			_, err = NewNodeRegistry(fresh)
+			Expect(err).ToNot(HaveOccurred())
+			all, err := reg.ListLoadJobs(ctx, "model-x")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(all).To(HaveLen(2))
 		})
 	})
 

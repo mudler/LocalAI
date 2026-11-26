@@ -62,9 +62,14 @@ const (
 	loadJobPollInterval = 2 * time.Second
 )
 
-// loadJobLockPrefix namespaces the per-model advisory lock key. It is the same
-// key the whole cold load used to hold; only the guarded section changed.
+// loadJobLockPrefix namespaces the advisory lock of one (model, node) job.
 const loadJobLockPrefix = "model-load:"
+
+// loadJobLockKey is the advisory lock of the job of trackingKey on nodeID. It
+// names the node, so claims of one model on two nodes never wait for each other.
+func loadJobLockKey(trackingKey, nodeID string) int64 {
+	return advisorylock.KeyFromString(loadJobLockPrefix + trackingKey + "@" + nodeID)
+}
 
 var (
 	replicaIDOnce  sync.Once
@@ -117,7 +122,9 @@ func (j *ModelLoadJob) ETA(now time.Time) (time.Duration, bool) {
 
 // LoadJobRef names one attempt to load a model. TrackingKey alone is not
 // enough: a replica may delete a job and another may claim the same model, and
-// a slow writer from the first attempt must not act on the second.
+// a slow writer from the first attempt must not act on the second. The
+// generation is unique to the attempt, so the ref also names the node the
+// attempt loads on without carrying it.
 type LoadJobRef struct{ TrackingKey, Generation string }
 
 // Ref returns the attempt this row records.
@@ -323,10 +330,18 @@ type claimRow struct {
 	StopPassed   bool
 }
 
-// ClaimLoadJob decides, under the per-model advisory lock, whether this replica
-// owns the cold load of trackingKey. It returns claimed=true with a fresh
-// `pending` job when this replica took the work, and claimed=false with the
-// existing job otherwise. The rules, all judged by the database clock:
+// ClaimLoadJob is ClaimLoadJobOn for a load whose node is not known: the job of
+// the empty node.
+func (r *NodeRegistry) ClaimLoadJob(ctx context.Context, trackingKey, owner string) (*ModelLoadJob, bool, error) {
+	return r.ClaimLoadJobOn(ctx, trackingKey, "", owner)
+}
+
+// ClaimLoadJobOn decides, under the advisory lock of (trackingKey, nodeID),
+// whether this replica owns the cold load of trackingKey on nodeID. The caller
+// chose the node first. It returns claimed=true with a fresh `pending` job when
+// this replica took the work, and claimed=false with the existing job of that
+// node otherwise. Jobs of the same model on other nodes do not matter here. The
+// rules, all judged by the database clock:
 //
 //  1. No row: insert.
 //  2. Running, lease live: return it. The caller waits.
@@ -339,16 +354,15 @@ type claimRow struct {
 //
 // The lock is held only across these statements — no network, file, or gRPC I/O
 // happens inside it, which is the entire point of the job row. The primary key
-// on TrackingKey is the real guard: if the lock were somehow bypassed the
-// INSERT fails rather than producing two loaders.
-func (r *NodeRegistry) ClaimLoadJob(ctx context.Context, trackingKey, owner string) (*ModelLoadJob, bool, error) {
+// on (TrackingKey, NodeID) is the real guard: if the lock were somehow bypassed
+// the INSERT fails rather than producing two loaders on one node.
+func (r *NodeRegistry) ClaimLoadJobOn(ctx context.Context, trackingKey, nodeID, owner string) (*ModelLoadJob, bool, error) {
 	var (
 		job     *ModelLoadJob
 		claimed bool
 	)
-	lockKey := advisorylock.KeyFromString(loadJobLockPrefix + trackingKey)
-	err := advisorylock.WithLockCtx(ctx, r.db, lockKey, func() error {
-		row, found, err := r.readClaimRow(ctx, trackingKey)
+	err := advisorylock.WithLockCtx(ctx, r.db, loadJobLockKey(trackingKey, nodeID), func() error {
+		row, found, err := r.readClaimRow(ctx, trackingKey, nodeID)
 		if err != nil {
 			return err
 		}
@@ -360,7 +374,7 @@ func (r *NodeRegistry) ClaimLoadJob(ctx context.Context, trackingKey, owner stri
 				if err := r.setStopWindow(ctx, existing.Ref()); err != nil {
 					return err
 				}
-				job, claimed = r.rereadOr(ctx, trackingKey, &existing), false
+				job, claimed = r.rereadOr(ctx, &existing), false
 				return nil
 			case existing.State == LoadJobStateFailed && !row.StopPassed:
 				job, claimed = &existing, false
@@ -376,7 +390,7 @@ func (r *NodeRegistry) ClaimLoadJob(ctx context.Context, trackingKey, owner stri
 				if err != nil && !errors.Is(err, ErrStaleLoadJob) {
 					return err
 				}
-				job, claimed = r.rereadOr(ctx, trackingKey, &existing), false
+				job, claimed = r.rereadOr(ctx, &existing), false
 				return nil
 			}
 			// Failed, and the stop window is over. The delete names the
@@ -390,12 +404,14 @@ func (r *NodeRegistry) ClaimLoadJob(ctx context.Context, trackingKey, owner stri
 		now := r.now()
 		fresh := &ModelLoadJob{
 			TrackingKey:  trackingKey,
+			NodeID:       nodeID,
 			Generation:   uuid.NewString(),
 			State:        LoadJobStatePending,
 			OwnerReplica: owner,
 			CreatedAt:    now,
 			UpdatedAt:    now,
 			LastProgress: now,
+			ProgressAt:   &now,
 		}
 		if err := r.db.WithContext(ctx).Create(fresh).Error; err != nil {
 			return fmt.Errorf("creating model load job: %w", err)
@@ -412,21 +428,23 @@ func (r *NodeRegistry) ClaimLoadJob(ctx context.Context, trackingKey, owner stri
 	return job, claimed, nil
 }
 
-func (r *NodeRegistry) readClaimRow(ctx context.Context, trackingKey string) (claimRow, bool, error) {
+func (r *NodeRegistry) readClaimRow(ctx context.Context, trackingKey, nodeID string) (claimRow, bool, error) {
 	var row claimRow
 	res := r.db.WithContext(ctx).Raw(`SELECT *,
 		(lease_until IS NULL OR lease_until < ?) AS lease_expired,
 		(stop_deadline IS NOT NULL AND stop_deadline < ?) AS stop_passed
-		FROM model_load_jobs WHERE tracking_key = ?`, r.dbNow(), r.dbNow(), trackingKey).Scan(&row)
+		FROM model_load_jobs WHERE tracking_key = ? AND node_id = ?`, r.dbNow(), r.dbNow(), trackingKey, nodeID).Scan(&row)
 	if res.Error != nil {
 		return row, false, fmt.Errorf("reading model load job: %w", res.Error)
 	}
 	return row, res.RowsAffected > 0, nil
 }
 
-// rereadOr returns the row as it is now, or fallback when it cannot be read.
-func (r *NodeRegistry) rereadOr(ctx context.Context, trackingKey string, fallback *ModelLoadJob) *ModelLoadJob {
-	if job, err := r.GetLoadJob(ctx, trackingKey); err == nil && job != nil {
+// rereadOr returns the job of fallback's model and node as it is now, or
+// fallback when it cannot be read. It reads by the key, not the generation: a
+// legacy row has none.
+func (r *NodeRegistry) rereadOr(ctx context.Context, fallback *ModelLoadJob) *ModelLoadJob {
+	if job, err := r.GetLoadJobOn(ctx, fallback.TrackingKey, fallback.NodeID); err == nil && job != nil {
 		return job
 	}
 	return fallback
@@ -503,12 +521,49 @@ func (r *NodeRegistry) SweepLoadJobs(ctx context.Context) (LoadJobSweep, error) 
 	return out, nil
 }
 
-// GetLoadJob returns the active job for trackingKey, or (nil, nil) when none is
-// active. Callers on a non-owning replica poll this; it is the authority for
-// both readiness and failure.
+// ListLoadJobs returns every job of trackingKey, one per node, in node order.
+func (r *NodeRegistry) ListLoadJobs(ctx context.Context, trackingKey string) ([]ModelLoadJob, error) {
+	jobs := []ModelLoadJob{}
+	if err := r.db.WithContext(ctx).Where("tracking_key = ?", trackingKey).Order("node_id ASC").Find(&jobs).Error; err != nil {
+		return nil, fmt.Errorf("reading model load jobs: %w", err)
+	}
+	return jobs, nil
+}
+
+// GetLoadJob returns the most advanced job of trackingKey (see
+// MostAdvancedLoadJob), or (nil, nil) when the model has none. It answers
+// "how far is the load of this model"; code that acts on one attempt reads it
+// by its ref instead (GetLoadJobByRef).
 func (r *NodeRegistry) GetLoadJob(ctx context.Context, trackingKey string) (*ModelLoadJob, error) {
+	jobs, err := r.ListLoadJobs(ctx, trackingKey)
+	if err != nil {
+		return nil, err
+	}
+	return MostAdvancedLoadJob(jobs), nil
+}
+
+// GetLoadJobOn returns the job of trackingKey on nodeID, or (nil, nil).
+func (r *NodeRegistry) GetLoadJobOn(ctx context.Context, trackingKey, nodeID string) (*ModelLoadJob, error) {
 	var job ModelLoadJob
-	err := r.db.WithContext(ctx).First(&job, "tracking_key = ?", trackingKey).Error
+	err := r.db.WithContext(ctx).First(&job, "tracking_key = ? AND node_id = ?", trackingKey, nodeID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("reading model load job: %w", err)
+	}
+	return &job, nil
+}
+
+// GetLoadJobByRef returns the row of one attempt, or (nil, nil) when it is gone
+// or was replaced. Waiters poll this; it is the authority for both readiness
+// and failure of the attempt they wait on.
+func (r *NodeRegistry) GetLoadJobByRef(ctx context.Context, ref LoadJobRef) (*ModelLoadJob, error) {
+	if !ref.owned() {
+		return nil, nil
+	}
+	var job ModelLoadJob
+	err := r.db.WithContext(ctx).First(&job, "tracking_key = ? AND generation = ?", ref.TrackingKey, ref.Generation).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -536,9 +591,20 @@ func (r *NodeRegistry) UpdateLoadJob(ctx context.Context, ref LoadJobRef, u Load
 		return ErrStaleLoadJob
 	}
 	now := r.now()
+	// progress_at moves only when the load does: a new phase, a new file or
+	// more bytes. The right-hand side reads the row as it was before this
+	// write, so the comparison sees the old values.
+	moved := "bytes_sent <> ? OR file_index <> ?"
+	args := []any{u.BytesSent, u.FileIndex}
+	if u.State != "" {
+		moved += " OR state <> ?"
+		args = append(args, u.State)
+	}
+	args = append(args, now)
 	fields := map[string]any{
 		"lease_until":   r.leaseExpr(),
 		"last_progress": now,
+		"progress_at":   gorm.Expr("CASE WHEN "+moved+" OR progress_at IS NULL THEN ? ELSE progress_at END", args...),
 		"updated_at":    now,
 		"bytes_sent":    u.BytesSent,
 		"total_bytes":   u.TotalBytes,
@@ -549,7 +615,9 @@ func (r *NodeRegistry) UpdateLoadJob(ctx context.Context, ref LoadJobRef, u Load
 		fields["state"] = u.State
 	}
 	if u.NodeID != "" {
-		fields["node_id"] = u.NodeID
+		// The node is part of the key and is chosen before the claim, so an
+		// update only fills it in on a job that has none.
+		fields["node_id"] = gorm.Expr("CASE WHEN node_id = '' THEN ? ELSE node_id END", u.NodeID)
 		fields["replica_index"] = u.ReplicaIndex
 	}
 	if u.NodeName != "" {
@@ -729,18 +797,32 @@ func (r *NodeRegistry) CancelLoadJob(ctx context.Context, ref LoadJobRef) (Cance
 // asked.
 func (r *NodeRegistry) cancelLoadJob(ctx context.Context, ref LoadJobRef, reason string, byAdmin bool) (CancelOutcome, *ModelLoadJob, error) {
 	now := r.now()
+	// The lock names the node, so the attempt is read first to learn it, and
+	// again under the lock.
+	target, err := r.GetLoadJobByRef(ctx, ref)
+	if err != nil {
+		return 0, nil, err
+	}
+	if target == nil {
+		// The attempt is gone. Another attempt of the model may hold it.
+		current, err := r.GetLoadJob(ctx, ref.TrackingKey)
+		if err != nil {
+			return 0, nil, err
+		}
+		if current == nil {
+			return CancelGone, nil, nil
+		}
+		return CancelConflict, current, nil
+	}
 	var outcome CancelOutcome
-	err := advisorylock.WithLockCtx(ctx, r.db, advisorylock.KeyFromString(loadJobLockPrefix+ref.TrackingKey), func() error {
-		job, err := r.GetLoadJob(ctx, ref.TrackingKey)
+	err = advisorylock.WithLockCtx(ctx, r.db, loadJobLockKey(ref.TrackingKey, target.NodeID), func() error {
+		job, err := r.GetLoadJobByRef(ctx, ref)
 		if err != nil {
 			return err
 		}
 		switch {
 		case job == nil:
 			outcome = CancelGone
-			return nil
-		case job.Generation != ref.Generation:
-			outcome = CancelConflict
 			return nil
 		case job.State == LoadJobStateFailed:
 			outcome = CancelAlready
@@ -768,8 +850,84 @@ func (r *NodeRegistry) cancelLoadJob(ctx context.Context, ref LoadJobRef, reason
 	if outcome == CancelGone {
 		return outcome, nil, nil
 	}
-	job, err := r.GetLoadJob(ctx, ref.TrackingKey)
+	job, err := r.GetLoadJobByRef(ctx, ref)
+	if outcome == CancelConflict && err == nil {
+		job, err = r.GetLoadJob(ctx, ref.TrackingKey)
+	}
 	return outcome, job, err
+}
+
+// loadJobStateRank orders the running states by how far a load has come.
+var loadJobStateRank = map[string]int{
+	LoadJobStatePending:    0,
+	LoadJobStateInstalling: 1,
+	LoadJobStateStaging:    2,
+	LoadJobStateLoading:    3,
+}
+
+// MostAdvancedLoadJob picks the job that best answers "how far is the load of
+// this model" from the jobs of one model: a running job before a failed one,
+// then the later phase, then more progress, then the older job. Among failed
+// jobs only, it picks the one that keeps the model longest. It returns nil for
+// no jobs. The result is a copy.
+func MostAdvancedLoadJob(jobs []ModelLoadJob) *ModelLoadJob {
+	var best *ModelLoadJob
+	for i := range jobs {
+		j := &jobs[i]
+		if best == nil || loadJobAhead(j, best) {
+			best = j
+		}
+	}
+	if best == nil {
+		return nil
+	}
+	out := *best
+	return &out
+}
+
+// loadJobAhead reports whether a is further along than b.
+func loadJobAhead(a, b *ModelLoadJob) bool {
+	aFailed, bFailed := a.State == LoadJobStateFailed, b.State == LoadJobStateFailed
+	if aFailed != bFailed {
+		return !aFailed
+	}
+	if aFailed {
+		switch {
+		case a.StopDeadline == nil:
+			return b.StopDeadline != nil
+		case b.StopDeadline == nil:
+			return false
+		default:
+			return a.StopDeadline.After(*b.StopDeadline)
+		}
+	}
+	if ra, rb := loadJobStateRank[a.State], loadJobStateRank[b.State]; ra != rb {
+		return ra > rb
+	}
+	if pa, pb := a.Progress(), b.Progress(); pa != pb {
+		return pa > pb
+	}
+	return a.CreatedAt.Before(b.CreatedAt)
+}
+
+// CountLiveLoadJobs counts the running loads of trackingKey whose owner holds
+// its lease, on the given nodes (every node when nodeIDs is nil). The
+// reconciler counts them toward a replica floor, so a load in progress is not
+// started again elsewhere.
+func (r *NodeRegistry) CountLiveLoadJobs(ctx context.Context, trackingKey string, nodeIDs []string) (int, error) {
+	q := r.db.WithContext(ctx).
+		Where("tracking_key = ? AND state <> ? AND lease_until IS NOT NULL AND lease_until > ?", trackingKey, LoadJobStateFailed, r.dbNow())
+	if nodeIDs != nil {
+		if len(nodeIDs) == 0 {
+			return 0, nil
+		}
+		q = q.Where("node_id IN ?", nodeIDs)
+	}
+	var jobs []ModelLoadJob
+	if err := q.Find(&jobs).Error; err != nil {
+		return 0, fmt.Errorf("counting live load jobs: %w", err)
+	}
+	return len(jobs), nil
 }
 
 // ListLoadJobsOnNode returns the jobs placed on nodeID.
