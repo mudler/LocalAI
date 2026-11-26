@@ -224,7 +224,10 @@ type state struct {
 	legacy []string
 	// invalid are entries whose key is not a server the add-on accepts.
 	invalid []string
-	broken  bool
+	// closed are the servers whose legacy entries disagree: they get the
+	// Damaged policy until an administrator saves one for them.
+	closed map[string]bool
+	broken bool
 }
 
 func (s *Store) read() state {
@@ -267,7 +270,9 @@ func (s *Store) read() state {
 // zero, more than one trailing dot). An entry already under the key of its
 // server wins over the others of that server. Other entries of one server
 // that disagree are not migrated: they stay in the file under legacy, and the
-// server uses the default policy until an administrator saves one for it. An
+// server gets the Damaged policy until an administrator saves one for it.
+// The default policy may be wider than every one of those entries, so it
+// does not apply to that server. An
 // entry whose key is not a server the add-on accepts stays under legacy too,
 // listed as invalid; it never applies.
 func migrate(in file) state {
@@ -276,6 +281,7 @@ func migrate(in file) state {
 		out.Legacy[k] = p
 	}
 	other := map[string]map[string]Policy{}
+	closed := map[string]bool{}
 	for k, p := range in.Clusters {
 		server, err := ServerKey(k)
 		switch {
@@ -311,10 +317,15 @@ func migrate(in file) state {
 	legacy := make([]string, 0, len(out.Legacy))
 	invalid := []string{}
 	for k := range out.Legacy {
-		if _, err := ServerKey(k); err != nil {
+		server, err := ServerKey(k)
+		if err != nil {
 			invalid = append(invalid, k)
-		} else {
-			legacy = append(legacy, k)
+			continue
+		}
+		legacy = append(legacy, k)
+		// Also after a save, which keeps these entries under legacy.
+		if _, own := out.Clusters[server]; !own {
+			closed[server] = true
 		}
 	}
 	sort.Strings(legacy)
@@ -322,7 +333,7 @@ func migrate(in file) state {
 	if len(out.Legacy) == 0 {
 		out.Legacy = nil
 	}
-	return state{f: out, legacy: legacy, invalid: invalid}
+	return state{f: out, legacy: legacy, invalid: invalid, closed: closed}
 }
 
 // Get returns the policy of one cluster: its own, or the default policy. A
@@ -343,6 +354,9 @@ func (s *Store) Get(key string) (Policy, error) {
 	if p, ok := st.f.Clusters[server]; ok {
 		return p, nil
 	}
+	if st.closed[server] {
+		return Damaged(), nil
+	}
 	if st.f.Default != nil {
 		return *st.f.Default, nil
 	}
@@ -351,7 +365,8 @@ func (s *Store) Get(key string) (Policy, error) {
 
 // View is what the page shows.
 type View struct {
-	// Clusters holds the clusters that have a policy of their own.
+	// Clusters holds the clusters that have a policy of their own, and the
+	// servers whose legacy entries disagree, with the Damaged policy they get.
 	Clusters map[string]Policy
 	// Default applies to every other cluster; DefaultSet says whether an
 	// administrator set it.
@@ -375,6 +390,10 @@ func (s *Store) View() View {
 	v := View{Clusters: make(map[string]Policy, len(st.f.Clusters)), Default: Defaults(), Broken: st.broken, Legacy: st.legacy, Invalid: st.invalid}
 	for k, p := range st.f.Clusters {
 		v.Clusters[k] = p
+	}
+	// A server whose legacy entries disagree shows the policy in force.
+	for k := range st.closed {
+		v.Clusters[k] = Damaged()
 	}
 	if st.f.Default != nil {
 		v.Default, v.DefaultSet = *st.f.Default, true

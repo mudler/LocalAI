@@ -139,6 +139,7 @@
     "defaultPolicy": "Ce cluster n'a pas de politique propre et utilise la politique par défaut.",
     "defaultTarget": "Par défaut pour les clusters sans politique",
     "notConfigured": "Non configuré : les écritures sont désactivées. Ce cluster utilise la politique par défaut, qui n'autorise aucune écriture, jusqu'à ce qu'un administrateur enregistre une politique pour lui.",
+    "noNamespace": "Aucun namespace : les lectures et les écritures sont désactivées. Ce cluster reçoit une politique qui n'autorise aucun namespace, jusqu'à ce qu'un administrateur enregistre une politique pour lui.",
     "defaultSet": "Un administrateur a défini cette politique par défaut. Elle s'applique à tout cluster sans politique propre.",
     "defaultBuiltin": "La politique intégrée : lecture dans tous les namespaces, valeurs des Secrets comprises, aucune écriture. Elle s'applique à tout cluster sans politique propre.",
     "legacy": "Ces politiques enregistrées utilisent l'ancienne clé par contexte et divergent pour un serveur, elles ne s'appliquent donc plus : {{list}}. Enregistrez une politique pour ce serveur.",

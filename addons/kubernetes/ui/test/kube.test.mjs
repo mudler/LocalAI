@@ -135,7 +135,7 @@ test('kubernetes: writes a server as the add-on does: canonical IP, numeric port
     assert.equal(normalizeServer(input), want, input)
     assert.equal(normalizeServer(normalizeServer(input)), want, `again ${input}`)
   }
-  for (const bad of ['https://cluster.example:0', 'https://cluster.example:65536', 'https://...', 'https://[1::2::3]', 'https://[fe80::1%25eth0]', 'https://[12345::]']) {
+  for (const bad of ['https://cluster.example:0', 'https://cluster.example:65536', 'https://...', 'https://[1::2::3]', 'https://[fe80::1%25eth0]', 'https://[12345::]', 'https://cluster.example?', 'https://cluster.example#', 'https://cluster.example/?']) {
     assert.equal(normalizeServer(bad), '', bad)
   }
 })

@@ -139,6 +139,7 @@
     "defaultPolicy": "Dieser Cluster hat keine eigene Richtlinie und nutzt die Standardrichtlinie.",
     "defaultTarget": "Standard für Cluster ohne Richtlinie",
     "notConfigured": "Nicht eingerichtet: Schreiben ist aus. Dieser Cluster nutzt die Standardrichtlinie, die kein Schreiben erlaubt, bis ein Administrator eine Richtlinie für ihn speichert.",
+    "noNamespace": "Kein Namespace: Lesen und Schreiben sind aus. Dieser Cluster erhält eine Richtlinie ohne Namespace, bis ein Administrator eine Richtlinie für ihn speichert.",
     "defaultSet": "Ein Administrator hat diesen Standard gesetzt. Er gilt für jeden Cluster ohne eigene Richtlinie.",
     "defaultBuiltin": "Der eingebaute Standard: Lesen in jedem Namespace, Secret-Werte eingeschlossen, kein Schreiben. Er gilt für jeden Cluster ohne eigene Richtlinie.",
     "legacy": "Diese gespeicherten Richtlinien nutzen den alten Schlüssel pro Kontext und widersprechen sich für einen Server, daher gelten sie nicht mehr: {{list}}. Speichern Sie eine Richtlinie für diesen Server.",

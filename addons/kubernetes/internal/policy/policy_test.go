@@ -95,7 +95,7 @@ var _ = Describe("the policy of a cluster", func() {
 
 	It("migrates entries of the old per-context key, unless they disagree", func() {
 		dir := GinkgoT().TempDir()
-		old := `{"clusters":{
+		old := `{"default":{"namespaces":["*"],"writeTools":["scale","drain"],"readSecretValues":true},"clusters":{
 			"https://a.example:6443#context=dev":{"namespaces":["team-a"],"writeTools":["scale"]},
 			"https://a.example:6443#context=ops":{"namespaces":["team-a"],"writeTools":["scale"]},
 			"https://b.example:6443#context=dev":{"namespaces":["team-b"],"writeTools":["scale"]},
@@ -107,15 +107,22 @@ var _ = Describe("the policy of a cluster", func() {
 		Expect(p.Namespaces).To(Equal([]string{"team-a"}))
 		p, err = s.Get("https://b.example:6443#context=ops")
 		Expect(err).NotTo(HaveOccurred())
-		Expect(p).To(Equal(policy.Defaults()), "disagreeing entries do not apply")
+		Expect(p).To(Equal(policy.Damaged()), "disagreeing entries do not apply, and the server does not fall back to a wider default")
 		v := s.View()
+		Expect(v.Clusters).To(HaveKeyWithValue("https://b.example:6443", policy.Damaged()), "the page shows the policy in force")
 		Expect(v.Legacy).To(Equal([]string{"https://b.example:6443#context=dev", "https://b.example:6443#context=ops"}))
 		_, err = s.Set("https://a.example:6443", policy.Policy{Namespaces: []string{"team-c"}})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(policy.Open(dir).View().Legacy).To(HaveLen(2), "a save keeps the entries not migrated")
+		p, err = policy.Open(dir).Get("https://b.example:6443")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p).To(Equal(policy.Damaged()), "a save of another cluster keeps it closed")
 		_, err = s.Set("https://b.example:6443", policy.Policy{Namespaces: []string{"team-b"}})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(policy.Open(dir).View().Legacy).To(BeEmpty())
+		p, err = policy.Open(dir).Get("https://b.example:6443")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.Namespaces).To(Equal([]string{"team-b"}))
 	})
 
 	It("gives every cluster the damaged policy while the file is damaged, and keeps the file aside on a save", func() {
@@ -174,7 +181,7 @@ var _ = Describe("the policy of a cluster", func() {
 
 	It("keeps old entries whose key cannot be read apart, and a save removes them", func() {
 		dir := GinkgoT().TempDir()
-		old := `{"clusters":{
+		old := `{"default":{"namespaces":["*"],"writeTools":["scale","drain"],"readSecretValues":true},"clusters":{
 			"https://a.example:6443#context=dev":{"namespaces":["team-a"]},
 			"not a server":{"namespaces":["team-x"]},
 			"https://127.0.0.1:6443#context=dev":{"namespaces":["team-y"]},
@@ -216,7 +223,7 @@ var _ = Describe("the policy of a cluster", func() {
 		Expect(get("https://a.example").Namespaces).To(Equal([]string{"team-a"}))
 		Expect(get("https://[2001:db8::1]").Namespaces).To(Equal([]string{"team-v6"}))
 		Expect(get("https://10.0.0.1").Namespaces).To(Equal([]string{"team-y"}), "the entry already written one way wins")
-		Expect(get("https://d.example")).To(Equal(policy.Defaults()), "disagreeing forms do not apply")
+		Expect(get("https://d.example")).To(Equal(policy.Damaged()), "disagreeing forms do not apply")
 		Expect(s.View().Legacy).To(Equal([]string{"https://d.example.", "https://d.example.."}))
 	})
 

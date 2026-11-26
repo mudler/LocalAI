@@ -19,7 +19,7 @@ import { subscribe } from './results'
 
 const call = (args) => getSdk().api.read({ arguments: args })
 
-const STATE_TEXT = { own: 'policy.ownPolicy', default: 'policy.defaultPolicy', off: 'policy.notConfigured' }
+const STATE_TEXT = { own: 'policy.ownPolicy', default: 'policy.defaultPolicy', off: 'policy.notConfigured', closed: 'policy.noNamespace' }
 
 function Namespaces({ list, onChange, disabled, t, error }) {
   const [text, setText] = useState('')
@@ -146,7 +146,7 @@ export default function PolicyEditor() {
             </Select>
           )}
         </Field>
-        {state === 'off' && !isDefault
+        {(state === 'off' || state === 'closed') && !isDefault
           ? <Notice tone="info" role="note" testId="kubernetes-policy-own">{stateText}</Notice>
           : <p className="cn-muted" data-testid="kubernetes-policy-own" data-state={state}>{stateText}</p>}
         {draft && (

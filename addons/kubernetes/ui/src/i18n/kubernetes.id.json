@@ -139,6 +139,7 @@
     "defaultPolicy": "Klaster ini tidak punya kebijakan sendiri dan memakai kebijakan bawaan.",
     "defaultTarget": "Bawaan untuk klaster tanpa kebijakan",
     "notConfigured": "Belum diatur: penulisan nonaktif. Klaster ini memakai kebijakan bawaan, yang tidak mengizinkan penulisan, sampai administrator menyimpan kebijakan untuknya.",
+    "noNamespace": "Tanpa namespace: pembacaan dan penulisan nonaktif. Klaster ini mendapat kebijakan yang tidak mengizinkan namespace apa pun, sampai administrator menyimpan kebijakan untuknya.",
     "defaultSet": "Administrator menetapkan bawaan ini. Ini berlaku untuk setiap klaster tanpa kebijakan sendiri.",
     "defaultBuiltin": "Bawaan internal: baca di setiap namespace, termasuk nilai Secret, tanpa penulisan. Ini berlaku untuk setiap klaster tanpa kebijakan sendiri.",
     "legacy": "Kebijakan tersimpan ini memakai kunci lama per konteks dan tidak sama untuk satu server, jadi tidak berlaku lagi: {{list}}. Simpan kebijakan untuk server itu.",

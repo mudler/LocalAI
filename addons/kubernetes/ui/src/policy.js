@@ -46,11 +46,15 @@ export function policyOf(view, key) {
   return tidy(ownOf(view, key) || view?.default || DEFAULTS)
 }
 
-// The state of one cluster for the editor: 'own' has its own policy;
-// 'default' uses the default policy; 'off' uses a default that allows no
-// write, so nothing can be changed until an administrator decides.
+// The state of one cluster for the editor: 'closed' gets a policy that
+// allows no namespace (the default after a damaged file was replaced, or a
+// server whose old entries disagree), so it reads and writes nothing; 'own'
+// has its own policy; 'default' uses the default policy; 'off' uses a
+// default that allows no write, so nothing can be changed until an
+// administrator decides.
 export function stateOf(view, key) {
   if (key === DEFAULT_KEY) return view?.defaultSet ? 'own' : 'off'
+  if (policyOf(view, key).namespaces.length === 0) return 'closed'
   if (ownOf(view, key)) return 'own'
   return policyOf(view, key).writeTools.length === 0 ? 'off' : 'default'
 }

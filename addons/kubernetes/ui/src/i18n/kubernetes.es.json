@@ -139,6 +139,7 @@
     "defaultPolicy": "Este clúster no tiene política propia y usa la política predeterminada.",
     "defaultTarget": "Predeterminada para clústeres sin política",
     "notConfigured": "Sin configurar: las escrituras están desactivadas. Este clúster usa la política predeterminada, que no permite escribir, hasta que un administrador guarde una política para él.",
+    "noNamespace": "Ningún namespace: las lecturas y escrituras están desactivadas. Este clúster recibe una política que no permite ningún namespace, hasta que un administrador guarde una política para él.",
     "defaultSet": "Un administrador fijó esta política predeterminada. Se aplica a todo clúster sin política propia.",
     "defaultBuiltin": "La predeterminada integrada: lectura en todos los namespaces, valores de Secret incluidos, sin escritura. Se aplica a todo clúster sin política propia.",
     "legacy": "Estas políticas guardadas usan la clave antigua por contexto y no coinciden para un servidor, por lo que ya no se aplican: {{list}}. Guarde una política para ese servidor.",

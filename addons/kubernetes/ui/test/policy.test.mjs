@@ -25,6 +25,22 @@ test('kubernetes policy: the defaults match the add-on', () => {
   assert.equal(stateOf(set, 'https://other.example:6443'), 'default')
   assert.equal(stateOf(set, DEFAULT_KEY), 'own')
   assert.deepEqual(policyOf(set, DEFAULT_KEY), open)
+  // After a damaged file was replaced, the default allows no namespace: the
+  // clusters under it read and write nothing.
+  const closed = { clusters: {}, default: { namespaces: [], writeTools: [], readSecretValues: false }, defaultSet: true }
+  assert.equal(stateOf(closed, 'https://other.example:6443'), 'closed')
+  assert.equal(stateOf(closed, DEFAULT_KEY), 'own')
+  const kept = { clusters: { [server]: { namespaces: [], writeTools: [], readSecretValues: false } }, default: DEFAULTS, defaultSet: false }
+  assert.equal(stateOf(kept, server), 'closed', 'a cluster the add-on keeps closed')
+})
+
+test('kubernetes policy: every state has its words in every locale', async () => {
+  const { readdirSync } = await import('node:fs')
+  const dir = new URL('../src/i18n/', import.meta.url)
+  for (const f of readdirSync(dir)) {
+    const words = JSON.parse(readFileSync(new URL(f, dir), 'utf8'))
+    for (const k of ['ownPolicy', 'defaultPolicy', 'notConfigured', 'noNamespace']) assert.ok(words.policy?.[k], `${f} policy.${k}`)
+  }
 })
 
 test('kubernetes policy: exec is marked powerful', () => {

@@ -139,6 +139,7 @@
     "defaultPolicy": "This cluster has no policy of its own and uses the default policy.",
     "defaultTarget": "Default for clusters with no policy",
     "notConfigured": "Not configured: writes are off. This cluster uses the default policy, which allows no write, until an administrator saves a policy for it.",
+    "noNamespace": "No namespace: reads and writes are off. This cluster gets a policy that allows no namespace, until an administrator saves a policy for it.",
     "defaultSet": "An administrator set this default. It applies to every cluster with no policy of its own.",
     "defaultBuiltin": "The built-in default: reads in every namespace, Secret values included, and no write. It applies to every cluster with no policy of its own.",
     "legacy": "These saved policies use the old key per context and disagree for one server, so they no longer apply: {{list}}. Save a policy for that server.",

@@ -139,6 +139,7 @@
     "defaultPolicy": "Questo cluster non ha una policy propria e usa quella predefinita.",
     "defaultTarget": "Predefinita per i cluster senza policy",
     "notConfigured": "Non configurato: le scritture sono disattivate. Questo cluster usa la policy predefinita, che non consente scritture, finché un amministratore non salva una policy per esso.",
+    "noNamespace": "Nessun namespace: letture e scritture sono disattivate. Questo cluster riceve una policy che non consente alcun namespace, finché un amministratore non salva una policy per esso.",
     "defaultSet": "Un amministratore ha impostato questa policy predefinita. Vale per ogni cluster senza una policy propria.",
     "defaultBuiltin": "La predefinita integrata: lettura in ogni namespace, valori dei Secret compresi, nessuna scrittura. Vale per ogni cluster senza una policy propria.",
     "legacy": "Queste policy salvate usano la vecchia chiave per contesto e non concordano per un server, quindi non valgono più: {{list}}. Salva una policy per quel server.",
