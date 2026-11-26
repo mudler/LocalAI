@@ -71,6 +71,10 @@ func (c *call) parseOp(tool string, args map[string]json.RawMessage) (writeOp, e
 		return c.parseCordon(tool, args)
 	case ToolDrain:
 		return c.parseDrain(args)
+	case ToolApply:
+		return c.parseApply(args)
+	case ToolPatch:
+		return c.parsePatch(args)
 	}
 	return nil, bad("unknown tool")
 }

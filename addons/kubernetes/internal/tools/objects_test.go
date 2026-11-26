@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -82,4 +83,9 @@ func event(ns, name string, obj metav1.Object, kind, reason string, last time.Du
 		InvolvedObject: corev1.ObjectReference{Kind: kind, Namespace: obj.GetNamespace(), Name: obj.GetName(), UID: obj.GetUID()},
 		Reason:         reason, Message: reason + " happened", Type: "Normal", Count: 1,
 		LastTimestamp: metav1.NewTime(time.Date(2026, 11, 26, 12, 0, 0, 0, time.UTC).Add(-last))}
+}
+
+func widget(ns, name string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{Object: map[string]any{"apiVersion": "example.com/v1", "kind": "Widget",
+		"metadata": map[string]any{"name": name, "namespace": ns, "uid": "w-1"}, "spec": map[string]any{"size": int64(1)}}}
 }
