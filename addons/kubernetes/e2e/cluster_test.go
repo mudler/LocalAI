@@ -5,13 +5,17 @@ package e2e_test
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"math/big"
 	"net"
 	"net/http"
 	"os"
@@ -87,6 +91,27 @@ func writeKeyPair(dir string) (string, string) {
 	return priv, pub
 }
 
+// writeServingCert writes a self-signed serving certificate for localhost and
+// 127.0.0.1, and keeps it as the CA the clients trust.
+func (c *cluster) writeServingCert(dir string) (string, string) {
+	Expect(os.MkdirAll(dir, 0o700)).To(Succeed())
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	Expect(err).NotTo(HaveOccurred())
+	tmpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "localhost"},
+		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(24 * time.Hour),
+		KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true, IsCA: true, DNSNames: []string{"localhost"}, IPAddresses: []net.IP{net.ParseIP("127.0.0.1")}}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	Expect(err).NotTo(HaveOccurred())
+	kder, err := x509.MarshalECPrivateKey(key)
+	Expect(err).NotTo(HaveOccurred())
+	c.ca = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	crt, keyFile := filepath.Join(dir, "serving.crt"), filepath.Join(dir, "serving.key")
+	Expect(os.WriteFile(crt, c.ca, 0o600)).To(Succeed())
+	Expect(os.WriteFile(keyFile, pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: kder}), 0o600)).To(Succeed())
+	return crt, keyFile
+}
+
 func startCluster() *cluster {
 	assets := os.Getenv("KUBE_ASSETS")
 	if assets == "" {
@@ -108,21 +133,16 @@ func startCluster() *cluster {
 	tokens := filepath.Join(c.dir, "tokens.csv")
 	Expect(os.WriteFile(tokens, []byte(adminToken+",e2e-admin,1,system:masters\n"+teamToken+",e2e-team,2,system:authenticated\n"), 0o600)).To(Succeed())
 	certs := filepath.Join(c.dir, "certs")
+	servingCert, servingKey := c.writeServingCert(certs)
 	c.start("kube-apiserver", "--etcd-servers", etcdURL, "--secure-port", fmt.Sprint(apiPort), "--bind-address", "127.0.0.1",
-		"--advertise-address", "127.0.0.1", "--endpoint-reconciler-type", "none", "--cert-dir", certs, "--token-auth-file", tokens, "--authorization-mode", "RBAC",
+		"--advertise-address", "127.0.0.1", "--endpoint-reconciler-type", "none", "--cert-dir", certs,
+		"--tls-cert-file", servingCert, "--tls-private-key-file", servingKey, "--token-auth-file", tokens, "--authorization-mode", "RBAC",
 		"--service-account-issuer", "https://kubernetes.default.svc", "--service-account-key-file", pub,
 		"--service-account-signing-key-file", priv, "--service-cluster-ip-range", "10.0.0.0/24",
 		"--disable-admission-plugins", "ServiceAccount", "--allow-privileged=true")
 	// The add-on refuses a loopback address, so the specs name the server
-	// by host name; the serving certificate of the API server includes it.
+	// by host name; the serving certificate covers it.
 	c.server = fmt.Sprintf("https://localhost:%d", apiPort)
-	// The self-signed serving certificate covers 127.0.0.1; it appears once
-	// the server starts.
-	Eventually(func() error {
-		b, err := os.ReadFile(filepath.Join(certs, "apiserver.crt"))
-		c.ca = b
-		return err
-	}, 60*time.Second, 200*time.Millisecond).Should(Succeed())
 	pool := x509.NewCertPool()
 	Expect(pool.AppendCertsFromPEM(c.ca)).To(BeTrue())
 	hc := &http.Client{Timeout: 2 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: pool}}}

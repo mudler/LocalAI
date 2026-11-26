@@ -22,6 +22,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 )
@@ -66,7 +67,8 @@ func seed() {
 	for rev, image := range map[string]string{"1": "example/web:1", "2": "example/web:2"} {
 		t := tmpl(image)
 		t.Labels = map[string]string{"app": "web", "pod-template-hash": "h" + rev}
-		rs := must(adm.AppsV1().ReplicaSets("team-a").Create(bg, &appsv1.ReplicaSet{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "web-" + rev,
+		// The Deployment controller labels a replica set as its pod template.
+		rs := must(adm.AppsV1().ReplicaSets("team-a").Create(bg, &appsv1.ReplicaSet{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "web-" + rev, Labels: t.Labels,
 			Annotations:     map[string]string{"deployment.kubernetes.io/revision": rev},
 			OwnerReferences: []metav1.OwnerReference{{APIVersion: "apps/v1", Kind: "Deployment", Name: "web", UID: d.UID, Controller: &ctrl}}},
 			Spec: appsv1.ReplicaSetSpec{Selector: &metav1.LabelSelector{MatchLabels: t.Labels}, Template: t}}, metav1.CreateOptions{}))
@@ -310,6 +312,34 @@ var _ = Describe("the tools against a real API server", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sample(p)["diff"]).To(ContainSubstring("-  mode: fast"))
 		Expect(sample(p)["diff"]).To(ContainSubstring("+  mode: slow"))
+	})
+
+	It("server-side apply: a conflict with another field manager comes back, nothing is forced", func() {
+		cm := corev1ac.ConfigMap("shared", "team-a").WithData(map[string]string{"owner": "other"})
+		must(adm.CoreV1().ConfigMaps("team-a").Apply(bg, cm, metav1.ApplyOptions{FieldManager: "other-team", Force: true}))
+		manifest := "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: shared\n  namespace: team-a\ndata:\n  owner: localai\n"
+		_, err := rt.Preview(bg, env(cred, tools.ToolApply, map[string]any{"manifest": manifest}))
+		Expect(err).To(MatchError(ContainSubstring("409 Conflict")))
+		Expect(err.Error()).To(ContainSubstring("other-team"))
+		Expect(must(adm.CoreV1().ConfigMaps("team-a").Get(bg, "shared", metav1.GetOptions{})).Data).To(HaveKeyWithValue("owner", "other"))
+	})
+
+	It("server-side apply: a field the add-on applied before and leaves out is removed", func() {
+		two := "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: owned\n  namespace: team-a\ndata:\n  keep: a\n  drop: b\n"
+		_, _, _, err := write(tools.ToolApply, map[string]any{"manifest": two})
+		Expect(err).NotTo(HaveOccurred())
+		one := "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: owned\n  namespace: team-a\ndata:\n  keep: a\n"
+		p, _, _, err := write(tools.ToolApply, map[string]any{"manifest": one})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(sample(p)["diff"]).To(ContainSubstring("-  drop: b"))
+		Expect(must(adm.CoreV1().ConfigMaps("team-a").Get(bg, "owned", metav1.GetOptions{})).Data).To(Equal(map[string]string{"keep": "a"}))
+	})
+
+	It("a json patch that copies a Secret value is refused while values are hidden", func() {
+		_, _, _, err := write(tools.ToolPatch, map[string]any{"kind": "secrets", "namespace": "team-a", "name": "db", "patchType": "json",
+			"patch": `[{"op":"copy","from":"/data/password","path":"/metadata/annotations/leak"}]`})
+		Expect(err).To(MatchError(ContainSubstring("(readSecretValues)")))
+		Expect(must(adm.CoreV1().Secrets("team-a").Get(bg, "db", metav1.GetOptions{})).Annotations).NotTo(HaveKey("leak"))
 	})
 
 	It("patch merge previews and applies", func() {
