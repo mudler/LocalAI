@@ -17,6 +17,15 @@ Every llama-cpp image ships `llama-cpp-cpu-all`: ggml built with `GGML_BACKEND_D
 - turboquant, bonsai and olala build a llama.cpp fork and use the same stage with their own pin (`CPU_VARIANTS_VERSION_VAR`, and `OLALA_CMAKE_ARGS` for olala's CPU flags) and their own patches. The variants of a fork come from that fork, never from upstream. ik-llama-cpp has its own ggml without the backend loader, so it keeps per-instruction-set binaries.
 - `llama-cpp-grpc` and `llama-cpp-rpc-server` are separate static builds and still compile their own CPU backend.
 
+## NCCL (CUDA images)
+
+ggml's CUDA backend links NCCL when CMake finds it (`GGML_CUDA_NCCL` is on by default) and uses it for the cross-GPU reductions of `split_mode: tensor`. `.docker/install-nccl.sh` installs `libnccl2` and `libnccl-dev` in both builder stages of `backend/Dockerfile.llama-cpp`, for cublas on amd64 (CUDA 12 and 13) and on arm64 with CUDA 13. The Jetson (CUDA 12 arm64) image has none, since NVIDIA ships no NCCL for Jetson. Rules:
+
+- It is not in `install-base-deps.sh` on purpose: the forks that share that script would link NCCL too and each grow by about 190 to 290 MB compressed.
+- The version is the newest `libnccl2` built for the exact CUDA `major.minor` of the image (`+cudaX.Y`), so its driver requirement matches the bundled CUDA libraries. `NCCL_VERSION` overrides it.
+- `package.sh` runs `scripts/build/check-nccl-bundle.sh`: it fails the build when an ELF needs `libnccl.so.2` that `lib/` lacks, or when the builder has NCCL but `libggml-cuda.so` does not link it. It also copies the NCCL license notice to `licenses/`.
+- A missing `libnccl.so.2` at run time would make ggml skip `libggml-cuda.so` (GPU silently lost), which is why the library is bundled and checked rather than left to the host.
+
 ## Architecture
 
 - **grpc-server.cpp**: gRPC server implementation, adapts HTTP server patterns to gRPC

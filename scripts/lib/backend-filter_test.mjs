@@ -157,6 +157,37 @@ test("a change to only rocm-compat-links.sh rebuilds the hipblas images and noth
   assert.deepEqual(filteredDarwin, []);
 });
 
+test("a change to the NCCL scripts rebuilds the llama-cpp images and nothing else", () => {
+  // Both scripts sit outside backend/cpp/llama-cpp/. check-nccl-bundle.sh is
+  // under scripts/build/, so without its own rule it would hit the catch-all.
+  const withLlama = [
+    ...includes,
+    {
+      backend: "llama-cpp",
+      dockerfile: "./backend/Dockerfile.llama-cpp",
+      "tag-suffix": "-gpu-nvidia-cuda-12-llama-cpp",
+      "build-type": "cublas",
+    },
+    {
+      backend: "turboquant",
+      dockerfile: "./backend/Dockerfile.turboquant",
+      "tag-suffix": "-gpu-nvidia-cuda-12-turboquant",
+      "build-type": "cublas",
+    },
+  ];
+  for (const file of [".docker/install-nccl.sh", "scripts/build/check-nccl-bundle.sh"]) {
+    const { filtered, filteredDarwin } = filterMatrix({
+      includes: withLlama,
+      includesDarwin,
+      changedFiles: [file],
+    });
+    assert.ok(filtered.length > 0, file);
+    assert.ok(filtered.every(e => e.dockerfile === "./backend/Dockerfile.llama-cpp"), file);
+    assert.ok(filtered.some(e => e["tag-suffix"] === "-gpu-nvidia-cuda-12-llama-cpp"), file);
+    assert.deepEqual(filteredDarwin, [], file);
+  }
+});
+
 test("docs- and README-only changes never produce a matrix", () => {
   const { filtered, filteredDarwin, changedBackends } = run([
     "README.md",

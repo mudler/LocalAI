@@ -123,6 +123,13 @@ RUN --mount=type=bind,source=.docker/install-base-deps.sh,target=/usr/local/sbin
 # CMake's find_package finds it at the canonical prefix the Makefile expects.
 RUN cp -a /opt/grpc/. /usr/local/
 
+# NCCL for the cross-GPU reductions of split_mode: tensor. A no-op except for
+# the CUDA images; .docker/install-nccl.sh says which. It runs before the
+# source copy so BuildKit caches the layer.
+RUN --mount=type=bind,source=.docker/install-nccl.sh,target=/usr/local/sbin/install-nccl \
+    --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    bash /usr/local/sbin/install-nccl
+
 COPY . /LocalAI
 # The ggml CPU variants for this architecture; llama-cpp-compile.sh hands them to make.
 COPY --from=cpu-variants /out/ /LocalAI/backend/cpp/llama-cpp/cpu-variants/
@@ -176,6 +183,12 @@ ARG TARGETVARIANT
 # mirror it here so the compile step can find gRPC at the canonical
 # prefix the Makefile expects.
 RUN cp -a /opt/grpc/. /usr/local/
+
+# The prebuilt base is made by install-base-deps.sh, which has no NCCL. Same
+# step as in builder-fromsource.
+RUN --mount=type=bind,source=.docker/install-nccl.sh,target=/usr/local/sbin/install-nccl \
+    --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    bash /usr/local/sbin/install-nccl
 
 COPY . /LocalAI
 # The ggml CPU variants for this architecture; llama-cpp-compile.sh hands them to make.
