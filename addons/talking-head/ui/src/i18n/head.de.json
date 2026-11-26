@@ -1,0 +1,153 @@
+{
+  "title": "Sprechendes Gesicht",
+  "subtitle": "Zug um Zug",
+  "stage": "Gesicht und Steuerung",
+  "chips": {
+    "noAvatar": "Kein Avatar-Modell",
+    "noChat": "Kein Chat-Modell",
+    "defaultVoice": "Standardstimme"
+  },
+  "empty": {
+    "title": "Fehlende Modelle installieren",
+    "avatar": "Ein Avatar-Modell: ein Videomodell mit dem Backend avatarforcing-cpp, zum Beispiel avatarforcing aus der Galerie.",
+    "tts": "Ein Sprachausgabe-Modell, das der Antwort eine Stimme gibt.",
+    "licence": "Die Gewichte von avatarforcing stehen unter der Lizenz CC BY-NC 4.0: Nutze sie nur für nicht kommerzielle Zwecke.",
+    "gallery": "In der Galerie finden",
+    "errorTitle": "Die Modelle konnten nicht aufgelistet werden",
+    "errorBody": "Antwort des Servers: {{message}}"
+  },
+  "notices": {
+    "notAvatar": "{{model}} ist kein Modell für sprechende Gesichter. Wähle in den Einstellungen ein Avatar-Modell.",
+    "notStored": "Dieser Browser hat das Porträt nicht gespeichert. Es bleibt erhalten, bis du die Seite schließt.",
+    "copied": "Transkript kopiert",
+    "copyFailed": "Kopieren in die Zwischenablage nicht möglich"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "desc": "In diesem Browser gespeichert. Sie gelten ab dem nächsten Zug.",
+    "close": "Schließen",
+    "models": "Modelle",
+    "pipeline": "Pipeline",
+    "pipelineNone": "Keine: jedes Modell einzeln wählen",
+    "pipelineHelp": "Ein Pipeline-Modell legt Chat-, Transkriptions- und Sprachausgabe-Modell auf einmal fest.",
+    "role": {
+      "chat": "Chat-Modell",
+      "stt": "Transkriptionsmodell",
+      "tts": "Sprachausgabe-Modell",
+      "avatar": "Avatar-Modell"
+    },
+    "noneInstalled": "Keins installiert",
+    "voice": "Stimme",
+    "voicePlaceholder": "Name der Stimme (leer für den Modellstandard)",
+    "instructions": "Anweisungen",
+    "instructionsHelp": "Wird vor dem Gespräch an das Chat-Modell gesendet. Bitte um kurze Antworten: Jede Sekunde Sprache ist eine Sekunde Video, die erzeugt werden muss.",
+    "video": "Video",
+    "nfe": "Qualität (nfe)",
+    "nfeHelp": "Sampler-Schritte des Avatar-Modells, 3 bis 12. Standard ist 6. Ein niedrigerer Wert ist schneller und weniger detailliert.",
+    "seed": "Startwert",
+    "seedPlaceholder": "Leer für den Modellstandard",
+    "cpuNote": "Auf einer CPU ist Video langsam: etwa 15 Sekunden Arbeit pro Sekunde Sprache. Eine GPU ist viel schneller.",
+    "licence": "Die Gewichte von avatarforcing stehen unter der Lizenz CC BY-NC 4.0: Nutze sie nur für nicht kommerzielle Zwecke."
+  },
+  "portrait": {
+    "library": "In diesem Browser gespeicherte Porträts",
+    "use": "{{name}} verwenden",
+    "remove": "{{name}} entfernen",
+    "add": "Hinzufügen",
+    "upload": "Porträt hochladen",
+    "untitled": "Porträt"
+  },
+  "crop": {
+    "title": "Porträt zuschneiden",
+    "desc": "Platziere ein Gesicht in der Mitte des Quadrats.",
+    "cancel": "Abbrechen",
+    "unreadable": "Diese Datei ist kein Bild, das der Browser lesen kann. Versuche ein PNG oder JPEG.",
+    "preview": "Vorschau des Zuschnitts. Verschiebe das Bild mit den Pfeiltasten.",
+    "zoom": "Zoom",
+    "help": "Ziehe das Bild oder nutze die Pfeiltasten. Das Gesicht sollte etwa die Hälfte des Quadrats füllen. Das Porträt bleibt in diesem Browser.",
+    "save": "Dieses Porträt verwenden"
+  },
+  "status": {
+    "ready": "Bereit",
+    "readyBody": "Halte die Taste gedrückt und sprich, oder tippe eine Nachricht.",
+    "recording": "Aufnahme",
+    "recordingBody": "Lassen Sie die Taste los, um das Gesagte zu senden.",
+    "noPortrait": "Porträt hinzufügen",
+    "noPortraitBody": "Lade ein Foto mit einem Gesicht hoch. Du schneidest es hier quadratisch zu.",
+    "failed": "Der Zug ist fehlgeschlagen",
+    "videoSlow": "Clip wird erstellt. Auf einer CPU dauert das etwa 15 Sekunden pro Sekunde Sprache."
+  },
+  "stages": {
+    "title": "Schritte dieses Zugs",
+    "transcribe": {
+      "label": "Transkribieren",
+      "busy": "Aufnahme wird angehört"
+    },
+    "chat": {
+      "label": "Antwort",
+      "busy": "Antwort wird geschrieben"
+    },
+    "speech": {
+      "label": "Sprache",
+      "busy": "Antwort wird gesprochen"
+    },
+    "video": {
+      "label": "Video",
+      "busy": "Clip wird erstellt"
+    }
+  },
+  "mic": {
+    "blocked": {
+      "title": "Mikrofon blockiert",
+      "body": "Klicke auf das Schloss-Symbol in der Adressleiste, stelle Mikrofon auf Zulassen und versuche es dann erneut. Es wurde nichts aufgenommen."
+    },
+    "missing": {
+      "title": "Kein Mikrofon",
+      "body": "Dieser Browser hat kein nutzbares Mikrofon. Tippe deine Nachricht stattdessen ein."
+    },
+    "error": {
+      "title": "Das Mikrofon ist nicht gestartet",
+      "body": "Versuche es erneut oder tippe deine Nachricht ein."
+    }
+  },
+  "composer": {
+    "label": "Nachricht",
+    "placeholder": "Nachricht eingeben, auf die das Gesicht antwortet",
+    "placeholderSay": "Eingeben, was das Gesicht sagen soll",
+    "hold": "Zum Sprechen halten",
+    "holdHelp": "Halte die Taste gedrückt, während du sprichst, und lass sie dann los.",
+    "noStt": "Installiere ein Transkriptionsmodell, um per Stimme zu sprechen.",
+    "recording": "Aufnahme {{time}}",
+    "send": "Antworten",
+    "say": "Sagen",
+    "cancel": "Abbrechen",
+    "note": "Antworten fragt das Chat-Modell, und das Gesicht spricht die Antwort. Sagen lässt das Gesicht deinen Text unverändert sprechen."
+  },
+  "transcript": {
+    "title": "Gespräch",
+    "copy": "Kopieren",
+    "empty": "Deine Nachrichten und die Antworten erscheinen hier, jeweils mit ihrem Clip. Sie bleiben in diesem Tab und werden nicht gespeichert.",
+    "user": "Du",
+    "assistant": "Gesicht",
+    "said": "Gesagt",
+    "note": "Hinweis",
+    "cancelled": "Zug abgebrochen",
+    "replay": "Erneut abspielen",
+    "download": "Herunterladen"
+  },
+  "errors": {
+    "tooShort": "Die Aufnahme war zu kurz. Halte die Taste gedrückt, während du sprichst.",
+    "emptyTranscript": "In der Aufnahme waren keine Wörter zu hören. Versuche es näher am Mikrofon erneut.",
+    "emptyText": "Gib zuerst eine Nachricht ein.",
+    "emptyReply": "Das Chat-Modell hat eine leere Antwort gegeben. Versuche es erneut oder nimm ein anderes Modell.",
+    "noVideo": "Der Server hat kein Video zurückgegeben.",
+    "stage": "{{stage}} fehlgeschlagen: {{message}}"
+  },
+  "face": {
+    "portraitAlt": "Das Porträt, das die Antworten spricht",
+    "empty": "Lade ein Porträt hoch, um hier das Gesicht zu sehen.",
+    "play": "Abspielen",
+    "unplayable": "Dieser Browser kann den Clip nicht abspielen: Ihm fehlt ein H.264-Videodecoder. Lade den Clip herunter, um ihn anzusehen.",
+    "download": "Clip herunterladen"
+  }
+}

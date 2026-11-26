@@ -1,0 +1,153 @@
+{
+  "title": "Talking Head",
+  "subtitle": "turn by turn",
+  "stage": "Face and controls",
+  "chips": {
+    "noAvatar": "No avatar model",
+    "noChat": "No chat model",
+    "defaultVoice": "default voice"
+  },
+  "empty": {
+    "title": "Install the missing models",
+    "avatar": "An avatar model: a video model with the avatarforcing-cpp backend, for example avatarforcing from the gallery.",
+    "tts": "A text-to-speech model, to give the reply a voice.",
+    "licence": "The avatarforcing weights are licensed under CC BY-NC 4.0: use them for non-commercial purposes only.",
+    "gallery": "Find it in the gallery",
+    "errorTitle": "The models could not be listed",
+    "errorBody": "The server said: {{message}}"
+  },
+  "notices": {
+    "notAvatar": "{{model}} is not a talking-head model. Pick an avatar model in the settings.",
+    "notStored": "This browser did not keep the portrait. It stays until you close the page.",
+    "copied": "Transcript copied",
+    "copyFailed": "Could not copy to the clipboard"
+  },
+  "settings": {
+    "title": "Settings",
+    "desc": "Kept in this browser. They apply to the next turn.",
+    "close": "Close",
+    "models": "Models",
+    "pipeline": "Pipeline",
+    "pipelineNone": "None: pick each model",
+    "pipelineHelp": "A pipeline model sets the chat, transcription and speech models at once.",
+    "role": {
+      "chat": "Chat model",
+      "stt": "Transcription model",
+      "tts": "Speech model",
+      "avatar": "Avatar model"
+    },
+    "noneInstalled": "None installed",
+    "voice": "Voice",
+    "voicePlaceholder": "Voice name (blank for the model default)",
+    "instructions": "Instructions",
+    "instructionsHelp": "Sent to the chat model before the conversation. Ask for short replies: each second of speech is a second of video to make.",
+    "video": "Video",
+    "nfe": "Quality (nfe)",
+    "nfeHelp": "Sampler steps of the avatar model, 3 to 12. The default is 6. A lower value is faster and less detailed.",
+    "seed": "Seed",
+    "seedPlaceholder": "Blank for the model default",
+    "cpuNote": "Video is slow on a CPU: about 15 seconds of work for each second of speech. A GPU is much faster.",
+    "licence": "The avatarforcing weights are licensed under CC BY-NC 4.0: use them for non-commercial purposes only."
+  },
+  "portrait": {
+    "library": "Portraits kept in this browser",
+    "use": "Use {{name}}",
+    "remove": "Remove {{name}}",
+    "add": "Add",
+    "upload": "Upload a portrait",
+    "untitled": "Portrait"
+  },
+  "crop": {
+    "title": "Crop the portrait",
+    "desc": "Put one face in the middle of the square.",
+    "cancel": "Cancel",
+    "unreadable": "This file is not an image the browser can read. Try a PNG or a JPEG.",
+    "preview": "Crop preview. Use the arrow keys to move the picture.",
+    "zoom": "Zoom",
+    "help": "Drag the picture or use the arrow keys. The face should fill about half of the square. The portrait stays in this browser.",
+    "save": "Use this portrait"
+  },
+  "status": {
+    "ready": "Ready",
+    "readyBody": "Hold the button and speak, or type a message.",
+    "recording": "Recording",
+    "recordingBody": "Release the button to send what you said.",
+    "noPortrait": "Add a portrait",
+    "noPortraitBody": "Upload a photo of one face. You crop it to a square here.",
+    "failed": "The turn failed",
+    "videoSlow": "Making the clip. On a CPU this takes about 15 seconds for each second of speech."
+  },
+  "stages": {
+    "title": "Stages of this turn",
+    "transcribe": {
+      "label": "Transcribe",
+      "busy": "Listening to the recording"
+    },
+    "chat": {
+      "label": "Reply",
+      "busy": "Writing the reply"
+    },
+    "speech": {
+      "label": "Speech",
+      "busy": "Speaking the reply"
+    },
+    "video": {
+      "label": "Video",
+      "busy": "Making the clip"
+    }
+  },
+  "mic": {
+    "blocked": {
+      "title": "Microphone blocked",
+      "body": "Click the lock icon in the address bar, set Microphone to Allow, then try again. Nothing was recorded."
+    },
+    "missing": {
+      "title": "No microphone",
+      "body": "This browser has no microphone it can use. Type your message instead."
+    },
+    "error": {
+      "title": "The microphone did not start",
+      "body": "Try again, or type your message instead."
+    }
+  },
+  "composer": {
+    "label": "Message",
+    "placeholder": "Type a message for the face to answer",
+    "placeholderSay": "Type what the face should say",
+    "hold": "Hold to talk",
+    "holdHelp": "Hold the button while you speak, then release it.",
+    "noStt": "Install a transcription model to talk by voice.",
+    "recording": "Recording {{time}}",
+    "send": "Reply",
+    "say": "Say this",
+    "cancel": "Cancel",
+    "note": "Reply asks the chat model and the face speaks its answer. Say this makes the face speak your text as it is."
+  },
+  "transcript": {
+    "title": "Conversation",
+    "copy": "Copy",
+    "empty": "Your messages and the replies appear here, each with its clip. They stay in this tab and are not saved.",
+    "user": "You",
+    "assistant": "Face",
+    "said": "Said",
+    "note": "Note",
+    "cancelled": "Turn cancelled",
+    "replay": "Play again",
+    "download": "Download"
+  },
+  "errors": {
+    "tooShort": "The recording was too short. Hold the button while you speak.",
+    "emptyTranscript": "No words were heard in the recording. Try again closer to the microphone.",
+    "emptyText": "Type a message first.",
+    "emptyReply": "The chat model gave an empty reply. Try again, or try another model.",
+    "noVideo": "The server returned no video.",
+    "stage": "{{stage}} failed: {{message}}"
+  },
+  "face": {
+    "portraitAlt": "The portrait that speaks the replies",
+    "empty": "Upload a portrait to see the face here.",
+    "play": "Play",
+    "unplayable": "This browser cannot play the clip: it has no H.264 video decoder. Download the clip to watch it.",
+    "download": "Download the clip"
+  }
+}

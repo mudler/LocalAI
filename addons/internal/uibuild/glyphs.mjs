@@ -64,5 +64,8 @@ export const GLYPHS = {
   // Three boxes joined by lines, for a cluster of machines.
   cluster: [box(9, 3, 6, 5.5, 1.5), box(3, 15.5, 6, 5.5, 1.5), box(15, 15.5, 6, 5.5, 1.5), { line: [[12, 8.5], [12, 12], [6, 12], [6, 15.5]] }, { line: [[12, 12], [18, 12], [18, 15.5]] }],
   // The fallback: a rounded square with a plus, for an add-on that names no glyph.
+  // A head and shoulders, with a line of speech beside the face.
+  head: [ellipse(10, 9, 4.3, 5), curve([3.5, 21], [10, 13], [16.5, 21]), curve([17.5, 5.5], [20.5, 9], [17.5, 12.5])],
+
   app: [box(4, 4, 16, 16, 4), { line: [[12, 8.5], [12, 15.5]] }, { line: [[8.5, 12], [15.5, 12]] }],
 }

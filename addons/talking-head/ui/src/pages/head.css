@@ -1,0 +1,100 @@
+/* The Talking Head page. The layout, buttons, sheet and transcript come from
+   the Talk page sheet (addons/talk/ui/src/pages/talk.css); this sheet adds the
+   face, the portraits, the stages and the composer. */
+.head-stage { gap: 14px; }
+
+.head-face {
+  position: relative;
+  align-self: center;
+  width: 100%;
+  max-width: 340px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: var(--dk-radius-3, 16px);
+  background: var(--dk-inset);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+}
+.head-face__still, .head-face__clip { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.head-face__clip { background: var(--dk-inset); }
+.head-face__empty { display: grid; place-items: center; align-content: center; gap: 8px; height: 100%; padding: 24px; color: var(--dk-muted); text-align: center; font-size: 14px; }
+.head-face__empty .lai-icon { font-size: 28px; }
+.head-face__empty p { margin: 0; max-width: 26ch; line-height: 1.5; }
+.head-face__play { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); }
+
+.head-portraits { width: 100%; }
+.head-portraits__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.head-thumb { position: relative; display: inline-flex; }
+.head-thumb__pick {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--dk-radius-2);
+  background: var(--dk-inset);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+  cursor: pointer;
+}
+.head-thumb__pick img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.head-thumb[data-selected="true"] .head-thumb__pick { box-shadow: 0 0 0 2px var(--dk-accent-text); }
+.head-thumb__remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 99px;
+  background: var(--dk-card);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+  color: var(--dk-muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+.head-thumb:hover .head-thumb__remove, .head-thumb:focus-within .head-thumb__remove { display: grid; }
+.head-upload { min-height: 48px; }
+
+.head-crop__canvas {
+  display: block;
+  width: 100%;
+  max-width: 288px;
+  aspect-ratio: 1;
+  margin: 0 auto 14px;
+  border-radius: var(--dk-radius-2);
+  background: var(--dk-inset);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+  cursor: grab;
+  touch-action: none;
+}
+.head-crop__canvas:active { cursor: grabbing; }
+.head-crop__canvas:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
+.head-btn--primary { background: var(--dk-accent); color: var(--dk-on-accent); }
+
+.head-stages { width: 100%; margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 13px; }
+.head-stages li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 8px; color: var(--color-text-secondary); }
+.head-stages li[data-state="waiting"] { color: var(--dk-muted); }
+.head-stages li[data-state="running"] { color: var(--dk-text); font-weight: 600; }
+.head-stages li[data-state="done"] .lai-icon { color: var(--dk-ok-text); }
+.head-stages li[data-state="failed"] .lai-icon { color: var(--dk-error-text); }
+.head-stages__time { font-family: var(--font-mono); font-size: 12px; }
+
+.head-composer { display: grid; gap: 10px; width: 100%; }
+.head-composer__label { font-size: 13px; font-weight: 600; color: var(--color-text-secondary); }
+.head-composer__text { min-height: 64px; }
+.talk-start.head-talk[data-recording="true"],
+.talk-start.head-talk[data-recording="true"]:hover:not(:disabled) { background: var(--dk-error-text); color: var(--dk-on-accent); }
+
+.head-missing { margin: 8px 0 0; padding-left: 18px; color: var(--color-text-secondary); font-size: 14px; line-height: 1.6; }
+
+.talk-turn > .head-turn__clip { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 4px; }
+.head-turn__times { color: var(--dk-muted); font-family: var(--font-mono); font-size: 11.5px; }
+
+@media (max-width: 760px) {
+  .head-face { max-width: 260px; }
+}
+
+.head-face__note { position: absolute; inset: auto 12px 12px; display: grid; gap: 8px; justify-items: start; padding: 12px; border-radius: var(--dk-radius-2); background: var(--dk-card); box-shadow: inset 0 0 0 1px var(--dk-edge); font-size: 13px; }
+.head-face__note p { margin: 0; color: var(--color-text-secondary); line-height: 1.45; }

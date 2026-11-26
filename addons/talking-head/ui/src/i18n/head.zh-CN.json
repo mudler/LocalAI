@@ -1,0 +1,153 @@
+{
+  "title": "会说话的头像",
+  "subtitle": "逐轮对话",
+  "stage": "头像与控制",
+  "chips": {
+    "noAvatar": "没有头像模型",
+    "noChat": "没有聊天模型",
+    "defaultVoice": "默认声音"
+  },
+  "empty": {
+    "title": "安装缺少的模型",
+    "avatar": "头像模型：使用 avatarforcing-cpp 后端的视频模型，例如库中的 avatarforcing。",
+    "tts": "文本转语音模型，用来给回复配上声音。",
+    "licence": "avatarforcing 权重采用 CC BY-NC 4.0 许可：仅限非商业用途。",
+    "gallery": "在库中查找",
+    "errorTitle": "无法列出模型",
+    "errorBody": "服务器返回：{{message}}"
+  },
+  "notices": {
+    "notAvatar": "{{model}} 不是会说话的头像模型。请在设置中选择头像模型。",
+    "notStored": "此浏览器没有保存肖像。在你关闭页面前它会一直保留。",
+    "copied": "转录已复制",
+    "copyFailed": "无法复制到剪贴板"
+  },
+  "settings": {
+    "title": "设置",
+    "desc": "保存在此浏览器中。从下一轮开始生效。",
+    "close": "关闭",
+    "models": "模型",
+    "pipeline": "流水线",
+    "pipelineNone": "无：分别选择每个模型",
+    "pipelineHelp": "流水线模型会一次设定聊天、转录和语音模型。",
+    "role": {
+      "chat": "聊天模型",
+      "stt": "转录模型",
+      "tts": "语音模型",
+      "avatar": "头像模型"
+    },
+    "noneInstalled": "未安装",
+    "voice": "声音",
+    "voicePlaceholder": "声音名称（留空则使用模型默认值）",
+    "instructions": "指令",
+    "instructionsHelp": "在对话开始前发送给聊天模型。请要求简短回复：每一秒语音都要生成一秒视频。",
+    "video": "视频",
+    "nfe": "质量（nfe）",
+    "nfeHelp": "头像模型的采样步数，3 到 12，默认为 6。数值越低越快，细节越少。",
+    "seed": "种子",
+    "seedPlaceholder": "留空则使用模型默认值",
+    "cpuNote": "在 CPU 上生成视频很慢：每秒语音约需 15 秒。GPU 快得多。",
+    "licence": "avatarforcing 权重采用 CC BY-NC 4.0 许可：仅限非商业用途。"
+  },
+  "portrait": {
+    "library": "保存在此浏览器中的肖像",
+    "use": "使用 {{name}}",
+    "remove": "移除 {{name}}",
+    "add": "添加",
+    "upload": "上传肖像",
+    "untitled": "肖像"
+  },
+  "crop": {
+    "title": "裁剪肖像",
+    "desc": "把一张脸放在方框中央。",
+    "cancel": "取消",
+    "unreadable": "浏览器无法读取此文件中的图像。请尝试 PNG 或 JPEG。",
+    "preview": "裁剪预览。用方向键移动图片。",
+    "zoom": "缩放",
+    "help": "拖动图片或使用方向键。脸部应占方框的一半左右。肖像只保存在此浏览器中。",
+    "save": "使用此肖像"
+  },
+  "status": {
+    "ready": "就绪",
+    "readyBody": "按住按钮说话，或输入消息。",
+    "recording": "正在录音",
+    "recordingBody": "松开按钮即可发送你说的话。",
+    "noPortrait": "添加肖像",
+    "noPortraitBody": "上传一张只有一张脸的照片，然后在这里裁剪成正方形。",
+    "failed": "本轮失败",
+    "videoSlow": "正在生成片段。在 CPU 上，每秒语音约需 15 秒。"
+  },
+  "stages": {
+    "title": "本轮的步骤",
+    "transcribe": {
+      "label": "转录",
+      "busy": "正在听录音"
+    },
+    "chat": {
+      "label": "回复",
+      "busy": "正在撰写回复"
+    },
+    "speech": {
+      "label": "语音",
+      "busy": "正在朗读回复"
+    },
+    "video": {
+      "label": "视频",
+      "busy": "正在生成片段"
+    }
+  },
+  "mic": {
+    "blocked": {
+      "title": "麦克风被阻止",
+      "body": "点击地址栏中的锁形图标，把“麦克风”设为允许，然后重试。没有录下任何内容。"
+    },
+    "missing": {
+      "title": "没有麦克风",
+      "body": "此浏览器没有可用的麦克风。请改为输入消息。"
+    },
+    "error": {
+      "title": "麦克风未能启动",
+      "body": "请重试，或改为输入消息。"
+    }
+  },
+  "composer": {
+    "label": "消息",
+    "placeholder": "输入一条消息，让头像回答",
+    "placeholderSay": "输入头像要说的话",
+    "hold": "按住说话",
+    "holdHelp": "说话时按住按钮，说完松开。",
+    "noStt": "安装转录模型后即可用语音对话。",
+    "recording": "正在录音 {{time}}",
+    "send": "回复",
+    "say": "说这句",
+    "cancel": "取消",
+    "note": "“回复”会询问聊天模型，并由头像说出回答。“说这句”让头像原样说出你的文字。"
+  },
+  "transcript": {
+    "title": "对话",
+    "copy": "复制",
+    "empty": "你的消息和回复会显示在这里，每条都带有对应片段。它们只保留在此标签页中，不会被保存。",
+    "user": "你",
+    "assistant": "头像",
+    "said": "已说",
+    "note": "备注",
+    "cancelled": "本轮已取消",
+    "replay": "再次播放",
+    "download": "下载"
+  },
+  "errors": {
+    "tooShort": "录音太短。说话时请按住按钮。",
+    "emptyTranscript": "录音中没有听到任何字词。请靠近麦克风再试一次。",
+    "emptyText": "请先输入消息。",
+    "emptyReply": "聊天模型返回了空回复。请重试，或换一个模型。",
+    "noVideo": "服务器没有返回视频。",
+    "stage": "{{stage}}失败：{{message}}"
+  },
+  "face": {
+    "portraitAlt": "说出回复的肖像",
+    "empty": "上传肖像后，这里会显示头像。",
+    "play": "播放",
+    "unplayable": "此浏览器无法播放该片段：缺少 H.264 视频解码器。请下载片段后观看。",
+    "download": "下载片段"
+  }
+}

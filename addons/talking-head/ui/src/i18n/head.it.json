@@ -1,0 +1,153 @@
+{
+  "title": "Volto parlante",
+  "subtitle": "un turno alla volta",
+  "stage": "Volto e controlli",
+  "chips": {
+    "noAvatar": "Nessun modello avatar",
+    "noChat": "Nessun modello di chat",
+    "defaultVoice": "voce predefinita"
+  },
+  "empty": {
+    "title": "Installa i modelli mancanti",
+    "avatar": "Un modello avatar: un modello video con il backend avatarforcing-cpp, ad esempio avatarforcing dalla galleria.",
+    "tts": "Un modello di sintesi vocale, per dare una voce alla risposta.",
+    "licence": "I pesi di avatarforcing sono distribuiti con licenza CC BY-NC 4.0: usali solo per scopi non commerciali.",
+    "gallery": "Trovalo nella galleria",
+    "errorTitle": "Impossibile elencare i modelli",
+    "errorBody": "Il server ha risposto: {{message}}"
+  },
+  "notices": {
+    "notAvatar": "{{model}} non è un modello per volti parlanti. Scegli un modello avatar nelle impostazioni.",
+    "notStored": "Questo browser non ha conservato il ritratto. Resta disponibile finché non chiudi la pagina.",
+    "copied": "Trascrizione copiata",
+    "copyFailed": "Impossibile copiare negli appunti"
+  },
+  "settings": {
+    "title": "Impostazioni",
+    "desc": "Salvate in questo browser. Valgono dal prossimo turno.",
+    "close": "Chiudi",
+    "models": "Modelli",
+    "pipeline": "Pipeline",
+    "pipelineNone": "Nessuna: scegli ogni modello",
+    "pipelineHelp": "Un modello pipeline imposta insieme i modelli di chat, trascrizione e sintesi vocale.",
+    "role": {
+      "chat": "Modello di chat",
+      "stt": "Modello di trascrizione",
+      "tts": "Modello di sintesi vocale",
+      "avatar": "Modello avatar"
+    },
+    "noneInstalled": "Nessuno installato",
+    "voice": "Voce",
+    "voicePlaceholder": "Nome della voce (vuoto per quella predefinita del modello)",
+    "instructions": "Istruzioni",
+    "instructionsHelp": "Inviate al modello di chat prima della conversazione. Chiedi risposte brevi: ogni secondo di parlato è un secondo di video da generare.",
+    "video": "Video",
+    "nfe": "Qualità (nfe)",
+    "nfeHelp": "Passi del campionatore del modello avatar, da 3 a 12. Il valore predefinito è 6. Un valore più basso è più veloce e meno dettagliato.",
+    "seed": "Seme",
+    "seedPlaceholder": "Vuoto per il valore predefinito del modello",
+    "cpuNote": "Su CPU il video è lento: circa 15 secondi di lavoro per ogni secondo di parlato. Una GPU è molto più veloce.",
+    "licence": "I pesi di avatarforcing sono distribuiti con licenza CC BY-NC 4.0: usali solo per scopi non commerciali."
+  },
+  "portrait": {
+    "library": "Ritratti salvati in questo browser",
+    "use": "Usa {{name}}",
+    "remove": "Rimuovi {{name}}",
+    "add": "Aggiungi",
+    "upload": "Carica un ritratto",
+    "untitled": "Ritratto"
+  },
+  "crop": {
+    "title": "Ritaglia il ritratto",
+    "desc": "Metti un solo volto al centro del quadrato.",
+    "cancel": "Annulla",
+    "unreadable": "Questo file non è un'immagine leggibile dal browser. Prova con un PNG o un JPEG.",
+    "preview": "Anteprima del ritaglio. Usa i tasti freccia per spostare l'immagine.",
+    "zoom": "Zoom",
+    "help": "Trascina l'immagine o usa i tasti freccia. Il volto dovrebbe occupare circa metà del quadrato. Il ritratto resta in questo browser.",
+    "save": "Usa questo ritratto"
+  },
+  "status": {
+    "ready": "Pronto",
+    "readyBody": "Tieni premuto il pulsante e parla, oppure scrivi un messaggio.",
+    "recording": "Registrazione",
+    "recordingBody": "Rilascia il pulsante per inviare ciò che hai detto.",
+    "noPortrait": "Aggiungi un ritratto",
+    "noPortraitBody": "Carica la foto di un volto. Qui la ritagli in un quadrato.",
+    "failed": "Il turno non è riuscito",
+    "videoSlow": "Creazione del clip. Su CPU servono circa 15 secondi per ogni secondo di parlato."
+  },
+  "stages": {
+    "title": "Fasi di questo turno",
+    "transcribe": {
+      "label": "Trascrizione",
+      "busy": "Ascolto della registrazione"
+    },
+    "chat": {
+      "label": "Risposta",
+      "busy": "Scrittura della risposta"
+    },
+    "speech": {
+      "label": "Voce",
+      "busy": "Lettura della risposta"
+    },
+    "video": {
+      "label": "Video",
+      "busy": "Creazione del clip"
+    }
+  },
+  "mic": {
+    "blocked": {
+      "title": "Microfono bloccato",
+      "body": "Fai clic sull'icona del lucchetto nella barra degli indirizzi, imposta Microfono su Consenti, poi riprova. Non è stato registrato nulla."
+    },
+    "missing": {
+      "title": "Nessun microfono",
+      "body": "Questo browser non ha un microfono utilizzabile. Scrivi invece il messaggio."
+    },
+    "error": {
+      "title": "Il microfono non si è avviato",
+      "body": "Riprova, oppure scrivi il messaggio."
+    }
+  },
+  "composer": {
+    "label": "Messaggio",
+    "placeholder": "Scrivi un messaggio a cui il volto risponderà",
+    "placeholderSay": "Scrivi cosa deve dire il volto",
+    "hold": "Tieni premuto per parlare",
+    "holdHelp": "Tieni premuto il pulsante mentre parli, poi rilascialo.",
+    "noStt": "Installa un modello di trascrizione per parlare a voce.",
+    "recording": "Registrazione {{time}}",
+    "send": "Rispondi",
+    "say": "Pronuncia",
+    "cancel": "Annulla",
+    "note": "Rispondi interroga il modello di chat e il volto pronuncia la sua risposta. Pronuncia fa dire al volto il tuo testo così com'è."
+  },
+  "transcript": {
+    "title": "Conversazione",
+    "copy": "Copia",
+    "empty": "I tuoi messaggi e le risposte compaiono qui, ognuno con il suo clip. Restano in questa scheda e non vengono salvati.",
+    "user": "Tu",
+    "assistant": "Volto",
+    "said": "Detto",
+    "note": "Nota",
+    "cancelled": "Turno annullato",
+    "replay": "Riproduci di nuovo",
+    "download": "Scarica"
+  },
+  "errors": {
+    "tooShort": "La registrazione era troppo breve. Tieni premuto il pulsante mentre parli.",
+    "emptyTranscript": "Nella registrazione non si sente nessuna parola. Riprova più vicino al microfono.",
+    "emptyText": "Scrivi prima un messaggio.",
+    "emptyReply": "Il modello di chat ha dato una risposta vuota. Riprova, oppure prova un altro modello.",
+    "noVideo": "Il server non ha restituito alcun video.",
+    "stage": "{{stage}} non riuscito: {{message}}"
+  },
+  "face": {
+    "portraitAlt": "Il ritratto che pronuncia le risposte",
+    "empty": "Carica un ritratto per vedere qui il volto.",
+    "play": "Riproduci",
+    "unplayable": "Questo browser non può riprodurre il clip: non ha un decoder video H.264. Scarica il clip per guardarlo.",
+    "download": "Scarica il clip"
+  }
+}

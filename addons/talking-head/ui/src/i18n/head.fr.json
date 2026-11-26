@@ -1,0 +1,153 @@
+{
+  "title": "Visage parlant",
+  "subtitle": "tour par tour",
+  "stage": "Visage et commandes",
+  "chips": {
+    "noAvatar": "Aucun modèle d’avatar",
+    "noChat": "Aucun modèle de chat",
+    "defaultVoice": "voix par défaut"
+  },
+  "empty": {
+    "title": "Installez les modèles manquants",
+    "avatar": "Un modèle d’avatar : un modèle vidéo avec le backend avatarforcing-cpp, par exemple avatarforcing depuis la galerie.",
+    "tts": "Un modèle de synthèse vocale, pour donner une voix à la réponse.",
+    "licence": "Les poids d’avatarforcing sont sous licence CC BY-NC 4.0 : utilisez-les uniquement à des fins non commerciales.",
+    "gallery": "Le trouver dans la galerie",
+    "errorTitle": "Impossible de lister les modèles",
+    "errorBody": "Réponse du serveur : {{message}}"
+  },
+  "notices": {
+    "notAvatar": "{{model}} n’est pas un modèle de visage parlant. Choisissez un modèle d’avatar dans les paramètres.",
+    "notStored": "Ce navigateur n’a pas conservé le portrait. Il reste disponible jusqu’à la fermeture de la page.",
+    "copied": "Transcription copiée",
+    "copyFailed": "Impossible de copier dans le presse-papiers"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "desc": "Enregistrés dans ce navigateur. Ils s’appliquent au prochain tour.",
+    "close": "Fermer",
+    "models": "Modèles",
+    "pipeline": "Pipeline",
+    "pipelineNone": "Aucun : choisir chaque modèle",
+    "pipelineHelp": "Un modèle de pipeline définit en une fois les modèles de chat, de transcription et de synthèse vocale.",
+    "role": {
+      "chat": "Modèle de chat",
+      "stt": "Modèle de transcription",
+      "tts": "Modèle de synthèse vocale",
+      "avatar": "Modèle d’avatar"
+    },
+    "noneInstalled": "Aucun installé",
+    "voice": "Voix",
+    "voicePlaceholder": "Nom de la voix (vide pour celle du modèle)",
+    "instructions": "Instructions",
+    "instructionsHelp": "Envoyées au modèle de chat avant la conversation. Demandez des réponses courtes : chaque seconde de parole est une seconde de vidéo à produire.",
+    "video": "Vidéo",
+    "nfe": "Qualité (nfe)",
+    "nfeHelp": "Étapes d’échantillonnage du modèle d’avatar, de 3 à 12. La valeur par défaut est 6. Une valeur plus basse est plus rapide et moins détaillée.",
+    "seed": "Graine",
+    "seedPlaceholder": "Vide pour la valeur par défaut du modèle",
+    "cpuNote": "La vidéo est lente sur un CPU : environ 15 secondes de travail par seconde de parole. Un GPU est bien plus rapide.",
+    "licence": "Les poids d’avatarforcing sont sous licence CC BY-NC 4.0 : utilisez-les uniquement à des fins non commerciales."
+  },
+  "portrait": {
+    "library": "Portraits enregistrés dans ce navigateur",
+    "use": "Utiliser {{name}}",
+    "remove": "Supprimer {{name}}",
+    "add": "Ajouter",
+    "upload": "Importer un portrait",
+    "untitled": "Portrait"
+  },
+  "crop": {
+    "title": "Recadrer le portrait",
+    "desc": "Placez un seul visage au centre du carré.",
+    "cancel": "Annuler",
+    "unreadable": "Ce fichier n’est pas une image lisible par le navigateur. Essayez un PNG ou un JPEG.",
+    "preview": "Aperçu du recadrage. Utilisez les flèches du clavier pour déplacer l’image.",
+    "zoom": "Zoom",
+    "help": "Faites glisser l’image ou utilisez les flèches du clavier. Le visage doit occuper environ la moitié du carré. Le portrait reste dans ce navigateur.",
+    "save": "Utiliser ce portrait"
+  },
+  "status": {
+    "ready": "Prêt",
+    "readyBody": "Maintenez le bouton et parlez, ou tapez un message.",
+    "recording": "Enregistrement",
+    "recordingBody": "Relâchez le bouton pour envoyer ce que vous avez dit.",
+    "noPortrait": "Ajoutez un portrait",
+    "noPortraitBody": "Importez une photo d’un seul visage. Vous la recadrez en carré ici.",
+    "failed": "Le tour a échoué",
+    "videoSlow": "Création du clip. Sur un CPU, cela prend environ 15 secondes par seconde de parole."
+  },
+  "stages": {
+    "title": "Étapes de ce tour",
+    "transcribe": {
+      "label": "Transcrire",
+      "busy": "Écoute de l’enregistrement"
+    },
+    "chat": {
+      "label": "Réponse",
+      "busy": "Rédaction de la réponse"
+    },
+    "speech": {
+      "label": "Parole",
+      "busy": "Lecture de la réponse"
+    },
+    "video": {
+      "label": "Vidéo",
+      "busy": "Création du clip"
+    }
+  },
+  "mic": {
+    "blocked": {
+      "title": "Microphone bloqué",
+      "body": "Cliquez sur l’icône de cadenas dans la barre d’adresse, réglez Microphone sur Autoriser, puis réessayez. Rien n’a été enregistré."
+    },
+    "missing": {
+      "title": "Aucun microphone",
+      "body": "Ce navigateur n’a aucun microphone utilisable. Tapez plutôt votre message."
+    },
+    "error": {
+      "title": "Le microphone n’a pas démarré",
+      "body": "Réessayez, ou tapez plutôt votre message."
+    }
+  },
+  "composer": {
+    "label": "Message",
+    "placeholder": "Tapez un message auquel le visage répondra",
+    "placeholderSay": "Tapez ce que le visage doit dire",
+    "hold": "Maintenir pour parler",
+    "holdHelp": "Maintenez le bouton pendant que vous parlez, puis relâchez-le.",
+    "noStt": "Installez un modèle de transcription pour parler à voix haute.",
+    "recording": "Enregistrement {{time}}",
+    "send": "Répondre",
+    "say": "Dire ceci",
+    "cancel": "Annuler",
+    "note": "Répondre interroge le modèle de chat et le visage prononce sa réponse. Dire ceci fait prononcer votre texte tel quel au visage."
+  },
+  "transcript": {
+    "title": "Discussion",
+    "copy": "Copier",
+    "empty": "Vos messages et les réponses s’affichent ici, chacun avec son clip. Ils restent dans cet onglet et ne sont pas enregistrés.",
+    "user": "Vous",
+    "assistant": "Visage",
+    "said": "Dit",
+    "note": "Remarque",
+    "cancelled": "Tour annulé",
+    "replay": "Rejouer",
+    "download": "Télécharger"
+  },
+  "errors": {
+    "tooShort": "L’enregistrement était trop court. Maintenez le bouton pendant que vous parlez.",
+    "emptyTranscript": "Aucun mot n’a été entendu dans l’enregistrement. Réessayez plus près du microphone.",
+    "emptyText": "Tapez d’abord un message.",
+    "emptyReply": "Le modèle de chat a renvoyé une réponse vide. Réessayez, ou essayez un autre modèle.",
+    "noVideo": "Le serveur n’a renvoyé aucune vidéo.",
+    "stage": "Échec de {{stage}} : {{message}}"
+  },
+  "face": {
+    "portraitAlt": "Le portrait qui prononce les réponses",
+    "empty": "Importez un portrait pour voir le visage ici.",
+    "play": "Lire",
+    "unplayable": "Ce navigateur ne peut pas lire le clip : il n’a pas de décodeur vidéo H.264. Téléchargez le clip pour le regarder.",
+    "download": "Télécharger le clip"
+  }
+}
