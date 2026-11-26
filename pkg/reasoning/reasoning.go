@@ -229,8 +229,17 @@ func ClosingTokenForStart(startToken string, config *Config) string {
 // Multiple reasoning blocks are concatenated with newlines.
 // Custom tag pairs from config are checked first, then default tag pairs.
 func ExtractReasoning(content string, config *Config) (reasoning string, cleanedContent string) {
+	reasoning, cleanedContent, _ = extractReasoning(content, config)
+	return reasoning, cleanedContent
+}
+
+// extractReasoning is ExtractReasoning that also returns where the body of a
+// reasoning block that is still open at the end of content starts, or -1. The
+// incremental extraction needs it to grow that block without a new parse.
+func extractReasoning(content string, config *Config) (reasoning string, cleanedContent string, openAt int) {
+	openAt = -1
 	if content == "" {
-		return "", content
+		return "", content, openAt
 	}
 
 	var reasoningParts []string
@@ -323,6 +332,7 @@ func ExtractReasoning(content string, config *Config) (reasoning string, cleaned
 		if isUnclosed {
 			// Unclosed tag - extract everything to the end
 			reasoningEnd = len(remaining)
+			openAt = reasoningStart
 		} else {
 			// Closed tag - exclude the end tag
 			reasoningEnd = earliestEnd - len(matchedTag.end)
@@ -343,5 +353,5 @@ func ExtractReasoning(content string, config *Config) (reasoning string, cleaned
 	// Combine cleaned content parts
 	cleanedContent = strings.Join(cleanedParts, "")
 
-	return reasoning, cleanedContent
+	return reasoning, cleanedContent, openAt
 }

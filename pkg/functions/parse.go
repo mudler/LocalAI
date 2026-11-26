@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/mudler/LocalAI/pkg/functions/grammars"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -292,12 +293,25 @@ func CleanupLLMResult(llmresult string, functionConfig FunctionsConfig) string {
 	for _, item := range functionConfig.ReplaceLLMResult {
 		k, v := item.Key, item.Value
 		xlog.Debug("Replacing", "key", k, "value", v)
-		re := regexp.MustCompile(k)
-		llmresult = re.ReplaceAllString(llmresult, v)
+		llmresult = cachedRegexp(k).ReplaceAllString(llmresult, v)
 	}
 	xlog.Debug("LLM result(processed)", "len", len(llmresult), "head", functionConfig.LogText(truncForLog(llmresult)))
 
 	return llmresult
+}
+
+// compiledRegexps caches the patterns of ReplaceLLMResult. A stream cleans
+// its output for every token, and compiling the same pattern each time cost
+// more than applying it.
+var compiledRegexps sync.Map // pattern -> *regexp.Regexp
+
+func cachedRegexp(pattern string) *regexp.Regexp {
+	if re, ok := compiledRegexps.Load(pattern); ok {
+		return re.(*regexp.Regexp)
+	}
+	re := regexp.MustCompile(pattern)
+	compiledRegexps.Store(pattern, re)
+	return re
 }
 
 func ParseTextContent(llmresult string, functionConfig FunctionsConfig) string {

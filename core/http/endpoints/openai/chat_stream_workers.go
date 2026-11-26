@@ -270,7 +270,9 @@ func processStreamWithTools(
 	thinkingStartToken := thinkingStartTokenFor(cfg, template)
 	extractor := reason.NewReasoningExtractor(thinkingStartToken, cfg.ReasoningConfig)
 
-	result := ""
+	// toolParser keeps the raw output and parses it for tool calls without
+	// starting over on every token when nothing can have changed.
+	toolParser := functions.NewStreamToolCallParser(cfg.FunctionsConfig)
 	lastEmittedCount := 0
 	sentInitialRole := false
 	sentReasoning := false
@@ -292,7 +294,7 @@ func processStreamWithTools(
 	// at the wrapper layer; no in-band signalling from this worker.
 
 	_, finalUsage, chatDeltas, err := ComputeChoices(req, prompt, cfg, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
-		result += s
+		toolParser.Write(s)
 
 		// Track whether ChatDeltas from the C++ autoparser contain
 		// tool calls or content, so the retry decision can account for them.
@@ -374,22 +376,10 @@ func processStreamWithTools(
 			return true
 		}
 
-		// Try incremental XML parsing for streaming support using iterative parser
-		// This allows emitting partial tool calls as they're being generated
-		cleanedResult := functions.CleanupLLMResult(result, cfg.FunctionsConfig)
-
-		// Determine XML format from config
-		var xmlFormat *functions.XMLToolCallFormat
-		if cfg.FunctionsConfig.XMLFormat != nil {
-			xmlFormat = cfg.FunctionsConfig.XMLFormat
-		} else if cfg.FunctionsConfig.XMLFormatPreset != "" {
-			xmlFormat = functions.GetXMLFormatPreset(cfg.FunctionsConfig.XMLFormatPreset)
-		}
-
-		// Use iterative parser for streaming (partial parsing enabled)
-		// Try XML parsing first
-		partialResults, parseErr := functions.ParseXMLIterative(cleanedResult, xmlFormat, true)
-		if parseErr == nil && len(partialResults) > 0 {
+		// Parse partial tool calls so they are emitted while they are generated:
+		// XML first, JSON when the XML parse finds none.
+		calls := toolParser.Parse()
+		if partialResults := calls.XML; len(partialResults) > 0 {
 			// Emit new XML tool calls that weren't emitted before
 			if len(partialResults) > lastEmittedCount {
 				for i := lastEmittedCount; i < len(partialResults); i++ {
@@ -425,12 +415,11 @@ func processStreamWithTools(
 				lastEmittedCount = len(partialResults)
 			}
 		} else {
-			// Try JSON tool call parsing for streaming.
-			// Only emit NEW tool calls (same guard as XML parser above).
-			jsonResults, jsonErr := functions.ParseJSONIterative(cleanedResult, true)
-			if jsonErr == nil {
+			// JSON tool calls. Only emit NEW tool calls (same guard as the XML
+			// branch above).
+			if calls.JSONErr == nil {
 				lastEmittedCount = emitJSONToolCallDeltas(
-					jsonResults, lastEmittedCount, id, req.Model, created, responses,
+					calls.JSON, lastEmittedCount, id, req.Model, created, responses,
 				)
 			}
 		}
@@ -451,7 +440,7 @@ func processStreamWithTools(
 				xlog.Warn("Streaming: backend produced only reasoning, retrying",
 					"reasoning_len", len(extractor.Reasoning()), "attempt", attempt+1)
 				extractor.ResetAndSuppressReasoning()
-				result = ""
+				toolParser.Reset()
 				lastEmittedCount = 0
 				sentInitialRole = false
 				hasChatDeltaToolCalls = false
