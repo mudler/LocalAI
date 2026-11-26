@@ -115,8 +115,12 @@ with a warning.
 |---|---|
 | Paged serving | `options: [paged_kv:true]` (also read as `paged_serving`) |
 | Pause on a full cache | `options: [paged_preempt:false]` |
-| Prefill budget | `options: [prefill_budget:N]` (also read as `max_prefill_tokens`) |
+| Prefill budget | `options: [prefill_budget:N]` or `prefill_budget:auto` (also read as `max_prefill_tokens`) |
+| KV pool tokens | `options: [kv_pool_tokens:N]` |
+| Output reserve | `options: [kv_output_reserve:N]` (default 256) |
 | GPU sampling | `options: [backend_sampling:auto]` or `options: [backend_sampling:on]` |
+| GPU sampling minimum slots | `options: [backend_sampling_min_slots:N]` (default 4) |
+| Recurrent state snapshots | `options: [n_rs_seq:N]` (also read as `rs_seq`) |
 
 A backend build without these features ignores the options.
 
@@ -204,15 +208,28 @@ the **Interactive** tab has a **Runtime tuning** section with the badge
 
   | Setup | What it writes | Trade-off |
   |---|---|---|
-  | **Balanced** | Removes `parameters.batch`, `ubatch`, `cache_type_k`, `cache_type_v`, `flash_attention`, `paged_kv` and `parallel`, so the defaults apply. | The defaults of LocalAI for the GPU. |
+  | **Balanced** | Removes `parameters.batch`, `ubatch`, `cache_type_k`, `cache_type_v`, `paged_kv` and `parallel`, so the defaults apply. | The defaults of LocalAI for the GPU. |
   | **Long prompts** | `parameters.batch: 2048` and `ubatch:2048`. | Long prompts are read much faster. The compute buffers grow with the batch. |
   | **More concurrent users** | `cache_type_k: q8_0`, `cache_type_v: q8_0`, `flash_attention: "on"`, `paged_kv:true` and `parallel:8`. | About twice the tokens fit in the same memory, shared by more users, at a small cost in quality. A quantized KV cache can be slower on some attention paths until llama.cpp has a fast kernel for them. |
+
+  Balanced and Long prompts do not remove a flash attention value that you set.
+  They remove it only when the values came from More concurrent users, which
+  turns it on for its 8-bit KV cache.
 
   The choice shows the setup the file holds. A file with any other value of
   these settings shows **Custom**. **Custom** changes nothing: set the fields
   yourself. The section lists the settings a setup changed, with **Undo**.
-- **Fields.** The settings of the table above, in the groups Memory, Speed,
-  Concurrent serving, Sampling defaults and Chat template. Each field shows its `llama-server` flag
+- **Fields.** Every option the llama.cpp backend of LocalAI reads has a field,
+  in the groups Memory, Speed, Concurrent serving, Sampling defaults and Chat
+  template. Rarely used or risky options are in two groups that start closed:
+  **Speculative decoding** and **Advanced llama.cpp options** (for example
+  `context_shift`, `cont_batching` and `kv_unified`, which turn paged serving
+  off). A file that uses another name of an option (an alias such as
+  `unified_kv` or `max_prefill_tokens`) shows in the field of that option; an
+  edit writes the main name in its place. A test reads the option names that
+  `backend/cpp/llama-cpp/grpc-server.cpp` parses and fails when one has no
+  field, so a new option is not missed. The full list with defaults is in
+  [Model configuration]({{%relref "/models/model-configuration" %}}). Each field shows its `llama-server` flag
   and the server's description. An empty field, or **Default**, keeps the
   setting out of the file. A value that does not fit the type or the range is
   marked, and **Save** stays off until you correct it.

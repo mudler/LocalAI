@@ -7,7 +7,7 @@
   },
   "options": [
     "--rope-freq-base:10000",
-    "--no-warmup"
+    "--no-perf"
   ],
   "unmapped": [
     {
@@ -26,7 +26,7 @@
       "reason": "no first-class setting; kept as a raw passthrough option"
     },
     {
-      "flag": "--no-warmup",
+      "flag": "--no-perf",
       "value": "",
       "reason": "no first-class setting; kept as a raw passthrough option"
     },

@@ -34,7 +34,7 @@ export const TOY_SCHEMA = {
 export const TOY_ENGINE = info(TOY_SCHEMA)
 
 export const INKLING_COMMAND = 'llama-server -m Inkling-2-Mini-UD-Q3_K_XL.gguf --jinja --ctx-size 18000 --parallel 1 --cache-type-k q8_0 --cache-type-v q8_0 --temp 1.0 --top-p 1.0 --top-k 0 --min-p 0.0 -ub 64 -ngl 99 -fit off -fa on -t 6 -tb 12 --no-op-offload --load-mode none -ot "blk\\.([0-6]|1[89]|2[0-3])\\.ffn_.*_exps.*=CPU"'
-export const MIXED_COMMAND = 'llama-server -m /models/x.gguf -c 4096 --host 0.0.0.0 --port 8080 --rope-freq-base 10000 --no-warmup -t abc'
+export const MIXED_COMMAND = 'llama-server -m /models/x.gguf -c 4096 --host 0.0.0.0 --port 8080 --rope-freq-base 10000 --no-perf -t abc'
 
 export const ALL_EXPERTS = '-ot:\\.ffn_.*_exps.*=CPU'
 export const INKLING_OT = PARSE_INKLING.options.find(o => o.startsWith('-ot:'))
@@ -42,7 +42,7 @@ export const INKLING_OT = PARSE_INKLING.options.find(o => o.startsWith('-ot:'))
 export const MODEL = 'moe-lab'
 
 export const CONFIGS = {
-  [MODEL]: 'name: moe-lab\nbackend: llama-cpp\nparameters:\n  model: moe-lab-Q4_K_M.gguf\ncontext_size: 8192\noptions:\n  - context_shift:true\n',
+  [MODEL]: 'name: moe-lab\nbackend: llama-cpp\nparameters:\n  model: moe-lab-Q4_K_M.gguf\ncontext_size: 8192\noptions:\n  - keep_me:true\n',
   'moe-ot': `name: moe-ot\nbackend: llama-cpp\nparameters:\n  model: moe-ot.gguf\noptions:\n  - '${INKLING_OT}'\n  - 'override_tensor:token_embd=CPU'\n`,
   'vllm-model': 'name: vllm-model\nbackend: vllm\nparameters:\n  model: org/model\n',
   'toy-model': 'name: toy-model\nbackend: cuda12-toy\nparameters:\n  model: org/toy\noptions:\n  - enforce_eager:true\n  - seed:3\n',

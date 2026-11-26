@@ -80,7 +80,7 @@ test.describe('Runtime tuning: quick setup', () => {
     await save(page).click()
     await expect.poll(() => state.patches.length).toBe(1)
     expect(lastPatch(state)).toMatchObject({ parameters: { batch: 2048 } })
-    expect(lastPatch(state).options).toEqual(['context_shift:true', 'ubatch:2048'])
+    expect(lastPatch(state).options).toEqual(['keep_me:true', 'ubatch:2048'])
   })
 
   test('More concurrent users writes the 8-bit cache and paged serving, and Balanced takes it back', async ({ page }) => {
@@ -106,7 +106,7 @@ test.describe('Runtime tuning: quick setup', () => {
     await save(page).click()
     await expect.poll(() => state.patches.length).toBe(1)
     expect(lastPatch(state)).toMatchObject({ cache_type_k: 'q8_0', cache_type_v: 'q8_0', flash_attention: 'on' })
-    expect(lastPatch(state).options).toEqual(['context_shift:true', 'paged_kv:true', 'parallel:8'])
+    expect(lastPatch(state).options).toEqual(['keep_me:true', 'paged_kv:true', 'parallel:8'])
   })
 
   test('a file saved with a profile opens on it, and an edit off the profile is Custom', async ({ page }) => {
@@ -143,11 +143,11 @@ test.describe('Runtime tuning: quick setup', () => {
     await expect(choice(page, 'balanced')).toHaveAttribute('aria-checked', 'true')
     await save(page).click()
     await expect.poll(() => state.patches.length).toBe(1)
-    expect(lastPatch(state).options).toEqual(['context_shift:true', 'backend_sampling:on'])
+    expect(lastPatch(state).options).toEqual(['keep_me:true', 'backend_sampling:on'])
     await select.selectOption('off')
     await save(page).click()
     await expect.poll(() => state.patches.length).toBe(2)
-    expect(lastPatch(state).options).toEqual(['context_shift:true'])
+    expect(lastPatch(state).options).toEqual(['keep_me:true'])
   })
 
   test('a file with backend_sampling:auto opens on Auto', async ({ page }) => {
@@ -162,6 +162,51 @@ test.describe('Runtime tuning: quick setup', () => {
     await expect(page.getByTestId('runtime-engine')).toContainText('Toy Engine', { timeout: 15_000 })
     await expect(page.getByTestId('rt-backend-sampling-field')).toHaveCount(0)
     await expect(page.getByTestId('rt-quick')).toHaveCount(0)
+  })
+
+  test('Balanced keeps a flash attention the person set, and drops the one More concurrent users set', async ({ page }) => {
+    await open(page)
+    await field(page, 'flash_attention-off').click()
+    await expect(choice(page, 'balanced')).toHaveAttribute('aria-checked', 'true')
+    await choice(page, 'longPrompts').click()
+    await choice(page, 'balanced').click()
+    await expect(field(page, 'flash_attention-off')).toHaveAttribute('aria-checked', 'true')
+
+    await choice(page, 'concurrent').click()
+    await expect(field(page, 'flash_attention-on')).toHaveAttribute('aria-checked', 'true')
+    await choice(page, 'balanced').click()
+    await expect(field(page, 'flash_attention-')).toHaveAttribute('aria-checked', 'true')
+    await expect(save(page)).toBeDisabled()
+  })
+
+  test('the advanced and speculative groups start closed and hold every other backend option', async ({ page }) => {
+    const configs = {
+      ...CONFIGS,
+      'alias-lab': 'name: alias-lab\nbackend: llama-cpp\nparameters:\n  model: a.gguf\noptions:\n  - unified_kv:false\n  - paged_serving:true\n  - max_prefill_tokens:auto\n  - draft_max:8\n',
+    }
+    const state = await open(page, { name: 'alias-lab', configs })
+    const advanced = page.getByTestId('rt-group-engine_advanced')
+    await expect(advanced).not.toHaveAttribute('open', '')
+    await expect(page.getByTestId('rt-group-speculative')).not.toHaveAttribute('open', '')
+    await expect(field(page, 'options-kv_unified-field')).toBeHidden()
+    await expect(page.getByTestId('rt-group-engine_advanced-toggle')).toContainText('Advanced llama.cpp options')
+    await page.getByTestId('rt-group-engine_advanced-toggle').click()
+    // An alias in the file shows in the field of its canonical option.
+    await expect(field(page, 'options-kv_unified-false')).toHaveAttribute('aria-checked', 'true')
+    await expect(field(page, 'options-context_shift-field')).toBeVisible()
+    await expect(field(page, 'options-backend_sampling_min_slots')).toHaveAttribute('placeholder', 'Default (4)')
+    await page.getByTestId('rt-group-speculative-toggle').click()
+    await expect(field(page, 'options-spec_n_max')).toHaveValue('8')
+    // Paged serving and its new fields.
+    await expect(field(page, 'options-paged_kv-true')).toHaveAttribute('aria-checked', 'true')
+    await expect(field(page, 'options-prefill_budget')).toHaveValue('auto')
+    await expect(field(page, 'options-kv_output_reserve')).toHaveAttribute('placeholder', 'Default (256)')
+    await field(page, 'options-kv_pool_tokens').fill('65536')
+    await field(page, 'options-kv_unified-true').click()
+    await save(page).click()
+    await expect.poll(() => state.patches.length).toBe(1)
+    // An edited alias is written with its canonical name in place; the others stay as written.
+    expect(lastPatch(state).options).toEqual(['kv_unified:true', 'paged_serving:true', 'max_prefill_tokens:auto', 'draft_max:8', 'kv_pool_tokens:65536'])
   })
 
   test('Custom keeps the values as they are', async ({ page }) => {

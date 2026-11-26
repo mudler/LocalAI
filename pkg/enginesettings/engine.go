@@ -41,6 +41,9 @@ type Engine struct {
 	Backends BackendMatch
 	// Groups lists the editor sections, in the order they are drawn.
 	Groups []Group
+	// Collapsed lists the groups the editor draws closed: rarely used or
+	// risky settings. Optional.
+	Collapsed []Group
 	// Flags is the table of settings, in the order of a built command and
 	// of the known entries of "options".
 	Flags []Flag
@@ -145,9 +148,10 @@ type Preset struct {
 	// Profile marks one of a set of exclusive setups, such as a balanced,
 	// a long prompt and a many users setup. A client shows the profiles as
 	// one choice and reads the current one back: a profile is current when
-	// every key it lists has its value (unset for nil). All the profiles of
-	// an engine list the same keys, so at most one is current. A profile
-	// has no placement.
+	// every key it lists has its value (unset for nil). A client that
+	// switches from the current profile to another also unsets the keys the
+	// current one sets and the new one does not list, so a value is removed
+	// only when it came from a profile. A profile has no placement.
 	Profile bool `json:"profile,omitempty"`
 	// Placement is an optional tensor placement. Only for engines with the
 	// tensor-placement capability.
@@ -334,6 +338,11 @@ func (e *Engine) Validate() error {
 			}
 		}
 	}
+	for _, g := range e.Collapsed {
+		if !groups[g] {
+			bad("engine %s: the collapsed group %q is not a group", e.ID, g)
+		}
+	}
 	for field, k := range e.Estimate {
 		if !estimateFields[field] {
 			bad("engine %s: the estimate field %s is not one of the VRAM estimate", e.ID, field)
@@ -342,7 +351,6 @@ func (e *Engine) Validate() error {
 			bad("engine %s: the estimate field %s names the unknown key %s", e.ID, field, k)
 		}
 	}
-	var profileKeys map[string]bool
 	for _, p := range e.Presets {
 		for k, v := range p.Settings {
 			f := e.flag(k)
@@ -360,25 +368,8 @@ func (e *Engine) Validate() error {
 		if p.Placement != nil && e.Placement == nil {
 			bad("engine %s: preset %s has a placement but the engine has no placement capability", e.ID, p.ID)
 		}
-		if !p.Profile {
-			continue
-		}
-		if p.Placement != nil {
+		if p.Profile && p.Placement != nil {
 			bad("engine %s: profile %s has a placement", e.ID, p.ID)
-		}
-		if profileKeys == nil {
-			profileKeys = map[string]bool{}
-			for k := range p.Settings {
-				profileKeys[k] = true
-			}
-			continue
-		}
-		same := len(p.Settings) == len(profileKeys)
-		for k := range p.Settings {
-			same = same && profileKeys[k]
-		}
-		if !same {
-			bad("engine %s: profile %s does not list the same keys as the other profiles", e.ID, p.ID)
 		}
 	}
 	if pl := e.Placement; pl != nil {

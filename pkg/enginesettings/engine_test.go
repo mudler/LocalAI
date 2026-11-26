@@ -160,14 +160,9 @@ var _ = Describe("Engine.Validate", func() {
 			"LocalAI only config key": func(e *es.Engine) {
 				e.Flags[0].LocalAIOnly, e.Flags[0].CLI = true, nil
 			},
-			"profiles with other keys": func(e *es.Engine) {
-				e.Presets = []es.Preset{
-					{ID: "a", Profile: true, Settings: map[string]any{"max_model_len": nil}},
-					{ID: "b", Profile: true, Settings: map[string]any{"eager": true}},
-				}
-			},
-			"estimate unknown field": func(e *es.Engine) { e.Estimate = map[string]string{"nope": "max_model_len"} },
-			"estimate unknown key":   func(e *es.Engine) { e.Estimate = map[string]string{"context_size": "nope"} },
+			"collapsed unknown group": func(e *es.Engine) { e.Collapsed = []es.Group{"nope"} },
+			"estimate unknown field":  func(e *es.Engine) { e.Estimate = map[string]string{"nope": "max_model_len"} },
+			"estimate unknown key":    func(e *es.Engine) { e.Estimate = map[string]string{"context_size": "nope"} },
 			"profile with a placement": func(e *es.Engine) {
 				e.Presets = []es.Preset{{ID: "a", Profile: true, Settings: map[string]any{}, Placement: &es.Placement{Mode: es.ExpertsCPUAll}}}
 			},

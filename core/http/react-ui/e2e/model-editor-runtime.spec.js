@@ -108,7 +108,7 @@ test.describe('Runtime tuning: fields', () => {
       context_size: 32768, threads: 6, flash_attention: 'on', cache_type_k: 'q8_0',
       parameters: { temperature: 0.7, top_p: 0.9 },
     })
-    expect(patch.options).toEqual(['context_shift:true', 'ubatch:64', 'use_jinja:true', 'fit:off', 'no_op_offload:true'])
+    expect(patch.options).toEqual(['keep_me:true', 'ubatch:64', 'use_jinja:true', 'fit:off', 'no_op_offload:true'])
   })
 
   test('back to Default removes the setting from the file', async ({ page }) => {
@@ -177,7 +177,7 @@ test.describe('Runtime tuning: tensor placement', () => {
     expect(state.placements[0]).toEqual({ placement: { mode: 'experts_cpu_all' } })
     await save(page).click()
     await expect.poll(() => state.patches.length).toBe(1)
-    expect(lastPatch(state).options).toEqual(['context_shift:true', ALL_EXPERTS])
+    expect(lastPatch(state).options).toEqual(['keep_me:true', ALL_EXPERTS])
   })
 
   test('the layer-range picker builds the -ot regex', async ({ page }) => {
@@ -295,7 +295,7 @@ test.describe('Runtime tuning: command preview', () => {
     await page.keyboard.type('00', { delay: 30 })
     await expect(cmd).toContainText('--ctx-size 819200')
     expect(state.previews.length - before).toBe(1)
-    expect(state.previews[state.previews.length - 1]).toMatchObject({ context_size: 819200, threads: 6, options: ['context_shift:true'] })
+    expect(state.previews[state.previews.length - 1]).toMatchObject({ context_size: 819200, threads: 6, options: ['keep_me:true'] })
     await page.getByTestId('rt-preview-copy').click()
     await expect(page.getByTestId('rt-preview-copy')).toHaveText('Copied')
     expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('--ctx-size 819200 -t 6')
@@ -336,7 +336,7 @@ test.describe('Runtime tuning: paste a command', () => {
     await expect(page.getByTestId('rt-ot-mode')).toHaveValue('ranges')
     await expect(page.getByTestId('rt-ot-regex')).toHaveText(INKLING_OT.slice(4))
     // Nothing from the command lands in the raw options.
-    await expect(page.getByTestId('rt-raw-0')).toHaveValue('context_shift:true')
+    await expect(page.getByTestId('rt-raw-0')).toHaveValue('keep_me:true')
     await expect(page.getByTestId('rt-raw-1')).toHaveCount(0)
 
     // The model file of the command is offered, not written.
@@ -350,7 +350,7 @@ test.describe('Runtime tuning: paste a command', () => {
       context_size: 18000, threads: 6, gpu_layers: 99, flash_attention: 'on', cache_type_k: 'q8_0', cache_type_v: 'q8_0', mmap: false,
       parameters: { model: 'moe-lab-Q4_K_M.gguf', temperature: 1, top_p: 1, top_k: 0, min_p: 0 },
     })
-    expect(patch.options).toEqual(['context_shift:true', 'use_jinja:true', 'parallel:1', 'ubatch:64', 'threads_batch:12', 'fit:off', 'no_op_offload', INKLING_OT])
+    expect(patch.options).toEqual(['keep_me:true', 'use_jinja:true', 'parallel:1', 'ubatch:64', 'threads_batch:12', 'fit:off', 'no_op_offload', INKLING_OT])
   })
 
   test('the model file of a command is used only when chosen', async ({ page }) => {
@@ -379,7 +379,7 @@ test.describe('Runtime tuning: paste a command', () => {
     // Kept by the server as raw options.
     await expect(page.getByTestId('rt-unmapped-2')).toContainText('Kept')
     await expect(page.getByTestId('rt-raw-1')).toHaveValue('--rope-freq-base:10000')
-    await expect(page.getByTestId('rt-raw-2')).toHaveValue('--no-warmup')
+    await expect(page.getByTestId('rt-raw-2')).toHaveValue('--no-perf')
     // A bad value is offered to keep, in one click.
     await expect(page.getByTestId('rt-unmapped-4')).toContainText('"abc" is not an integer')
     await page.getByTestId('rt-unmapped-keep-4').click()
@@ -391,7 +391,7 @@ test.describe('Runtime tuning: paste a command', () => {
     await expect(page.getByTestId('rt-paste-warnings')).toContainText('is a path')
     await save(page).click()
     await expect.poll(() => state.patches.length).toBe(1)
-    expect(lastPatch(state).options).toEqual(['context_shift:true', '--rope-freq-base:10000', '-t:abc'])
+    expect(lastPatch(state).options).toEqual(['keep_me:true', '--rope-freq-base:10000', '-t:abc'])
   })
 
   test('a command the server cannot read says why', async ({ page }) => {
@@ -407,13 +407,13 @@ test.describe('Runtime tuning: advanced options', () => {
   test('raw entries can be added, edited and removed, but not a field twice', async ({ page }) => {
     const state = await open(page)
     await ready(page)
-    await expect(page.getByTestId('rt-raw-0')).toHaveValue('context_shift:true')
+    await expect(page.getByTestId('rt-raw-0')).toHaveValue('keep_me:true')
     await page.getByTestId('rt-raw-add').click()
     await page.getByTestId('rt-raw-1').fill('ubatch:32')
     await expect(page.getByTestId('rt-raw-error-1')).toContainText('ubatch is set by a field above')
     await expect(save(page)).toBeDisabled()
     await page.getByTestId('rt-raw-1').fill('--rope-freq-base:10000')
-    await page.getByTestId('rt-raw-0').fill('context_shift:false')
+    await page.getByTestId('rt-raw-0').fill('keep_me:false')
     await page.getByTestId('rt-raw-remove-0').click()
     await expect(page.getByTestId('rt-raw-0')).toHaveValue('--rope-freq-base:10000')
     await save(page).click()

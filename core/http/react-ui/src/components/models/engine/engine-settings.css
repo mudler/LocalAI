@@ -126,3 +126,10 @@
   .rt-quick__row { grid-template-columns: minmax(0, 1fr) auto; }
   .rt-quick__text { grid-column: 1 / -1; grid-row: 2; }
 }
+
+/* A collapsed group: rarely used or risky settings behind a disclosure. */
+.rt-group--fold { padding-bottom: 0; }
+.rt-group__summary { display: flex; align-items: center; gap: var(--dk-space-2); cursor: pointer; list-style: none; }
+.rt-group__summary::-webkit-details-marker { display: none; }
+.rt-group__chevron { transition: transform var(--dur-fast) var(--ease-out); }
+.rt-group--fold[open] > .rt-group__summary .rt-group__chevron { transform: rotate(90deg); }

@@ -157,8 +157,8 @@ var _ = Describe("ParseCommand", func() {
 	})
 
 	It("keeps unknown flags as raw options and reports them", func() {
-		r := parse(`llama-server --rope-freq-base 10000 --cont-batching --grp-attn-n=4`)
-		Expect(r.Options).To(Equal([]string{"--rope-freq-base:10000", "--cont-batching", "--grp-attn-n:4"}))
+		r := parse(`llama-server --rope-freq-base 10000 --no-perf --grp-attn-n=4`)
+		Expect(r.Options).To(Equal([]string{"--rope-freq-base:10000", "--no-perf", "--grp-attn-n:4"}))
 		Expect(r.Unmapped).To(HaveLen(3))
 		Expect(r.Unmapped[0].Flag).To(Equal("--rope-freq-base"))
 		Expect(r.Unmapped[0].Value).To(Equal("10000"))
@@ -258,7 +258,7 @@ var _ = Describe("BuildCommand", func() {
 	})
 
 	It("warns about options that have no flag and bad values", func() {
-		b := build(es.Config{"options": []string{"context_shift:true", "parallel:x"}})
+		b := build(es.Config{"options": []string{"not_a_llama_option:true", "parallel:x"}})
 		Expect(b.Warnings).To(HaveLen(2))
 		Expect(b.Command).To(Equal("llama-server"))
 	})
@@ -494,7 +494,7 @@ var _ = Describe("the llama.cpp engine", func() {
 		Expect(s.Estimate).To(HaveKeyWithValue("cache_type_v", "cache_type_v"))
 	})
 
-	It("has three quick setup profiles over the same keys, Balanced unsetting them all", func() {
+	It("has three quick setup profiles, Balanced unsetting them and leaving flash attention alone", func() {
 		var got []es.Preset
 		for _, p := range engine.Schema().Presets {
 			if p.Profile {
@@ -506,18 +506,23 @@ var _ = Describe("the llama.cpp engine", func() {
 		for _, v := range got[0].Settings {
 			Expect(v).To(BeNil())
 		}
+		Expect(got[0].Settings).ToNot(HaveKey("flash_attention"))
 		Expect(got[1].ID).To(Equal("longPrompts"))
 		Expect(got[1].Settings).To(HaveKeyWithValue("batch", 2048))
 		Expect(got[1].Settings).To(HaveKeyWithValue("ubatch", 2048))
+		Expect(got[1].Settings).ToNot(HaveKey("flash_attention"))
 		Expect(got[2].ID).To(Equal("concurrent"))
 		Expect(got[2].Settings).To(HaveKeyWithValue("cache_type_k", "q8_0"))
 		Expect(got[2].Settings).To(HaveKeyWithValue("cache_type_v", "q8_0"))
+		Expect(got[2].Settings).To(HaveKeyWithValue("flash_attention", "on"))
 		Expect(got[2].Settings).To(HaveKeyWithValue("paged_kv", true))
 		Expect(got[2].Settings).To(HaveKeyWithValue("parallel", 8))
+		// Every key a profile sets, Balanced unsets, except flash attention.
 		for _, p := range got[1:] {
-			Expect(len(p.Settings)).To(Equal(len(got[0].Settings)), p.ID)
 			for k := range p.Settings {
-				Expect(got[0].Settings).To(HaveKey(k), p.ID)
+				if k != "flash_attention" {
+					Expect(got[0].Settings).To(HaveKey(k), p.ID)
+				}
 			}
 		}
 	})

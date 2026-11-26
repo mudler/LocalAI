@@ -103,7 +103,7 @@ export function itemId(item) {
  * The settings-schema answer as a model the section can draw:
  *
  *   { id, name, binary, example, capabilities, groups, items, combined,
- *     presets, profiles, estimate, reserved, placement, aliases }
+ *     presets, profiles, estimate, collapsed, reserved, placement, aliases }
  *
  * `presets` are the one-shot setups and `profiles` the exclusive quick setups
  * (presets with `profile: true`). `estimate` maps the fields of the VRAM
@@ -220,6 +220,8 @@ export function normalizeSchema(raw) {
     combined,
     presets: presets.filter(p => !p.profile),
     profiles: presets.filter(p => p.profile),
+    // The groups drawn closed: rarely used or risky settings.
+    collapsed: new Set(Array.isArray(raw?.collapsed_groups) ? raw.collapsed_groups.map(groupId) : []),
     // VRAM estimate request field -> setting id.
     estimate: Object.fromEntries(Object.entries(raw?.estimate || {}).filter(([, k]) => idOf(k)).map(([f, k]) => [f, idOf(k)])),
     reserved: new Set(Array.isArray(raw?.reserved_options) ? raw.reserved_options.map(String) : []),
@@ -240,7 +242,7 @@ export function isComposite(item) {
 
 /**
  * The blocks of the section, in the schema's group order:
- *   { id, items, combined, placement }
+ *   { id, items, combined, placement, collapsed }
  * A group is drawn when it has a setting of its own or a combined control;
  * the placement group is drawn only for an engine with that capability.
  */
@@ -253,7 +255,7 @@ export function groupItems(schema) {
     }
     const items = schema.items.filter(i => i.group === g && !isComposite(i))
     const combined = schema.combined.filter(c => c.group === g)
-    if (items.length || combined.length) out.push({ id: g, items, combined, placement: false })
+    if (items.length || combined.length) out.push({ id: g, items, combined, placement: false, collapsed: Boolean(schema.collapsed?.has(g)) })
   }
   return out
 }
@@ -547,10 +549,29 @@ export function readProfile(schema, values) {
   return CUSTOM_PROFILE
 }
 
+/**
+ * Writes a profile into a draft. When the draft holds another profile, the
+ * settings that profile sets and the new one does not list are unset first:
+ * a value is removed only when it came from a profile. So Balanced, which
+ * does not list flash attention, removes it after More concurrent users and
+ * keeps a value the person set.
+ */
+export function applyProfile(schema, draft, profile) {
+  const from = schema.profiles.find(p => p.id === readProfile(schema, draft))
+  if (from && from.id !== profile.id) {
+    for (const [id, v] of Object.entries(from.settings)) {
+      if (v === null || v === undefined || id in profile.settings) continue
+      const item = itemById(schema, id)
+      if (item) writeItem(draft, item, undefined)
+    }
+  }
+  applyPreset(schema, draft, profile)
+}
+
 /** The value map a profile would give: a copy of the values with it applied. */
 export function withProfile(schema, values, profile) {
   const draft = { ...values }
-  if (profile) applyPreset(schema, draft, profile)
+  if (profile) applyProfile(schema, draft, profile)
   return draft
 }
 

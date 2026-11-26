@@ -63,9 +63,24 @@ test('engine settings: the list form and messy entries still read', () => {
 
 test('engine settings: blocks follow the schema groups; composite settings are left out', () => {
   const blocks = groupItems(schema)
-  assert.deepEqual(blocks.map(g => g.id), ['memory', 'speed', 'serving', 'placement', 'sampling', 'template'])
+  assert.deepEqual(blocks.map(g => g.id), ['memory', 'speed', 'serving', 'placement', 'sampling', 'template', 'speculative', 'engine_advanced'])
+  // The rarely used and risky settings are drawn closed.
+  assert.deepEqual(blocks.filter(g => g.collapsed).map(g => g.id), ['speculative', 'engine_advanced'])
+  const advanced = blocks.find(g => g.id === 'engine_advanced').items.map(i => i.id)
+  for (const id of ['options.context_shift', 'options.kv_unified', 'options.cont_batching', 'options.backend_sampling_min_slots']) assert.ok(advanced.includes(id), id)
   assert.equal(blocks[3].placement, true)
-  assert.deepEqual(blocks[2].items.map(i => i.id), ['options.parallel', 'options.paged_kv', 'options.paged_preempt', 'options.prefill_budget'])
+  assert.deepEqual(blocks[2].items.map(i => i.id), [
+    'options.parallel', 'options.paged_kv', 'options.paged_preempt', 'options.prefill_budget', 'options.kv_pool_tokens',
+    'options.kv_output_reserve', 'options.cache_idle_slots', 'options.n_cache_reuse', 'options.slot_prompt_similarity', 'options.kv_unified_per_slot',
+  ])
+  // An alias in a file reads into its field, and a write uses the canonical name.
+  const unified = byId['options.kv_unified']
+  assert.equal(readItem({ options: ['unified_kv:false'] }, unified), false)
+  const aliased = { options: ['unified_kv:false', 'paged_serving:true', 'max_prefill_tokens:auto'] }
+  writeItem(aliased, unified, true)
+  assert.deepEqual(aliased.options, ['kv_unified:true', 'paged_serving:true', 'max_prefill_tokens:auto'])
+  assert.equal(readItem(aliased, byId['options.prefill_budget']), 'auto')
+  assert.equal(readItem(aliased, byId['options.paged_kv']), true)
   const memory = blocks[0].items.map(i => i.id)
   assert.ok(memory.includes('context_size'))
   assert.ok(!memory.includes('mmap'))
@@ -198,22 +213,22 @@ test('engine settings: a placement value typed by hand is checked', () => {
 
 test('engine settings: raw options leave out what the form owns', () => {
   const owned = ownedOptionNames(schema)
-  const opts = ['parallel:1', 'cpu_moe:true', '-ot:x=CPU', 'override_tensor:y=CPU', 'context_shift:true', '--foo:bar']
-  assert.deepEqual(rawOptions(opts, owned), ['context_shift:true', '--foo:bar'])
-  assert.deepEqual(replaceRawOptions(opts, owned, ['context_shift:false']),
-    ['parallel:1', 'cpu_moe:true', '-ot:x=CPU', 'override_tensor:y=CPU', 'context_shift:false'])
+  const opts = ['parallel:1', 'cpu_moe:true', '-ot:x=CPU', 'override_tensor:y=CPU', 'my_option:true', '--foo:bar']
+  assert.deepEqual(rawOptions(opts, owned), ['my_option:true', '--foo:bar'])
+  assert.deepEqual(replaceRawOptions(opts, owned, ['my_option:false']),
+    ['parallel:1', 'cpu_moe:true', '-ot:x=CPU', 'override_tensor:y=CPU', 'my_option:false'])
   assert.deepEqual(replaceRawOptions(['a:1'], owned, ['a:1', 'b:2']), ['a:1', 'b:2'])
   assert.equal(replaceRawOptions(['a:1'], owned, []), undefined)
   assert.equal(validateRawOption('  ', owned).error, 'empty')
   assert.equal(validateRawOption('n_parallel:2', owned).error, 'owned')
   assert.equal(validateRawOption('-ot:a=CPU', owned).error, 'owned')
-  assert.equal(validateRawOption('context_shift:true', owned), null)
+  assert.equal(validateRawOption('my_option:true', owned), null)
   assert.equal(rawOptionFor({ flag: '--rope-scale', value: '2' }), '--rope-scale:2')
   assert.equal(rawOptionFor({ flag: 'no-warmup', value: '' }), '--no-warmup')
 })
 
 test('engine settings: a preset fills settings, lists them and undoes them', () => {
-  const before = { context_size: 8192, options: ['context_shift:true'] }
+  const before = { context_size: 8192, options: ['my_option:true'] }
   const draft = structuredClone(before)
   const bigMoe = preset('bigMoe')
   assert.deepEqual(bigMoe.placement, { mode: 'experts_cpu_all' })
@@ -225,7 +240,7 @@ test('engine settings: a preset fills settings, lists them and undoes them', () 
   assert.equal(isAllLayers(99999999), true)
   assert.equal(isAllLayers(998), false)
   assert.equal(readEntry(draft.options, OT), '-ot:\\.ffn_.*_exps.*=CPU')
-  assert.ok(draft.options.includes('context_shift:true'))
+  assert.ok(draft.options.includes('my_option:true'))
   assert.ok(draft.options.includes('parallel:1'))
   const changes = describeChanges(schema, before, draft)
   const ids = changes.map(c => c.id)
@@ -237,7 +252,7 @@ test('engine settings: a preset fills settings, lists them and undoes them', () 
   undoChanges(draft, changes)
   assert.equal(draft.cache_type_k, 'f16')
   assert.equal(draft.flash_attention, undefined)
-  assert.deepEqual(draft.options, ['context_shift:true'])
+  assert.deepEqual(draft.options, ['my_option:true'])
   // A preset with settings the schema lacks writes only what it has.
   const bare = {}
   applyPreset({ ...schema, items: [byId.context_size] }, bare, preset('lowVram'))
@@ -271,13 +286,13 @@ test('engine settings: the quick setup profiles are apart from the presets', () 
   assert.match(sampling.choices[2].doc, /^Sample tokens on the GPU\. Faster with many parallel requests\./)
   assert.equal(readCombined(schema, {}, sampling), 'off')
   assert.equal(readCombined(schema, { options: ['backend_sampling:auto'] }, sampling), 'auto')
-  const draft = { options: ['context_shift:true'] }
+  const draft = { options: ['my_option:true'] }
   writeCombined(schema, draft, sampling, 'on')
-  assert.deepEqual(draft.options, ['context_shift:true', 'backend_sampling:on'])
+  assert.deepEqual(draft.options, ['my_option:true', 'backend_sampling:on'])
   writeCombined(schema, draft, sampling, 'auto')
-  assert.deepEqual(draft.options, ['context_shift:true', 'backend_sampling:auto'])
+  assert.deepEqual(draft.options, ['my_option:true', 'backend_sampling:auto'])
   writeCombined(schema, draft, sampling, 'off')
-  assert.deepEqual(draft.options, ['context_shift:true'])
+  assert.deepEqual(draft.options, ['my_option:true'])
   // No profile touches it.
   assert.ok(schema.profiles.every(p => !('options.backend_sampling' in p.settings)))
 })
@@ -299,9 +314,23 @@ test('engine settings: a profile is read back from the values, else custom', () 
   assert.equal(many.cache_type_k, 'q8_0')
   assert.equal(many.flash_attention, 'on')
   assert.deepEqual(many.options, ['use_jinja:true', 'paged_kv:true', 'parallel:8'])
-  // Back to Balanced unsets everything a profile set and keeps the rest.
+  // Back to Balanced from More concurrent users unsets everything it set,
+  // flash attention included, and keeps the rest.
   const back = withProfile(schema, many, prof('balanced'))
   assert.deepEqual(back, { context_size: 8192, options: ['use_jinja:true'] })
+  // Long prompts from More concurrent users drops its flash attention too.
+  assert.equal(withProfile(schema, many, prof('longPrompts')).flash_attention, undefined)
+  // A flash attention value the person set is not a profile's: Balanced and
+  // Long prompts keep it.
+  const own = { flash_attention: 'off', 'parameters.batch': 1024 }
+  assert.equal(readProfile(schema, own), CUSTOM_PROFILE)
+  assert.deepEqual(withProfile(schema, own, prof('balanced')), { flash_attention: 'off' })
+  assert.equal(readProfile(schema, { flash_attention: 'on' }), 'balanced')
+  assert.equal(withProfile(schema, { flash_attention: 'on', 'parameters.batch': 2048, options: ['ubatch:2048'] }, prof('balanced')).flash_attention, 'on')
+  // Values that look like More concurrent users but differ in one setting
+  // are custom, and Balanced leaves their flash attention.
+  const near = { ...many, options: ['use_jinja:true', 'paged_kv:true', 'parallel:4'] }
+  assert.equal(withProfile(schema, near, prof('balanced')).flash_attention, 'on')
   // A setting off every profile is custom.
   assert.equal(readProfile(schema, { 'parameters.batch': 1024 }), CUSTOM_PROFILE)
   assert.equal(readProfile(schema, { ...many, options: ['paged_kv:true', 'parallel:4'] }), CUSTOM_PROFILE)
@@ -310,7 +339,7 @@ test('engine settings: a profile is read back from the values, else custom', () 
 })
 
 test('engine settings: the Inkling command fills every field', () => {
-  const draft = { 'parameters.model': 'inkling.gguf', options: ['parallel:4', 'context_shift:true'] }
+  const draft = { 'parameters.model': 'inkling.gguf', options: ['parallel:4', 'my_option:true'] }
   const { modelFile } = applyParsed(schema, draft, INKLING)
   assert.equal(modelFile, 'Inkling-2-Mini-UD-Q3_K_XL.gguf')
   assert.equal(draft['parameters.model'], 'inkling.gguf')
@@ -324,16 +353,16 @@ test('engine settings: the Inkling command fills every field', () => {
   assert.equal(readCombined(schema, draft, loadMode), 'none')
   assert.equal(readEntry(draft.options, OT), INKLING.placements[0].option)
   assert.equal(draft.options.filter(e => e.startsWith('parallel')).length, 1)
-  assert.ok(draft.options.includes('context_shift:true'))
+  assert.ok(draft.options.includes('my_option:true'))
   assert.deepEqual(INKLING.unmapped, [])
   // Nothing the command set is left over as a raw option.
-  assert.deepEqual(rawOptions(draft.options, ownedOptionNames(schema)), ['context_shift:true'])
+  assert.deepEqual(rawOptions(draft.options, ownedOptionNames(schema)), ['my_option:true'])
 })
 
 test('engine settings: flags with no field are kept as the server wrote them', () => {
   const draft = {}
   applyParsed(schema, draft, MIXED)
-  assert.deepEqual(draft.options, ['--rope-freq-base:10000', '--no-warmup'])
+  assert.deepEqual(draft.options, ['--rope-freq-base:10000', '--no-perf'])
   assert.equal(draft.context_size, 4096)
 })
 
