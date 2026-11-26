@@ -231,6 +231,10 @@ type Thing struct {
 	// Following are the starts of the later occurrences of a thing that
 	// repeats, soonest first, all after Anchor.
 	Following []time.Time
+	// Timed says that the declaration of the event has a time: such a thing
+	// with no Anchor has no time left (an event with no occurrence ahead),
+	// unlike a thing that never has one.
+	Timed bool
 }
 
 // The lifecycles of a Thing. They are the words of the add-on contract.

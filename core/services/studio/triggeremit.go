@@ -55,6 +55,7 @@ func ThingOf(addon string, d contract.EventDeclaration, payload []byte) (*trigge
 	}
 	var drop []string
 	if a := d.Anchor; a != nil {
+		th.Timed = a.Time != ""
 		drop = append(drop, a.Time, a.Zone, a.AllDay)
 		drop = append(drop, a.Moves...)
 		if at, ok := triggers.LookupPath(doc, a.Time); ok {
@@ -247,10 +248,11 @@ func (h *Triggers) watchEvent(ctx context.Context, w triggers.Trigger, ev trigge
 	}
 	switch out.Action {
 	case triggers.ActionModel:
-		if long := ev.Thing; long != nil && long.Lifecycle == triggers.LifecycleUpdated && len(long.Following) == 0 &&
-			!long.Anchor.IsZero() && now.Sub(long.Anchor) > 24*time.Hour {
-			// A change of an item that began over a day ago, whose spent
-			// reminder the pass removed: there is nothing to remind of.
+		if th := ev.Thing; th != nil && th.Lifecycle == triggers.LifecycleUpdated && len(th.Following) == 0 &&
+			((th.Anchor.IsZero() && th.Timed) || (!th.Anchor.IsZero() && now.Sub(th.Anchor) > 24*time.Hour)) {
+			// A change of an item that is over (no time left, or one that
+			// began over a day ago) whose spent reminder the pass removed:
+			// there is nothing to remind of.
 			return nil
 		}
 		_, err := h.PublishRun(ctx, w.ID, watchRunEvent(ev))

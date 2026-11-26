@@ -298,6 +298,7 @@ var _ = Describe("a watch, end to end with a scripted model", func() {
 	It("starts no model run for a change of an item that began over a day ago", func() {
 		r := newFlowRig(&flowScript{}, triggers.WatchRule{Offset: -15 * time.Minute})
 		r.emit("updated", "9", r.sh.clock.Now().Add(-48*time.Hour), "", "")
+		r.emit("updated", "8", time.Time{}, "", "") // no time left, as the calendar sends a past event
 		Consistently(func() []string { return r.f.seen }, 300*time.Millisecond).Should(BeEmpty())
 		_, err := r.reminder("9")
 		Expect(err).To(MatchError(triggers.ErrNotFound))
