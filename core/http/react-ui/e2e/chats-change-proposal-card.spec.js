@@ -128,7 +128,7 @@ test('a note the host saved at once says so, offers Undo, and never showed a con
   await expect(card(page)).not.toContainText('Applied:')
   await expect(card(page)).toContainText('You live in Milan, not Rome')
   await expect(card(page).getByRole('button', { name: 'Confirm', exact: true })).toHaveCount(0)
-  await expect(card(page).getByRole('button', { name: 'Dismiss' })).toHaveCount(0)
+  await expect(card(page).getByRole('button', { name: 'Not now' })).toHaveCount(0)
   await shoot(page, 'saved-at-once')
 
   await card(page).getByRole('button', { name: 'Undo' }).click()
@@ -161,9 +161,9 @@ test('Escape and Cancel leave the editor and keep the proposal waiting', async (
   expect(s.calls).toEqual(['GET'])
 })
 
-test('Dismiss leaves a quiet line and writes nothing', async ({ page }) => {
+test('Not now leaves a quiet line and writes nothing', async ({ page }) => {
   const s = await open(page)
-  await card(page).getByRole('button', { name: 'Dismiss' }).click()
+  await card(page).getByRole('button', { name: 'Not now' }).click()
   await expect(card(page)).toHaveAttribute('data-state', 'dismissed')
   await expect(card(page)).toContainText('Dismissed:')
   expect(s.calls).toContain('POST dismiss')
@@ -176,7 +176,7 @@ test('the buttons work from the keyboard', async ({ page }) => {
   await page.keyboard.press('Tab')
   await expect(card(page).getByRole('button', { name: 'Edit then confirm' })).toBeFocused()
   await page.keyboard.press('Tab')
-  await expect(card(page).getByRole('button', { name: 'Dismiss' })).toBeFocused()
+  await expect(card(page).getByRole('button', { name: 'Not now' })).toBeFocused()
   await page.keyboard.press('Shift+Tab')
   await page.keyboard.press('Shift+Tab')
   await page.keyboard.press('Enter')

@@ -123,15 +123,19 @@ for (const [name, size] of [['desktop', { width: 1440, height: 900 }], ['phone',
       })
     }
 
-    test('the card says nothing extra for the default mode and says it in words for the other two', async ({ page }) => {
+    test('the delivery row names the place and the Tells you row says in words when the runs speak up', async ({ page }) => {
       await open(page, { extra: { delivery: { target: 'channel', channel_label: 'General', connection_name: 'Team chat', mode: 'always' } } })
       const row = card(page).locator('[data-row="delivery"]')
+      const tells = card(page).locator('[data-row="tellsYou"]')
       await expect(row).toContainText('General in Team chat')
       await expect(row).not.toContainText('Only when')
+      await expect(tells).toContainText('After every run.')
       await open(page, { extra: { delivery: { target: 'channel', channel_label: 'General', connection_name: 'Team chat', mode: 'on_change' } } })
-      await expect(row).toContainText('Only when the answer differs from the run before.')
+      await expect(tells).toContainText('When the answer differs from the run before.')
+      await expect(row).not.toContainText('differs')
       await open(page, { extra: { delivery: { target: 'channel', channel_label: 'General', connection_name: 'Team chat', mode: 'on_problem' } } })
-      await expect(row).toContainText('Only when a run fails. A run that works reports nothing.')
+      await expect(tells).toContainText('Only when a run fails.')
+      await expect(row).not.toContainText('Only when')
       await page.screenshot({ path: `test-results/proposal-${name}-delivery-mode.png` })
     })
 
