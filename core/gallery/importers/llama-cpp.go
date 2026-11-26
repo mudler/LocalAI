@@ -41,6 +41,7 @@ func (i *LlamaCPPImporter) AdditionalBackends() []KnownBackendEntry {
 		{Name: "ik-llama-cpp", Modality: "text", Description: "GGUF drop-in replacement for llama-cpp with ik-quants"},
 		{Name: "turboquant", Modality: "text", Description: "GGUF drop-in replacement for llama-cpp with TurboQuant optimizations"},
 		{Name: "vllm-cpp", Modality: "text", Description: "vLLM-style continuous-batching engine (vllm.cpp) consuming GGUF, by the LocalAI team"},
+		{Name: "colibri", Modality: "text", Description: "colibri (experimental): very large mixture-of-experts GGUF models with the experts streamed from disk"},
 	}
 }
 
@@ -153,7 +154,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 	backend := "llama-cpp"
 	if b, ok := preferencesMap["backend"].(string); ok {
 		switch b {
-		case "ik-llama-cpp", "turboquant", "vllm-cpp":
+		case "ik-llama-cpp", "turboquant", "vllm-cpp", "colibri":
 			backend = b
 		}
 	}
@@ -181,7 +182,10 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 	// engine-side parsing), so the tokenizer-template config carries over
 	// verbatim. Only `use_jinja` is dropped - that option is a llama-cpp
 	// backend knob with no meaning for vllm-cpp.
-	if backend == "vllm-cpp" {
+	// colibri works the same way: its gateway renders the chat template and
+	// parses the model's tool-call format, and the backend imports the GGUF
+	// into a colibri model directory on the first load.
+	if backend == "vllm-cpp" || backend == "colibri" {
 		modelConfig.Options = nil
 	}
 
