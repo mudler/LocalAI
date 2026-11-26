@@ -84,6 +84,24 @@ var _ = Describe("Add-on owner flags", Serial, func() {
 		Expect(c.OwnershipMode).To(Equal("local-owner"))
 	})
 
+	// docker --user with a data volume of another owner: the start must go on
+	// without add-ons instead of stopping on the add-on folder.
+	It("turns add-ons off when the add-on folder cannot be written", func() {
+		if os.Getuid() == 0 {
+			Skip("root writes a read-only folder; this needs an unprivileged user")
+		}
+		data := GinkgoT().TempDir()
+		Expect(os.Chmod(data, 0o555)).To(Succeed())
+		DeferCleanup(func() { _ = os.Chmod(data, 0o755) })
+		r, err := parse()
+		Expect(err).NotTo(HaveOccurred())
+		c, err := addonConfigFor(r.AddonsEnabled, r.AddonsOwnershipMode, data, false, addonRoleFlags{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(c).To(Equal(config.AddonConfig{}))
+		_, err = os.Stat(filepath.Join(data, "addons"))
+		Expect(os.IsNotExist(err)).To(BeTrue())
+	})
+
 	It("lets an explicit named-user win over the auth-off default", func() {
 		r, err := parse("--addons-ownership-mode=named-user")
 		Expect(err).NotTo(HaveOccurred())

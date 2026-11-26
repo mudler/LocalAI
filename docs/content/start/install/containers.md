@@ -322,7 +322,11 @@ Select the setup that matches your installation:
   with `--group-add` (Compose `group_add:`). When the home folder of that user
   is missing or not writable, the entrypoint uses `/data/home`. When `/data`
   is not writable either, it uses a folder in `/tmp`, and the caches are lost
-  when the container stops.
+  when the container stops. New named volumes belong to uid 10001, so another
+  user cannot write them. LocalAI then still starts and serves the models it
+  has, but it logs the `WARN` line, turns add-ons off with an `ERROR` line that
+  starts with "Add-ons are off", and backend installs fail. Give the volumes
+  to that user, or remove `--user`.
 - **Rootless Podman.** Map your host user to uid 10001 in the container, so
   that the folders on the host stay owned by you:
 

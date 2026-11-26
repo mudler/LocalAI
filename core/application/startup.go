@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -158,15 +160,22 @@ func New(opts ...config.AppOption) (*Application, error) {
 		xlog.Info("Reaped abandoned artifact partials", "count", removed)
 	}
 	recoverModelJournals(options)
+	// Name the folders this user cannot write before creating the optional
+	// ones, so that the warning shows even when a creation fails below.
+	warnUnwritableFolders(options)
+	// Without the generated content and upload folders LocalAI can still
+	// serve the models it has; only the requests that write files fail. A
+	// folder that this user may not create is named by the warning above, so
+	// it does not stop the start. Any other error still does.
 	if options.GeneratedContentDir != "" {
 		err := os.MkdirAll(options.GeneratedContentDir, 0o750)
-		if err != nil {
+		if err != nil && !errors.Is(err, fs.ErrPermission) {
 			return nil, fmt.Errorf("unable to create ImageDir: %q", err)
 		}
 	}
 	if options.UploadDir != "" {
 		err := os.MkdirAll(options.UploadDir, 0o750)
-		if err != nil {
+		if err != nil && !errors.Is(err, fs.ErrPermission) {
 			return nil, fmt.Errorf("unable to create UploadDir: %q", err)
 		}
 	}
@@ -186,7 +195,6 @@ func New(opts ...config.AppOption) (*Application, error) {
 		// it is recreated.
 		cosignverify.SetDefaultTUFCachePath(filepath.Join(options.DataPath, "cache", "sigstore"))
 	}
-	warnUnwritableFolders(options)
 	// Initialize auth database if auth is enabled
 	if options.Auth.Enabled {
 		// Auto-generate HMAC secret if not provided

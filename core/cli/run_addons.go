@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
 	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -13,8 +14,13 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/pkg/credentials"
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 )
+
+// containerPermissionsDocs is the docs section on the user a container runs
+// as and the folders it must be able to write.
+const containerPermissionsDocs = "https://localai.io/docs/start/install/containers/#container-user-and-permissions"
 
 // localAddonOwnerID names the one instance of a single-node run. It is also the
 // owner, so the node supervises the add-ons itself.
@@ -98,6 +104,16 @@ func addonConfigFor(enabled bool, mode, dataPath string, authEnabled bool, roleF
 	root, err := filepath.Abs(filepath.Join(dataPath, "addons"))
 	if err != nil {
 		return config.AddonConfig{}, err
+	}
+	// A container started as a user that does not own the data folder
+	// (docker --user, Kubernetes runAsUser) cannot create the add-on folder.
+	// The rest of LocalAI can still serve the models it has, so start without
+	// add-ons and say why, as the startup check of the other folders does,
+	// instead of stopping the server.
+	if bad := system.CheckWritable([]system.Folder{{Name: "addons", Path: root}}); len(bad) > 0 {
+		xlog.Error("Add-ons are off: LocalAI cannot write the add-on folder. Give the data folder to the user LocalAI runs as, or run it as its owner, and restart. See "+containerPermissionsDocs,
+			"folder", system.FormatUnwritable(bad), "uid", os.Getuid(), "gid", os.Getgid())
+		return config.AddonConfig{}, nil
 	}
 	transport, address, err := gateway.NewLoopbackCarrierConfig(localAddonOwnerID, root)
 	if err != nil {
