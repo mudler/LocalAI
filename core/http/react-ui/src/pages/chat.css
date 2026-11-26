@@ -1349,9 +1349,10 @@ button.cx-step__head:hover,
   .cx-msg:not([data-last]):not(:focus-within) .cx-acts .cx-icobtn:nth-child(n+3) { display: none; }
   .cx-dock { padding: 4px 12px 8px; }
   .cx-dock .home-slash-hint, .cx-dock .home-input-hint { display: none; }
-  .cx-dock .home-cmd__top { flex-wrap: nowrap; }
-  /* An empty chat has the draft menus too: its chips wrap, as on Home. */
-  .cx-conv[data-empty] .cx-dock .home-cmd__top { flex-wrap: wrap; }
+  /* The chips wrap, as on Home. On one line the model, Tools, Skills and
+     effort chips are wider than a phone: the model chip shrank to nothing and
+     the chips after it drew over it and ran out of the card. */
+  .cx-dock .home-cmd__top { flex-wrap: wrap; }
   /* In an open chat the incognito pill is its icon, square like the other
      icon buttons: the bar has no room for the level, and the line under the
      composer names it. */
@@ -1379,6 +1380,12 @@ button.cx-step__head:hover,
     z-index: var(--dk-z-popover);
   }
   .cx-dock .home-menu__list { max-height: min(60vh, 420px); }
+}
+/* A short phone screen, most often with the keyboard open: the shortcuts give
+   their line to the thread, so the composer and some of the conversation stay
+   in view above the keyboard. */
+@media (max-width: 760px) and (max-height: 520px) {
+  .cx-conv:not([data-empty]) .cx-dock .wk-shortcuts { display: none; }
 }
 .cx-thread[hidden] { display: none; }
 
