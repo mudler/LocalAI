@@ -1603,16 +1603,16 @@ var _ = Describe("Backend container", Ordered, func() {
 		ctxSize := int(envInt32("BACKEND_TEST_CTX_SIZE", 512))
 		prompts := make([]string, 6)
 		for i := range prompts {
-			// about 2/9 of the pool each: four fit with the 16-token reserve of
-			// the make target, but not with their 48 output tokens, so some preempt
-			prompts[i] = pagedPrompt(100+i, ctxSize*2/9)
+			// about a fifth of the pool each: four fit with the 16-token reserve
+			// of the make target, but not with their 96 output tokens, so some preempt
+			prompts[i] = pagedPrompt(100+i, ctxSize/5)
 		}
 		serial := make([]pagedStream, len(prompts))
 		for i, p := range prompts {
-			serial[i] = pagedPredict(client, p, 48, 5*time.Minute)
+			serial[i] = pagedPredict(client, p, 96, 5*time.Minute)
 			Expect(serial[i].err).NotTo(HaveOccurred())
 		}
-		together := pagedConcurrent(client, prompts, 48, 10*time.Minute)
+		together := pagedConcurrent(client, prompts, 96, 10*time.Minute)
 		same := 0
 		for i := range prompts {
 			Expect(together[i].err).NotTo(HaveOccurred(), "concurrent request %d failed", i)
