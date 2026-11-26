@@ -33,11 +33,13 @@ async function installWatch(page, { sources = SOURCES, reminders } = {}) {
   await page.route(/\/api\/chats\/triggers\/sources(\?.*)?$/, route => route.fulfill({ json: { sources } }))
   await page.route(/\/api\/chats\/triggers\/[^/?]+\/reminders(\/[^/?]+)?$/, route => {
     const req = route.request()
-    const parts = new URL(req.url()).pathname.split('/')
+    // The last segment is the reminder: read it once, not inside find, which
+    // calls its callback for each reminder.
+    const rid = new URL(req.url()).pathname.split('/').pop()
     if (req.method() === 'PATCH') {
       const body = req.postDataJSON()
       state.patches.push(body)
-      const r = state.reminders.find(x => x.id === parts.pop())
+      const r = state.reminders.find(x => x.id === rid)
       if (body.snooze_minutes) { r.snoozed_to = new Date(Date.now() + body.snooze_minutes * 60000).toISOString(); r.due = r.snoozed_to }
       if (body.snoozed_to === '') { r.snoozed_to = null; r.due = soon() }
       if (body.skip !== undefined) r.skipped = body.skip
