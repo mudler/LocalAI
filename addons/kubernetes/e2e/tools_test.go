@@ -23,9 +23,27 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
+
+// racer runs race once, just before the first apply it passes on.
+type racer struct {
+	kubeapi.Applier
+	race func()
+	done bool
+}
+
+func (r *racer) Apply(ctx context.Context, gvr schema.GroupVersionResource, ns string, obj *unstructured.Unstructured, dryRun bool) (*unstructured.Unstructured, error) {
+	if !r.done {
+		r.done = true
+		r.race()
+	}
+	return r.Applier.Apply(ctx, gvr, ns, obj, dryRun)
+}
 
 type admin struct{}
 
@@ -358,6 +376,30 @@ var _ = Describe("the tools against a real API server", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred(), "a new key can still be applied")
 		got := must(adm.CoreV1().Secrets("team-a").Get(bg, "guarded", metav1.GetOptions{}))
 		Expect(string(got.Data["password"])).To(Equal("secret-value"))
+	})
+
+	It("an apply of a hidden Secret is pinned to the version it checked: a change in between is a conflict whatever the guess", func() {
+		for i, guess := range []string{"c2VjcmV0LXZhbHVl", "d3Jvbmc="} {
+			name := fmt.Sprintf("raced-%d", i)
+			must(adm.CoreV1().Secrets("team-a").Create(bg, &corev1.Secret{ObjectMeta: meta("team-a", name), StringData: map[string]string{"user": "app"}}, metav1.CreateOptions{}))
+			// Another writer sets the value after the add-on checked the
+			// live Secret and before its dry run.
+			raced := tools.New(func(cfg *rest.Config) (*kubeapi.Client, error) {
+				c, err := kubeapi.NewLoopbackFactory()(cfg)
+				if err != nil {
+					return nil, err
+				}
+				c.Writer = &racer{Applier: c.Writer, race: func() {
+					sec := corev1ac.Secret(name, "team-a").WithData(map[string][]byte{"password": []byte("secret-value")})
+					must(adm.CoreV1().Secrets("team-a").Apply(bg, sec, metav1.ApplyOptions{FieldManager: "other-team", Force: true}))
+				}}
+				return c, nil
+			}, pols).WithDataDir(GinkgoT().TempDir())
+			manifest := "apiVersion: v1\nkind: Secret\nmetadata:\n  name: " + name + "\n  namespace: team-a\ndata:\n  password: " + guess + "\n"
+			_, err := raced.Preview(bg, env(cred, tools.ToolApply, map[string]any{"manifest": manifest}))
+			Expect(err).To(MatchError(ContainSubstring("409")), "guess %q: a right and a wrong guess get the same answer", guess)
+			noLeak(err.Error())
+		}
 	})
 
 	It("a json patch that tests an env value of a Deployment is refused while values are hidden", func() {

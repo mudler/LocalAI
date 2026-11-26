@@ -227,6 +227,7 @@ func (o *applyOp) look(c *call) (map[string]any, uint64, error) {
 	if err := o.resetsHidden(c, live); err != nil {
 		return nil, 0, err
 	}
+	o.pin(c, live)
 	dry, err := c.c.Writer.Apply(c.ctx, o.t.GVR, o.obj.GetNamespace(), o.obj.DeepCopy(), true)
 	if err != nil {
 		return nil, 0, err
@@ -243,10 +244,12 @@ func (o *applyOp) look(c *call) (map[string]any, uint64, error) {
 
 // resetsHidden refuses, while the policy hides values, a manifest that sets
 // a hidden value the live object already has: a Secret key under data or
-// stringData, or the inline value of an env var whose name looks secret. The
-// add-on applies without force, so when another field manager owns the
-// value, a wrong guess comes back as a conflict and the right one does not:
-// the dry run would tell the model whether a guess is right.
+// stringData, a Secret annotation that the masking hides, the last-applied
+// annotation of a Secret (it holds the values), or the inline value of an env
+// var whose name looks secret. The add-on applies without force, so when
+// another field manager owns the value, a wrong guess comes back as a
+// conflict and the right one does not: the dry run would tell the model
+// whether a guess is right.
 func (o *applyOp) resetsHidden(c *call, live *unstructured.Unstructured) error {
 	if c.pol.ReadSecretValues || live == nil {
 		return nil
@@ -260,6 +263,12 @@ func (o *applyOp) resetsHidden(c *call, live *unstructured.Unstructured) error {
 				if _, ok := have[k]; ok {
 					again = append(again, k)
 				}
+			}
+		}
+		liveAnn := live.GetAnnotations()
+		for k := range o.obj.GetAnnotations() {
+			if _, ok := liveAnn[k]; k == mask.LastApplied || (ok && !mask.SafeAnnotation(k)) {
+				again = append(again, "the annotation "+k)
 			}
 		}
 	} else {
@@ -276,6 +285,21 @@ func (o *applyOp) resetsHidden(c *call, live *unstructured.Unstructured) error {
 	slices.Sort(again)
 	again = slices.Compact(again)
 	return policy.Refuse(policy.RuleReadSecretValues, "the policy hides Secret values, and the manifest sets %s again; an apply of a hidden value that another field manager owns tells whether a guess is right, so it is refused. Leave those values out of the manifest, set them with patch (a strategic or merge patch that replaces the whole value), or ask an administrator", strings.Join(again, ", "))
+}
+
+// pin sets the resourceVersion of the manifest to the one of the live object
+// read just before, while the policy hides values and the object exists. The
+// check of resetsHidden reads the live object, then the dry run and the
+// apply write; a change in between (another writer sets a hidden value the
+// manifest also sets) would make the outcome depend on the guess again. With
+// the resourceVersion pinned, any change in between gives a 409 whatever the
+// manifest holds. An ordinary apply, and an apply whose manifest names a
+// resourceVersion of its own, keep their usual semantics.
+func (o *applyOp) pin(c *call, live *unstructured.Unstructured) {
+	if c.pol.ReadSecretValues || live == nil || o.obj.GetResourceVersion() != "" {
+		return
+	}
+	o.obj.SetResourceVersion(live.GetResourceVersion())
 }
 
 func (o *applyOp) apply(c *call) (map[string]any, error) {

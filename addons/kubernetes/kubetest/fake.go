@@ -323,6 +323,11 @@ func (w writer) Apply(_ context.Context, gvr schema.GroupVersionResource, ns str
 	}
 	next := obj.DeepCopy()
 	next.SetNamespace(ns)
+	// As the API server: a resourceVersion in the object must match the live
+	// one.
+	if rv := obj.GetResourceVersion(); rv != "" && (live == nil || live.GetResourceVersion() != rv) {
+		return nil, apierrors.NewConflict(gvr.GroupResource(), obj.GetName(), errors.New("the object has been modified"))
+	}
 	if live != nil {
 		base, _ := json.Marshal(live.Object)
 		patch, _ := json.Marshal(obj.Object)

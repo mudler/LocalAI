@@ -8,12 +8,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mudler/LocalAI/addons/kubernetes/internal/kubeapi"
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/policy"
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/tools"
 	"github.com/mudler/LocalAI/addons/kubernetes/kubetest"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 const (
@@ -175,4 +179,22 @@ func sampleOf(p contract.Preview) map[string]any {
 	}
 	Expect(json.Unmarshal(p.Summary, &s)).To(Succeed())
 	return s.Sample
+}
+
+// rvRecorder keeps the resourceVersion of every apply the add-on sends.
+type rvRecorder struct {
+	kubeapi.Applier
+	seen []string
+}
+
+func (r *rvRecorder) Apply(c context.Context, gvr schema.GroupVersionResource, ns string, obj *unstructured.Unstructured, dryRun bool) (*unstructured.Unstructured, error) {
+	r.seen = append(r.seen, obj.GetResourceVersion())
+	return r.Applier.Apply(c, gvr, ns, obj, dryRun)
+}
+
+// mustLive reads a core object of the fake cluster and its resourceVersion.
+func (g *rig) mustLive(resource, ns, name string) (*unstructured.Unstructured, string) {
+	u, err := g.k.Dyn.Resource(schema.GroupVersionResource{Version: "v1", Resource: resource}).Namespace(ns).Get(ctx, name, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	return u, u.GetResourceVersion()
 }
