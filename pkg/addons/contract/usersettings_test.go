@@ -45,12 +45,13 @@ var _ = Describe("The user settings declaration", func() {
 		Expect(ValidateManifest(with(good, good), compatible())).NotTo(Succeed())
 	})
 
-	It("accepts more than eight settings", func() {
+	It("refuses more than eight settings that are not approval settings", func() {
 		var many []UserSetting
-		for i := range 12 {
+		for i := range MaxUserSettings + 1 {
 			many = append(many, UserSetting{Key: "k" + strings.Repeat("a", i), Values: []string{"a", "b"}, Default: "a"})
 		}
-		Expect(ValidateManifest(with(many...), compatible())).To(Succeed())
+		Expect(ValidateManifest(with(many[:MaxUserSettings]...), compatible())).To(Succeed())
+		Expect(ValidateManifest(with(many...), compatible())).NotTo(Succeed())
 	})
 
 	It("fixes the values and the default of a role the host reads", func() {

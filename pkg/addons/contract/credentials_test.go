@@ -166,6 +166,18 @@ var _ = Describe("The credential slot of an add-on", func() {
 			It("is accepted with its setting, the values ask and skip and the default ask", func() {
 				Expect(ValidateManifest(relaxable(nil), host())).To(Succeed())
 			})
+			It("does not count against the cap of eight other settings", func() {
+				others := func(n int) func(*Manifest) {
+					return func(m *Manifest) {
+						for i := range n {
+							m.Capabilities.UserSettings = append(m.Capabilities.UserSettings,
+								UserSetting{Key: fmt.Sprintf("other-%d", i), Values: []string{"a", "b"}, Default: "a"})
+						}
+					}
+				}
+				Expect(ValidateManifest(relaxable(others(MaxUserSettings)), host())).To(Succeed())
+				Expect(ValidateManifest(relaxable(others(MaxUserSettings+1)), host())).NotTo(Succeed())
+			})
 			DescribeTable("is refused",
 				func(mod func(*Manifest)) { Expect(ValidateManifest(relaxable(mod), host())).NotTo(Succeed()) },
 				Entry("without the setting", func(m *Manifest) { m.Capabilities.UserSettings = nil }),
