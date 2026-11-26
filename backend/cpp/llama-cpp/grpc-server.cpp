@@ -1590,6 +1590,11 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     }
 
     params.no_kv_offload = request->nokvoffload();
+    // numa: true in the model config. LoadModel hands params.numa to
+    // llama_numa_init; distribute is what upstream's --numa picks by default.
+    if (request->numa()) {
+        params.numa = GGML_NUMA_STRATEGY_DISTRIBUTE;
+    }
     params.embedding = request->embeddings() || request->reranking();
     if (request->reranking()) {
         params.pooling_type = LLAMA_POOLING_TYPE_RANK;
@@ -2632,6 +2637,9 @@ public:
 
         llama_backend_init();
         llama_numa_init(params.numa);
+        if (params.numa != GGML_NUMA_STRATEGY_DISABLED) {
+            LOG_INF("numa: strategy %d\n", (int) params.numa);
+        }
 
 
         LOG_INF("system info: n_threads = %d, n_threads_batch = %d, total_threads = %d\n", params.cpuparams.n_threads, params.cpuparams_batch.n_threads, std::thread::hardware_concurrency());

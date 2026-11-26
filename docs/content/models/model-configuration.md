@@ -472,7 +472,7 @@ The option needs a llama.cpp build that has `--lazy-mode`.
 | `n_draft` | int32 | Maximum number of draft tokens per speculative step (default: 16) |
 | `quantization` | string | Quantization format |
 | `load_format` | string | Model load format |
-| `numa` | bool | Enable NUMA (Non-Uniform Memory Access) |
+| `numa` | bool | Enable NUMA (Non-Uniform Memory Access) support. On the llama.cpp-family backends (`llama-cpp`, `ik-llama-cpp`, `turboquant`) `true` sets the `distribute` strategy, which spreads threads evenly over the NUMA nodes, as llama.cpp's `--numa` flag does. For best results drop the page cache before the first load. |
 | `rms_norm_eps` | float32 | RMS normalization epsilon |
 | `ngqa` | int32 | Natural question generation parameter |
 | `rope_scaling` | string | RoPE scaling configuration |

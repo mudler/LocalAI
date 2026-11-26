@@ -2372,6 +2372,12 @@ static void params_parse(const backend::ModelOptions* request,
         LOG_WARNING("unknown flash_attention value, keeping the default", {{"value", request->flashattention()}});
     }
     params.no_kv_offload = request->nokvoffload();
+    // numa: true in the model config. LoadModel hands params.numa to
+    // llama_numa_init; distribute is what ik_llama.cpp's --numa picks by default.
+    if (request->numa()) {
+        params.numa = GGML_NUMA_STRATEGY_DISTRIBUTE;
+        LOG_INFO("numa: distribute", {});
+    }
     params.ctx_shift = false; // We control context-shifting in any case (and we disable it as it could just lead to infinite loops)
 
     params.embedding = request->embeddings();
