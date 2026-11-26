@@ -7,6 +7,12 @@
 # checksums published with the release, and puts it on your PATH. Nothing is
 # built, nothing is left behind, and running it twice is a no-op.
 #
+# This script does not install Docker images. To run LocalAI in a container,
+# use the compose file:
+#
+#   curl -fsSL https://localai.io/install/docker-compose.yaml -o docker-compose.yaml
+#   docker compose up -d
+#
 # Environment:
 #   LOCALAI_VERSION   pin a release, for example v4.7.1 (default: latest)
 #   INSTALL_DIR       where to put the binary (default: /usr/local/bin,
@@ -138,7 +144,7 @@ detect_platform() {
 
 	if [ "$OS" = "darwin" ] && [ "$ARCH" = "amd64" ]; then
 		die "there is no Intel macOS binary in the LocalAI releases" \
-			"On an Intel Mac, use the container image (docker run -p 8080:8080 localai/localai:latest) or build from source: https://localai.io/docs/contributing/build-from-source/"
+			"On an Intel Mac, run the container image with Docker Compose (curl -fsSL https://localai.io/install/docker-compose.yaml -o docker-compose.yaml && docker compose up -d) or build from source: https://localai.io/docs/contributing/build-from-source/"
 	fi
 }
 
@@ -495,4 +501,8 @@ say "  To run a model directly, name it, for example:"
 say "    ${BIN} run gemma-4-e2b-it-qat-q4_0"
 say ""
 say "  Backends download themselves the first time a model asks for one."
+say ""
+say "  To run LocalAI in a container instead, use Docker Compose:"
+say "    curl -fsSL https://localai.io/install/docker-compose.yaml -o docker-compose.yaml"
+say "    docker compose up -d"
 say "  Documentation: https://localai.io/docs/"

@@ -17,6 +17,12 @@
 
     irm https://localai.io/install.ps1 | iex
 
+  This script does not install Docker images. To run LocalAI in a container
+  (Docker Desktop with the WSL2 back end), use the compose file:
+
+    irm https://localai.io/install/docker-compose.yaml -OutFile docker-compose.yaml
+    docker compose up -d
+
   The one-line form cannot take parameters. Set environment variables first
   instead, for example:
 
@@ -276,7 +282,7 @@ function Install-LocalAI {
     switch -Regex ($arch) {
         '^(X64|AMD64)$' { }
         '^ARM64$' {
-            throw 'LocalAI has no Windows arm64 build, because there is no arm64 backend image. Use WSL2 or a container: docker run -p 8080:8080 localai/localai:latest'
+            throw 'LocalAI has no Windows arm64 build, because there is no arm64 backend image. Use WSL2, or run the container image with Docker Compose: irm https://localai.io/install/docker-compose.yaml -OutFile docker-compose.yaml; docker compose up -d'
         }
         default {
             throw "Unsupported CPU architecture: $arch. LocalAI publishes a Windows build for amd64 only."
