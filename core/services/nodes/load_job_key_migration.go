@@ -152,7 +152,7 @@ func migrateLoadJobKeySQLite(db *gorm.DB) error {
 		}
 		var fresh []sqliteColumn
 		if err := tx.Raw(`PRAGMA table_info(model_load_jobs)`).Scan(&fresh).Error; err != nil {
-			return err
+			return fmt.Errorf("reading the columns of the new model_load_jobs: %w", err)
 		}
 		var shared []string
 		for _, c := range fresh {

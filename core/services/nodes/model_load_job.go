@@ -134,10 +134,11 @@ func (j *ModelLoadJob) Ref() LoadJobRef { return LoadJobRef{j.TrackingKey, j.Gen
 // failed, or now belongs to another generation. An owner that sees it must stop.
 var ErrStaleLoadJob = errors.New("stale model load job ownership")
 
-// ErrLoadInProgress means another attempt holds the model's load job: it is
-// running, or it failed and keeps the model for its stop window. The caller did
-// nothing wrong and nothing failed, so it retries later instead of counting a
-// failure. The reconciler relies on this: a slow load that a request started
+// ErrLoadInProgress means the model already has a load where the caller would
+// start one: another attempt holds the job of the model on the chosen node, or
+// every candidate node runs or holds a load of the model. A held load is one
+// that failed and keeps its node for the stop window. The caller did nothing
+// wrong and nothing failed, so it retries later instead of counting a failure. The reconciler relies on this: a slow load that a request started
 // must not push the reconciler into a long backoff.
 var ErrLoadInProgress = errors.New("the model is already being loaded by another owner")
 
