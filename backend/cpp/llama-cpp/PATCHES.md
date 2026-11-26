@@ -26,13 +26,17 @@ patches alive. Other files in `patches/` are not applied.
   `serving_policy_test.cpp`). `prepare.sh` copies it to `tools/server/` before
   the build. The hooks only collect slot state and act on the decisions.
 - Every hook runs only when `params_base.paged_serving` is set, or, for the
-  prefill budget, when `params_base.prefill_budget > 0`. With the options off,
-  the server behaves exactly as upstream. Keep it that way: no moved
-  statements, no changed defaults.
+  prefill budget, when `params_base.prefill_budget > 0`. With the fields off
+  (`paged_kv:false`, `prefill_budget:0`), the server behaves exactly as
+  upstream. Keep it that way: no moved statements, no changed upstream
+  defaults. The fields default to off in `common.h`; LocalAI turns them on in
+  `grpc-server.cpp` (`serving_policy::resolve_paged`,
+  `default_prefill_budget`), so a plain `llama-server` built from the patched
+  tree is unchanged.
 - `grpc-server.cpp` checks `LOCALAI_HAS_SERVING_POLICY` (a `prepare.sh` probe
   for `paged_serving` in `common.h`). Forks that drop `patches/` (bonsai,
-  turboquant, olala) still build. They warn when a model sets `paged_kv` or
-  `prefill_budget`.
+  turboquant, olala) still build and run without paged serving. They warn
+  only when a model sets `paged_kv:true` or `prefill_budget`.
 
 ## Hook reference
 
@@ -41,10 +45,10 @@ Line numbers drift with every bump. Find each hook by the grep anchor.
 | Hook | Anchor (grep) | What it does |
 |---|---|---|
 | H1 | `kv_unified_per_slot = 0;` in `common.h` | Fields `paged_serving`, `paged_preempt`, `kv_output_reserve`, `prefill_budget`. |
-| H2 | `paged_n_cells` | Cells a slot holds: `llama_memory_seq_pos_max - seq_pos_min + 1`, or its prompt length if larger. Counts cells shared between slots once per slot, so the estimate errs on the safe side. |
-| H3 | `paged_admit`, called at `if (slot.state == SLOT_STATE_PROCESSING_PROMPT \|\| slot.state == SLOT_STATE_STARTED)` | A new prompt starts only when the pool has room for it plus the output reserve, after the claims of the running slots. Otherwise the slot stays in `SLOT_STATE_STARTED` and asks again next step. Idle or waiting slots lose their cached cells first (`paged_purge`). First come, first served by task id. |
+| H2 | `paged_n_cells`, `paged_used`, `paged_src` in `copy_prompt_to` and `copy_state_to` | Cells a slot holds: `llama_memory_seq_pos_max - seq_pos_min + 1`, or its prompt length if larger. A slot that copied another slot's prompt records the source and the cell count; `paged_used` counts those shared cells once while the source still runs the parent task (`serving_policy::unique_cells`). |
+| H3 | `paged_admit`, called at `if (slot.state == SLOT_STATE_PROCESSING_PROMPT \|\| slot.state == SLOT_STATE_STARTED)` | A new prompt starts only when the pool has room for it plus the output reserve, after the claims of the running slots. Otherwise the slot stays in `SLOT_STATE_STARTED` and asks again next step. Idle or waiting slots lose their cached cells first (`paged_purge`). First come, first served by task id, so a preempted request goes before newer ones. A resumed request needs only the part of its reserve it has not generated. With the RAM prompt cache, the launch path saves the slot's old prompt and sets `paged_cache_load`; the cache is loaded here, at admission, so a waiting slot holds no cells. |
 | H4 | `n_fill_max` before `next, batch any pending prompts` | Decode-first prefill budget: the prompt-fill loops stop at `n_fill_max` instead of `n_batch`. Equal to `n_batch` when the budget is off. |
-| H5 | `paged_preempt_pass`, called after `batch.clear()` in `pre_decode()` | When decode plus the rest of the admitted prompts need more cells than the pool has, drop the cached cells of idle or waiting slots. With `paged_preempt`, then preempt the youngest running slot until the step fits or one slot is left. |
+| H5 | `paged_preempt_pass`, called after `batch.clear()` in `pre_decode()` | When decode plus the rest of the admitted prompts need more cells than the pool has, drop the cached cells of idle or waiting slots. With `paged_preempt`, then preempt the youngest running slot until the step fits or one slot is left. A request preempted `paged_max_preemptions` times (2) is skipped while another can go. |
 | H6 | `paged_resume`, `paged_resume_fill` | A preempted slot keeps its text tokens in `paged_resume`, loses its cells, waits for admission, decodes the tokens again without outputs, then generates on. Its sampler and grammar keep their state. |
 
 A slot that cannot be resumed (speculative decoding or MTP, a multimodal
@@ -82,6 +86,12 @@ than force the old hunk in.
    is untouched. It stays the last safety net.
 9. With the unified KV cache, `find_slot()` places tokens in any free cells
    (no contiguous run needed), so a count of free cells is enough.
+10. Prompt copies between slots go through `server_slot::copy_prompt_to()` and
+    `copy_state_to()` (`seq_cp`), and a child task's `id_parent` is the task id
+    of the slot it copied from. H2 hooks both to count shared cells once.
+11. The launch path calls `update_prompt_cache()` (save the old prompt, load the
+    best cache match) under `plan.update_cache`. Paged serving splits it: save
+    at launch, `prompt_load()` at admission.
 
 ## Re-porting after a bump
 
@@ -127,15 +137,21 @@ follow-up.
 - Hybrid and recurrent models, speculative decoding and MTP are not resumable.
   Admission and the prefill budget work for them; preemption aborts them only
   as a last resort.
-- The pool estimate counts shared cells (score forks, parallel children) once
-  per slot. It is safe, but it admits fewer requests than would fit.
+- Shared cells are counted once only for prompt copies between slots
+  (parallel completions, shared prompt prefixes) while the source runs the
+  parent task. After the parent moves on, the child's copy counts as its own:
+  safe, slightly conservative. Score forks live within one step and are not
+  counted.
 - A resumed stream recomputes its KV cells in prompt-sized batches, which
   round differently from the token-by-token decode that first wrote them.
   Greedy output can then change at a near tie (top-1 margin below about
   0.1 nats). Requests that are not preempted are not affected.
-- With the RAM prompt cache on, a slot can load a cached prompt when its
-  request arrives, before admission. If the request then waits, those cells
-  are dropped again, so the load was wasted work.
+- A preempted request still waits until an older running request frees
+  enough cells; under a full pool that can take as long as one request's
+  generation. The backend logs each wait (`resuming after waiting`).
+- Defaults: paged serving uses 8 slots when `parallel` is unset. The KV cache
+  is shared and does not grow, but per-slot state does (sampler; recurrent
+  state and checkpoints of hybrid and recurrent models).
 - Waiting requests keep their slot. `parallel` is the limit of requests in
   flight, waiting or running.
 - Vulkan, SYCL and ROCm read K/V through the dense-mask fallback: correct,

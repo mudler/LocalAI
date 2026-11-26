@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -171,24 +172,49 @@ inline int64_t unique_cells(const std::vector<slot_cells> & s) {
     return n;
 }
 
-// Slot count when paged_kv is on and neither the model options nor the
-// environment set parallel: with one slot the pool has a single user and
-// the mode does nothing.
+// Slot count when paged serving is on and neither the model options nor the
+// environment set parallel: with one slot the pool has a single user and the
+// mode does nothing.
 constexpr int paged_default_parallel = 8;
 
-// Checks the options that paged serving cannot run with. Returns an empty
-// string when they are fine, otherwise the error for LoadModel.
-inline std::string check_paged_options(bool kv_unified, bool ctx_shift, bool cont_batching) {
+// Default of prefill_budget when the model does not set it (0 turns it off).
+constexpr int default_prefill_budget = 256;
+
+// Whether paged serving runs for a model, and what to tell the user.
+struct paged_choice {
+    bool        on = false;
+    std::string info;  // set when paged serving is turned off on its own: log it once
+    std::string error; // set when the model asks for paged_kv:true with an option it cannot run with
+};
+
+// Paged serving is on unless the model sets paged_kv:false. It needs the
+// unified KV cache and continuous batching, and cannot run with context shift.
+// When one of those is set the other way, paged serving turns itself off with
+// an info line, unless the model asked for paged_kv:true explicitly: then the
+// load fails, so the user sees the conflict.
+//
+// paged_kv: the model option, unset when the model does not set it.
+inline paged_choice resolve_paged(const std::optional<bool> & paged_kv, bool kv_unified, bool ctx_shift, bool cont_batching) {
+    paged_choice c;
+    if (paged_kv && !*paged_kv) {
+        return c;
+    }
+    std::string why;
     if (!kv_unified) {
-        return "paged_kv needs the unified KV cache; remove kv_unified:false or paged_kv";
+        why = "kv_unified:false";
+    } else if (ctx_shift) {
+        why = "context_shift";
+    } else if (!cont_batching) {
+        why = "cont_batching:false";
     }
-    if (ctx_shift) {
-        return "paged_kv cannot be used with context_shift; remove context_shift or paged_kv";
+    if (why.empty()) {
+        c.on = true;
+    } else if (paged_kv) {
+        c.error = "paged_kv cannot be used with " + why + "; remove " + why + " or paged_kv";
+    } else {
+        c.info = "paged serving is off because the model sets " + why;
     }
-    if (!cont_batching) {
-        return "paged_kv needs continuous batching; remove cont_batching:false or paged_kv";
-    }
-    return "";
+    return c;
 }
 
 } // namespace serving_policy

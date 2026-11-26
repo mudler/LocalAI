@@ -132,6 +132,37 @@ static void test_pick_victim() {
     EXPECT(pick_victim(mix) == 0, "old resumable before young non-resumable");
 }
 
+static void test_resolve_paged() {
+    auto c = resolve_paged(std::nullopt, true, false, true);
+    EXPECT(c.on && c.info.empty() && c.error.empty(), "on by default");
+    c = resolve_paged(false, true, false, true);
+    EXPECT(!c.on && c.info.empty() && c.error.empty(), "paged_kv:false turns it off quietly");
+    c = resolve_paged(true, true, false, true);
+    EXPECT(c.on, "explicit paged_kv:true");
+
+    // Defaults step aside for a model that cannot run paged, with one info line.
+    c = resolve_paged(std::nullopt, false, false, true);
+    EXPECT(!c.on && c.error.empty() && c.info.find("kv_unified:false") != std::string::npos, "kv_unified:false turns the default off");
+    c = resolve_paged(std::nullopt, true, true, true);
+    EXPECT(!c.on && c.error.empty() && c.info.find("context_shift") != std::string::npos, "context_shift turns the default off");
+    c = resolve_paged(std::nullopt, true, false, false);
+    EXPECT(!c.on && c.error.empty() && c.info.find("cont_batching:false") != std::string::npos, "cont_batching:false turns the default off");
+
+    // An explicit paged_kv:true with a conflicting option fails the load.
+    c = resolve_paged(true, false, false, true);
+    EXPECT(!c.on && c.error.find("kv_unified:false") != std::string::npos, "explicit paged_kv with kv_unified:false is an error");
+    c = resolve_paged(true, true, true, true);
+    EXPECT(!c.on && c.error.find("context_shift") != std::string::npos, "explicit paged_kv with context_shift is an error");
+    c = resolve_paged(true, true, false, false);
+    EXPECT(!c.on && c.error.find("cont_batching:false") != std::string::npos, "explicit paged_kv with cont_batching:false is an error");
+    // paged_kv:false with a conflict: nothing to say.
+    c = resolve_paged(false, false, true, false);
+    EXPECT(!c.on && c.info.empty() && c.error.empty(), "off and conflicting: quiet");
+
+    EXPECT(paged_default_parallel == 8, "paged serving defaults to 8 slots");
+    EXPECT(default_prefill_budget == 256, "default prefill budget");
+}
+
 static void test_unique_cells() {
     EXPECT(unique_cells({}) == 0, "empty");
     EXPECT(unique_cells({{100}, {50}}) == 150, "no sharing");
@@ -173,14 +204,6 @@ static void test_readmission() {
     EXPECT(slot_claim(700, 256, 100) == 856, "and the rest of its reserve otherwise");
 }
 
-static void test_checks() {
-    EXPECT(check_paged_options(true, false, true).empty(), "defaults are fine");
-    EXPECT(check_paged_options(false, false, true).find("kv_unified") != std::string::npos, "kv_unified:false is an error");
-    EXPECT(check_paged_options(true, true, true).find("context_shift") != std::string::npos, "context_shift is an error");
-    EXPECT(check_paged_options(true, false, false).find("cont_batching") != std::string::npos, "cont_batching:false is an error");
-    EXPECT(paged_default_parallel == 8, "paged_kv defaults to 8 slots");
-}
-
 int main() {
     test_prefill_budget();
     test_effective_reserve();
@@ -188,7 +211,7 @@ int main() {
     test_claim();
     test_demand();
     test_pick_victim();
-    test_checks();
+    test_resolve_paged();
     test_unique_cells();
     test_preemption_cap();
     test_readmission();

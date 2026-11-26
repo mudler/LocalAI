@@ -712,11 +712,11 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 | `device` or `devices` | string | Select the llama.cpp backend devices to use. Repeat the option or pass a comma-separated list; unlisted devices are excluded. Use the names reported by `llama-server --list-devices` / `--list-devices`. | `devices:CUDA1,CUDA2,CUDA3` |
 | `kv_unified` or `unified_kv` | boolean | Use a single unified KV buffer shared across all sequences. Default: `true` (LocalAI override; upstream defaults to `false` but auto-enables it when slot count is auto). **Required for `cache_idle_slots` and scoring**: without it the server force-disables idle-slot saving at init, and score-enabled models are rejected at load time. | `kv_unified:false` |
 | `kv_unified_per_slot` | integer | Context limit per parallel slot (upstream `--kv-unified-per-slot`). When `context_size` is not set, the shared KV cache is sized to `parallel` times this value. Default: unset. | `kv_unified_per_slot:8192` |
-| `paged_kv` or `paged_serving` | boolean | Paged serving: the slots share one KV pool, requests start only when the pool has room, and a request is preempted when it runs out. See [Paged serving](#paged-serving). Default: `false`. | `paged_kv:true` |
+| `paged_kv` or `paged_serving` | boolean | Paged serving: the slots share one KV pool, requests start only when the pool has room, and a request is preempted when it runs out. See [Paged serving](#paged-serving). Default: `true`; `paged_kv:false` turns it off. | `paged_kv:false` |
 | `kv_pool_tokens` | integer | Total size of the shared KV pool in tokens. Sets the context size. Default: `context_size`. | `kv_pool_tokens:32768` |
-| `prefill_budget` or `max_prefill_tokens` | integer | Prompt tokens read per step while other requests generate, so a long prompt does not stall them. Works with or without `paged_kv`. `0` turns it off. Default: `0`. | `prefill_budget:256` |
+| `prefill_budget` or `max_prefill_tokens` | integer | Prompt tokens read per step while other requests generate, so a long prompt does not stall them. Works with or without `paged_kv`. `0` turns it off. Default: `256`. | `prefill_budget:0` |
 | `kv_output_reserve` | integer | Free cells a request needs beyond its prompt before it starts, capped at its max tokens. Only with `paged_kv`. Default: `256`. | `kv_output_reserve:512` |
-| `paged_preempt` | boolean | With `paged_kv`, preempt the youngest request when the pool runs out. Set `false` to rely on admission only. Default: `true` with `paged_kv`. | `paged_preempt:false` |
+| `paged_preempt` | boolean | With paged serving, preempt the youngest request when the pool runs out. Set `false` to rely on admission only. Default: `true`. | `paged_preempt:false` |
 | `cache_idle_slots` or `idle_slots_cache` | boolean | On a new task, save the previous slot's KV state into the prompt cache (and clear the slot) so a later request with the same prefix can warm-load it. Default: `true`. Auto-disabled by the server if `kv_unified=false` or `cache_ram=0`. | `cache_idle_slots:false` |
 | `n_ctx_checkpoints` or `ctx_checkpoints` | integer | Maximum number of context checkpoints per slot (used for partial-prefix recovery, e.g. SWA). Default: `32`. | `ctx_checkpoints:16` |
 | `checkpoint_min_step` or `checkpoint_min_spacing` (aliases: `checkpoint_every_nt`, `checkpoint_every_n_tokens`) | integer | Minimum spacing in tokens between context checkpoints. `0` disables the minimum-spacing gate. Default: `256`. (Renamed upstream from `checkpoint_every_nt`; semantics shifted from a fixed cadence to a minimum spacing.) | `checkpoint_min_step:1024` |
@@ -745,7 +745,7 @@ options:
 
 **Note:** The `parallel` option can also be set via the `LLAMACPP_PARALLEL` environment variable, and `grpc_servers` can be set via the `LLAMACPP_GRPC_SERVERS` environment variable. Options specified in the YAML file take precedence over environment variables.
 
-An explicit `parallel: 1` (or `n_parallel: 1`) in the model options takes precedence over `LLAMACPP_PARALLEL`, like any other value. The environment variable is only used when neither option is set; if it is missing or not a number, the backend uses one slot.
+An explicit `parallel: 1` (or `n_parallel: 1`) in the model options takes precedence over `LLAMACPP_PARALLEL`, like any other value. The environment variable is only used when neither option is set; if it is missing or not a number, the backend uses 8 slots with [paged serving](#paged-serving) (the default) and one slot without it.
 
 ##### Backend sampling
 
@@ -802,11 +802,21 @@ LOCALAI_DISABLE_HARDWARE_DEFAULTS=true
 
 ##### Paged serving
 
-With `parallel` above 1, the slots of a model share one KV cache (`kv_unified`, on by default). When more requests arrive than that cache holds, the stock server runs out of cells mid-generation and fails every running request with "Context size has been exceeded". `paged_kv` schedules the shared cache as a pool instead:
+With `parallel` above 1, the slots of a model share one KV cache (`kv_unified`, on by default). Without scheduling, when more requests arrive than that cache holds, the server runs out of cells mid-generation and fails every running request with "Context size has been exceeded". Paged serving, on by default, schedules the shared cache as a pool instead:
 
-- **Admission.** A request starts reading its prompt only when the pool has room for the prompt and its output reserve (`kv_output_reserve`), after what the running requests still need. Otherwise it waits in its slot, first come, first served.
-- **Preemption.** When the running requests outgrow the pool, the youngest one is preempted: its cells are freed, it waits, and when there is room again its tokens are computed again and it continues where it stopped. The output does not change, apart from rare near ties in greedy decoding. A request that cannot be resumed this way (speculative decoding or MTP, an image or audio prompt, hybrid or recurrent models) is preempted only when nothing else can be, and fails with the retryable error "KV pool full, preempted; retry the request".
-- **Prefill budget.** `prefill_budget` limits how many prompt tokens a step reads while other requests generate. A long prompt then no longer stops the other streams for seconds. It also works without `paged_kv`.
+- **Admission.** A request starts reading its prompt only when the pool has room for the prompt and its output reserve (`kv_output_reserve`), after what the running requests still need. Otherwise it waits in its slot, first come, first served. A waiting request holds no KV cells: its prompt cache entry is loaded when it is admitted.
+- **Preemption.** When the running requests outgrow the pool, the youngest one is preempted: its cells are freed, it waits ahead of newer requests, and when there is room again its tokens are computed again and it continues where it stopped. One request is preempted at most twice while another can be preempted instead. The output does not change, apart from rare near ties in greedy decoding. A request that cannot be resumed this way (speculative decoding or MTP, an image or audio prompt, hybrid or recurrent models) is preempted only when nothing else can be, and fails with the retryable error "KV pool full, preempted; retry the request".
+- **Prefill budget.** `prefill_budget` (default 256) limits how many prompt tokens a step reads while other requests generate. A long prompt then no longer stops the other streams for seconds. It also works when paged serving is off.
+
+To turn it off for one model:
+
+```yaml
+options:
+  - paged_kv:false      # no admission control or preemption
+  - prefill_budget:0    # no prefill budget
+```
+
+A model that sets the pool and the slots explicitly:
 
 ```yaml
 name: qwen3-8b
@@ -815,20 +825,19 @@ context_size: 32768   # the shared pool; or set kv_pool_tokens
 parameters:
   model: Qwen3-8B-Q4_K_M.gguf
 options:
-  - paged_kv:true
-  - parallel:8          # the default with paged_kv when parallel is not set
-  - prefill_budget:256
+  - parallel:16
+  - prefill_budget:512
 ```
 
 Notes:
 
-- When `parallel` is not set in the options or in `LLAMACPP_PARALLEL`, `paged_kv` uses 8 slots and logs it. With one slot the mode has no effect.
-- `paged_kv` cannot be combined with `kv_unified:false`, `context_shift:true` or `cont_batching:false`; the model fails to load with an error that names the option.
+- When `parallel` is not set in the options or in `LLAMACPP_PARALLEL`, paged serving uses 8 slots and logs it. The KV cache does not grow with the slots: they share `context_size`. On a GPU, LocalAI's hardware defaults set `parallel` from the VRAM, and set `parallel:1` on a GPU without room for more slots, so a tight fit keeps one slot.
+- Each slot keeps a little state of its own: the sampler, and for hybrid and recurrent models (Qwen3-Next, Mamba, LFM2) a recurrent state and its checkpoints. That state is per slot, so eight slots of such a model use more memory than one; set `parallel` lower if memory is tight.
+- A model that sets `kv_unified:false`, `context_shift:true` or `cont_batching:false` runs without paged serving, with one info line in the log. Only `paged_kv:true` set explicitly together with one of those options fails the load, with an error that names the option.
+- Embedding and rerank models run with paged serving too: their requests need no output reserve, and admission only waits when the pool is full.
 - `parallel` is the limit of requests in flight, waiting or running. Each slot can use the whole pool unless `kv_unified_per_slot` caps it.
-- The backend logs every admission wait (`waits = N`), every preemption (`preemptions = N`) and every last-resort abort (`aborts = N`).
-- The default `prefill_budget` is `0` (off) for now. Values of 256 or 512 cut the worst inter-token gap during a long prompt several times on CPU, at a small cost in time to first token for the long prompt. The default will be set once GPU measurements are in.
-  <!-- TODO(paged serving): pick the shipped prefill_budget default (256 or 512) from the GPU A/B, then update this note, the option tables and serving_policy defaults in grpc-server.cpp. -->
-- Builds of the forks that do not carry LocalAI's llama.cpp patches (for example turboquant) ignore `paged_kv` and `prefill_budget` with a warning.
+- The backend logs every admission wait (`waits = N`), every preemption (`preemptions = N`), how long a preempted request waited (`resuming after waiting`), and every last-resort abort (`aborts = N`).
+- Builds of the forks that do not carry LocalAI's llama.cpp patches (for example turboquant) run without paged serving; they warn only when a model sets `paged_kv:true` or `prefill_budget`.
 
 ##### Server-side prompt cache (repeated system prompts)
 
