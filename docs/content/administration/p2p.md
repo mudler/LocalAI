@@ -126,7 +126,10 @@ The link is shown once. The list of pending invites does not show it again.
 public relays that it finds through the public DHT. The link names up to two
 of them (the dialog shows how many under **Hole punching**). A device uses such
 a relay only to reach the server and set up a hole punch. A public relay never
-carries your data and never gets the relay pass. Your own relays from the
+carries your data and never gets the relay pass. Once a link names public
+relays for a server, the device sends data to that server only directly or
+through the relays that its own links name as relays. This holds also for the
+other public relays of the server that the device learns while connected. Your own relays from the
 settings are never named this way: they go in the link as relays, with the
 pass. The link names public relays also with `"relays": "none"`. Pass
 `"omit_relay_hints": true` to `POST /api/p2p/invites` to leave them out, for

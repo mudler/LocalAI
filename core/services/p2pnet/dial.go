@@ -147,8 +147,14 @@ func WithRelays(relays ...peer.AddrInfo) DialOption {
 // hole punch, waits for the direct connection (see WithPunchWait), and then
 // closes the connection through the hint. When no direct connection opens,
 // Dial returns a *NoDirectPathError. The host never sends application data
-// through a relay that a dial named as a hint, unless a later dial names it
-// with WithRelays.
+// through a relay that a dial named as a hint, unless a dial to the same
+// peer names it with WithRelays. Once a dial to the peer named
+// hints, the same holds for every relay that no dial to that peer named with
+// WithRelays, such as the other public relays that identify or a DHT lookup
+// stored: the host dials them only during a hole punch and returns a
+// *NoDirectPathError when the only path goes through one. A relay that a
+// dial to another peer names as a carrier or a hint changes nothing for this
+// peer.
 func WithHints(relays ...peer.AddrInfo) DialOption {
 	return func(o *dialOptions) { o.hints = append(o.hints, relays...) }
 }
@@ -187,15 +193,14 @@ func (n *Host) Dial(ctx context.Context, p peer.ID, proto protocol.ID, opts ...D
 	if err != nil {
 		return nil, err
 	}
-	n.hints.remove(carriers...)
 	var hints []peer.AddrInfo
 	for _, h := range o.hints {
 		if h.ID == p || h.ID == n.h.ID() || slices.Contains(carriers, h.ID) {
 			continue
 		}
 		hints = append(hints, h)
-		n.hints.add(h.ID)
 	}
+	n.hints.note(p, carriers, len(hints) > 0)
 
 	var firstErr error
 	if len(hints) == 0 || len(o.addrs) > 0 || len(carriers) > 0 {

@@ -13,7 +13,9 @@
 // A hint relay (see WithHints) is a public relay on which the peer holds a
 // reservation. The host connects through it only to run a hole punch, and
 // sends no application data through it: when no direct connection opens,
-// Dial returns a NoDirectPathError.
+// Dial returns a NoDirectPathError. Once a dial named hints for a peer, the
+// host treats every relay of that peer as such a relay, unless a dial to the
+// same peer named it with WithRelays.
 //
 // Only this package and the relay packages import libp2p. Other code uses the
 // types of this package and the peer.ID type.

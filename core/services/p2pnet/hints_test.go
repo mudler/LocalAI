@@ -13,7 +13,9 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
 	relayv2 "github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/relay"
+	ma "github.com/multiformats/go-multiaddr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -233,6 +235,89 @@ var _ = Describe("Dial with hint relays", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(log.accepted.Load()).To(BeZero())
 		Expect(connsThrough(client, server.ID(), hint.info().ID)).To(BeZero())
+	})
+
+	Context("relays that no dial named as carriers", func() {
+		// circuit is the address of p through r that identify or a DHT
+		// lookup stores: the peer announces its circuit address through
+		// each relay it holds a reservation on.
+		circuit := func(r *testRelay) ma.Multiaddr {
+			GinkgoHelper()
+			ai := r.info()
+			m, err := ma.NewMultiaddr(ai.Addrs[0].String() + "/p2p/" + ai.ID.String() + "/p2p-circuit")
+			Expect(err).ToNot(HaveOccurred())
+			return m
+		}
+
+		It("sends nothing through another public relay of the peer that the peerstore knows", func() {
+			other := newTestRelay(relayv2.DefaultResources())
+			server := startServer(noListen, hint, other)
+			client.Libp2p().Peerstore().AddAddr(server.ID(), circuit(other), peerstore.RecentlyConnectedAddrTTL)
+			dead, err := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/1")
+			Expect(err).ToNot(HaveOccurred())
+
+			// The direct address fails, so the first phase may take any
+			// limited path: it must not take the one through the other relay.
+			_, err = client.Dial(dialCtx(), server.ID(), protoTest,
+				p2pnet.WithAddrs(dead), p2pnet.WithHints(hint.info()), p2pnet.WithPunchWait(testPunchWait))
+			Expect(errors.Is(err, p2pnet.ErrNoDirectPath)).To(BeTrue(), "%v", err)
+			Expect(log.accepted.Load()).To(BeZero())
+
+			// A later plain dial does not use it either.
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			_, err = client.Dial(ctx, server.ID(), protoTest)
+			Expect(err).To(HaveOccurred())
+			Expect(log.accepted.Load()).To(BeZero())
+			Expect(connsThrough(client, server.ID(), other.info().ID)).To(BeZero())
+		})
+
+		It("keeps the hint of a peer when a dial to another peer names the same relay as a carrier", func() {
+			server := startServer(noListen, hint)
+			_, err := client.Dial(dialCtx(), server.ID(), protoTest,
+				p2pnet.WithHints(hint.info()), p2pnet.WithPunchWait(testPunchWait))
+			Expect(errors.Is(err, p2pnet.ErrNoDirectPath)).To(BeTrue(), "%v", err)
+
+			// The invite of another server names the same public relay as a
+			// relay that may carry its data.
+			other := newHost(p2pnet.Config{ListenAddrs: noListen})
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			_, _ = client.Dial(ctx, other.ID(), protoTest, p2pnet.WithRelays(hint.info()))
+			cancel()
+
+			client.Libp2p().Peerstore().AddAddr(server.ID(), circuit(hint), peerstore.RecentlyConnectedAddrTTL)
+			ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			_, err = client.Dial(ctx, server.ID(), protoTest)
+			Expect(err).To(HaveOccurred())
+			Expect(log.accepted.Load()).To(BeZero())
+		})
+
+		It("keeps a carrier of a peer when a dial to another peer names the same relay as a hint", func() {
+			shared := newTestRelay(carrierResources())
+			carried := startServer(noListen, shared)
+			c, err := client.Dial(dialCtx(), carried.ID(), protoTest, p2pnet.WithRelays(shared.info()))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(c.Close()).To(Succeed())
+
+			// Another server's invite names the relay as a hint.
+			hinted := newHost(p2pnet.Config{ListenAddrs: noListen})
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			_, _ = client.Dial(ctx, hinted.ID(), protoTest, p2pnet.WithHints(shared.info()), p2pnet.WithPunchWait(time.Second))
+			cancel()
+
+			// The first server still gets its data over the relay, also on a
+			// dial that does not repeat the options.
+			c, err = client.Dial(dialCtx(), carried.ID(), protoTest)
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = c.Close() }()
+			_, err = c.Write([]byte("ok"))
+			Expect(err).ToNot(HaveOccurred())
+			buf := make([]byte, 2)
+			_, err = io.ReadFull(c, buf)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(client.Path(carried.ID()).Relay).To(Equal(shared.info().ID))
+		})
 	})
 
 	Context("phase order", func() {
