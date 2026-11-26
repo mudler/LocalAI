@@ -3,7 +3,10 @@
 package p2pmobile
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -15,7 +18,42 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/p2pnet"
+	"github.com/mudler/LocalAI/core/services/p2ppair"
+	"github.com/mudler/LocalAI/core/services/p2ppair/pairclient"
 )
+
+// pairAnswer is the envelope of PairJSON.
+type pairAnswer struct {
+	OK     bool           `json:"ok"`
+	Code   string         `json:"code"`
+	Detail string         `json:"detail"`
+	Result map[string]any `json:"result"`
+}
+
+func pairJSON(link string, allowOpenRelay bool) pairAnswer {
+	GinkgoHelper()
+	var a pairAnswer
+	Expect(json.Unmarshal([]byte(PairJSON(filepath.Join(GinkgoT().TempDir(), "id.key"), link, "phone", allowOpenRelay)), &a)).To(Succeed())
+	return a
+}
+
+// newPeerID returns the peer ID of a fresh identity that never starts.
+func newPeerID() string {
+	GinkgoHelper()
+	path := filepath.Join(GinkgoT().TempDir(), "peer.key")
+	_, err := p2pnet.LoadOrCreateIdentity(path)
+	Expect(err).ToNot(HaveOccurred())
+	id, err := PeerID(path)
+	Expect(err).ToNot(HaveOccurred())
+	return id
+}
+
+func testLink(expires time.Time) *p2ppair.Link {
+	GinkgoHelper()
+	pid, err := p2pnet.ParsePeerID(newPeerID())
+	Expect(err).ToNot(HaveOccurred())
+	return &p2ppair.Link{V: 1, Kind: p2ppair.KindDevice, Peer: pid, Code: "ABCDE23456", Expires: expires}
+}
 
 func TestP2PMobile(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -52,7 +90,7 @@ func states(lines []string) []string {
 
 var _ = Describe("Version", func() {
 	It("names the library and its API revision", func() {
-		Expect(Version()).To(Equal("p2pmobile/1"))
+		Expect(Version()).To(Equal("p2pmobile/2"))
 	})
 })
 
@@ -66,6 +104,67 @@ var _ = Describe("Pair", func() {
 		for _, e := range entries {
 			Expect(e.Name()).To(Equal("id.key"))
 		}
+	})
+})
+
+var _ = Describe("PairJSON", func() {
+	It("answers invalid_link for a link that does not parse", func() {
+		a := pairJSON("localai://pair?v=1", false)
+		Expect(a.OK).To(BeFalse())
+		Expect(a.Code).To(Equal(CodeInvalidLink))
+		Expect(a.Detail).ToNot(BeEmpty())
+	})
+
+	It("answers expired for an expired link", func() {
+		a := pairJSON(testLink(time.Now().Add(-time.Minute)).String(), false)
+		Expect(a.OK).To(BeFalse())
+		Expect(a.Code).To(Equal(CodeExpired))
+	})
+
+	It("answers open_relay for a link with an open relay that was not allowed", func() {
+		l := testLink(time.Now().Add(time.Hour))
+		relay, err := p2pnet.ParseAddrInfo("/ip4/192.0.2.1/tcp/4001/p2p/" + newPeerID())
+		Expect(err).ToNot(HaveOccurred())
+		l.Relays = append(l.Relays, relay)
+		l.Open = []int{0}
+		a := pairJSON(l.String(), false)
+		Expect(a.OK).To(BeFalse())
+		Expect(a.Code).To(Equal(CodeOpenRelay))
+	})
+
+	It("answers no_route for a link with no address, relay or hint", func() {
+		a := pairJSON(testLink(time.Now().Add(time.Hour)).String(), false)
+		Expect(a.OK).To(BeFalse())
+		Expect(a.Code).To(Equal(CodeNoRoute), a.Detail)
+	})
+
+	It("maps each pairing error to a stable code", func() {
+		needsRelay := fmt.Errorf("%w: %w: %w", pairclient.ErrUnreachable, pairclient.ErrNeedsRelay, &p2pnet.NoDirectPathError{})
+		cases := map[error]string{
+			needsRelay:                    CodeNeedsRelay,
+			&p2pnet.NoDirectPathError{}:   CodeNeedsRelay,
+			pairclient.ErrGone:            CodeGone,
+			pairclient.ErrTooManyTries:    CodeTooManyTries,
+			pairclient.ErrWrongServer:     CodeWrongServer,
+			pairclient.ErrExpired:         CodeExpired,
+			pairclient.ErrOpenRelay:       CodeOpenRelay,
+			pairclient.ErrUnreachable:     CodeUnreachable,
+			errors.New("something else"):  CodeFailed,
+			&linkError{errors.New("bad")}: CodeInvalidLink,
+			fmt.Errorf("%w: %w", pairclient.ErrUnreachable, pairclient.ErrNoRoute): CodeNoRoute,
+		}
+		for err, code := range cases {
+			Expect(errorCode(err)).To(Equal(code), "%v", err)
+		}
+	})
+})
+
+var _ = Describe("Host", func() {
+	It("listens, so that a hole punch can reach it", func() {
+		h, err := newHost(context.Background(), filepath.Join(GinkgoT().TempDir(), "id.key"))
+		Expect(err).ToNot(HaveOccurred())
+		defer func() { _ = h.Close() }()
+		Expect(h.Libp2p().Network().ListenAddresses()).ToNot(BeEmpty())
 	})
 })
 
@@ -97,18 +196,41 @@ var _ = Describe("StartForward", func() {
 	})
 
 	It("refuses to start without an identity file", func() {
-		_, err := StartForward(filepath.Join(GinkgoT().TempDir(), "none.key"), peer, "127.0.0.1:0", "", "", nil)
+		_, err := StartForward(filepath.Join(GinkgoT().TempDir(), "none.key"), peer, "127.0.0.1:0", "", "", "", nil)
 		Expect(err).To(MatchError(ContainSubstring("pair first")))
 	})
 
 	It("rejects relays that are not a JSON array", func() {
-		_, err := StartForward(id, peer, "127.0.0.1:0", "not json", "", nil)
+		_, err := StartForward(id, peer, "127.0.0.1:0", "not json", "", "", nil)
 		Expect(err).To(HaveOccurred())
+	})
+
+	It("rejects hints that are not a JSON array of relay addresses", func() {
+		_, err := StartForward(id, peer, "127.0.0.1:0", "", "", "not json", nil)
+		Expect(err).To(HaveOccurred())
+		_, err = StartForward(id, peer, "127.0.0.1:0", "", "", `["/ip4/192.0.2.1/tcp/4001"]`, nil)
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("starts with hints and a host that listens", func() {
+		f, err := StartForward(id, peer, "127.0.0.1:0", "", "", `["/ip4/192.0.2.1/tcp/4001/p2p/`+newPeerID()+`"]`, nil)
+		Expect(err).ToNot(HaveOccurred())
+		defer f.Stop()
+		Expect(f.host.Libp2p().Network().ListenAddresses()).ToNot(BeEmpty())
+	})
+
+	It("gives the needs_relay code to a forwarder down for want of a direct path", func() {
+		l := forwardLine(p2pnet.ForwardStatus{State: p2pnet.ForwardDown, Err: fmt.Errorf("dial: %w", &p2pnet.NoDirectPathError{})})
+		Expect(l.State).To(Equal("down"))
+		Expect(l.Code).To(Equal(CodeNeedsRelay))
+		b, err := json.Marshal(forwardLine(p2pnet.ForwardStatus{State: p2pnet.ForwardDown, Err: errors.New("other")}))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(b)).ToNot(ContainSubstring("code"))
 	})
 
 	It("reports ready, down and closed for a peer that does not answer", func() {
 		r := &rec{}
-		f, err := StartForward(id, peer, "127.0.0.1:0", `[]`, `["/ip4/127.0.0.1/tcp/1"]`, r)
+		f, err := StartForward(id, peer, "127.0.0.1:0", `[]`, `["/ip4/127.0.0.1/tcp/1"]`, "", r)
 		Expect(err).ToNot(HaveOccurred())
 		addr := f.Addr()
 		Expect(addr).To(HavePrefix("127.0.0.1:"))

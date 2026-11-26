@@ -15,15 +15,35 @@ Go package `p2pmobile`, Java package `io.localai.p2p.p2pmobile`:
 
 | Go | Java | What it does |
 |---|---|---|
-| `Version()` | `P2pmobile.version()` | Returns `p2pmobile/1`. Call it first to check that the native library loaded. |
-| `Pair(identityPath, inviteLink, deviceName, allowOpenRelay)` | `P2pmobile.pair(...)` | Redeems an invite link. Returns JSON: `device_id`, `kind`, `phrase`, `server{peer_id,name,version}`, `relays`, `addrs`, and `client_key` when the server sends one. Creates the identity file when it does not exist. Blocks for up to 2 minutes. |
+| `Version()` | `P2pmobile.version()` | Returns `p2pmobile/2`. Call it first to check that the native library loaded. |
+| `Pair(identityPath, inviteLink, deviceName, allowOpenRelay)` | `P2pmobile.pair(...)` | Redeems an invite link. Returns JSON: `device_id`, `kind`, `phrase`, `server{peer_id,name,version}`, `relays`, `addrs`, `hints`, and `client_key` when the server sends one. Creates the identity file when it does not exist. Blocks for up to 2 minutes. |
+| `PairJSON(identityPath, inviteLink, deviceName, allowOpenRelay)` | `P2pmobile.pairJSON(...)` | Like `Pair`, but never fails. Returns `{"ok":true,"result":{...}}` with the object of `Pair`, or `{"ok":false,"code":"...","detail":"..."}`. `code` is stable; `detail` is the error text, for logs. See the codes below. |
 | `PeerID(identityPath)` | `P2pmobile.peerID(...)` | Returns the peer ID of an identity file. Does not create the file. |
-| `StartForward(identityPath, peerID, listenAddr, relays, addrs, cb)` | `P2pmobile.startForward(...)` | Listens on `listenAddr` (use a loopback address) and forwards each connection to the peer. `relays` and `addrs` are JSON arrays of multiaddrs, or empty. |
+| `StartForward(identityPath, peerID, listenAddr, relays, addrs, hints, cb)` | `P2pmobile.startForward(...)` | Listens on `listenAddr` (use a loopback address) and forwards each connection to the peer. `relays`, `addrs` and `hints` are JSON arrays of multiaddrs, or empty. `hints` are the public relays of the invite: they only help a hole punch and never carry data. |
 | `(*Forwarder).Addr()` | `Forwarder.addr()` | The address the forwarder listens on. |
 | `(*Forwarder).Stop()` | `Forwarder.stop()` | Closes the listener, the connections and the host. You can call it more than once. |
-| `StateCallback.OnState(json)` | `StateCallback.onState(String)` | Gets one JSON line per state change: `{"state":"ready","addr":...}`, `{"state":"up","path":...}`, `{"state":"down","error":...}`, `{"state":"closed"}`. |
+| `StateCallback.OnState(json)` | `StateCallback.onState(String)` | Gets one JSON line per state change: `{"state":"ready","addr":...}`, `{"state":"up","path":...}`, `{"state":"down","error":...}`, `{"state":"closed"}`. A `down` line has `"code":"needs_relay"` when the server was reached only through a hint and no hole punch worked. |
 
-`Pair` and `StartForward` block. Call them off the main thread.
+`Pair`, `PairJSON` and `StartForward` block. Call them off the main thread.
+
+The error codes of `PairJSON`:
+
+| Code | Meaning |
+|---|---|
+| `invalid_link` | The text is not an invite link. |
+| `expired` | The invite has expired. |
+| `open_relay` | The link names an open relay, and `allowOpenRelay` is false. |
+| `gone` | The server refused the code: it was used, cancelled or expired. |
+| `too_many_tries` | The server saw too many wrong codes from this device or its relay. |
+| `wrong_server` | Another peer answered than the one of the link. |
+| `needs_relay` | The device reached the server only through a public relay of the link, and no hole punch opened a direct connection. The code was not sent: the invite stays pending. The server needs a relay that carries data. |
+| `no_route` | The link names no address, relay or hint. |
+| `unreachable` | The server could not be reached. |
+| `failed` | Any other error. |
+
+The device host listens on ports that the system picks, so that a hole
+punch can reach it. It accepts no inbound connection, except from the
+server that a dial of the device waits for during a hole punch.
 
 ## Build
 
