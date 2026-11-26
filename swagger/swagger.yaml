@@ -5095,6 +5095,34 @@ definitions:
       updatedAt:
         type: string
     type: object
+  nodes.EffectiveLimits:
+    properties:
+      max_active_backends:
+        type: integer
+      memory_reclaimer_enabled:
+        type: boolean
+      memory_reclaimer_threshold:
+        type: number
+      model_swap:
+        type: boolean
+      sources:
+        additionalProperties:
+          type: string
+        type: object
+      vram_budget:
+        type: string
+    type: object
+  nodes.NodeLimits:
+    properties:
+      max_active_backends:
+        type: integer
+      memory_reclaimer_threshold:
+        type: number
+      model_swap:
+        type: boolean
+      vram_budget:
+        type: string
+    type: object
   nodes.NodeModel:
     properties:
       address:
@@ -29981,12 +30009,12 @@ paths:
       - models
   /api/models/{id}/load-status:
     get:
-      description: 'Returns the live state of a distributed cold load (when the model loads on several nodes, the load that is furthest along): job id, phase,
-        node, byte progress, ETA, lease freshness, and for a failed attempt the cause,
-        whether the stop is pending and when the model is released. 404 means no load
-        exists for the model. A database error is 503, never an empty answer. This
-        is the same `loading` object the 503 response carries while a model is still
-        staging.'
+      description: 'Returns the live state of a distributed cold load (when the model
+        loads on several nodes, the load that is furthest along): job id, phase, node,
+        byte progress, ETA, lease freshness, and for a failed attempt the cause, whether
+        the stop is pending and when the model is released. 404 means no load exists
+        for the model. A database error is 503, never an empty answer. This is the
+        same `loading` object the 503 response carries while a model is still staging.'
       parameters:
       - description: Model ID
         in: path
@@ -30747,6 +30775,82 @@ paths:
       summary: Issue a motion WebSocket ticket (30 seconds, single use)
       tags:
       - motion
+  /api/nodes/{id}/limits:
+    delete:
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/nodes.EffectiveLimits'
+        "404":
+          description: node not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Clear a node's memory limit overrides
+      tags:
+      - Nodes
+    get:
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/nodes.EffectiveLimits'
+        "404":
+          description: node not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Read a node's effective memory limits
+      tags:
+      - Nodes
+    put:
+      description: Sets max_active_backends (models kept loaded on the node, 0 = no
+        limit), vram_budget ("80%" or "12GB"; empty clears that override), memory_reclaimer_threshold
+        (0 to 1) and model_swap for one node. A key left out keeps its value. Returns
+        the effective limits. Admin only.
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: overrides to set
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/nodes.NodeLimits'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/nodes.EffectiveLimits'
+        "400":
+          description: invalid value
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: node not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Override a node's memory limits
+      tags:
+      - Nodes
   /api/nodes/{id}/max-replicas-per-model:
     delete:
       parameters:

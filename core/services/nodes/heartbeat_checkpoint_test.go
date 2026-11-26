@@ -250,12 +250,13 @@ var _ = Describe("heartbeat checkpointing", func() {
 			"4 GiB less free VRAM changes where the scheduler can place")
 	})
 
-	// A node with a VRAM budget persists capAvailable(reported, ceiling), not
-	// the raw reading. Comparing the raw reading against the snapshot therefore
-	// measures a different quantity from the one the column holds: on a budgeted
-	// node whose actual free VRAM swings well above its ceiling, every beat looks
-	// material while the written value never moves, and suppression is defeated
-	// on exactly the nodes an operator has bothered to configure.
+	// A node with a VRAM budget persists capAvailable(reported, ceiling,
+	// total), not the raw reading: the budget keeps total - ceiling out of
+	// reach. Comparing the raw reading against the snapshot therefore measures
+	// a different quantity from the one the column holds: on a budgeted node
+	// whose free VRAM swings inside that reserve, every beat looks material
+	// while the written value never moves, and suppression is defeated on
+	// exactly the nodes an operator has bothered to configure.
 	Describe("on a node with a VRAM budget", func() {
 		const ceiling = uint64(8) << 30
 
@@ -263,7 +264,7 @@ var _ = Describe("heartbeat checkpointing", func() {
 			Expect(db.Model(&BackendNode{}).Where("id = ?", nodeID).
 				Updates(map[string]any{
 					ColTotalVRAM:       uint64(24) << 30,
-					ColVRAMBudget:      "8GB",
+					ColVRAMBudget:      "8GiB",
 					ColVRAMBudgetBytes: ceiling,
 				}).Error).ToNot(HaveOccurred())
 		})
@@ -274,36 +275,37 @@ var _ = Describe("heartbeat checkpointing", func() {
 			return n.AvailableVRAM
 		}
 
-		It("suppresses beats whose raw reading oscillates above the ceiling", func() {
+		It("suppresses beats whose raw reading oscillates inside the budget's reserve", func() {
 			registry.SetHeartbeatCheckpoint(time.Hour)
 
-			Expect(registry.Heartbeat(ctx, nodeID, workerBeat(20<<30))).To(Succeed())
+			Expect(registry.Heartbeat(ctx, nodeID, workerBeat(12<<30))).To(Succeed())
 			first := writtenAt()
-			Expect(persistedVRAM()).To(Equal(ceiling), "the column stores the capped figure")
+			Expect(persistedVRAM()).To(BeZero(), "the column stores the capped figure")
 
-			// Multi-gigabyte swings, all of them above the 8 GiB ceiling, so the
-			// capped value the column holds is unchanged every time.
-			for _, raw := range []uint64{12 << 30, 18 << 30, 9 << 30, 24 << 30} {
+			// Multi-gigabyte swings, all of them inside the 16 GiB the budget
+			// keeps out of reach, so the capped value is 0 every time.
+			for _, raw := range []uint64{10 << 30, 15 << 30, 9 << 30, 16 << 30} {
 				time.Sleep(5 * time.Millisecond)
 				Expect(registry.Heartbeat(ctx, nodeID, workerBeat(raw))).To(Succeed())
 			}
 
 			Expect(writtenAt()).To(BeTemporally("==", first),
-				"free VRAM above the budget ceiling cannot change a placement "+
-					"decision, so a reading that only moves above it must not write")
-			Expect(persistedVRAM()).To(Equal(ceiling))
+				"free VRAM inside the budget's reserve cannot change a placement "+
+					"decision, so a reading that only moves there must not write")
+			Expect(persistedVRAM()).To(BeZero())
 		})
 
-		It("still writes when the reading drops below the ceiling", func() {
+		It("still writes when the reading moves inside the budget", func() {
 			registry.SetHeartbeatCheckpoint(time.Hour)
 
-			Expect(registry.Heartbeat(ctx, nodeID, workerBeat(20<<30))).To(Succeed())
+			Expect(registry.Heartbeat(ctx, nodeID, workerBeat(24<<30))).To(Succeed())
 			first := writtenAt()
+			Expect(persistedVRAM()).To(Equal(ceiling))
 
 			time.Sleep(10 * time.Millisecond)
-			Expect(registry.Heartbeat(ctx, nodeID, workerBeat(2<<30))).To(Succeed())
+			Expect(registry.Heartbeat(ctx, nodeID, workerBeat(18<<30))).To(Succeed())
 			Expect(writtenAt()).To(BeTemporally(">", first),
-				"below the ceiling the reading is the scheduler's figure, and "+
+				"inside the budget the reading is the scheduler's figure, and "+
 					"6 GiB less of it changes where a model can be placed")
 			Expect(persistedVRAM()).To(Equal(uint64(2) << 30))
 		})

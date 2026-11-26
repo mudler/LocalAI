@@ -150,6 +150,14 @@ func (stubClient) SetNodeVRAMBudget(_ context.Context, _, _ string) error {
 	return nil
 }
 
+func (stubClient) SetNodeLimits(_ context.Context, req localaitools.SetNodeLimitsRequest) (*localaitools.NodeLimits, error) {
+	return &localaitools.NodeLimits{NodeID: req.NodeID}, nil
+}
+
+func (stubClient) SetModelMemoryPolicy(_ context.Context, _ localaitools.ModelMemoryPolicy) error {
+	return nil
+}
+
 func (stubClient) VRAMEstimate(_ context.Context, _ localaitools.VRAMEstimateRequest) (*vram.EstimateResult, error) {
 	return &vram.EstimateResult{SizeDisplay: "stub"}, nil
 }

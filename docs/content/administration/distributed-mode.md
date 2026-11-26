@@ -524,6 +524,9 @@ This worker holds one route: the WebSocket tunnel to the frontend. Add `--nats-u
 | `--backends-path` | `LOCALAI_BACKENDS_PATH` | `./backends` | Path to backend binaries |
 | `--models-path` | `LOCALAI_MODELS_PATH` | `./models` | Path to model files |
 | `--vram-budget` | `LOCALAI_VRAM_BUDGET` | *(empty)* | Cap the VRAM this node advertises for model placement, as a percentage (e.g. `80%`) or an absolute amount (e.g. `12GB`). Empty uses all detected VRAM. See [Per-node VRAM budget](#per-node-vram-budget). |
+| `--max-active-backends` | `LOCALAI_MAX_ACTIVE_BACKENDS` | *(empty)* | Models kept loaded on this node (`0` = no limit). Empty uses the cluster setting. See [Per-node memory limits](#per-node-memory-limits). |
+| `--model-swap` | `LOCALAI_MODEL_SWAP` | *(empty)* | `true` or `false`: unload the least recently used idle model on this node to make room for another. Empty uses the cluster setting. |
+| `--memory-reclaimer-threshold` | `LOCALAI_MEMORY_RECLAIMER_THRESHOLD` | *(empty)* | Memory use (0 to 1) above which idle models on this node are unloaded. Empty uses the cluster setting. |
 
 {{% callout style="tip" %}}
 **Advertise address:** The `--addr` flag is the local bind address for gRPC. The `--advertise-addr` is the address the frontend stores and uses to reach the worker via gRPC. If not set, the worker auto-derives it by replacing `0.0.0.0` with the OS hostname (which in Docker is the container ID, resolvable via Docker DNS). Set `--advertise-addr` explicitly when the auto-detected hostname is not routable from the frontend (e.g., in Kubernetes, use the pod's service DNS name).
@@ -855,7 +858,10 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `POST` | `/api/models/:id/load-cancel` | Cancel one load attempt (`{"job_id": "..."}`) |
 | `POST` | `/api/nodes/:id/models/delete` | Delete model files from a worker |
 | `PUT` | `/api/nodes/:id/vram-budget` | Set a VRAM budget for a worker (`{"value":"80%"}`) |
-| `DELETE` | `/api/nodes/:id/vram-budget` | Clear a worker's VRAM budget (revert to all detected VRAM) |
+| `DELETE` | `/api/nodes/:id/vram-budget` | Clear the admin VRAM budget of a worker (the worker's own budget, else the cluster one, applies again) |
+| `GET` | `/api/nodes/:id/limits` | The memory limits a worker runs with, and the source of each (`override`, `worker`, `cluster` or `default`) |
+| `PUT` | `/api/nodes/:id/limits` | Override some memory limits of a worker (`max_active_backends`, `vram_budget`, `memory_reclaimer_threshold`, `model_swap`); a key left out keeps its value |
+| `DELETE` | `/api/nodes/:id/limits` | Clear every memory limit override of a worker |
 | `PUT` | `/api/nodes/:id/split-server` | Declare a worker a [split server]({{% relref "/administration/p2p-model-split" %}}#split-servers) (`{"split_server":true}`), or clear it, which detaches its model-split workers |
 | `DELETE` | `/api/nodes/:id/split-server` | Hand the split server declaration back to the `--split-server` flag of the worker |
 
@@ -985,6 +991,31 @@ The settings of **Settings → Models in memory** (models kept loaded, eviction,
 - **Revisions.** `GET /api/settings` returns `memory_scope: "cluster"` and `memory_revision`. A save may send that `memory_revision` back: when another admin saved in between, the answer is `409` and nothing is stored. A save without `memory_revision` merges its keys over the stored ones, so two admins who change different keys at the same time both keep their change.
 - **Distributed state.** Shared (`syncstate` map `settings.memory` with the database as the store). A frontend re-reads the store every 30 seconds and after a reconnect of the bus, so a missed update is repaired. A frontend that cannot open the store logs an error and keeps its local values, like single mode.
 
+### Per-node memory limits
+
+Four of the cluster memory settings can differ per worker: **models kept loaded** (`max_active_backends`), the **GPU memory budget** (`vram_budget`), the **memory threshold** (`memory_reclaimer_threshold`) and **model swap** (`model_swap`). For each node the value in force comes from, highest first:
+
+1. an admin override for that node (the **Limits** pane of the node on the **Nodes** page, `PUT /api/nodes/:id/limits`, or the `set_node_limits` assistant tool). It survives worker restarts until it is cleared;
+2. the worker's environment (`LOCALAI_MAX_ACTIVE_BACKENDS`, `LOCALAI_VRAM_BUDGET`, `LOCALAI_MEMORY_RECLAIMER_THRESHOLD`, `LOCALAI_MODEL_SWAP`), reported when the worker registers;
+3. the cluster setting (Settings → Models in memory);
+4. the default.
+
+A worker that reports unified memory (a GB10, a Thor, Apple silicon) reclaims memory at a threshold of `0.90` while the cluster settings do not name the memory reclaimer: the GPU and the system share one pool there, and a full pool starves the host.
+
+`GET /api/nodes/:id/limits` returns each value with its source. A worker that sends `"want_limits": true` in its heartbeat gets the same object back as `limits` in the reply.
+
+```bash
+# Keep at most one model loaded on this node, and never swap there
+curl -X PUT http://frontend:8080/api/nodes/<node-id>/limits \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"max_active_backends":1,"model_swap":false}'
+
+# Clear every override of the node
+curl -X DELETE http://frontend:8080/api/nodes/<node-id>/limits \
+  -H "Authorization: Bearer <admin-token>"
+```
+
 ### Per-node VRAM budget
 
 Each worker advertises its detected VRAM, and the SmartRouter uses that number when picking a node with enough free memory. You can cap the VRAM a node offers for placement so it never gets scheduled beyond a chosen limit, leaving headroom for other workloads on that machine.
@@ -1011,7 +1042,7 @@ curl -X DELETE http://frontend:8080/api/nodes/<node-id>/vram-budget \
   -H "Authorization: Bearer <admin-token>"
 ```
 
-The value accepts the same formats as the standalone budget: a percentage (`80%`) or an absolute amount (`12GB`, `12GiB`, `12000MB`, or raw bytes). It is a **hard ceiling**: the node's advertised VRAM becomes `min(detected, budget)`, so a budget can only lower the number, never raise it above the hardware. An admin-set node budget is **sticky across worker restarts**: it is stored in the node registry and reapplied when the worker re-registers, so it wins over whatever the worker reports on reconnect. For the underlying semantics and the standalone equivalent, see [VRAM Budget]({{%relref "/models/vram-management#vram-budget-allocation-ceiling" %}}).
+The value accepts the same formats as the standalone budget: a percentage (`80%`) or an absolute amount (`12GB`, `12GiB`, `12000MB`, or raw bytes). It is a **hard ceiling**: the budget keeps `total - budget` of the node's VRAM out of reach, so the free VRAM the scheduler sees is the reported free VRAM minus that reserve. A node with a `12GB` budget on 24 GB that already uses 4 GB has 8 GB left for new models, not 12. A budget can only lower the number, never raise it above the hardware. When no admin budget and no worker budget is set, the **GPU memory budget** of Settings → Models in memory applies to each worker (see [Per-node memory limits](#per-node-memory-limits)). An admin-set node budget is **sticky across worker restarts**: it is stored in the node registry and reapplied when the worker re-registers, so it wins over whatever the worker reports on reconnect. For the underlying semantics and the standalone equivalent, see [VRAM Budget]({{%relref "/models/vram-management#vram-budget-allocation-ceiling" %}}).
 
 ### Disk headroom
 

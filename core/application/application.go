@@ -1046,6 +1046,8 @@ func (a *Application) start() (startErr error) {
 	assistantClient.RouterEmbedder = a.Embedder
 	assistantClient.RouterEmbedderFingerprint = a.EmbedderFingerprint
 	assistantClient.RouterVectorStore = a.VectorStore
+	// The memory settings go where POST /api/settings sends them.
+	assistantClient.MemorySettings = a.UpdateMemorySettings
 	// Failover chains: failoverManager does not exist yet at this point
 	// in startup (New() in startup.go builds it after start() returns),
 	// so it can't be wired here like the fields above. New() sets

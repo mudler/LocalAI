@@ -17,6 +17,7 @@ import (
 
 var (
 	totalAvailableVRAM  = xsysinfo.TotalAvailableVRAM
+	hasUnifiedMemory    = xsysinfo.HasUnifiedMemory
 	getGPUAggregateInfo = xsysinfo.GetGPUAggregateInfo
 	getSystemRAMInfo    = xsysinfo.GetSystemRAMInfo
 	getCPUInfo          = xsysinfo.GetCPUInfo
@@ -219,6 +220,10 @@ func (cfg *Config) registrationBody() map[string]any {
 	if cfg.VRAMBudget != "" {
 		body["vram_budget"] = cfg.VRAMBudget
 	}
+	cfg.addMemoryLimits(body)
+	if hasUnifiedMemory() {
+		body["unified_memory"] = true
+	}
 
 	// Report system RAM independently from VRAM so both discrete-GPU and
 	// unified-memory workers expose the capacity visible to the host.
@@ -300,4 +305,30 @@ func (cfg *Config) heartbeatBody() map[string]any {
 		body["cpu_load_1"] = cpuInfo.Load1
 	}
 	return body
+}
+
+// addMemoryLimits reports the memory settings the worker's env sets. A value
+// that does not parse is left out with a warning: the cluster value applies.
+func (cfg *Config) addMemoryLimits(body map[string]any) {
+	if v := strings.TrimSpace(cfg.MaxActiveBackends); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			body["max_active_backends"] = n
+		} else {
+			xlog.Warn("Ignoring LOCALAI_MAX_ACTIVE_BACKENDS: not a whole number of 0 or more", "value", v)
+		}
+	}
+	if v := strings.TrimSpace(cfg.ModelSwap); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			body["model_swap"] = b
+		} else {
+			xlog.Warn("Ignoring LOCALAI_MODEL_SWAP: not true or false", "value", v)
+		}
+	}
+	if v := strings.TrimSpace(cfg.MemoryReclaimerThreshold); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 && f <= 1 {
+			body["memory_reclaimer_threshold"] = f
+		} else {
+			xlog.Warn("Ignoring LOCALAI_MEMORY_RECLAIMER_THRESHOLD: not a number in (0, 1]", "value", v)
+		}
+	}
 }

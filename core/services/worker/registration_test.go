@@ -60,6 +60,25 @@ var _ = Describe("Worker registration body", func() {
 		}
 	})
 
+	It("reports the memory settings its env sets, and nothing else", func() {
+		cfg := &Config{MaxActiveBackends: "2", ModelSwap: "false", MemoryReclaimerThreshold: "0.8"}
+		body := cfg.registrationBody()
+		Expect(body["max_active_backends"]).To(Equal(2))
+		Expect(body["model_swap"]).To(Equal(false))
+		Expect(body["memory_reclaimer_threshold"]).To(Equal(0.8))
+
+		body = (&Config{}).registrationBody()
+		Expect(body).ToNot(HaveKey("max_active_backends"))
+		Expect(body).ToNot(HaveKey("model_swap"))
+		Expect(body).ToNot(HaveKey("memory_reclaimer_threshold"))
+	})
+
+	It("drops a memory setting it cannot read", func() {
+		body := (&Config{MaxActiveBackends: "many", ModelSwap: "perhaps"}).registrationBody()
+		Expect(body).ToNot(HaveKey("max_active_backends"))
+		Expect(body).ToNot(HaveKey("model_swap"))
+	})
+
 	It("includes the VRAM budget in the registration body when set", func() {
 		cfg := &Config{VRAMBudget: "80%"}
 		body := cfg.registrationBody()

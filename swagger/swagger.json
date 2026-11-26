@@ -16935,6 +16935,115 @@
                 }
             }
         },
+        "/api/nodes/{id}/limits": {
+            "get": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Read a node's effective memory limits",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/nodes.EffectiveLimits"
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Sets max_active_backends (models kept loaded on the node, 0 = no limit), vram_budget (\"80%\" or \"12GB\"; empty clears that override), memory_reclaimer_threshold (0 to 1) and model_swap for one node. A key left out keeps its value. Returns the effective limits. Admin only.",
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Override a node's memory limits",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "overrides to set",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/nodes.NodeLimits"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/nodes.EffectiveLimits"
+                        }
+                    },
+                    "400": {
+                        "description": "invalid value",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Clear a node's memory limit overrides",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/nodes.EffectiveLimits"
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/nodes/{id}/max-replicas-per-model": {
             "put": {
                 "tags": [
@@ -29239,6 +29348,49 @@
                     "type": "string"
                 },
                 "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "nodes.EffectiveLimits": {
+            "type": "object",
+            "properties": {
+                "max_active_backends": {
+                    "type": "integer"
+                },
+                "memory_reclaimer_enabled": {
+                    "type": "boolean"
+                },
+                "memory_reclaimer_threshold": {
+                    "type": "number"
+                },
+                "model_swap": {
+                    "type": "boolean"
+                },
+                "sources": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "vram_budget": {
+                    "type": "string"
+                }
+            }
+        },
+        "nodes.NodeLimits": {
+            "type": "object",
+            "properties": {
+                "max_active_backends": {
+                    "type": "integer"
+                },
+                "memory_reclaimer_threshold": {
+                    "type": "number"
+                },
+                "model_swap": {
+                    "type": "boolean"
+                },
+                "vram_budget": {
                     "type": "string"
                 }
             }

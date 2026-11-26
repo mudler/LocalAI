@@ -70,7 +70,9 @@ var _ = Describe("Node VRAM budget", func() {
 		Expect(registry.Heartbeat(ctx, id, &HeartbeatUpdate{AvailableVRAM: &avail})).To(Succeed())
 		node, err := registry.Get(ctx, id)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(node.AvailableVRAM).To(Equal(8 * gb)) // reported 15GB capped to 8GB budget
+		// The budget keeps 16-8 = 8GB out of reach, and 1GB is already in use:
+		// 15GB free reported leaves 7GB inside the budget.
+		Expect(node.AvailableVRAM).To(Equal(7 * gb))
 	})
 
 	It("preserves an admin override across worker re-registration", func(ctx SpecContext) {

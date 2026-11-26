@@ -2,10 +2,12 @@ package application
 
 import (
 	"context"
+	"errors"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/clustersettings"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/xlog"
 )
 
@@ -55,7 +57,22 @@ func (a *Application) StartClusterSettings(ctx context.Context, bus messaging.Br
 		xlog.Info("Stored this frontend's memory settings from the environment as the cluster settings")
 	}
 	a.clusterSettings = svc
+	if a.distributed != nil && a.distributed.Registry != nil {
+		a.distributed.Registry.SetMemoryPolicy(a.ClusterMemoryPolicy)
+	}
 	return nil
+}
+
+// ClusterMemoryPolicy is the memory policy the workers of the cluster run
+// with, before per-node values: the memory settings in force on this
+// frontend, which in distributed mode are the stored cluster settings.
+func (a *Application) ClusterMemoryPolicy() nodes.MemoryPolicy {
+	var stated []string
+	if a.clusterSettings != nil {
+		doc, _ := a.clusterSettings.Memory()
+		stated = doc.SetKeys()
+	}
+	return nodes.MemoryPolicyFromConfig(a.ApplicationConfig(), stated)
 }
 
 func (a *Application) stopClusterSettings() {
@@ -89,4 +106,35 @@ func (a *Application) applyClusterMemorySettings(rs config.RuntimeSettings) {
 	if err != nil {
 		xlog.Error("applying the cluster memory settings to the watchdog", "error", err)
 	}
+}
+
+// UpdateMemorySettings stores and applies memory settings (only the memory
+// keys of patch): in the cluster store in distributed mode, in this
+// frontend's runtime_settings.json otherwise. It is the path of the
+// assistant tool; POST /api/settings does the same in its own handler.
+func (a *Application) UpdateMemorySettings(ctx context.Context, patch config.RuntimeSettings, by string) error {
+	patch, _ = config.SplitMemorySettings(patch)
+	if patch.IsEmpty() {
+		return errors.New("no memory setting to change")
+	}
+	if err := config.ValidateMemorySettings(patch); err != nil {
+		return err
+	}
+	if a.clusterSettings != nil {
+		_, _, err := a.clusterSettings.UpdateMemory(ctx, patch, nil, by)
+		return err
+	}
+	cfg := a.ApplicationConfig()
+	if cfg.DynamicConfigsDir != "" {
+		persisted, err := cfg.ReadPersistedSettings()
+		if err != nil {
+			return err
+		}
+		persisted.MergeNonNil(patch)
+		if err := cfg.WritePersistedSettings(persisted); err != nil {
+			return err
+		}
+	}
+	a.applyClusterMemorySettings(patch)
+	return nil
 }

@@ -36,3 +36,15 @@ var _ = Describe("memory settings split", func() {
 		Expect(config.EnvMemorySettings(config.DefaultRuntimeBaseline()).IsEmpty()).To(BeTrue())
 	})
 })
+
+var _ = Describe("memory settings validation", func() {
+	It("refuses what the server would ignore", func() {
+		bad, neg, high := "soon", -1, 1.5
+		Expect(config.ValidateMemorySettings(config.RuntimeSettings{WatchdogIdleTimeout: &bad})).ToNot(Succeed())
+		Expect(config.ValidateMemorySettings(config.RuntimeSettings{MaxActiveBackends: &neg})).ToNot(Succeed())
+		Expect(config.ValidateMemorySettings(config.RuntimeSettings{MemoryReclaimerThreshold: &high})).ToNot(Succeed())
+		Expect(config.ValidateMemorySettings(config.RuntimeSettings{VRAMBudget: &bad})).ToNot(Succeed())
+		ok, empty := "10m", ""
+		Expect(config.ValidateMemorySettings(config.RuntimeSettings{WatchdogIdleTimeout: &ok, VRAMBudget: &empty})).To(Succeed())
+	})
+})

@@ -96,6 +96,13 @@ type Config struct {
 	// enforces it against the raw VRAM this worker reports. Empty = no cap.
 	VRAMBudget string `env:"LOCALAI_VRAM_BUDGET" help:"Cap VRAM used for model allocation on this worker node, as a percentage (e.g. 80%) or absolute amount (e.g. 12GB)." group:"registration"`
 
+	// The memory settings of this node. Each one, when set, wins over the
+	// cluster value of Settings > Models in memory for this node; an admin
+	// override on the Nodes page wins over it. Empty: the cluster value.
+	MaxActiveBackends        string `env:"LOCALAI_MAX_ACTIVE_BACKENDS" help:"Models kept loaded on this node (0 = no limit). Empty uses the cluster setting." group:"registration"`
+	ModelSwap                string `env:"LOCALAI_MODEL_SWAP" help:"true or false: unload the least recently used idle model on this node to make room for another. Empty uses the cluster setting." group:"registration"`
+	MemoryReclaimerThreshold string `env:"LOCALAI_MEMORY_RECLAIMER_THRESHOLD" help:"Memory use (0 to 1) above which idle models on this node are unloaded. Empty uses the cluster setting." group:"registration"`
+
 	// Routes are the ways this worker reaches the cluster. Empty derives them
 	// from the other flags (see routes).
 	Routes []string `env:"LOCALAI_WORKER_ROUTES" help:"Routes this worker holds to the cluster, comma separated: nats, tunnel or both. Default: nats when a NATS URL is set (never with --join), and the tunnel to the frontend (a websocket, or P2P with --join)" group:"registration"`

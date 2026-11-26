@@ -371,6 +371,16 @@ func (f *fakeClient) DeleteScheduling(_ context.Context, modelName string) error
 	return nil
 }
 
+func (f *fakeClient) SetNodeLimits(_ context.Context, req SetNodeLimitsRequest) (*NodeLimits, error) {
+	f.record("SetNodeLimits", req)
+	return &NodeLimits{NodeID: req.NodeID}, nil
+}
+
+func (f *fakeClient) SetModelMemoryPolicy(_ context.Context, req ModelMemoryPolicy) error {
+	f.record("SetModelMemoryPolicy", req)
+	return nil
+}
+
 func (f *fakeClient) SetNodeVRAMBudget(_ context.Context, nodeID, budget string) error {
 	f.record("SetNodeVRAMBudget", []any{nodeID, budget})
 	if f.setNodeVRAMBudget != nil {

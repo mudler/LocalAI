@@ -306,6 +306,18 @@ func DetectGPUVendor() (string, error) {
 	return "", nil
 }
 
+// HasUnifiedMemory reports whether a GPU of this host shares the system
+// memory (a GB10, a Thor, or Apple silicon). On such a host the GPU and the
+// system draw from one pool, so filling it starves the host too.
+func HasUnifiedMemory() bool {
+	for _, g := range GetGPUMemoryUsage() {
+		if g.Vendor == VendorApple || isUnifiedMemoryDevice(g.Name) {
+			return true
+		}
+	}
+	return false
+}
+
 // isUnifiedMemoryDevice checks if the given GPU name matches any known unified memory device
 func isUnifiedMemoryDevice(gpuName string) bool {
 	gpuNameUpper := strings.ToUpper(gpuName)

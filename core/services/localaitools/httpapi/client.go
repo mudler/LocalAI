@@ -857,6 +857,41 @@ func (c *Client) SetNodeVRAMBudget(ctx context.Context, nodeID, budget string) e
 	return c.do(ctx, http.MethodPut, routeNodeVRAMBudget(nodeID), body, nil)
 }
 
+// SetNodeLimits sends PUT /api/nodes/:id/limits, or DELETE with Reset.
+func (c *Client) SetNodeLimits(ctx context.Context, req localaitools.SetNodeLimitsRequest) (*localaitools.NodeLimits, error) {
+	var out localaitools.NodeLimits
+	var err error
+	if req.Reset {
+		err = c.do(ctx, http.MethodDelete, routeNodeLimits(req.NodeID), nil, &out)
+	} else {
+		body := map[string]any{}
+		if req.MaxActiveBackends != nil {
+			body["max_active_backends"] = *req.MaxActiveBackends
+		}
+		if req.VRAMBudget != nil {
+			body["vram_budget"] = *req.VRAMBudget
+		}
+		if req.MemoryReclaimerThreshold != nil {
+			body["memory_reclaimer_threshold"] = *req.MemoryReclaimerThreshold
+		}
+		if req.ModelSwap != nil {
+			body["model_swap"] = *req.ModelSwap
+		}
+		err = c.do(ctx, http.MethodPut, routeNodeLimits(req.NodeID), body, &out)
+	}
+	if err != nil {
+		return nil, err
+	}
+	out.NodeID = req.NodeID
+	return &out, nil
+}
+
+// SetModelMemoryPolicy sends the memory settings to POST /api/settings,
+// which keeps their names.
+func (c *Client) SetModelMemoryPolicy(ctx context.Context, req localaitools.ModelMemoryPolicy) error {
+	return c.do(ctx, http.MethodPost, routeSettings, req, nil)
+}
+
 func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimateRequest) (*vram.EstimateResult, error) {
 	body := map[string]any{"model": req.ModelName}
 	if req.ContextSize > 0 {

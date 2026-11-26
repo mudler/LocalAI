@@ -88,6 +88,11 @@ type Client struct {
 	// the REST routes use (not installed, no update), or nil for none. Read at
 	// each call: the update checker starts after the client.
 	BackendUpgradeGuard func() *backendupdates.UpgradeGuard
+	// MemorySettings stores and applies memory settings like POST
+	// /api/settings does: to the cluster store in distributed mode, to
+	// runtime_settings.json otherwise. nil makes set_model_memory_policy
+	// report it unavailable.
+	MemorySettings func(ctx context.Context, patch config.RuntimeSettings, by string) error
 
 	// FallbackUser is the identity of a call whose context carries no user
 	// (see localaitools.WithUser), and only when SingleUser is set. With
@@ -1073,6 +1078,56 @@ func (c *Client) SetNodeVRAMBudget(_ context.Context, _, _ string) error {
 	// empty node list from ListNodes). Report it as unavailable rather than
 	// silently succeeding so the assistant tells the admin the truth.
 	return errors.New("per-node VRAM budgets are only available in distributed mode")
+}
+
+func (c *Client) SetNodeLimits(ctx context.Context, req localaitools.SetNodeLimitsRequest) (*localaitools.NodeLimits, error) {
+	if c.NodeRegistry == nil {
+		return nil, errors.New("per-node limits are only available in distributed mode")
+	}
+	var err error
+	if req.Reset {
+		err = c.NodeRegistry.ResetNodeLimits(ctx, req.NodeID)
+	} else {
+		err = c.NodeRegistry.SetNodeLimits(ctx, req.NodeID, nodes.NodeLimits{
+			MaxActiveBackends:        req.MaxActiveBackends,
+			VRAMBudget:               req.VRAMBudget,
+			MemoryReclaimerThreshold: req.MemoryReclaimerThreshold,
+			ModelSwap:                req.ModelSwap,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	n, err := c.NodeRegistry.Get(ctx, req.NodeID)
+	if err != nil {
+		return nil, err
+	}
+	l := c.NodeRegistry.NodePolicy(n).Limits()
+	return &localaitools.NodeLimits{
+		NodeID: req.NodeID, MaxActiveBackends: l.MaxActiveBackends, VRAMBudget: l.VRAMBudget,
+		MemoryReclaimerEnabled: l.MemoryReclaimerEnabled, MemoryReclaimerThreshold: l.MemoryReclaimerThreshold,
+		ModelSwap: l.ModelSwap, Sources: l.Sources,
+	}, nil
+}
+
+func (c *Client) SetModelMemoryPolicy(ctx context.Context, req localaitools.ModelMemoryPolicy) error {
+	if c.MemorySettings == nil {
+		return errors.New("the memory settings are unavailable")
+	}
+	// The DTO uses the setting names, so it maps onto the runtime settings.
+	b, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	var patch config.RuntimeSettings
+	if err := json.Unmarshal(b, &patch); err != nil {
+		return err
+	}
+	by := "assistant"
+	if u := localaitools.UserFromContext(ctx); u != nil && u.Email != "" {
+		by = u.Email
+	}
+	return c.MemorySettings(ctx, patch, by)
 }
 
 func (c *Client) ParseEngineCommand(_ context.Context, engine, command string) (*enginesettings.ParseResult, error) {

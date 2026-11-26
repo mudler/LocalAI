@@ -45,4 +45,28 @@ func registerSystemTools(s *mcp.Server, client LocalAIClient, opts Options) {
 		}
 		return jsonResult(map[string]string{"node_id": args.NodeID, "vram_budget": args.Budget}), nil, nil
 	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        ToolSetNodeLimits,
+		Description: "Override the memory settings of one node (models kept loaded, GPU memory budget, memory threshold, model swap), or clear every override with reset. Returns the values in force and their source. Only meaningful in distributed mode. Requires user confirmation per safety rule 1.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args SetNodeLimitsRequest) (*mcp.CallToolResult, any, error) {
+		if args.NodeID == "" {
+			return errorResultf("node_id is required"), nil, nil
+		}
+		limits, err := client.SetNodeLimits(ctx, args)
+		if err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(limits), nil, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        ToolSetModelMemoryPolicy,
+		Description: "Change Settings > Models in memory: models kept loaded, model swap, eviction order and retries, idle unload, the memory reclaimer and the GPU memory budget. Only the given fields change. In distributed mode the values apply to every frontend and, per node, to every worker. Requires user confirmation per safety rule 1.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args ModelMemoryPolicy) (*mcp.CallToolResult, any, error) {
+		if err := client.SetModelMemoryPolicy(ctx, args); err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(map[string]any{"updated": args}), nil, nil
+	})
 }

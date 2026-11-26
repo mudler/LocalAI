@@ -225,6 +225,46 @@ type SetNodeVRAMBudgetRequest struct {
 	Budget string `json:"budget,omitempty" jsonschema:"VRAM allocation cap as a percentage (e.g. 80%) or absolute amount (e.g. 12GB). Empty string clears the override."`
 }
 
+// SetNodeLimitsRequest is the input for set_node_limits. Each field that is
+// set becomes an admin override for the node; Reset clears every override
+// so the worker's env and the cluster settings apply again.
+type SetNodeLimitsRequest struct {
+	NodeID                   string   `json:"node_id" jsonschema:"The node id (from list_nodes)."`
+	MaxActiveBackends        *int     `json:"max_active_backends,omitempty" jsonschema:"Models kept loaded on the node; 0 means no limit."`
+	VRAMBudget               *string  `json:"vram_budget,omitempty" jsonschema:"GPU memory budget of the node, e.g. 80% or 12GB; empty string clears this override."`
+	MemoryReclaimerThreshold *float64 `json:"memory_reclaimer_threshold,omitempty" jsonschema:"Memory use from 0 to 1 above which idle models on the node are unloaded."`
+	ModelSwap                *bool    `json:"model_swap,omitempty" jsonschema:"Whether the node may unload an idle model to make room for another."`
+	Reset                    bool     `json:"reset,omitempty" jsonschema:"Clear every override of the node instead of setting values."`
+}
+
+// NodeLimits is the effective memory limits of a node, and the source of
+// each value: override, worker, cluster or default.
+type NodeLimits struct {
+	NodeID                   string            `json:"node_id"`
+	MaxActiveBackends        int               `json:"max_active_backends"`
+	VRAMBudget               string            `json:"vram_budget"`
+	MemoryReclaimerEnabled   bool              `json:"memory_reclaimer_enabled"`
+	MemoryReclaimerThreshold float64           `json:"memory_reclaimer_threshold"`
+	ModelSwap                bool              `json:"model_swap"`
+	Sources                  map[string]string `json:"sources"`
+}
+
+// ModelMemoryPolicy is the input for set_model_memory_policy: the memory
+// settings to change. A field left out keeps its value.
+type ModelMemoryPolicy struct {
+	MaxActiveBackends        *int     `json:"max_active_backends,omitempty" jsonschema:"Models kept loaded (per node in distributed mode); 0 means no limit."`
+	ModelSwap                *bool    `json:"model_swap,omitempty" jsonschema:"Unload the least recently used idle model to make room for another. Off: the request waits, then gets a 503 with Retry-After."`
+	SizeAwareEviction        *bool    `json:"size_aware_eviction,omitempty" jsonschema:"Unload the largest model first instead of the least recently used."`
+	ForceEvictionWhenBusy    *bool    `json:"force_eviction_when_busy,omitempty" jsonschema:"Also unload models that are serving requests. Interrupts those requests."`
+	LRUEvictionMaxRetries    *int     `json:"lru_eviction_max_retries,omitempty" jsonschema:"How many times a load waits for a busy model to become idle."`
+	LRUEvictionRetryInterval *string  `json:"lru_eviction_retry_interval,omitempty" jsonschema:"The wait between those tries, e.g. 1s."`
+	WatchdogIdleEnabled      *bool    `json:"watchdog_idle_enabled,omitempty" jsonschema:"Unload models that stay idle longer than watchdog_idle_timeout."`
+	WatchdogIdleTimeout      *string  `json:"watchdog_idle_timeout,omitempty" jsonschema:"Idle time before a model is unloaded, e.g. 15m."`
+	MemoryReclaimerEnabled   *bool    `json:"memory_reclaimer_enabled,omitempty" jsonschema:"Unload idle models when memory use passes memory_reclaimer_threshold."`
+	MemoryReclaimerThreshold *float64 `json:"memory_reclaimer_threshold,omitempty" jsonschema:"Memory use from 0 to 1, e.g. 0.9."`
+	VRAMBudget               *string  `json:"vram_budget,omitempty" jsonschema:"GPU memory budget, e.g. 80% or 12GB (on each worker node in distributed mode); empty string removes it."`
+}
+
 // ModelSchedulingConfig is the MCP wire shape for one per-model distributed
 // scheduling rule. Keep this DTO explicit instead of aliasing the node-registry
 // model so the MCP contract only exposes operator-facing scheduling fields.

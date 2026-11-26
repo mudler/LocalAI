@@ -1233,3 +1233,46 @@ var _ = Describe("Model updates", func() {
 		Expect(err).To(MatchError(ContainSubstring("context_size")))
 	})
 })
+
+var _ = Describe("Memory settings", func() {
+	It("sets and resets the limits of a node on /api/nodes/:id/limits", func() {
+		var method string
+		var body map[string]any
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			Expect(r.URL.Path).To(Equal("/api/nodes/n1/limits"))
+			method = r.Method
+			body = nil
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			_, _ = w.Write([]byte(`{"max_active_backends":1,"model_swap":false,"sources":{"max_active_backends":"override"}}`))
+		}))
+		DeferCleanup(srv.Close)
+		c := New(srv.URL, "")
+		one, off := 1, false
+
+		got, err := c.SetNodeLimits(context.Background(), localaitools.SetNodeLimitsRequest{NodeID: "n1", MaxActiveBackends: &one, ModelSwap: &off})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(method).To(Equal(http.MethodPut))
+		Expect(body).To(Equal(map[string]any{"max_active_backends": float64(1), "model_swap": false}))
+		Expect(got.NodeID).To(Equal("n1"))
+		Expect(got.Sources).To(HaveKeyWithValue("max_active_backends", "override"))
+
+		_, err = c.SetNodeLimits(context.Background(), localaitools.SetNodeLimitsRequest{NodeID: "n1", Reset: true})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(method).To(Equal(http.MethodDelete))
+	})
+
+	It("sends the memory policy to /api/settings with the setting names", func() {
+		var body map[string]any
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			Expect(r.Method).To(Equal(http.MethodPost))
+			Expect(r.URL.Path).To(Equal("/api/settings"))
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			_, _ = w.Write([]byte(`{"success":true}`))
+		}))
+		DeferCleanup(srv.Close)
+		off, two := false, 2
+
+		Expect(New(srv.URL, "").SetModelMemoryPolicy(context.Background(), localaitools.ModelMemoryPolicy{ModelSwap: &off, MaxActiveBackends: &two})).To(Succeed())
+		Expect(body).To(Equal(map[string]any{"model_swap": false, "max_active_backends": float64(2)}))
+	})
+})

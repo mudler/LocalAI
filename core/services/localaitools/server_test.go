@@ -238,6 +238,8 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolSetP2PSplitSlowPath, map[string]any{"id": "w1", "allow": true}, "SetP2PSplitSlowPath"},
 		{ToolSetP2PSplitNode, map[string]any{"id": "w1", "node_id": "n1"}, "SetP2PSplitNode"},
 		{ToolSetNodeSplitServer, map[string]any{"node_id": "n1", "split_server": true}, "SetNodeSplitServer"},
+		{ToolSetNodeLimits, map[string]any{"node_id": "n1", "model_swap": false}, "SetNodeLimits"},
+		{ToolSetModelMemoryPolicy, map[string]any{"model_swap": false, "max_active_backends": 2}, "SetModelMemoryPolicy"},
 		{ToolGenerateImage, GenerateImageRequest{Prompt: "a fox"}, "GenerateImage"},
 		{ToolGenerateImage, GenerateImageToolInput{Prompt: "a hat", Image: "a.png", Mask: "m.png"}, "EditImage"},
 		{ToolSpeak, SpeakRequest{Text: "hello"}, "Speak"},

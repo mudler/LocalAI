@@ -76,6 +76,8 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `set_shared_folder_member` — Give a user (ID, email or name) or `@everyone` `read` or `write` access to a shared folder, or change it.
 - `remove_shared_folder_member` — Take a member's access to a shared folder away.
 - `set_node_vram_budget` — Set or clear a federated node's VRAM budget override.
+- `set_node_limits` — Override one node's memory settings (models kept loaded, GPU budget, threshold, model swap), or reset them.
+- `set_model_memory_policy` — Change Settings > Models in memory (model limit, model swap, eviction, idle unload, reclaimer, GPU budget).
 - `set_scheduling` — Create or update a distributed per-model scheduling config.
 - `delete_scheduling` — Remove a distributed per-model scheduling config.
 - `pin_failover_target` — Force a failover chain to one target.

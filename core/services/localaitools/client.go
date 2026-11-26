@@ -133,6 +133,13 @@ type LocalAIClient interface {
 	// node's VRAM allocation cap as a sticky admin override. Only meaningful
 	// in distributed mode; single-process clients report it as unavailable.
 	SetNodeVRAMBudget(ctx context.Context, nodeID, budget string) error
+	// SetNodeLimits sets the per-node overrides of the memory settings, or
+	// with Reset clears all of them, and returns the effective limits.
+	// Only meaningful in distributed mode.
+	SetNodeLimits(ctx context.Context, req SetNodeLimitsRequest) (*NodeLimits, error)
+	// SetModelMemoryPolicy changes the memory settings (Settings > Models in
+	// memory). In distributed mode they apply to every frontend and node.
+	SetModelMemoryPolicy(ctx context.Context, req ModelMemoryPolicy) error
 	VRAMEstimate(ctx context.Context, req VRAMEstimateRequest) (*vram.EstimateResult, error)
 	// ParseEngineCommand reads a pasted command line of an engine (for
 	// example llama-cpp) into model config keys. It only tokenises the text;

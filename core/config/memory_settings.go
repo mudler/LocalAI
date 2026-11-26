@@ -1,9 +1,13 @@
 package config
 
 import (
+	"fmt"
 	"reflect"
 	"slices"
 	"strings"
+	"time"
+
+	"github.com/mudler/LocalAI/pkg/vrambudget"
 )
 
 // MemorySettingKeys are the runtime settings that decide which models stay
@@ -81,4 +85,34 @@ func EnvMemorySettings(o *ApplicationConfig) RuntimeSettings {
 		}
 	}
 	return out
+}
+
+// ValidateMemorySettings checks the memory settings of s the way POST
+// /api/settings does, so a value the server would ignore is refused.
+func ValidateMemorySettings(s RuntimeSettings) error {
+	for name, d := range map[string]*string{
+		"watchdog_idle_timeout": s.WatchdogIdleTimeout, "watchdog_busy_timeout": s.WatchdogBusyTimeout,
+		"watchdog_interval": s.WatchdogInterval, "lru_eviction_retry_interval": s.LRUEvictionRetryInterval,
+	} {
+		if d != nil {
+			if _, err := time.ParseDuration(*d); err != nil {
+				return fmt.Errorf("invalid %s: %w", name, err)
+			}
+		}
+	}
+	if s.MaxActiveBackends != nil && *s.MaxActiveBackends < 0 {
+		return fmt.Errorf("max_active_backends must be 0 (no limit) or more")
+	}
+	if s.LRUEvictionMaxRetries != nil && *s.LRUEvictionMaxRetries < 0 {
+		return fmt.Errorf("lru_eviction_max_retries must be 0 or more")
+	}
+	if s.MemoryReclaimerThreshold != nil && (*s.MemoryReclaimerThreshold <= 0 || *s.MemoryReclaimerThreshold > 1) {
+		return fmt.Errorf("memory_reclaimer_threshold must be in (0, 1]")
+	}
+	if s.VRAMBudget != nil && *s.VRAMBudget != "" {
+		if _, err := vrambudget.Parse(*s.VRAMBudget); err != nil {
+			return fmt.Errorf("invalid vram_budget: %w", err)
+		}
+	}
+	return nil
 }

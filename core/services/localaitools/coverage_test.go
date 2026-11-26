@@ -96,6 +96,8 @@ var toolToHTTPRoute = map[string]string{
 	ToolSetSharedFolderMember:    "PUT /api/chats/admin/shared-folders/:id/members/:principal",
 	ToolRemoveSharedFolderMember: "DELETE /api/chats/admin/shared-folders/:id/members/:principal",
 	ToolSetNodeVRAMBudget:        "PUT /api/nodes/:id/vram-budget",
+	ToolSetNodeLimits:            "PUT /api/nodes/:id/limits (values), DELETE /api/nodes/:id/limits (reset)",
+	ToolSetModelMemoryPolicy:     "POST /api/settings (max_active_backends, model_swap, size_aware_eviction, force_eviction_when_busy, lru_eviction_*, watchdog_idle_*, memory_reclaimer_*, vram_budget)",
 	ToolSetScheduling:            "POST /api/nodes/scheduling",
 	ToolDeleteScheduling:         "DELETE /api/nodes/scheduling/:model",
 	ToolPinFailoverTarget:        "POST /api/failover/:chain/pin",
@@ -238,6 +240,7 @@ var adminRoutesWithoutTool = map[string]string{
 	"POST /api/settings (chats_suggestions)":          "the default of each user's own choice of assistant offers: set in Settings > Agents",
 	"POST /api/settings (chats_vision_model)":         "the helper model of describe_image: set in Settings > Agents, with the model picker",
 	"POST /api/settings (chats_transcription_model)":  "the helper model of transcribe_audio: set in Settings > Agents, with the model picker",
+	"GET /api/nodes/:id/limits":                       "the effective limits of a node: set_node_limits returns them after a change; read on the Nodes page",
 }
 
 // allKnownTools is the union of expectedFullCatalog (defined in

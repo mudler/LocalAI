@@ -111,6 +111,10 @@ func routeNodeSplitServer(id string) string {
 	return "/api/nodes/" + url.PathEscape(id) + "/split-server"
 }
 
+func routeNodeLimits(id string) string {
+	return "/api/nodes/" + url.PathEscape(id) + "/limits"
+}
+
 func routeNodeVRAMBudget(id string) string {
 	return "/api/nodes/" + url.PathEscape(id) + "/vram-budget"
 }

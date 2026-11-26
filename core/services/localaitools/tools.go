@@ -69,8 +69,14 @@ const (
 	ToolSetSharedFolderMember    = "set_shared_folder_member"
 	ToolRemoveSharedFolderMember = "remove_shared_folder_member"
 	ToolSetNodeVRAMBudget        = "set_node_vram_budget"
-	ToolSetScheduling            = "set_scheduling"
-	ToolDeleteScheduling         = "delete_scheduling"
+	// ToolSetNodeLimits sets or clears the per-node overrides of the memory
+	// settings (models kept loaded, VRAM budget, threshold, model swap).
+	ToolSetNodeLimits = "set_node_limits"
+	// ToolSetModelMemoryPolicy changes Settings > Models in memory: the
+	// model limit, model swap, eviction, idle unload and the reclaimer.
+	ToolSetModelMemoryPolicy = "set_model_memory_policy"
+	ToolSetScheduling        = "set_scheduling"
+	ToolDeleteScheduling     = "delete_scheduling"
 	// ToolPinFailoverTarget and ToolUnpinFailoverTarget live here (rather
 	// than grouped with ToolListFailoverChains below) so mutatingToolNames
 	// stays a contiguous scan of this block.
@@ -153,6 +159,8 @@ var mutatingToolNames = []string{
 	ToolSetSharedFolderMember,
 	ToolRemoveSharedFolderMember,
 	ToolSetNodeVRAMBudget,
+	ToolSetNodeLimits,
+	ToolSetModelMemoryPolicy,
 	ToolSetScheduling,
 	ToolDeleteScheduling,
 	ToolPinFailoverTarget,

@@ -123,6 +123,14 @@ type BackendNode struct {
 	// worker's re-registration value does not clobber it (mirrors
 	// MaxReplicasPerModelManuallySet).
 	VRAMBudgetManuallySet bool `gorm:"column:vram_budget_manually_set;default:false" json:"vram_budget_manually_set"`
+	// LimitsWorker are the memory settings the worker's env set (NodeLimits
+	// as JSON), stored at registration. LimitsOverride are the ones an admin
+	// set for this node, sticky across worker restarts. See node_limits.go.
+	LimitsWorker   string `gorm:"column:limits_worker;type:text" json:"limits_worker,omitempty"`
+	LimitsOverride string `gorm:"column:limits_override;type:text" json:"limits_override,omitempty"`
+	// UnifiedMemory is reported by a worker whose GPU shares the system
+	// memory (for example a GB10 or Apple silicon).
+	UnifiedMemory bool `gorm:"column:unified_memory;default:false" json:"unified_memory,omitempty"`
 	// Version is the LocalAI build version reported by the worker at
 	// registration. Empty for workers registered before this field existed.
 	Version string `gorm:"column:version;size:64" json:"version,omitempty"`
@@ -192,6 +200,8 @@ const (
 	ColMaxReplicasPerModel = "max_replicas_per_model"
 	ColVRAMBudget          = "vram_budget"
 	ColVRAMBudgetBytes     = "vram_budget_bytes"
+	ColLimitsWorker        = "limits_worker"
+	ColLimitsOverride      = "limits_override"
 )
 
 var (
@@ -550,6 +560,10 @@ type NodeRegistry struct {
 	// startup wiring writes it while request handling reads it.
 	aliasResolver atomic.Pointer[AliasResolver]
 
+	// memoryPolicy reads the cluster memory settings (see node_limits.go);
+	// nil means DefaultMemoryPolicy.
+	memoryPolicy atomic.Pointer[MemoryPolicySource]
+
 	// heartbeatCheckpoint bounds how often a beat that carries only a fresher
 	// timestamp reaches the database. Zero writes every beat.
 	heartbeatCheckpoint time.Duration
@@ -639,6 +653,8 @@ type heartbeatSnapshot struct {
 	// suppressed beat costs no query at all.
 	availableVRAM uint64
 	vramCeiling   uint64
+	// vramTotal is the raw total the ceiling was applied against.
+	vramTotal     uint64
 	availableRAM  uint64
 	availableDisk uint64
 	totalVRAM     uint64
@@ -758,14 +774,24 @@ func (r *NodeRegistry) ResolveVRAMBudgetBytesForTest(budget string, totalVRAM ui
 	return r.resolveVRAMBudgetBytes(budget, totalVRAM)
 }
 
-// capAvailable applies a node's resolved budget ceiling to a reported available
-// figure. ceilingBytes == 0 means no cap; otherwise the result is the smaller
-// of the two so the SQL scheduler never sees more free VRAM than the budget.
-func capAvailable(reported, ceilingBytes uint64) uint64 {
-	if ceilingBytes == 0 || reported <= ceilingBytes {
+// capAvailable applies a node's resolved budget ceiling to a reported free
+// VRAM figure. ceilingBytes == 0 means no cap. The budget keeps
+// total - ceiling of the node's memory out of reach, so the free VRAM the
+// scheduler may use is the reported free minus that reserve: a node with a
+// 12 GB budget on 24 GB that already uses 4 GB has 8 GB left, not 12.
+// Without a known total the ceiling is applied as a plain cap.
+func capAvailable(reported, ceilingBytes, totalBytes uint64) uint64 {
+	if ceilingBytes == 0 {
 		return reported
 	}
-	return ceilingBytes
+	if totalBytes == 0 || ceilingBytes >= totalBytes {
+		return min(reported, ceilingBytes)
+	}
+	reserve := totalBytes - ceilingBytes
+	if reported <= reserve {
+		return 0
+	}
+	return reported - reserve
 }
 
 // Register adds or updates a backend node.
@@ -822,16 +848,18 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 			node.SplitServerManuallySet = true
 		}
 		// Preserve an admin-set VRAM budget across worker re-registration;
-		// otherwise the worker-reported budget (wired in a later task) wins.
+		// otherwise the worker's budget, else the cluster default, applies.
 		if existing.VRAMBudgetManuallySet {
 			node.VRAMBudget = existing.VRAMBudget
 			node.VRAMBudgetManuallySet = true
+		} else {
+			node.VRAMBudget = r.effectiveVRAMBudget(node)
 		}
 		// Resolve the effective budget against the (possibly updated) raw total
 		// VRAM and cap the reported available so the SQL scheduler places against
 		// budgeted capacity. TotalVRAM is written raw.
 		node.VRAMBudgetBytes = r.resolveVRAMBudgetBytes(node.VRAMBudget, node.TotalVRAM)
-		node.AvailableVRAM = capAvailable(node.AvailableVRAM, node.VRAMBudgetBytes)
+		node.AvailableVRAM = capAvailable(node.AvailableVRAM, node.VRAMBudgetBytes, node.TotalVRAM)
 		if err := updateDB.Updates(node).Error; err != nil {
 			return fmt.Errorf("updating node %s: %w", node.Name, err)
 		}
@@ -852,6 +880,13 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 				return fmt.Errorf("clearing worker VRAM budget for node %s: %w", node.Name, err)
 			}
 		}
+		// The worker's limits and its memory kind are the worker's to report:
+		// write them even when empty or false, which Updates(struct) skips.
+		if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", node.ID).
+			Updates(map[string]any{ColLimitsWorker: node.LimitsWorker, "unified_memory": node.UnifiedMemory}).Error; err != nil {
+			return fmt.Errorf("recording the worker limits of node %s: %w", node.Name, err)
+		}
+		node.LimitsOverride = existing.LimitsOverride
 		// The start flag of the worker decides while the admin has not: write
 		// it even when false, which Updates(struct) above skips.
 		if !existing.SplitServerManuallySet {
@@ -925,10 +960,11 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 		} else {
 			node.Status = StatusPending
 		}
-		// Resolve a worker-reported budget (wired in a later task) against the
+		// Resolve the worker's budget, else the cluster default, against the
 		// node's raw total VRAM and cap the reported available accordingly.
+		node.VRAMBudget = r.effectiveVRAMBudget(node)
 		node.VRAMBudgetBytes = r.resolveVRAMBudgetBytes(node.VRAMBudget, node.TotalVRAM)
-		node.AvailableVRAM = capAvailable(node.AvailableVRAM, node.VRAMBudgetBytes)
+		node.AvailableVRAM = capAvailable(node.AvailableVRAM, node.VRAMBudgetBytes, node.TotalVRAM)
 		if err := r.db.WithContext(ctx).Create(node).Error; err != nil {
 			return fmt.Errorf("creating node %s: %w", node.Name, err)
 		}
@@ -1247,7 +1283,7 @@ func heartbeatMaterial(prev heartbeatSnapshot, update *HeartbeatUpdate) bool {
 	// while the persisted value never moves, so suppression is defeated on
 	// precisely the nodes that have a budget set.
 	if update.AvailableVRAM != nil &&
-		absDiff(capAvailable(*update.AvailableVRAM, prev.vramCeiling), prev.availableVRAM) > heartbeatMaterialDelta {
+		absDiff(capAvailable(*update.AvailableVRAM, prev.vramCeiling, prev.vramTotal), prev.availableVRAM) > heartbeatMaterialDelta {
 		return true
 	}
 	if update.AvailableRAM != nil && absDiff(*update.AvailableRAM, prev.availableRAM) > heartbeatMaterialDelta {
@@ -1263,7 +1299,7 @@ func heartbeatMaterial(prev heartbeatSnapshot, update *HeartbeatUpdate) bool {
 // beat compares like with like. ceiling is the VRAM budget the write resolved;
 // it is kept so the next beat can cap its own reading without re-reading the
 // column, and free VRAM is stored capped for the same reason the column is.
-func (r *NodeRegistry) recordHeartbeatWrite(nodeID string, update *HeartbeatUpdate, ceiling uint64) {
+func (r *NodeRegistry) recordHeartbeatWrite(nodeID string, update *HeartbeatUpdate, ceiling, total uint64) {
 	r.hbMu.Lock()
 	defer r.hbMu.Unlock()
 
@@ -1274,6 +1310,7 @@ func (r *NodeRegistry) recordHeartbeatWrite(nodeID string, update *HeartbeatUpda
 	next := r.hbLastWrite[nodeID]
 	next.writtenAt = time.Now()
 	next.vramCeiling = ceiling
+	next.vramTotal = total
 	if update != nil {
 		if update.GPUVendor != "" {
 			next.gpuVendor = update.GPUVendor
@@ -1285,7 +1322,7 @@ func (r *NodeRegistry) recordHeartbeatWrite(nodeID string, update *HeartbeatUpda
 			next.totalDisk = *update.TotalDisk
 		}
 		if update.AvailableVRAM != nil {
-			next.availableVRAM = capAvailable(*update.AvailableVRAM, ceiling)
+			next.availableVRAM = capAvailable(*update.AvailableVRAM, ceiling, next.vramTotal)
 		}
 		if update.AvailableRAM != nil {
 			next.availableRAM = *update.AvailableRAM
@@ -1393,15 +1430,17 @@ func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *Hea
 		ColLastHeartbeat: time.Now(),
 	}
 
-	var ceiling uint64
+	var ceiling, total uint64
 	if update != nil {
 		if update.AvailableVRAM != nil {
 			// Cap the reported available against the node's resolved budget
 			// ceiling (0 = none) so the SQL scheduler only ever sees budgeted
 			// capacity. TotalVRAM stays raw (written below).
-			db.Model(&BackendNode{}).
-				Select(ColVRAMBudgetBytes).Where("id = ?", nodeID).Scan(&ceiling)
-			updates[ColAvailableVRAM] = capAvailable(*update.AvailableVRAM, ceiling)
+			ceiling, total = r.vramCeiling(ctx, nodeID)
+			if update.TotalVRAM != nil {
+				total = *update.TotalVRAM
+			}
+			updates[ColAvailableVRAM] = capAvailable(*update.AvailableVRAM, ceiling, total)
 			// The worker is the source of truth for actual free VRAM.
 			// Whenever it sends us a fresh reading, the in-tick soft
 			// reservation is no longer needed — clear it. (See ReserveVRAM.)
@@ -1434,7 +1473,7 @@ func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *Hea
 
 	// Recorded with the ceiling this write actually resolved, so the snapshot
 	// and the column always measure the same quantity.
-	r.recordHeartbeatWrite(nodeID, update, ceiling)
+	r.recordHeartbeatWrite(nodeID, update, ceiling, total)
 
 	// Only update all fields (including status promotion) for active nodes.
 	// Pending and offline nodes must go through approval or re-registration.
@@ -2975,7 +3014,7 @@ func (r *NodeRegistry) UpdateVRAMBudget(ctx context.Context, nodeID, budget stri
 			ColVRAMBudget:              budget,
 			ColVRAMBudgetBytes:         ceiling,
 			"vram_budget_manually_set": true,
-			ColAvailableVRAM:           capAvailable(node.AvailableVRAM, ceiling),
+			ColAvailableVRAM:           capAvailable(uncapAvailable(node.AvailableVRAM, node.VRAMBudgetBytes, node.TotalVRAM), ceiling, node.TotalVRAM),
 		})
 	if res.Error != nil {
 		return fmt.Errorf("updating vram_budget on %s: %w", nodeID, res.Error)
@@ -2994,10 +3033,18 @@ func (r *NodeRegistry) UpdateVRAMBudget(ctx context.Context, nodeID, budget stri
 // ResetVRAMBudget clears the admin override and the resolved ceiling, handing
 // budget control back to the worker's reported budget on next register.
 func (r *NodeRegistry) ResetVRAMBudget(ctx context.Context, nodeID string) error {
+	node, err := r.Get(ctx, nodeID)
+	if err != nil {
+		return err
+	}
+	// The worker's budget, else the cluster default, applies again.
+	budget := r.effectiveVRAMBudget(&BackendNode{LimitsWorker: node.LimitsWorker})
+	ceiling := r.resolveVRAMBudgetBytes(budget, node.TotalVRAM)
 	res := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
 		Updates(map[string]any{
-			ColVRAMBudget:              "",
-			ColVRAMBudgetBytes:         0,
+			ColVRAMBudget:              budget,
+			ColVRAMBudgetBytes:         ceiling,
+			ColAvailableVRAM:           capAvailable(uncapAvailable(node.AvailableVRAM, node.VRAMBudgetBytes, node.TotalVRAM), ceiling, node.TotalVRAM),
 			"vram_budget_manually_set": false,
 		})
 	if res.Error != nil {
