@@ -132,7 +132,7 @@ LocalAI has more than 80 backends. Hardware acceleration covers NVIDIA (CUDA 12 
 
 ## Backends we build
 
-Most backends wrap an upstream engine such as llama.cpp or vLLM. We wrote 18 of them ourselves: native C, C++ and GGML engines with no Python at inference.
+Most backends wrap an upstream engine such as llama.cpp or vLLM. We wrote 19 of them ourselves: native C, C++ and GGML engines with no Python at inference.
 
 | Backend | What it does |
 |---------|-------------|
@@ -149,6 +149,7 @@ Most backends wrap an upstream engine such as llama.cpp or vLLM. We wrote 18 of 
 | [depth-anything.cpp](https://github.com/mudler/depth-anything.cpp) | Depth Anything 3 monocular metric depth + camera pose estimation |
 | [face-detect.cpp](https://github.com/mudler/face-detect.cpp) | Face detection, recognition, demographics and anti-spoofing (SCRFD/ArcFace, YuNet/SFace), replacing the Python insightface backend |
 | [timestral.cpp](https://github.com/mudler/timestral.cpp) | Mistral Timestral time-series forecasting: quantile forecasts with covariates, on the CPU |
+| [avatarforcing.cpp](https://github.com/mudler/avatarforcing.cpp) | C++/GGML port of the AvatarForcing talking-head model: a portrait and speech in, a lip-synced 512x512 video out, on CPU and CUDA |
 | [trellis2.cpp](https://github.com/localai-org/trellis2cpp) | C++/GGML port of Microsoft TRELLIS.2: single-image to textured 3D mesh (GLB with PBR materials) |
 | [gem-x.cpp](https://github.com/localai-org/gem-x.cpp) | Live human motion capture with SOMA and SMPL pose streams (CPU/Vulkan) |
 | [kimodo.cpp](https://github.com/localai-org/kimodo.cpp) | C++/GGML text-to-motion on CPU and Vulkan, exported as animated skeleton GLB |

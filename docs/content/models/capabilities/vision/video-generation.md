@@ -5,7 +5,7 @@ weight = 50
 aliases = ["/features/longcat-video/", "/features/video-generation/"]
 +++
 
-LocalAI can generate videos from text prompts and optional image or audio conditioning via the `/video` endpoint. Supported backends include `diffusers`, `stablediffusion` (including MiniMax-H3, which generates video **and** audio together), `vllm-omni`, `mlx-video` on Apple Silicon, and the dedicated `longcat-video` backend.
+LocalAI can generate videos from text prompts and optional image or audio conditioning via the `/video` endpoint. Supported backends include `diffusers`, `stablediffusion` (including MiniMax-H3, which generates video **and** audio together), `vllm-omni`, `mlx-video` on Apple Silicon, the dedicated `longcat-video` backend, and `avatarforcing-cpp` for talking-head video from a portrait and speech.
 
 ## MLX-Video on Apple Silicon
 
@@ -305,6 +305,96 @@ With distillation enabled, Avatar uses eight inference steps and fixed text/audi
 - **HTTP 412**: the installed LocalAI runtime cannot select a compatible NVIDIA backend image.
 - **Out of memory while loading**: use BF16 on unified-memory hardware, close other GPU workloads, or reduce model concurrency. INT8 is not guaranteed to reduce peak load memory.
 - **Slow first request**: the backend and checkpoints are downloaded and loaded on demand; subsequent requests reuse the loaded pipeline.
+
+## avatarforcing.cpp talking heads
+
+The `avatarforcing-cpp` backend runs [avatarforcing.cpp](https://github.com/mudler/avatarforcing.cpp), a C++/GGML port of the AvatarForcing talking-head model. You send one portrait and a speech clip. The backend returns an MP4 in which the face speaks the clip, with lip movement that follows the audio.
+
+| Gallery model | Inputs | Output |
+|---------------|--------|--------|
+| `avatarforcing` | portrait (`start_image`), speech (`audio`) | 512x512 video at 25 FPS, with the speech as its audio track |
+
+{{% callout style="warning" %}}
+The `avatarforcing` weights are licensed under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). Use them for non-commercial purposes only. The backend code is MIT.
+{{% /callout %}}
+
+LocalAI publishes this backend for the CPU (x86_64 and ARM64) and for NVIDIA CUDA 12 and CUDA 13, including NVIDIA Jetson (L4T). There are no Metal, Vulkan, ROCm or Intel SYCL images: the engine has CPU and CUDA kernels only. The backend needs `ffmpeg` on `PATH`. The LocalAI container images include it.
+
+### Install
+
+```bash
+local-ai models install avatarforcing
+```
+
+The model is a 1.2 GB float32 GGUF. LocalAI installs the backend when it first loads the model.
+
+### Generate a talking-head video
+
+```bash
+curl http://localhost:8080/video \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"model\": \"avatarforcing\",
+    \"start_image\": \"$(base64 --wrap=0 portrait.png)\",
+    \"audio\": \"$(base64 --wrap=0 speech.wav)\",
+    \"seed\": 42
+  }"
+```
+
+The model is driven by the audio, so `prompt` is not used and you can omit it.
+
+- **Portrait.** Use one face near the centre of the image. The model does not detect faces. A 512x512 PNG or JPEG goes to the model as it is. The backend crops any other image to a centred square and scales it to 512x512.
+- **Audio.** Any format that ffmpeg reads, for example WAV, MP3 or FLAC. The video has the length of the audio, up to `max_seconds` (30 seconds by default). Clips shorter than 2 seconds still give a video of the clip length.
+- **Speed.** On a 16-core x86_64 CPU, a 2.6 second clip takes about 45 seconds with the default settings. On an NVIDIA Jetson Thor GPU, the engine runs faster than real time.
+
+`width`, `height`, `fps` and `num_frames` have no effect: the model renders 512x512 at 25 FPS, and the audio sets the length. `end_image` and the reference inputs are refused.
+
+### Request options
+
+| Field | Meaning |
+|-------|---------|
+| `seed` | Seed of the noise generator. Omitted or `0`: the default seed, 42 |
+| `step` | Denoising steps per block of 10 frames. Omitted: 5. Fewer steps are faster and less detailed. The minimum is 2 |
+| `cfg_scale` | Audio guidance scale. Omitted or `0`: the model default, 2.0 |
+| `params.nfe` | Sampler time points, the same setting as `step` counted differently: `nfe` = `step` + 1. Minimum 3 |
+| `params.cfg_scale`, `params.seed` | The same as the fields above |
+| `params.audio_mode` | `normalized` (default) or `raw`: how the audio features are scaled |
+| `params.max_seconds` | Use only the first N seconds of audio. `0`: no limit. Default 30 |
+
+Values in `params` take precedence over the request fields. An unknown `params` key is an error (HTTP 400).
+
+### Model configuration
+
+The gallery entry writes this config. To change a default, add `options:` with entries in `key:value` form, for example `options: [backend:cpu, nfe:4]`.
+
+```yaml
+name: avatarforcing
+backend: avatarforcing-cpp
+known_usecases:
+  - video
+known_input_modalities:
+  - image
+  - audio
+known_output_modalities:
+  - video
+parameters:
+  model: avatarforcing-cpp/avatarforcing-f32.gguf
+```
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `backend` | `auto` | `auto` tries the GPU, then falls back to the CPU. `cpu`, `gpu`, `cuda` or `cuda:N` select one device |
+| `threads` | the `threads` setting of the model config | CPU threads. `0`: all cores |
+| `decode_batch` | 1 on the CPU, 10 on a GPU | Frames per decoder graph. `0`: a whole block |
+| `overlap` | `true` on a GPU, `false` on the CPU | Decode one block while the sampler computes the next |
+| `ffmpeg` | `ffmpeg` on `PATH` | The ffmpeg program to use |
+| `nfe`, `cfg_scale`, `seed`, `audio_mode`, `max_seconds` | as above | Defaults for every request |
+
+### avatarforcing.cpp troubleshooting
+
+- **HTTP 400, needs speech audio (audio)** or **needs a portrait (start_image)**: send both inputs.
+- **The model does not load: `ffmpeg "ffmpeg" not found`**: install ffmpeg, or set `options: [ffmpeg:<path>]`.
+- **The face is distorted or off-centre**: crop the portrait so that the face fills the centre of a square image.
 
 ## MiniMax-H3
 
