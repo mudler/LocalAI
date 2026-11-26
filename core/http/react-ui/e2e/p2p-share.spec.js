@@ -268,6 +268,49 @@ test.describe('Share this instance', () => {
     await expect(page.getByTestId('share-warn-no_relay')).toContainText('cannot connect without a relay')
     await expect(page.getByTestId('share-warn-no_relay').getByRole('link', { name: 'Add a relay' })).toHaveAttribute('href', '/app/p2p/settings')
     await expect(page.getByTestId('share-pass')).toHaveText('None')
+    await expect(page.getByTestId('share-hints')).toHaveText('No public relay')
+    // No relay and no public relay: only the local network can pair, and the
+    // dialog does not claim that hole punching will work.
+    const noPublic = page.getByTestId('share-warn-no_public_addr')
+    await expect(noPublic).toContainText('Only a device on the same network can pair')
+    await expect(noPublic).toContainText('few minutes after it starts')
+    await expect(noPublic).not.toContainText('connects by hole punching')
+  })
+
+  test('says that the invite works by hole punching only when it names public relays and no relay of yours', async ({ page }) => {
+    await openP2P(page, { mint: { relay: { pass: false, open: false, reason: 'no_relay' }, hints: 2, warnings: ['punch_only', 'no_public_addr'] } })
+    await page.getByTestId('p2p-share-open').click()
+    await page.getByTestId('share-mint').click()
+    const warn = page.getByTestId('share-warn-punch_only')
+    await expect(warn).toContainText('works only where hole punching works')
+    await expect(warn).toContainText('About 3 in 10 networks block it')
+    await expect(warn.getByRole('link', { name: 'Add a relay' })).toHaveAttribute('href', '/app/p2p/settings')
+    await expect(page.getByTestId('share-warn-no_relay')).toHaveCount(0)
+    await expect(page.getByTestId('share-hints')).toHaveText('Through 2 public relays')
+    await expect(page.getByTestId('share-warn-no_public_addr')).toContainText('connects by hole punching through a public relay')
+    const shots = process.env.UI_SHOTS_DIR
+    if (shots) {
+      for (const theme of ['light', 'dark']) {
+        await page.emulateMedia({ colorScheme: theme })
+        await page.evaluate((t) => { document.documentElement.setAttribute('data-theme', t) }, theme)
+        await page.getByTestId('share-result').screenshot({ path: `${shots}/share-punch-only-${theme}.png` })
+      }
+    }
+  })
+
+  test('tells to turn on the public DHT when it is off and the invite has no route', async ({ page }) => {
+    await openP2P(page, { status: { public_dht: { on: false, peers: 0 } }, mint: { relay: { pass: false, open: false, reason: 'no_relay' }, hints: 0, warnings: ['no_relay', 'no_public_addr'] } })
+    await page.getByTestId('p2p-share-open').click()
+    await page.getByTestId('share-mint').click()
+    await expect(page.getByTestId('share-warn-no_public_addr')).toContainText('The public DHT is off')
+    const shots = process.env.UI_SHOTS_DIR
+    if (shots) {
+      for (const theme of ['light', 'dark']) {
+        await page.emulateMedia({ colorScheme: theme })
+        await page.evaluate((t) => { document.documentElement.setAttribute('data-theme', t) }, theme)
+        await page.getByTestId('share-result').screenshot({ path: `${shots}/share-no-route-${theme}.png` })
+      }
+    }
   })
 
   test('says so when the relay did not answer, and makes the invite again', async ({ page }) => {

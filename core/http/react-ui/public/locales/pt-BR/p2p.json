@@ -127,7 +127,7 @@
       "singleUse": "uso único",
       "serverPeer": "ID de peer do servidor",
       "devicePeer": "ID de peer do dispositivo",
-      "relay": "Dica de relay",
+      "relay": "Relay",
       "relayGated": "{{relay}} (seu relay, com acesso controlado)",
       "relayOpen": "{{relay}} (relay aberto)",
       "none": "Nenhum",
@@ -135,6 +135,10 @@
       "passOn": "Registrado em {{relay}}, válido por {{ttl}}, uso único",
       "passUnreachable": "Nenhum: {{relay}} não respondeu",
       "passNone": "Nenhum",
+      "hints": "Hole punching",
+      "hintsSome_one": "Por {{count}} relay público",
+      "hintsSome_other": "Por {{count}} relays públicos",
+      "hintsNone": "Nenhum relay público",
       "public": "Endereço público",
       "publicYes": "Sim",
       "publicNo": "Nenhum (atrás de NAT)",
@@ -159,13 +163,21 @@
         "body": "Este servidor não tem relay. Cerca de 3 em cada 10 redes bloqueiam conexões diretas. Adicione um relay ou execute um.",
         "add": "Adicionar um relay"
       },
+      "punchOnly": {
+        "title": "Este convite só funciona onde o hole punching funciona.",
+        "body": "Os dispositivos podem se conectar por hole punching por um relay público. Cerca de 3 em cada 10 redes o bloqueiam. Adicione um relay ou execute um, para que todo dispositivo possa se conectar.",
+        "add": "Adicionar um relay"
+      },
       "openRelay": {
         "title": "Este convite indica um relay aberto.",
         "body": "Qualquer pessoa pode usar {{relay}}, e ele pode limitar a velocidade de cada conexão."
       },
       "noPublic": {
         "title": "Este servidor não tem endereço público.",
-        "body": "O dispositivo se conecta por hole punching, ou por um relay quando isso falha."
+        "punch": "Um dispositivo fora da sua rede se conecta por hole punching por um relay público.",
+        "lan": "Só um dispositivo na mesma rede pode parear com este convite.",
+        "later": "O servidor ainda não encontrou um relay público para hole punching. Isso pode levar alguns minutos depois que ele inicia: crie o convite de novo mais tarde, ou adicione um relay.",
+        "noDht": "A DHT pública está desligada, então o servidor não encontra relay público para hole punching. Adicione um relay, ou ligue a DHT pública."
       }
     },
     "connected": {

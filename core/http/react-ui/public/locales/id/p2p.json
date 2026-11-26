@@ -127,7 +127,7 @@
       "singleUse": "sekali pakai",
       "serverPeer": "ID peer server",
       "devicePeer": "ID peer perangkat",
-      "relay": "Petunjuk relay",
+      "relay": "Relay",
       "relayGated": "{{relay}} (relay Anda, dengan kontrol akses)",
       "relayOpen": "{{relay}} (relay terbuka)",
       "none": "Tidak ada",
@@ -135,6 +135,10 @@
       "passOn": "Terdaftar di {{relay}}, berlaku {{ttl}}, sekali pakai",
       "passUnreachable": "Tidak ada: {{relay}} tidak menjawab",
       "passNone": "Tidak ada",
+      "hints": "Hole punching",
+      "hintsSome_one": "Lewat {{count}} relay publik",
+      "hintsSome_other": "Lewat {{count}} relay publik",
+      "hintsNone": "Tidak ada relay publik",
       "public": "Alamat publik",
       "publicYes": "Ya",
       "publicNo": "Tidak ada (di belakang NAT)",
@@ -159,13 +163,21 @@
         "body": "Server ini tidak punya relay. Sekitar 3 dari 10 jaringan memblokir koneksi langsung. Tambahkan relay atau jalankan sendiri.",
         "add": "Tambah relay"
       },
+      "punchOnly": {
+        "title": "Undangan ini hanya berfungsi di jaringan yang mengizinkan hole punching.",
+        "body": "Perangkat dapat terhubung dengan hole punching lewat relay publik. Sekitar 3 dari 10 jaringan memblokirnya. Tambahkan relay atau jalankan sendiri agar setiap perangkat dapat terhubung.",
+        "add": "Tambah relay"
+      },
       "openRelay": {
         "title": "Undangan ini menyebut relay terbuka.",
         "body": "Siapa pun dapat memakai {{relay}}, dan relay itu mungkin membatasi kecepatan setiap koneksi."
       },
       "noPublic": {
         "title": "Server ini tidak punya alamat publik.",
-        "body": "Perangkat terhubung dengan hole punching, atau lewat relay jika itu gagal."
+        "punch": "Perangkat di luar jaringan Anda terhubung dengan hole punching lewat relay publik.",
+        "lan": "Hanya perangkat di jaringan yang sama yang dapat dipasangkan dengan undangan ini.",
+        "later": "Server belum menemukan relay publik untuk hole punching. Ini bisa memakan beberapa menit setelah server mulai: buat undangan lagi nanti, atau tambahkan relay.",
+        "noDht": "DHT publik mati, jadi server tidak menemukan relay publik untuk hole punching. Tambahkan relay, atau nyalakan DHT publik."
       }
     },
     "connected": {

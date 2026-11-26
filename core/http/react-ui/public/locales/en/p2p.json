@@ -127,7 +127,7 @@
       "singleUse": "single use",
       "serverPeer": "Server peer ID",
       "devicePeer": "Device peer ID",
-      "relay": "Relay hint",
+      "relay": "Relay",
       "relayGated": "{{relay}} (your relay, gated)",
       "relayOpen": "{{relay}} (open relay)",
       "none": "None",
@@ -135,6 +135,10 @@
       "passOn": "Registered on {{relay}}, valid {{ttl}}, single use",
       "passUnreachable": "None: {{relay}} did not answer",
       "passNone": "None",
+      "hints": "Hole punching",
+      "hintsSome_one": "Through {{count}} public relay",
+      "hintsSome_other": "Through {{count}} public relays",
+      "hintsNone": "No public relay",
       "public": "Public address",
       "publicYes": "Yes",
       "publicNo": "None (behind NAT)",
@@ -159,13 +163,21 @@
         "body": "This server has no relay. About 3 in 10 networks block direct connections. Add a relay, or run one.",
         "add": "Add a relay"
       },
+      "punchOnly": {
+        "title": "This invite works only where hole punching works.",
+        "body": "Devices can connect by hole punching through a public relay. About 3 in 10 networks block it. Add a relay, or run one, so that every device can connect.",
+        "add": "Add a relay"
+      },
       "openRelay": {
         "title": "This invite names an open relay.",
         "body": "Anyone can use {{relay}}, and it may limit the speed of each connection."
       },
       "noPublic": {
         "title": "This server has no public address.",
-        "body": "The device connects by hole punching, or through a relay when that fails."
+        "punch": "A device outside your network connects by hole punching through a public relay.",
+        "lan": "Only a device on the same network can pair with this invite.",
+        "later": "The server has not found a public relay for hole punching yet. This can take a few minutes after it starts: make the invite again later, or add a relay.",
+        "noDht": "The public DHT is off, so the server finds no public relay for hole punching. Add a relay, or turn on the public DHT."
       }
     },
     "connected": {

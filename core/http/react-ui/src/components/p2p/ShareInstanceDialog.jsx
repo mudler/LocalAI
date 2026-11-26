@@ -224,6 +224,10 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
                     ? <StatusChip tone="warn" dot>{t('share.facts.passUnreachable', { relay: relay.label || relay.id })}</StatusChip>
                     : <span>{t('share.facts.passNone')}</span>}
               </dd>
+              <dt>{t('share.facts.hints')}</dt>
+              <dd data-testid="share-hints">
+                {minted.hints > 0 ? t('share.facts.hintsSome', { count: minted.hints }) : t('share.facts.hintsNone')}
+              </dd>
               <dt>{t('share.facts.public')}</dt>
               <dd>{publicAddr ? t('share.facts.publicYes') : t('share.facts.publicNo')}</dd>
             </dl>
@@ -236,7 +240,7 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
             {t('share.result.expiredBody')}
           </Callout>
         )}
-        {!expired && warnings.map(w => <InviteWarning key={w} warning={w} relay={relay} onAgain={again} t={t} />)}
+        {!expired && warnings.map(w => <InviteWarning key={w} warning={w} relay={relay} punch={warnings.includes('punch_only')} dht={status?.public_dht?.on !== false} onAgain={again} t={t} />)}
         {minted.kind === 'device' && (
           <Callout tone="info" title={t('share.admission.title')} testId="share-admission">{t('share.admission.result')}</Callout>
         )}
@@ -352,8 +356,10 @@ function LinkBox({ link, addToast }) {
   )
 }
 
-// A warning of the minted invite and what to do about it.
-function InviteWarning({ warning, relay, onAgain, t }) {
+// A warning of the minted invite and what to do about it. punch says that the
+// link names public relays for hole punching; dht that the public DHT, which
+// finds them, is on.
+function InviteWarning({ warning, relay, punch, dht, onAgain, t }) {
   const relayName = relay?.label || relay?.id || ''
   if (warning === 'relay_unreachable') {
     return (
@@ -376,6 +382,14 @@ function InviteWarning({ warning, relay, onAgain, t }) {
       </Callout>
     )
   }
+  if (warning === 'punch_only') {
+    return (
+      <Callout tone="warn" title={t('share.warn.punchOnly.title')} testId="share-warn-punch_only"
+        actions={<Button size="sm" to={P2P_SETTINGS_PATH}>{t('share.warn.punchOnly.add')}</Button>}>
+        {t('share.warn.punchOnly.body')}
+      </Callout>
+    )
+  }
   if (warning === 'open_relay') {
     return (
       <Callout tone="warn" title={t('share.warn.openRelay.title')} testId="share-warn-open_relay">
@@ -385,7 +399,9 @@ function InviteWarning({ warning, relay, onAgain, t }) {
   }
   return (
     <Callout tone="info" title={t('share.warn.noPublic.title')} testId="share-warn-no_public_addr">
-      {t('share.warn.noPublic.body')}
+      {punch
+        ? t('share.warn.noPublic.punch')
+        : `${t('share.warn.noPublic.lan')} ${t(dht ? 'share.warn.noPublic.later' : 'share.warn.noPublic.noDht')}`}
     </Callout>
   )
 }

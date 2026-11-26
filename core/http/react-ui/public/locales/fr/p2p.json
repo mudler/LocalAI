@@ -127,7 +127,7 @@
       "singleUse": "usage unique",
       "serverPeer": "ID de pair du serveur",
       "devicePeer": "ID de pair de l'appareil",
-      "relay": "Relais indiqué",
+      "relay": "Relais",
       "relayGated": "{{relay}} (votre relais, à accès contrôlé)",
       "relayOpen": "{{relay}} (relais ouvert)",
       "none": "Aucun",
@@ -135,6 +135,10 @@
       "passOn": "Enregistré sur {{relay}}, valide {{ttl}}, usage unique",
       "passUnreachable": "Aucun : {{relay}} n'a pas répondu",
       "passNone": "Aucun",
+      "hints": "Hole punching",
+      "hintsSome_one": "Par {{count}} relais public",
+      "hintsSome_other": "Par {{count}} relais publics",
+      "hintsNone": "Aucun relais public",
       "public": "Adresse publique",
       "publicYes": "Oui",
       "publicNo": "Aucune (derrière un NAT)",
@@ -159,13 +163,21 @@
         "body": "Ce serveur n'a pas de relais. Environ 3 réseaux sur 10 bloquent les connexions directes. Ajoutez un relais, ou faites-en tourner un.",
         "add": "Ajouter un relais"
       },
+      "punchOnly": {
+        "title": "Cette invitation ne fonctionne que là où le hole punching fonctionne.",
+        "body": "Les appareils peuvent se connecter par hole punching via un relais public. Environ 3 réseaux sur 10 le bloquent. Ajoutez un relais, ou faites-en tourner un, pour que tous les appareils puissent se connecter.",
+        "add": "Ajouter un relais"
+      },
       "openRelay": {
         "title": "Cette invitation désigne un relais ouvert.",
         "body": "N'importe qui peut utiliser {{relay}}, et il peut limiter le débit de chaque connexion."
       },
       "noPublic": {
         "title": "Ce serveur n'a pas d'adresse publique.",
-        "body": "L'appareil se connecte par hole punching, ou par un relais si cela échoue."
+        "punch": "Un appareil hors de votre réseau se connecte par hole punching via un relais public.",
+        "lan": "Seul un appareil sur le même réseau peut s'appairer avec cette invitation.",
+        "later": "Le serveur n'a pas encore trouvé de relais public pour le hole punching. Cela peut prendre quelques minutes après le démarrage : refaites l'invitation plus tard, ou ajoutez un relais.",
+        "noDht": "La DHT publique est désactivée, donc le serveur ne trouve aucun relais public pour le hole punching. Ajoutez un relais, ou activez la DHT publique."
       }
     },
     "connected": {

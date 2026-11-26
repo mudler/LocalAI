@@ -97,6 +97,13 @@ test('p2p: relay_unreachable replaces no_relay, unknown warnings are dropped', (
   assert.deepEqual(inviteWarnings({}), [])
 })
 
+test('p2p: punch_only shows after the relay warnings and before no_public_addr, and replaces no_relay', () => {
+  assert.deepEqual(inviteWarnings({ warnings: ['no_public_addr', 'punch_only'] }), ['punch_only', 'no_public_addr'])
+  assert.deepEqual(inviteWarnings({ warnings: ['punch_only', 'no_relay'] }), ['punch_only'])
+  assert.deepEqual(inviteWarnings({ warnings: ['open_relay', 'punch_only', 'relay_unreachable'] }), ['relay_unreachable', 'punch_only', 'open_relay'])
+  assert.deepEqual(inviteWarnings({ warnings: ['no_public_addr', 'no_relay'] }), ['no_relay', 'no_public_addr'])
+})
+
 test('p2p: a path reads as a tone and words; a limited relay needs a look', () => {
   assert.equal(pathTone({ kind: 'direct' }), 'ok')
   assert.equal(pathTone({ kind: 'hole_punched' }), 'ok')

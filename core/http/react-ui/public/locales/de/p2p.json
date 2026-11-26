@@ -127,7 +127,7 @@
       "singleUse": "einmalige Nutzung",
       "serverPeer": "Peer-ID des Servers",
       "devicePeer": "Peer-ID des Geräts",
-      "relay": "Relay-Hinweis",
+      "relay": "Relay",
       "relayGated": "{{relay}} (Ihr Relay, mit Zugangskontrolle)",
       "relayOpen": "{{relay}} (offenes Relay)",
       "none": "Keiner",
@@ -135,6 +135,10 @@
       "passOn": "Registriert auf {{relay}}, gültig {{ttl}}, einmalige Nutzung",
       "passUnreachable": "Keiner: {{relay}} hat nicht geantwortet",
       "passNone": "Keiner",
+      "hints": "Hole Punching",
+      "hintsSome_one": "Über {{count}} öffentliches Relay",
+      "hintsSome_other": "Über {{count}} öffentliche Relays",
+      "hintsNone": "Kein öffentliches Relay",
       "public": "Öffentliche Adresse",
       "publicYes": "Ja",
       "publicNo": "Keine (hinter NAT)",
@@ -159,13 +163,21 @@
         "body": "Dieser Server hat kein Relay. Etwa 3 von 10 Netzwerken blockieren direkte Verbindungen. Fügen Sie ein Relay hinzu oder betreiben Sie eines.",
         "add": "Relay hinzufügen"
       },
+      "punchOnly": {
+        "title": "Diese Einladung funktioniert nur, wo Hole Punching funktioniert.",
+        "body": "Geräte können sich per Hole Punching über ein öffentliches Relay verbinden. Etwa 3 von 10 Netzwerken blockieren es. Fügen Sie ein Relay hinzu oder betreiben Sie eines, damit sich jedes Gerät verbinden kann.",
+        "add": "Relay hinzufügen"
+      },
       "openRelay": {
         "title": "Diese Einladung nennt ein offenes Relay.",
         "body": "{{relay}} kann jeder nutzen, und es kann die Geschwindigkeit jeder Verbindung begrenzen."
       },
       "noPublic": {
         "title": "Dieser Server hat keine öffentliche Adresse.",
-        "body": "Das Gerät verbindet sich per Hole Punching oder über ein Relay, wenn das fehlschlägt."
+        "punch": "Ein Gerät außerhalb Ihres Netzwerks verbindet sich per Hole Punching über ein öffentliches Relay.",
+        "lan": "Nur ein Gerät im selben Netzwerk kann sich mit dieser Einladung koppeln.",
+        "later": "Der Server hat noch kein öffentliches Relay für Hole Punching gefunden. Das kann nach dem Start einige Minuten dauern: Erstellen Sie die Einladung später neu, oder fügen Sie ein Relay hinzu.",
+        "noDht": "Die öffentliche DHT ist aus, daher findet der Server kein öffentliches Relay für Hole Punching. Fügen Sie ein Relay hinzu, oder schalten Sie die öffentliche DHT ein."
       }
     },
     "connected": {

@@ -122,12 +122,15 @@ export function pathKey(path) {
 
 // The warnings of a minted invite the dialog explains, in the order it shows
 // them. An unknown warning is dropped: the dialog has no words for it.
-const WARNING_ORDER = ['relay_unreachable', 'no_relay', 'open_relay', 'no_public_addr']
+// punch_only: the link names no relay of yours, only public relays that let
+// a device reach the server for a hole punch.
+const WARNING_ORDER = ['relay_unreachable', 'no_relay', 'punch_only', 'open_relay', 'no_public_addr']
 export function inviteWarnings(result) {
   const list = Array.isArray(result?.warnings) ? result.warnings : []
   const set = new Set(list)
-  // relay_unreachable says more than no_relay about the same missing pass.
-  if (set.has('relay_unreachable')) set.delete('no_relay')
+  // relay_unreachable says more than no_relay about the same missing pass,
+  // and punch_only says more than no_relay about a link with no relay.
+  if (set.has('relay_unreachable') || set.has('punch_only')) set.delete('no_relay')
   return WARNING_ORDER.filter(w => set.has(w))
 }
 
