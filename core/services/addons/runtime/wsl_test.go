@@ -224,10 +224,14 @@ var _ = Describe("The WSL launcher with the supervisor (through a wsl.exe stand-
 			return exec.CommandContext(ctx, exe, args...).CombinedOutput()
 		}
 		launcher := wsl.New(wsl.Options{Exe: shim, Run: run, Env: []string{}, HostPath: func(_, p string) string { return p }})
+		// This spec does not test a timeout. The start includes the WSL checks
+		// and a copy of the package that reads the executable back, and the stop
+		// waits for the add-on to close through the stand-in. With the short
+		// budgets of the other specs (300 ms to start, 2 x 100 ms to stop on
+		// Linux) both race the race detector and a loaded runner. Each wait ends
+		// as soon as its step is done, so the default limits cost nothing here.
 		l := contract.DefaultLimits()
-		l.ReadTimeout = 300 * time.Millisecond
-		l.ShutdownTimeout = 100 * time.Millisecond
-		s, e := NewSupervisor(Config{StateRoot: realTempDir(), DataRoot: filepath.Join(realTempDir(), "data"), Limits: l, ReadyTimeout: startBudget, StableHealth: time.Second})
+		s, e := NewSupervisor(Config{StateRoot: realTempDir(), DataRoot: filepath.Join(realTempDir(), "data"), Limits: l, ReadyTimeout: max(startBudget, 15*time.Second), StableHealth: time.Second})
 		Expect(e).NotTo(HaveOccurred())
 		DeferCleanup(func() { Expect(s.Close(context.Background())).To(Succeed()) })
 		s.wslSpec = launcher
