@@ -43,12 +43,24 @@ portable Python 3, which `coli serve` needs. You do not install colibri or Pytho
 | Hardware | Image | Notes |
 |---|---|---|
 | CPU, Linux x86_64 and arm64 | `cpu-colibri` | The default. |
+| NVIDIA GPU, CUDA 12, Linux x86_64 | `cuda12-colibri` | Ampere and newer (sm_80, 86, 89, 90, 120), with a PTX fallback for newer cards. |
+| NVIDIA GPU, CUDA 13, Linux x86_64 | `cuda13-colibri` | The same targets, plus GB10 (sm_121). |
+| NVIDIA arm64, CUDA 13 | `cuda13-nvidia-l4t-arm64-colibri` | Jetson AGX Orin (sm_87), Jetson Thor (sm_110) and DGX Spark (sm_121). |
 | Vulkan GPU, Linux x86_64 and arm64 | `vulkan-colibri` | Sets `COLI_VULKAN=1`. An engine that finds no Vulkan device runs on the CPU. |
 | Apple Silicon | `metal-colibri` | macOS on arm64. Not tested by LocalAI yet. |
 
-There is no image for NVIDIA CUDA on Linux yet, because colibri publishes no Linux CUDA build.
-On an NVIDIA machine LocalAI installs the CPU image; install `vulkan-colibri` to use the GPU
-through Vulkan.
+colibri publishes no Linux CUDA build. The CUDA images compile colibri's engines from the
+source of the pinned release (tag and commit) with colibri's own `CUDA=1` build option, and use
+the release archive for everything else. colibri's own CI only checks that its CUDA code
+compiles on Linux, and its releases build CUDA only for Windows, so the Linux CUDA path is less
+tested upstream than the CPU and Vulkan paths. LocalAI has not run these images on a GPU yet.
+
+The CUDA images turn on colibri's CUDA backend: `COLI_CUDA=1`, `CUDA_DENSE=1` (the dense
+layers on the GPU), `CUDA_EXPERT_GB=auto` (a cache of experts that fills the free VRAM) and,
+for DeepSeek V4, `DSV4_CUDA=1`. Set any of them in the model's `env` to change it, for example
+`CUDA_EXPERT_GB: "20"` to leave VRAM for other models, or `COLI_CUDA: "0"` to run on the CPU.
+The engines without a CUDA backend (Qwen-Image, Laya and GLiNER-Decide) are the CPU builds of
+the release.
 
 ## Models
 
@@ -145,5 +157,7 @@ shows the real state of the process.
 ## Licensing
 
 colibri is licensed under the Apache License 2.0. The images contain the upstream release
-archive without changes, and a portable CPython from
-[python-build-standalone](https://github.com/astral-sh/python-build-standalone).
+archive without changes (the CUDA images replace its engines with ones compiled from the same
+release's source), a portable CPython from
+[python-build-standalone](https://github.com/astral-sh/python-build-standalone), and in the
+CUDA images the NVIDIA CUDA runtime and cuBLAS libraries, which keep their own licence.

@@ -6,8 +6,11 @@
 #   colibri-dist/  the upstream colibri release archive, unchanged: the
 #                  engines, the coli gateway and its Python modules
 #   python/        portable CPython (standard library only) for coli
-#   lib/           the OpenMP runtime the engines link, and on a Vulkan
-#                  build the Vulkan loader and drivers
+#   lib/           the OpenMP runtime the engines link, on a Vulkan build
+#                  the Vulkan loader and drivers, and on a CUDA build the
+#                  CUDA runtime and cuBLAS
+#   colibri-dist/ on a CUDA build holds the engines compiled from the
+#                  release's source with CUDA=1 in place of the CPU ones
 #
 # colibri-dist/ and python/ come from `make engine`.
 
@@ -77,6 +80,20 @@ else
 		source "$REPO_ROOT/scripts/build/package-gpu-libs.sh" "$CURDIR/package/lib"
 		package_gpu_libs
 		touch "$CURDIR/package/colibri-vulkan"
+	fi
+	if [ "${BUILD_TYPE:-}" = "cublas" ]; then
+		# `make engine-cuda` puts the CUDA engines in colibri-dist and leaves
+		# this marker; without it the image would ship the CPU engines.
+		if [ ! -f "$CURDIR/package/colibri-dist/colibri-cuda" ]; then
+			echo "ERROR: BUILD_TYPE=cublas but colibri-dist has no CUDA engines, run 'make engine BUILD_TYPE=cublas'" >&2
+			exit 1
+		fi
+		# The CUDA runtime and cuBLAS the engines link (the driver comes
+		# from the host).
+		# shellcheck source=/dev/null
+		source "$REPO_ROOT/scripts/build/package-gpu-libs.sh" "$CURDIR/package/lib"
+		package_gpu_libs
+		mv "$CURDIR/package/colibri-dist/colibri-cuda" "$CURDIR/package/colibri-cuda"
 	fi
 fi
 

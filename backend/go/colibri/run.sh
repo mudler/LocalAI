@@ -24,4 +24,15 @@ if [ -f "$CURDIR/colibri-vulkan" ]; then
 	export COLI_VULKAN="${COLI_VULKAN:-1}"
 fi
 
+# The CUDA image's engines are built with colibri's CUDA backend, which is off
+# unless asked for. Turn it on the way colibri's own docs do (docs/cuda.md):
+# dense layers on the GPU and an expert cache that fills the free VRAM.
+# DeepSeek V4's engine reads DSV4_CUDA instead. The model config's env wins.
+if [ -f "$CURDIR/colibri-cuda" ]; then
+	export COLI_CUDA="${COLI_CUDA:-1}"
+	export CUDA_DENSE="${CUDA_DENSE:-1}"
+	export CUDA_EXPERT_GB="${CUDA_EXPERT_GB:-auto}"
+	export DSV4_CUDA="${DSV4_CUDA:-1}"
+fi
+
 exec "$CURDIR"/colibri "$@"

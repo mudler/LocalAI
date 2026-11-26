@@ -2,16 +2,22 @@ GOCMD=go
 
 # The colibri backend is a Go program that runs colibri's `coli serve`
 # gateway (https://github.com/JustVugg/colibri, Apache-2.0) as a child
-# process. Nothing is compiled from C here: upstream publishes release
-# archives with the engines and the Python gateway for each platform, and
-# this Makefile fetches the one for the build, checks it against a pinned
-# SHA-256 and unpacks it. See docs/content/models/engines/colibri.md.
+# process. Upstream publishes release archives with the engines and the
+# Python gateway for each platform; this Makefile fetches the one for the
+# build, checks it against a pinned SHA-256 and unpacks it. Upstream has no
+# Linux CUDA archive, so a CUDA build (BUILD_TYPE=cublas) also compiles the
+# engines from the source of the same release, pinned by tag and commit, with
+# CUDA=1, and puts them in place of the archive's CPU engines. Everything
+# else (coli, the gateway, the tools) stays the release archive's.
+# See docs/content/models/engines/colibri.md.
 #
 # Targets:
-#   colibri  the Go binary only (what `make -C backend/go/colibri` builds)
-#   engine   everything the image needs besides the Go binary: the colibri
-#            release archive and a portable Python for `coli serve`.
-#            Dockerfile.golang calls this in its own cacheable layer.
+#   colibri      the Go binary only (what `make -C backend/go/colibri` builds)
+#   engine       everything the image needs besides the Go binary: the colibri
+#                release archive, a portable Python for `coli serve`, and on a
+#                CUDA build the CUDA engines. Dockerfile.golang calls this in
+#                its own cacheable layer.
+#   engine-cuda  the CUDA engines only (needs nvcc, cuBLAS)
 #   build    engine + colibri + package
 #
 # ---------------------------------------------------------------------------
@@ -23,6 +29,9 @@ COLIBRI_SHA256_linux_x86_64?=b1e2bc8a650b2b216e17357614cfcb4355a83fb9d3077d61f8e
 COLIBRI_SHA256_linux_aarch64?=1e340e5bda50863303e7d2b3e2cd530f48926967c1bb390049c2df4dd43af602
 COLIBRI_SHA256_macos_arm64?=6fce6e344131e527f904d012e2701044345e615be5a2ca3611f6b2f905d864d9
 COLIBRI_REPO?=https://github.com/JustVugg/colibri
+# The commit of the COLIBRI_VERSION tag. The CUDA build compiles this source
+# and fails when the tag points elsewhere.
+COLIBRI_COMMIT?=e479104ae01bdc40ce81e675299b1d230891b321
 
 # Portable CPython for `coli serve` (python-build-standalone). The gateway
 # uses the standard library only, so no packages are installed. The backend
@@ -61,7 +70,35 @@ PBS_FILE=cpython-$(PBS_PYTHON)+$(PBS_RELEASE)-$(PBS_TRIPLE_$(PLATFORM))-install_
 
 STAMP=.stamp
 
-.PHONY: colibri engine engine-dist engine-python build package test clean purge check-pins print-asset
+# ---------------------------------------------------------------------------
+# CUDA engines (BUILD_TYPE=cublas, Linux only). The list is the release
+# archive's engines that link colibri's CUDA backend; deepseek_v4 has its own
+# Makefile target. qwenimage, laya and gliner_decide have no CUDA backend and
+# stay the archive's CPU builds.
+#
+# GPU targets: x86_64 uses upstream's CUDA_ARCH=portable (SASS for sm_80, 86,
+# 89, 90 and 120, a compute_120 PTX fallback, and sm_121 when nvcc is 12.9 or
+# newer). arm64 targets the NVIDIA arm64 boards instead: Jetson AGX Orin
+# (sm_87), Jetson Thor (sm_110) and DGX Spark / GB10 (sm_121), which needs
+# CUDA 13; the portable list has no sm_87 or sm_110, and PTX does not JIT to
+# older GPUs.
+# ---------------------------------------------------------------------------
+CUDA_HOME?=/usr/local/cuda
+CUDA_MAJOR_VERSION?=
+CUDA_MINOR_VERSION?=
+COLIBRI_CUDA_ENGINES?=colibri glm53 inkling kimi_k3 olmoe qwen36 qwen38 deepseek_v41 mimo
+COLIBRI_CUDA_GENCODE_aarch64?=-gencode arch=compute_87,code=sm_87 -gencode arch=compute_110,code=sm_110 -gencode arch=compute_121,code=sm_121 -gencode arch=compute_121,code=compute_121
+ifeq ($(PLATFORM),linux_x86_64)
+  COLIBRI_CUDA_MAKE_ARGS?=ARCH=x86-64-v3 CUDA_ARCH=portable
+else ifeq ($(PLATFORM),linux_aarch64)
+  COLIBRI_CUDA_MAKE_ARGS?=ARCH=armv8-a CUDA_GENCODE="$(COLIBRI_CUDA_GENCODE_aarch64)" V4_CUDA_GENCODE="$(COLIBRI_CUDA_GENCODE_aarch64)"
+endif
+ifeq ($(BUILD_TYPE),cublas)
+  ENGINE_CUDA:=engine-cuda
+endif
+COLIBRI_SRC=sources/colibri
+
+.PHONY: colibri engine engine-dist engine-python engine-cuda build package test clean purge check-pins print-asset
 
 colibri:
 	CGO_ENABLED=0 $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o colibri ./
@@ -74,6 +111,7 @@ print-asset:
 check-pins:
 	@fail=0; \
 	echo '$(COLIBRI_VERSION)' | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$$' || { echo 'bad COLIBRI_VERSION' >&2; fail=1; }; \
+	echo '$(COLIBRI_COMMIT)' | grep -Eq '^[0-9a-f]{40}$$' || { echo 'bad COLIBRI_COMMIT' >&2; fail=1; }; \
 	$(foreach v,$(filter COLIBRI_SHA256_% PBS_SHA256_%,$(.VARIABLES)),echo '$($(v))' | grep -Eq '^[0-9a-f]{64}$$' || { echo 'bad pin $(v)' >&2; fail=1; }; ) \
 	for p in linux_x86_64 linux_aarch64 macos_arm64; do \
 	  echo " $(filter COLIBRI_SHA256_% PBS_SHA256_%,$(.VARIABLES)) " | grep -q " COLIBRI_SHA256_$$p " || { echo "missing COLIBRI_SHA256_$$p" >&2; fail=1; }; \
@@ -81,7 +119,7 @@ check-pins:
 	done; \
 	exit $$fail
 
-engine: engine-dist engine-python
+engine: engine-dist engine-python $(ENGINE_CUDA)
 
 # The colibri release archive, verified and unpacked into colibri-dist/.
 engine-dist:
@@ -114,6 +152,45 @@ engine-python:
 	./python/bin/python3 -I -c "import json, http.server, ssl; print('==> python ok')"; \
 	touch python/$(STAMP)-$(PBS_RELEASE)-$(PBS_PYTHON)
 
+# The CUDA engines, compiled from the release's source and copied over the
+# archive's CPU engines in colibri-dist/. Plain `make` below, not $(MAKE):
+# Dockerfile.golang probes `make -n engine`, which would run a $(MAKE) line.
+engine-cuda: engine-dist
+	@if [ "$(UNAME_S)" != Linux ] || [ -z "$(COLIBRI_CUDA_MAKE_ARGS)" ]; then echo "colibri: the CUDA engines build on Linux x86_64 and aarch64 only" >&2; exit 1; fi
+	@if [ ! -x "$(CUDA_HOME)/bin/nvcc" ]; then echo "colibri: no nvcc at $(CUDA_HOME)/bin/nvcc (set CUDA_HOME)" >&2; exit 1; fi
+	@set -e; \
+	if [ -f colibri-dist/$(STAMP)-cuda-$(COLIBRI_COMMIT) ]; then echo "==> CUDA engines are up to date"; exit 0; fi; \
+	if [ ! -f "$(CUDA_HOME)/include/cuda_profiler_api.h" ]; then \
+	  if [ "$$(id -u)" = 0 ] && command -v apt-get >/dev/null 2>&1 && [ -n "$(CUDA_MAJOR_VERSION)" ] && [ -n "$(CUDA_MINOR_VERSION)" ]; then \
+	    echo "==> installing cuda-profiler-api-$(CUDA_MAJOR_VERSION)-$(CUDA_MINOR_VERSION) (DeepSeek V4's CUDA tier includes cuda_profiler_api.h)"; \
+	    apt-get update -q && apt-get install -y --no-install-recommends cuda-profiler-api-$(CUDA_MAJOR_VERSION)-$(CUDA_MINOR_VERSION) && \
+	    apt-get clean && rm -rf /var/lib/apt/lists/*; \
+	  else \
+	    echo "colibri: $(CUDA_HOME)/include/cuda_profiler_api.h is missing; install NVIDIA's cuda-profiler-api package" >&2; exit 1; \
+	  fi; \
+	fi; \
+	if [ "$$(git -C $(COLIBRI_SRC) rev-parse HEAD 2>/dev/null)" != "$(COLIBRI_COMMIT)" ]; then \
+	  rm -rf $(COLIBRI_SRC); mkdir -p $(COLIBRI_SRC); \
+	  cd $(COLIBRI_SRC) && git init -q && git remote add origin $(COLIBRI_REPO) && \
+	  git fetch -q --depth 1 origin refs/tags/$(COLIBRI_VERSION):refs/tags/$(COLIBRI_VERSION) && \
+	  got=$$(git rev-parse '$(COLIBRI_VERSION)^{commit}') && \
+	  if [ "$$got" != "$(COLIBRI_COMMIT)" ]; then echo "colibri: tag $(COLIBRI_VERSION) is $$got, expected $(COLIBRI_COMMIT)" >&2; exit 1; fi && \
+	  git checkout -q $(COLIBRI_COMMIT); \
+	  cd "$(CURDIR)"; \
+	fi; \
+	"$(CUDA_HOME)/bin/nvcc" --version | tail -n 2; \
+	echo "==> building the CUDA engines: $(COLIBRI_CUDA_ENGINES) deepseek_v4"; \
+	for t in $(COLIBRI_CUDA_ENGINES); do \
+	  make -C $(COLIBRI_SRC)/c -j"$$(nproc)" $$t CUDA=1 CUDA_HOME=$(CUDA_HOME) $(COLIBRI_CUDA_MAKE_ARGS); \
+	done; \
+	make -C $(COLIBRI_SRC)/c -j"$$(nproc)" deepseek-v4 CUDA=1 CUDA_HOME=$(CUDA_HOME) $(COLIBRI_CUDA_MAKE_ARGS); \
+	for t in $(COLIBRI_CUDA_ENGINES) deepseek_v4; do \
+	  ldd $(COLIBRI_SRC)/c/$$t | grep -q libcudart || { echo "colibri: $$t does not link the CUDA runtime" >&2; exit 1; }; \
+	  cp -f $(COLIBRI_SRC)/c/$$t colibri-dist/$$t; \
+	done; \
+	touch colibri-dist/colibri-cuda colibri-dist/$(STAMP)-cuda-$(COLIBRI_COMMIT); \
+	rm -rf $(COLIBRI_SRC)
+
 package:
 	bash package.sh
 
@@ -127,4 +204,4 @@ clean:
 
 # Also drops everything fetched.
 purge: clean
-	rm -rf colibri-dist python downloads
+	rm -rf colibri-dist python downloads sources
