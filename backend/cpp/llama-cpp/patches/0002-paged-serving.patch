@@ -29,11 +29,33 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
  #include <atomic>
  #include <thread>
  #include "base64.hpp"
-@@ -1941,6 +1942,14 @@ private:
+@@ -373,6 +374,9 @@ struct server_slot {
+     // state
+     slot_state state = SLOT_STATE_IDLE;
+ 
++    // LocalAI paged serving: waits for admission
++    bool         paged_wait = false;
++
+     server_prompt prompt;
+ 
+     bool prompt_save(server_prompt_cache & prompt_cache) const {
+@@ -511,6 +515,8 @@ struct server_slot {
+         audio_commit_rows.clear();
+         inp_embd.clear();
+         rt.reset();
++
++        paged_wait = false;
+     }
+ 
+     void init_sampler() const {
+@@ -1941,6 +1947,85 @@ private:
          return res;
      }
  
-+    // LocalAI paged serving: pool accounting over the unified KV cache, the policy is in serving_policy.h
++    // LocalAI paged serving: admission, preemption and resume by recompute over the unified KV cache.
++    // The policy is in serving_policy.h. Only called when params_base.paged_serving is set.
++    int64_t n_paged_wait = 0, n_paged_preempt = 0, n_paged_abort = 0;
++
 +    // cells of one slot, an estimate that counts cells shared with other slots once per slot
 +    int64_t paged_n_cells(const server_slot & slot) const {
 +        const llama_pos p0 = llama_memory_seq_pos_min(llama_get_memory(ctx_tgt), slot.id);
@@ -41,10 +63,78 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +        return std::max<int64_t>(p0 < 0 ? 0 : p1 - p0 + 1, slot.prompt.n_tokens());
 +    }
 +
++    int64_t paged_prompt_left(const server_slot & slot) const {
++        return slot.state == SLOT_STATE_GENERATING ? 0 : slot.task->n_tokens() - slot.prompt.n_tokens();
++    }
++
++    int64_t paged_reserve(const server_slot & slot) const {
++        return slot.task->need_sampling() ? serving_policy::effective_reserve(params_base.kv_output_reserve, slot.n_predict_max) : 0;
++    }
++
++    // admitted and running: holds cells now or will in this step
++    bool paged_running(const server_slot & slot) const {
++        return slot.is_processing() && !slot.paged_wait && slot.state != SLOT_STATE_STARTED && slot.state != SLOT_STATE_WAIT_OTHER;
++    }
++
++    // a slot that waits for admission may still hold the cells of its previous task
++    bool paged_purgeable(const server_slot & slot) const {
++        return (!slot.is_processing() || slot.state == SLOT_STATE_STARTED || slot.paged_wait) && slot.prompt.n_tokens() > 0;
++    }
++
++    // drop the cached cells of one idle or waiting slot, other than id_keep
++    bool paged_purge(int id_keep) {
++        if (try_clear_idle_slots()) {
++            return true;
++        }
++        for (auto & slot : slots) {
++            if (slot.id != id_keep && slot.is_processing() && paged_purgeable(slot)) {
++                SLT_INF(slot, "paged: dropping %d cached tokens of a waiting slot\n", slot.prompt.n_tokens());
++                slot.prompt_clear();
++                return true;
++            }
++        }
++        return false;
++    }
++
++    // true when the slot may start (or resume) filling n_tokens cells now
++    bool paged_admit(server_slot & slot, int64_t n_tokens) {
++        while (true) {
++            serving_policy::pool_view v;
++            v.n_pool = llama_n_ctx(ctx_tgt);
++            for (const auto & other : slots) {
++                if (other.id == slot.id) {
++                    continue; // its own cells are reused or freed by the prompt fill
++                }
++                v.n_used     += paged_n_cells(other);
++                v.idle_cells |= paged_purgeable(other);
++                if (paged_running(other)) {
++                    v.n_active++;
++                    v.n_pending += serving_policy::slot_claim(paged_prompt_left(other), paged_reserve(other), other.stats.n_gen);
++                } else if (other.is_processing() && (other.state == SLOT_STATE_STARTED || other.paged_wait) && other.task->id < slot.task->id) {
++                    v.older_waiting = true;
++                }
++            }
++            const auto res = serving_policy::admit(v, n_tokens + paged_reserve(slot));
++            if (res == serving_policy::admit_result::ADMIT) {
++                slot.paged_wait = false;
++                return true;
++            }
++            if (res == serving_policy::admit_result::PURGE_IDLE && paged_purge(slot.id)) {
++                continue;
++            }
++            if (!slot.paged_wait) {
++                slot.paged_wait = true;
++                SLT_INF(slot, "paged: waiting for %" PRId64 " free cells (used = %" PRId64 ", pending = %" PRId64 ", pool = %" PRId64 ", waits = %" PRId64 ")\n",
++                        n_tokens + paged_reserve(slot), v.n_used, v.n_pending, v.n_pool, ++n_paged_wait);
++            }
++            return false;
++        }
++    }
++
      std::vector<common_adapter_lora_info> construct_lora_list(const std::map<int, float> & config) const {
          std::vector<common_adapter_lora_info> output = params_base.lora_adapters; // copy
          for (size_t i = 0; i < output.size(); ++i) {
-@@ -4216,12 +4225,16 @@ private:
+@@ -4216,12 +4301,16 @@ private:
          auto & alora_scale       = batch.alora_scale;
          auto & alora_disabled_id = batch.alora_disabled_id;
  
@@ -62,7 +152,20 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      return; // batch is full, skip remaining slots
                  }
  
-@@ -4694,7 +4707,8 @@ private:
+@@ -4248,6 +4337,12 @@ private:
+ 
+                 // this slot still has a prompt to be processed
+                 if (slot.state == SLOT_STATE_PROCESSING_PROMPT || slot.state == SLOT_STATE_STARTED) {
++                    // LocalAI paged serving: admission
++                    if (params_base.paged_serving && (slot.state == SLOT_STATE_STARTED || slot.paged_wait) &&
++                        slot.task->n_tokens() < slot.n_ctx && !paged_admit(slot, slot.task->n_tokens())) {
++                        return;
++                    }
++
+                     const auto & input_tokens = slot.task->tokens;
+ 
+                     // used to determine the number of tokens added to the batch for the current slot
+@@ -4694,7 +4789,8 @@ private:
                      const int32_t n_decision_first = slot.task->type == SERVER_TASK_TYPE_DECISION ? slot.task->decision.pos_first() : -1;
  
                      // add prompt tokens for processing in the current batch
