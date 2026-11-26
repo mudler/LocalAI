@@ -103,7 +103,10 @@ The Talking Head add-on (`talking-head`) is a packaged add-on. Install it from *
 add-ons** with **Install**. It adds the page `/app/addons/talking-head/talking-head` (main
 page) for users with the `addons` feature. The page calls `/v1/audio/transcriptions`,
 `/v1/chat/completions`, `/tts` and `/video` with the signed-in user's own session, and reads
-the models from `/api/models/capabilities` and `/api/pipeline-models`. It declares a model
+the models from `/api/models/capabilities` and `/api/pipeline-models`. Its **Set up talking head** sheet
+installs the models from the gallery (`/api/models/install/:id`, progress from
+`/models/jobs/:uuid`) and writes a pipeline model (`/models/import`); these routes are for
+administrators only. It declares a model
 action for video models (`FLAG_VIDEO`), so **Open** on a video model offers it next to
 Studio. The portraits and the settings stay in the browser. The words are the `head` locale
 files of the add-on, in every language of the web UI. See [Talking Head]({{% relref "/addons/catalogue/models-and-media/talking-head" %}}).

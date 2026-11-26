@@ -64,6 +64,7 @@ test('render: without an avatar or a speech model the page says what to install'
   assert.match(html, /avatarforcing-cpp backend/)
   assert.match(html, /text-to-speech model/)
   assert.match(html, /CC BY-NC 4\.0/)
+  assert.match(html, /data-testid="head-setup-button"[^>]*>.*Set up talking head/)
   assert.doesNotMatch(html, /data-testid="head-text"/)
 })
 
@@ -91,6 +92,8 @@ test('render: with the models and a stored portrait the composer is open', async
   assert.doesNotMatch(html, /<textarea[^>]*disabled=""[^>]*data-testid="head-text"/)
   assert.match(html, /Hold to talk/)
   assert.match(html, /Say this/)
+  // No pipeline model yet: the page offers the setup.
+  assert.match(html, /data-testid="head-setup-note"/)
 })
 
 test('createAddon fails readably on a host without the pieces the page needs', async () => {

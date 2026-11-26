@@ -149,5 +149,61 @@
     "play": "Lire",
     "unplayable": "Ce navigateur ne peut pas lire le clip : il n’a pas de décodeur vidéo H.264. Téléchargez le clip pour le regarder.",
     "download": "Télécharger le clip"
+  },
+  "setup": {
+    "button": "Configurer le visage parlant",
+    "title": "Configurer le visage parlant",
+    "desc": "Installe les modèles dont un visage parlant a besoin et les réunit dans un modèle de pipeline.",
+    "models": "Modèles",
+    "part": {
+      "avatar": "Avatar",
+      "chat": "Chat",
+      "stt": "Transcription",
+      "tts": "Synthèse vocale",
+      "vad": "Détection de la voix",
+      "pipeline": "Pipeline"
+    },
+    "none": "Aucun",
+    "installedOption": "{{name}} (installé)",
+    "pipelineNote": "Le modèle de pipeline {{name}} réunit les modèles de transcription, de chat et de synthèse vocale. Talk peut aussi l’utiliser.",
+    "plan": "Ce qui va se passer",
+    "checking": "Vérification de la galerie.",
+    "sizeUnknown": "taille inconnue",
+    "total": "Modèles à télécharger : {{count}}. Taille : {{size}}.",
+    "totalPartial": "Modèles à télécharger : {{count}}. Taille : au moins {{size}} ; la taille de certains modèles est inconnue.",
+    "nothing": "Tout est installé. La configuration sélectionne seulement les modèles.",
+    "variant": "Build",
+    "state": {
+      "waiting": "À installer",
+      "installing": "Installation",
+      "done": "Installé",
+      "skipped": "Déjà installé",
+      "failed": "Échec",
+      "error": "Indisponible",
+      "cancelled": "Annulé"
+    },
+    "progress": "Progression de l’installation de {{name}}",
+    "licenceTitle": "Licence du modèle d’avatar",
+    "licenceBody": "Les poids d’avatarforcing sont sous licence CC BY-NC 4.0. Vous pouvez les utiliser uniquement à des fins non commerciales.",
+    "licenceAgree": "J’utiliserai le modèle d’avatar uniquement à des fins non commerciales.",
+    "install": "Installer et configurer",
+    "use": "Utiliser ces modèles",
+    "retry": "Réessayer",
+    "cancel": "Annuler",
+    "close": "Terminé",
+    "doneBody": "Les modèles sont installés et sélectionnés. Le modèle de pipeline est {{name}}.",
+    "failedBody": "La configuration s’est arrêtée. Corrigez la cause, puis choisissez Réessayer : les parties déjà installées sont ignorées.",
+    "cancelledBody": "La configuration a été annulée. Réessayer reprend avec les parties qui ne sont pas installées.",
+    "adminTitle": "Seul un administrateur peut installer des modèles",
+    "adminBody": "Demandez à un administrateur d’ouvrir cette page et de choisir Configurer le visage parlant, ou d’installer ces modèles :",
+    "forbidden": "Le serveur a refusé la requête : seul un administrateur peut installer des modèles.",
+    "lookupFailed": "Impossible de lire la galerie : {{message}}",
+    "errors": {
+      "none": "Choisissez un modèle pour cette partie.",
+      "notInGallery": "{{name}} n’est pas dans la galerie de ce serveur. Choisissez un autre modèle.",
+      "lookup": "Impossible de vérifier {{name}} : {{message}}"
+    },
+    "noPipeline": "Pas encore de modèle de pipeline. La configuration installe les modèles manquants et en écrit un.",
+    "settingsHelp": "Installe les modèles manquants depuis la galerie et écrit un modèle de pipeline. Les parties déjà installées sont ignorées."
   }
 }

@@ -2,10 +2,11 @@ import { useTranslation } from 'react-i18next'
 // eslint-disable-next-line no-unused-vars
 import Sheet from '../../../../talk/ui/src/components/talk/Sheet'
 import { MAX_NFE, MIN_NFE } from '../lib/turn'
+import Icon from './Icon'
 
 // The models of each part of a turn, what the chat model is told, and the
 // settings of the video. The page keeps them in this browser.
-export default function HeadSettings({ settings, choice, groups, pipelines, onChange, onPipeline, onClose }) {
+export default function HeadSettings({ settings, choice, groups, pipelines, onChange, onPipeline, onClose, onSetup }) {
   const { t } = useTranslation('head')
   const set = (key) => (e) => onChange({ [key]: e.target.value })
 
@@ -47,6 +48,10 @@ export default function HeadSettings({ settings, choice, groups, pipelines, onCh
           <input id="head-voice" className="talk-in" value={settings.voice || ''} onChange={set('voice')} placeholder={t('settings.voicePlaceholder')} />
         </div>
         {select('avatar', 'head-avatar')}
+        <button type="button" className="talk-btn" onClick={onSetup} data-testid="head-settings-setup">
+          <Icon name="download" /> {t('setup.button')}
+        </button>
+        <p className="talk-help">{t('setup.settingsHelp')}</p>
       </section>
 
       <section className="talk-sec">

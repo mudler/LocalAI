@@ -149,5 +149,61 @@
     "play": "Play",
     "unplayable": "This browser cannot play the clip: it has no H.264 video decoder. Download the clip to watch it.",
     "download": "Download the clip"
+  },
+  "setup": {
+    "button": "Set up talking head",
+    "title": "Set up talking head",
+    "desc": "Installs the models a talking head needs and joins them in a pipeline model.",
+    "models": "Models",
+    "part": {
+      "avatar": "Avatar",
+      "chat": "Chat",
+      "stt": "Transcription",
+      "tts": "Speech",
+      "vad": "Voice detection",
+      "pipeline": "Pipeline"
+    },
+    "none": "None",
+    "installedOption": "{{name}} (installed)",
+    "pipelineNote": "The pipeline model {{name}} joins the transcription, chat and speech models. Talk can use it too.",
+    "plan": "What happens",
+    "checking": "Checking the gallery.",
+    "sizeUnknown": "size unknown",
+    "total": "Models to download: {{count}}. Size: {{size}}.",
+    "totalPartial": "Models to download: {{count}}. Size: at least {{size}}; the size of some models is not known.",
+    "nothing": "Everything is installed. The setup only selects the models.",
+    "variant": "Build",
+    "state": {
+      "waiting": "To install",
+      "installing": "Installing",
+      "done": "Installed",
+      "skipped": "Installed already",
+      "failed": "Failed",
+      "error": "Not available",
+      "cancelled": "Cancelled"
+    },
+    "progress": "Install progress of {{name}}",
+    "licenceTitle": "Licence of the avatar model",
+    "licenceBody": "The avatarforcing weights are licensed under CC BY-NC 4.0. You may use them for non-commercial purposes only.",
+    "licenceAgree": "I will use the avatar model for non-commercial purposes only.",
+    "install": "Install and set up",
+    "use": "Use these models",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "close": "Done",
+    "doneBody": "The models are installed and selected. The pipeline model is {{name}}.",
+    "failedBody": "The setup stopped. Fix the cause, then choose Retry: the parts that are installed are skipped.",
+    "cancelledBody": "The setup was cancelled. Retry continues with the parts that are not installed.",
+    "adminTitle": "Only an administrator can install models",
+    "adminBody": "Ask an administrator to open this page and choose Set up talking head, or to install these models:",
+    "forbidden": "The server refused the request: only an administrator can install models.",
+    "lookupFailed": "The gallery could not be read: {{message}}",
+    "errors": {
+      "none": "Pick a model for this part.",
+      "notInGallery": "{{name}} is not in the gallery of this server. Pick another model.",
+      "lookup": "{{name}} could not be checked: {{message}}"
+    },
+    "noPipeline": "No pipeline model yet. The setup installs the missing models and writes one.",
+    "settingsHelp": "Installs the missing models from the gallery and writes a pipeline model. Parts that are installed are skipped."
   }
 }

@@ -149,5 +149,61 @@
     "play": "Putar",
     "unplayable": "Browser ini tidak dapat memutar klip: tidak ada dekoder video H.264. Unduh klip untuk menontonnya.",
     "download": "Unduh klip"
+  },
+  "setup": {
+    "button": "Siapkan wajah bicara",
+    "title": "Siapkan wajah bicara",
+    "desc": "Memasang model yang dibutuhkan wajah bicara dan menggabungkannya dalam model pipeline.",
+    "models": "Model",
+    "part": {
+      "avatar": "Avatar",
+      "chat": "Chat",
+      "stt": "Transkripsi",
+      "tts": "Suara ucap",
+      "vad": "Deteksi suara",
+      "pipeline": "Pipeline"
+    },
+    "none": "Tidak ada",
+    "installedOption": "{{name}} (terpasang)",
+    "pipelineNote": "Model pipeline {{name}} menggabungkan model transkripsi, chat, dan suara ucap. Talk juga bisa memakainya.",
+    "plan": "Yang akan terjadi",
+    "checking": "Memeriksa galeri.",
+    "sizeUnknown": "ukuran tidak diketahui",
+    "total": "Model yang akan diunduh: {{count}}. Ukuran: {{size}}.",
+    "totalPartial": "Model yang akan diunduh: {{count}}. Ukuran: setidaknya {{size}}; ukuran beberapa model tidak diketahui.",
+    "nothing": "Semua sudah terpasang. Penyiapan hanya memilih model.",
+    "variant": "Build",
+    "state": {
+      "waiting": "Akan dipasang",
+      "installing": "Memasang",
+      "done": "Terpasang",
+      "skipped": "Sudah terpasang",
+      "failed": "Gagal",
+      "error": "Tidak tersedia",
+      "cancelled": "Dibatalkan"
+    },
+    "progress": "Progres pemasangan {{name}}",
+    "licenceTitle": "Lisensi model avatar",
+    "licenceBody": "Bobot avatarforcing dilisensikan dengan CC BY-NC 4.0. Anda hanya boleh menggunakannya untuk tujuan nonkomersial.",
+    "licenceAgree": "Saya akan menggunakan model avatar hanya untuk tujuan nonkomersial.",
+    "install": "Pasang dan siapkan",
+    "use": "Gunakan model ini",
+    "retry": "Coba lagi",
+    "cancel": "Batal",
+    "close": "Selesai",
+    "doneBody": "Model sudah terpasang dan dipilih. Model pipeline-nya adalah {{name}}.",
+    "failedBody": "Penyiapan berhenti. Perbaiki penyebabnya, lalu pilih Coba lagi: bagian yang sudah terpasang dilewati.",
+    "cancelledBody": "Penyiapan dibatalkan. Coba lagi melanjutkan bagian yang belum terpasang.",
+    "adminTitle": "Hanya administrator yang dapat memasang model",
+    "adminBody": "Minta administrator membuka halaman ini dan memilih Siapkan wajah bicara, atau memasang model berikut:",
+    "forbidden": "Server menolak permintaan: hanya administrator yang dapat memasang model.",
+    "lookupFailed": "Galeri tidak dapat dibaca: {{message}}",
+    "errors": {
+      "none": "Pilih model untuk bagian ini.",
+      "notInGallery": "{{name}} tidak ada di galeri server ini. Pilih model lain.",
+      "lookup": "{{name}} tidak dapat diperiksa: {{message}}"
+    },
+    "noPipeline": "Belum ada model pipeline. Penyiapan memasang model yang belum ada dan menulis satu model pipeline.",
+    "settingsHelp": "Memasang model yang belum ada dari galeri dan menulis model pipeline. Bagian yang sudah terpasang dilewati."
   }
 }

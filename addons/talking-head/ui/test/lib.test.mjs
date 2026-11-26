@@ -15,9 +15,9 @@ const LIST = [
 ]
 
 test('models: each part lists the usable models that can do it, and only avatarforcing-cpp is an avatar', () => {
-  assert.deepEqual(modelGroups(LIST), { chat: ['qwen'], tts: ['piper'], stt: ['whisper'], avatar: ['avatarforcing'] })
+  assert.deepEqual(modelGroups(LIST), { chat: ['qwen'], tts: ['piper'], stt: ['whisper'], avatar: ['avatarforcing'], vad: [] })
   assert.equal(isAvatarModel(LIST[6]), false)
-  assert.deepEqual(modelGroups(null), { chat: [], tts: [], stt: [], avatar: [] })
+  assert.deepEqual(modelGroups(null), { chat: [], tts: [], stt: [], avatar: [], vad: [] })
 })
 
 test('models: a saved choice wins while it is installed, a link picks the avatar model', () => {

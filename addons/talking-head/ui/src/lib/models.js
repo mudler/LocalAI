@@ -34,6 +34,8 @@ export function modelGroups(list) {
     tts: ids((m) => hasCapability(m, ROLES.tts)),
     stt: ids((m) => hasCapability(m, ROLES.stt)),
     avatar: ids(isAvatarModel),
+    // Voice detection is a part of a pipeline only, never of a turn.
+    vad: ids((m) => hasCapability(m, 'FLAG_VAD')),
   }
 }
 

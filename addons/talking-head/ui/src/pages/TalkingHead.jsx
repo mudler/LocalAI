@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { realtimeApi } from '../utils/api'
@@ -8,6 +8,8 @@ import Icon from '../components/Icon'
 import PortraitPicker from '../components/PortraitPicker'
 // eslint-disable-next-line no-unused-vars
 import HeadSettings from '../components/HeadSettings'
+// eslint-disable-next-line no-unused-vars
+import SetupSheet from '../components/SetupSheet'
 // eslint-disable-next-line no-unused-vars
 import TurnMode from '../modes/TurnMode'
 import { chooseModels, fromPipeline, missingParts, modelGroups, splitPipelines } from '../lib/models'
@@ -47,11 +49,11 @@ export default function TalkingHead() {
   const [searchParams] = useSearchParams()
   const wanted = searchParams.get('model') || ''
 
-  const { models, loading: modelsLoading, error: modelsError } = useModels()
+  const { models, loading: modelsLoading, error: modelsError, refetch: refetchModels } = useModels()
   const [pipelineList, setPipelineList] = useState([])
-  useEffect(() => {
-    realtimeApi.pipelineModels().then((list) => setPipelineList(list || [])).catch(() => setPipelineList([]))
-  }, [])
+  const loadPipelines = useCallback(() => realtimeApi.pipelineModels().then((list) => setPipelineList(list || [])).catch(() => setPipelineList([])), [])
+  useEffect(() => { loadPipelines() }, [loadPipelines])
+  const installedNames = useMemo(() => (Array.isArray(models) ? models.map((m) => m.id) : []), [models])
 
   const groups = useMemo(() => modelGroups(models), [models])
   const pipelines = useMemo(() => splitPipelines(pipelineList), [pipelineList])
@@ -89,6 +91,14 @@ export default function TalkingHead() {
   }
 
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [setupOpen, setSetupOpen] = useState(false)
+  // The setup installed the models and wrote a pipeline: use them.
+  const onSetupDone = (picked) => {
+    update({ pipeline: picked.pipeline, chat: picked.chat, tts: picked.tts, stt: picked.stt, avatar: picked.avatar })
+    refetchModels?.()
+    loadPipelines()
+  }
+  const noPipeline = !modelsLoading && pipelines.length === 0
   const [busy, setBusy] = useState(false)
   const [modeId] = useState(MODES[0].id)
   const Mode = (MODES.find((m) => m.id === modeId) || MODES[0]).Component
@@ -125,7 +135,10 @@ export default function TalkingHead() {
       </ul>
       <p>{t('empty.licence')}</p>
       <div className="talk-card__acts">
-        <button type="button" className="home-primary" onClick={() => navigate(`/app/models?q=${missing.includes('avatar') ? 'avatarforcing' : 'tts'}`)}>
+        <button type="button" className="home-primary" onClick={() => setSetupOpen(true)} data-testid="head-setup-button">
+          <Icon name="download" /> {t('setup.button')}
+        </button>
+        <button type="button" className="home-secondary" onClick={() => navigate(`/app/models?q=${missing.includes('avatar') ? 'avatarforcing' : 'tts'}`)}>
           <Icon name="store" /> {t('empty.gallery')}
         </button>
       </div>
@@ -150,6 +163,15 @@ export default function TalkingHead() {
           </button>
         </div>
       </header>
+
+      {!blocked && noPipeline && (
+        <p className="head-setup-note" data-testid="head-setup-note">
+          <span>{t('setup.noPipeline')}</span>
+          <button type="button" className="talk-btn talk-btn--ghost" onClick={() => setSetupOpen(true)} data-testid="head-setup-link">
+            <Icon name="download" /> {t('setup.button')}
+          </button>
+        </p>
+      )}
 
       <Mode
         choice={choice}
@@ -184,6 +206,17 @@ export default function TalkingHead() {
             update(p ? fromPipeline(p) : { pipeline: '' })
           }}
           onClose={() => setSheetOpen(false)}
+          onSetup={() => { setSheetOpen(false); setSetupOpen(true) }}
+        />
+      )}
+
+      {setupOpen && (
+        <SetupSheet
+          groups={groups}
+          installedNames={installedNames}
+          pipelines={pipelines}
+          onDone={onSetupDone}
+          onClose={() => setSetupOpen(false)}
         />
       )}
     </div>

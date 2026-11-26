@@ -148,4 +148,125 @@ test.describe('Talking Head', () => {
     await page.goto('/app/addons/talking-head/talking-head?model=wan-video')
     await expect(page.getByText('wan-video is not a talking-head model')).toBeVisible()
   })
+
+  test.describe('setup', () => {
+    const GALLERY = {
+      avatarforcing: { license: 'cc-by-nc-4.0', size: 1.2e9 },
+      'llama-3.2-1b-instruct:q4_k_m': { size: 1.3e9 },
+      'whisper-tiny-en-q5_1': { size: 31e6 },
+      'vits-piper-en_US-amy-sherpa': { size: 79e6 },
+      'silero-vad': { size: 2e6 },
+    }
+
+    // A server with nothing installed: the setup installs every part, each
+    // job reports 40 % once and then finishes, and the listing then shows it.
+    async function setupServer(page, { failJob, refuse } = {}) {
+      const state = { installed: new Set(), installs: [], imports: [], cancels: [], jobs: {} }
+      const capabilities = () => [...state.installed].map(name => ({
+        id: name,
+        backend: name === 'avatarforcing' ? 'avatarforcing-cpp' : 'x',
+        capabilities: [{ avatarforcing: 'FLAG_VIDEO', 'llama-3.2-1b-instruct:q4_k_m': 'FLAG_CHAT', 'whisper-tiny-en-q5_1': 'FLAG_TRANSCRIPT', 'vits-piper-en_US-amy-sherpa': 'FLAG_TTS', 'silero-vad': 'FLAG_VAD' }[name]],
+      }))
+      await installStudioAddons(page, { ids: ['talking-head'] })
+      await page.route('**/api/models/capabilities', route => route.fulfill({ json: { data: capabilities() } }))
+      await page.route('**/api/pipeline-models', route => route.fulfill({ json: state.imports.map(c => ({ name: c.name, ...c.pipeline })) }))
+      await page.route(/\/api\/models\?/, route => {
+        if (refuse) return route.fulfill({ status: 403, json: { error: { message: 'forbidden' } } })
+        const term = new URL(route.request().url()).searchParams.get('term')
+        return route.fulfill({ json: { models: Object.keys(GALLERY).filter(n => n.includes(term)).map(n => ({ id: `localai@${n}`, name: n, license: GALLERY[n].license || '', installed: state.installed.has(n) })) } })
+      })
+      await page.route('**/api/models/estimate/**', route => {
+        const name = decodeURIComponent(route.request().url().split('/').pop()).split('@')[1]
+        return route.fulfill({ json: { sizeBytes: GALLERY[name].size } })
+      })
+      await page.route('**/api/models/install/**', route => {
+        const name = decodeURIComponent(route.request().url().split('/').pop()).split('@')[1]
+        const id = `job-${name}`
+        state.installs.push(name)
+        state.jobs[id] = { name, polls: 0 }
+        return route.fulfill({ json: { jobID: id } })
+      })
+      await page.route('**/models/jobs/**', route => {
+        const id = decodeURIComponent(route.request().url().split('/').pop())
+        const job = state.jobs[id]
+        job.polls++
+        if (failJob === job.name && !state.failedOnce) { state.failedOnce = true; return route.fulfill({ json: { processed: true, error: 'download failed: 404' } }) }
+        if (job.polls === 1) return route.fulfill({ json: { progress: 40, processed: false } })
+        state.installed.add(job.name)
+        return route.fulfill({ json: { progress: 100, processed: true } })
+      })
+      await page.route('**/api/operations/*/cancel', route => { state.cancels.push(route.request().url()); return route.fulfill({ json: { success: true } }) })
+      await page.route('**/models/import', route => {
+        const body = route.request().postDataJSON()
+        state.imports.push(body)
+        state.installed.add(body.name)
+        return route.fulfill({ json: { success: true } })
+      })
+      return state
+    }
+
+    test('the setup shows what it downloads and the licence, installs each part and selects them', async ({ page }) => {
+      const state = await setupServer(page)
+      await page.goto('/app/addons/talking-head/talking-head')
+      await page.getByTestId('head-setup-button').click()
+      const sheet = page.getByTestId('head-setup')
+      await expect(sheet.getByTestId('head-setup-plan').locator('li')).toHaveCount(6)
+      await expect(sheet.getByTestId('head-setup-total')).toHaveText('Models to download: 5. Size: 2.6 GB.')
+      await expect(sheet.getByTestId('head-setup-avatar')).toContainText('cc-by-nc-4.0')
+      await expect(sheet.getByTestId('head-setup-licence')).toContainText('CC BY-NC 4.0')
+      // The install waits for the licence answer.
+      await expect(sheet.getByTestId('head-setup-start')).toBeDisabled()
+      await sheet.getByTestId('head-setup-agree').check()
+      await sheet.getByTestId('head-setup-start').click()
+      await expect(sheet.getByTestId('head-setup-done')).toBeVisible({ timeout: 20000 })
+      expect(state.installs).toEqual(['avatarforcing', 'llama-3.2-1b-instruct:q4_k_m', 'whisper-tiny-en-q5_1', 'vits-piper-en_US-amy-sherpa', 'silero-vad'])
+      expect(state.imports).toEqual([{ name: 'talking-head', pipeline: { transcription: 'whisper-tiny-en-q5_1', llm: 'llama-3.2-1b-instruct:q4_k_m', tts: 'vits-piper-en_US-amy-sherpa', vad: 'silero-vad' } }])
+      for (const part of ['avatar', 'chat', 'stt', 'tts', 'vad', 'pipeline']) await expect(sheet.getByTestId(`head-setup-${part}`)).toHaveAttribute('data-state', 'done')
+      await sheet.getByTestId('head-setup-close').click()
+      // The page now uses what it installed.
+      await expect(page.getByTestId('head-missing')).toHaveCount(0)
+      await expect(page.getByTestId('head-avatar-chip')).toContainText('avatarforcing')
+      await expect(page.getByRole('button', { name: /talking-head/ })).toBeVisible()
+    })
+
+    test('a changed pick is installed instead, and installed parts are skipped', async ({ page }) => {
+      const state = await setupServer(page)
+      state.installed.add('vits-piper-en_US-amy-sherpa')
+      await page.goto('/app/addons/talking-head/talking-head')
+      await page.getByTestId('head-setup-button').click()
+      const sheet = page.getByTestId('head-setup')
+      await sheet.getByLabel('Voice detection').selectOption('')
+      await expect(sheet.getByTestId('head-setup-tts')).toHaveAttribute('data-state', 'skipped')
+      await expect(sheet.getByTestId('head-setup-vad')).toHaveCount(0)
+      await expect(sheet.getByTestId('head-setup-total')).toHaveText('Models to download: 3. Size: 2.5 GB.')
+      await sheet.getByTestId('head-setup-agree').check()
+      await sheet.getByTestId('head-setup-start').click()
+      await expect(sheet.getByTestId('head-setup-done')).toBeVisible({ timeout: 20000 })
+      expect(state.installs).toEqual(['avatarforcing', 'llama-3.2-1b-instruct:q4_k_m', 'whisper-tiny-en-q5_1'])
+      expect(state.imports[0].pipeline.vad).toBeUndefined()
+    })
+
+    test('a failed part shows its error, and Retry installs only what is missing', async ({ page }) => {
+      const state = await setupServer(page, { failJob: 'whisper-tiny-en-q5_1' })
+      await page.goto('/app/addons/talking-head/talking-head')
+      await page.getByTestId('head-setup-button').click()
+      const sheet = page.getByTestId('head-setup')
+      await sheet.getByTestId('head-setup-agree').check()
+      await sheet.getByTestId('head-setup-start').click()
+      await expect(sheet.getByTestId('head-setup-stt')).toHaveAttribute('data-state', 'failed', { timeout: 20000 })
+      await expect(sheet.getByTestId('head-setup-stt')).toContainText('download failed: 404')
+      await expect(sheet.getByTestId('head-setup-start')).toHaveText(/Retry/)
+      await sheet.getByTestId('head-setup-start').click()
+      await expect(sheet.getByTestId('head-setup-done')).toBeVisible({ timeout: 20000 })
+      expect(state.installs).toEqual(['avatarforcing', 'llama-3.2-1b-instruct:q4_k_m', 'whisper-tiny-en-q5_1', 'whisper-tiny-en-q5_1', 'vits-piper-en_US-amy-sherpa', 'silero-vad'])
+    })
+
+    test('a person the server refuses is told that only an administrator can install', async ({ page }) => {
+      await setupServer(page, { refuse: true })
+      await page.goto('/app/addons/talking-head/talking-head')
+      await page.getByTestId('head-setup-button').click()
+      await expect(page.getByTestId('head-setup-error')).toHaveText(/only an administrator can install models/)
+      await expect(page.getByTestId('head-setup-start')).toBeDisabled()
+    })
+  })
 })

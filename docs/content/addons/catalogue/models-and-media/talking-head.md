@@ -21,13 +21,37 @@ Talking Head is a conversation with a face. You pick a portrait, then speak or t
 The `avatarforcing` weights are licensed under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). Use them for non-commercial purposes only.
 {{% /callout %}}
 
-## Install the models
+## Set up the models
+
+When the avatar model or a speech model is missing, or there is no pipeline model yet, the page offers **Set up talking head**. You can also open it from the settings. It installs what a talking head needs from the gallery and writes a pipeline model that joins the parts:
+
+| Part | Default pick | Other picks |
+|---|---|---|
+| Avatar | `avatarforcing` (float32 GGUF, about 1.2 GB) | A build of the entry, when the gallery entry lists more than one |
+| Chat | `llama-3.2-1b-instruct:q4_k_m` | `gemma-3-1b-it`, `qwen3-0.6b`, or any installed chat model |
+| Transcription | `whisper-tiny-en-q5_1` | `whisper-base-en-q5_1`, `whisper-base-q5_1`, or any installed one |
+| Speech | `vits-piper-en_US-amy-sherpa` | `kokoro`, or any installed one |
+| Voice detection | `silero-vad` | None |
+
+1. Choose **Set up talking head**. The sheet shows each part, whether it is installed, and the size of each download and of all of them.
+2. Change a pick if you want another model. A part that is installed already is skipped, so running the setup again only fills the gaps.
+3. Read the licence notice of the avatar weights and confirm that you use them for non-commercial purposes only.
+4. Choose **Install and set up**. Each part shows its progress. **Cancel** stops the download in progress. If a part fails, the sheet shows the error and **Retry** continues with the parts that are not installed.
+5. When the setup is done, the page selects the new pipeline model and the avatar model.
+
+The pipeline model is named `talking-head` (or `talking-head-2` and so on, when the name is taken). A pipeline with the same parts is used again, not written twice. Talk can use it too.
+
+Only an administrator can install models. Anyone else sees the list of models to ask an administrator for.
+
+The setup uses the routes of the web UI's model pages, with your own session: `GET /api/models` (the gallery), `GET /api/models/estimate/:id` (the size), `GET /api/models/variants/:id` (the builds), `POST /api/models/install/:id`, `GET /models/jobs/:uuid` (the progress), `POST /api/operations/:jobID/cancel` and `POST /models/import` (the pipeline model).
+
+To install by hand instead:
 
 ```bash
 local-ai models install avatarforcing
 ```
 
-Install a text-to-speech model, a chat model and a transcription model from the gallery too. A small chat model is enough, because the replies are short. If you have a [pipeline model]({{% relref "/api/openai-realtime" %}}) for Talk, the page can use its chat, transcription and speech models.
+Then install a text-to-speech model, a chat model and a transcription model from the gallery. A small chat model is enough, because the replies are short. If you have a [pipeline model]({{% relref "/api/openai-realtime" %}}) for Talk, the page can use its chat, transcription and speech models.
 
 ## Talk to the face
 

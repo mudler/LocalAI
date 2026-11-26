@@ -149,5 +149,61 @@
     "play": "Reproducir",
     "unplayable": "Este navegador no puede reproducir el clip: no tiene decodificador de vídeo H.264. Descarga el clip para verlo.",
     "download": "Descargar el clip"
+  },
+  "setup": {
+    "button": "Configurar el rostro parlante",
+    "title": "Configurar el rostro parlante",
+    "desc": "Instala los modelos que necesita un rostro parlante y los une en un modelo de pipeline.",
+    "models": "Modelos",
+    "part": {
+      "avatar": "Avatar",
+      "chat": "Chat",
+      "stt": "Transcripción",
+      "tts": "Voz",
+      "vad": "Detección de voz",
+      "pipeline": "Pipeline"
+    },
+    "none": "Ninguno",
+    "installedOption": "{{name}} (instalado)",
+    "pipelineNote": "El modelo de pipeline {{name}} une los modelos de transcripción, chat y voz. Talk también puede usarlo.",
+    "plan": "Qué ocurre",
+    "checking": "Comprobando la galería.",
+    "sizeUnknown": "tamaño desconocido",
+    "total": "Modelos por descargar: {{count}}. Tamaño: {{size}}.",
+    "totalPartial": "Modelos para descargar: {{count}}. Tamaño: al menos {{size}}; no se conoce el tamaño de algunos modelos.",
+    "nothing": "Todo está instalado. La configuración solo selecciona los modelos.",
+    "variant": "Build",
+    "state": {
+      "waiting": "Por instalar",
+      "installing": "Instalando",
+      "done": "Instalado",
+      "skipped": "Ya instalado",
+      "failed": "Falló",
+      "error": "No disponible",
+      "cancelled": "Cancelado"
+    },
+    "progress": "Progreso de instalación de {{name}}",
+    "licenceTitle": "Licencia del modelo de avatar",
+    "licenceBody": "Los pesos de avatarforcing tienen licencia CC BY-NC 4.0. Solo puedes usarlos con fines no comerciales.",
+    "licenceAgree": "Usaré el modelo de avatar solo con fines no comerciales.",
+    "install": "Instalar y configurar",
+    "use": "Usar estos modelos",
+    "retry": "Reintentar",
+    "cancel": "Cancelar",
+    "close": "Listo",
+    "doneBody": "Los modelos están instalados y seleccionados. El modelo de pipeline es {{name}}.",
+    "failedBody": "La configuración se detuvo. Corrige la causa y elige Reintentar: se omiten las partes ya instaladas.",
+    "cancelledBody": "La configuración se canceló. Reintentar continúa con las partes que no están instaladas.",
+    "adminTitle": "Solo un administrador puede instalar modelos",
+    "adminBody": "Pide a un administrador que abra esta página y elija Configurar el rostro parlante, o que instale estos modelos:",
+    "forbidden": "El servidor rechazó la solicitud: solo un administrador puede instalar modelos.",
+    "lookupFailed": "No se pudo leer la galería: {{message}}",
+    "errors": {
+      "none": "Elige un modelo para esta parte.",
+      "notInGallery": "{{name}} no está en la galería de este servidor. Elige otro modelo.",
+      "lookup": "No se pudo comprobar {{name}}: {{message}}"
+    },
+    "noPipeline": "Aún no hay modelo de pipeline. La configuración instala los modelos que faltan y escribe uno.",
+    "settingsHelp": "Instala desde la galería los modelos que faltan y escribe un modelo de pipeline. Se omiten las partes ya instaladas."
   }
 }
