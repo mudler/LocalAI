@@ -244,9 +244,8 @@ func (n *Host) start(cfg Config, boot []peer.AddrInfo) error {
 	n.connectAll(cfg.StaticRelays)
 	if cfg.MDNS {
 		// mDNS only finds peers on the local network, so a host that cannot
-		// start it still works. A host with no listen address, such as one in
-		// mode connect, has no address to announce, and discovery waits for
-		// one.
+		// start it still works. A host with no listen address has no address
+		// to announce, and discovery waits for one.
 		n.startMDNS(w)
 	}
 	return n.watchAddrs(w)

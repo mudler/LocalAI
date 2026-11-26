@@ -371,7 +371,7 @@ var _ = Describe("P2P layer in mode share", func() {
 		Expect(a.RestartP2PNet()).To(Succeed())
 		rt, _ := a.p2p().runtime()
 		Expect(rt.srv).To(BeNil())
-		Expect(transportListenAddrs(rt)).To(BeEmpty())
+		Expect(rt.pair).To(BeNil())
 	})
 })
 

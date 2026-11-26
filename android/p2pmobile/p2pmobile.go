@@ -46,7 +46,9 @@ func Pair(identityPath, inviteLink, deviceName string, allowOpenRelay bool) (str
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	h, err := p2pnet.New(ctx, p2pnet.Config{IdentityPath: identityPath, ListenAddrs: []string{}})
+	// The host listens on ports that the system picks, so that a hole punch
+	// can reach it; its empty allowlist refuses every inbound connection.
+	h, err := p2pnet.New(ctx, p2pnet.Config{IdentityPath: identityPath})
 	if err != nil {
 		return "", err
 	}
@@ -146,7 +148,9 @@ func StartForward(identityPath, peerID, listenAddr, relays, addrs string, cb Sta
 		return nil, fmt.Errorf("identity: %w; pair first", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	h, err := p2pnet.New(ctx, p2pnet.Config{IdentityPath: identityPath, ListenAddrs: []string{}})
+	// The host listens on ports that the system picks, so that a hole punch
+	// can reach it; its empty allowlist refuses every inbound connection.
+	h, err := p2pnet.New(ctx, p2pnet.Config{IdentityPath: identityPath})
 	if err != nil {
 		cancel()
 		return nil, err

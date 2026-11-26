@@ -83,7 +83,9 @@ func (c *P2PPairCMD) Run(cctx *cliContext.Context) error {
 		_, _ = fmt.Fprintln(os.Stderr, "Note: no --identity or --data-path, so this pairing is not saved and this device is forgotten when the command ends.")
 	}
 
-	h, err := p2pnet.New(ctx, p2pnet.Config{IdentityPath: identity, ListenAddrs: []string{}})
+	// The host listens on ports that the system picks, so that a hole punch
+	// can reach it; its empty allowlist refuses every inbound connection.
+	h, err := p2pnet.New(ctx, p2pnet.Config{IdentityPath: identity})
 	if err != nil {
 		return err
 	}

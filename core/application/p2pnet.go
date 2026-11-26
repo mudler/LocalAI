@@ -283,11 +283,11 @@ func (n *p2pNet) startRuntime() (*p2pRuntime, config.P2PMode, error) {
 		gate = p2pnet.NewAllowlist()
 		pc.Gate = gate
 		pc.ListenAddrs = s.ListenAddrs
-	} else {
-		// Connect accepts nobody: no listen address, and the host's own empty
-		// allowlist refuses every inbound connection.
-		pc.ListenAddrs = []string{}
 	}
+	// Mode connect listens too, on the default addresses with ports that
+	// the system picks: a hole punch needs a socket the peer can reach. It
+	// still accepts nobody: the host's own empty allowlist refuses every
+	// inbound connection after the security handshake.
 	ctx, cancel := context.WithCancel(context.WithoutCancel(appContext(appCfg)))
 	host, err := p2pnet.New(ctx, pc)
 	if err != nil {

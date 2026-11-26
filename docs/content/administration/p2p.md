@@ -39,7 +39,7 @@ setting `p2p_mode`, or with `--p2p-mode` (environment variable
 | Mode | In the interface | What the server does |
 |---|---|---|
 | `off` | Off | Nothing. This is the default. |
-| `connect` | Connect only | It connects out to remotes over P2P and accepts nobody. It has no listener, no invites and no devices. It needs no authentication. |
+| `connect` | Connect only | It connects out to remotes over P2P and accepts nobody. It listens on random ports only so that a hole punch can reach it, and it drops every machine that connects. It has no invites and no devices. It needs no authentication. |
 | `share` | Connect and share | It also accepts paired devices: it listens, mints invites, and has the devices and relays pages. |
 
 Mode `share` needs [authentication]({{% relref "/administration/authentication" %}}).
@@ -238,7 +238,7 @@ Command-line flags, read at start:
 | Flag | Environment variable | Meaning |
 |---|---|---|
 | `--p2p-mode` | `LOCALAI_P2P_MODE` | The mode at start. The setting `p2p_mode` wins when the flag keeps its default. |
-| `--p2p-listen` | `LOCALAI_P2P_LISTEN_MADDRS` | Addresses to listen on in mode `share`. The default is TCP and QUIC on every interface, on random ports. |
+| `--p2p-listen` | `LOCALAI_P2P_LISTEN_MADDRS` | Addresses to listen on in mode `share`. The default is TCP and QUIC on every interface, on random ports. Mode `connect`, `local-ai p2p pair` and the Android app always use the default. |
 | `--p2p-bootstrap` | `LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS` | Bootstrap peers at start (setting `p2p_bootstrap_peers`). |
 | `--p2p-identity` | `LOCALAI_P2P_IDENTITY` | The identity key file. The default is `p2p/identity.key` under the data path. |
 

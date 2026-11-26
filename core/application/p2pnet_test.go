@@ -15,6 +15,7 @@ import (
 	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
 	"github.com/mudler/LocalAI/core/services/p2pnet"
 	"github.com/mudler/LocalAI/core/services/p2prelaymgr"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 // newP2PTestApp is an application with only what the P2P layer reads: the
@@ -50,22 +51,37 @@ var _ = Describe("P2P layer lifecycle", func() {
 		Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue(), "mode off must not even create the identity")
 	})
 
-	It("dials out and never listens in mode connect", func() {
+	It("listens for hole punches in mode connect but accepts nobody", func() {
 		a := newP2PTestApp("connect", GinkgoT().TempDir(), nil)
 		Expect(a.StartP2PNet()).To(Succeed())
 		rt, mode := a.p2p().runtime()
 		Expect(mode).To(Equal(config.P2PModeConnect))
 		Expect(rt).ToNot(BeNil())
-		Expect(transportListenAddrs(rt)).To(BeEmpty())
+		Expect(transportListenAddrs(rt)).ToNot(BeEmpty(), "a hole punch needs a socket to reach")
 		Expect(rt.srv).To(BeNil())
 		Expect(rt.pair).To(BeNil())
 		Expect(rt.host.Gate().AdmitConn("anyone")).To(BeFalse())
+
+		// A stranger reaches the socket, but the gate refuses it after the
+		// security handshake.
+		stranger, err := p2pnet.New(context.Background(), p2pnet.Config{
+			IdentityPath: filepath.Join(GinkgoT().TempDir(), "stranger.key"),
+			ListenAddrs:  []string{"/ip4/127.0.0.1/tcp/0"},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(stranger.Close)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_, err = stranger.Dial(ctx, rt.host.ID(), p2pnet.ProtoHTTP, p2pnet.WithAddrs(loopbackAddrs(rt)...))
+		Expect(err).To(HaveOccurred())
+		Eventually(func() int { return len(rt.host.Libp2p().Network().ConnsToPeer(stranger.ID())) }).Should(BeZero())
+		Consistently(func() int { return len(rt.host.Libp2p().Network().ConnsToPeer(stranger.ID())) }, time.Second).Should(BeZero())
 
 		st, err := a.P2P().Status(context.Background())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(st.Mode).To(Equal("connect"))
 		Expect(st.Running).To(BeTrue())
-		Expect(st.Addrs).To(BeEmpty())
+		Expect(st.Addrs).ToNot(BeEmpty())
 		Expect(st.RelayService.Reason).To(Equal("not_share"))
 
 		_, err = a.P2P().ListInvites(context.Background())
@@ -184,6 +200,17 @@ type countingLimiter struct{ attempts int }
 func (c *countingLimiter) Attempt(p2pnet.ID, string) (bool, func()) {
 	c.attempts++
 	return true, func() { c.attempts-- }
+}
+
+// loopbackAddrs are the IPv4 loopback addresses of a host.
+func loopbackAddrs(rt *p2pRuntime) []ma.Multiaddr {
+	var out []ma.Multiaddr
+	for _, a := range rt.host.Libp2p().Addrs() {
+		if v, err := a.ValueForProtocol(ma.P_IP4); err == nil && v == "127.0.0.1" {
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 // transportListenAddrs are the TCP and UDP listen addresses of a host. The
