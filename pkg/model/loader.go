@@ -789,6 +789,18 @@ func (ml *ModelLoader) ShutdownModelAtAddress(modelName, address string, force b
 	if !ok || m.address != address {
 		return nil
 	}
+	if ml.isRemoteStub(m) {
+		// In distributed mode this frontend's watchdog owns only the
+		// backends it started. A remote replica is unloaded by the cluster
+		// (router eviction, reconciler sweeps); unloading it from here
+		// would stop the model on every node that holds it.
+		xlog.Debug("Watchdog eviction of a remote replica: dropping the local stub only", "model", modelName, "address", address)
+		store.Delete(modelName)
+		if wd := ml.GetWatchDog(); wd != nil {
+			wd.Untrack(address)
+		}
+		return nil
+	}
 	err = ml.deleteProcess(ctx, modelName, force)
 	if errors.Is(err, ErrModelBusy) && !force && forceBackendShutdown {
 		forceCtx, forceCancel := context.WithTimeout(context.Background(), forcedShutdownTimeout)
@@ -833,6 +845,32 @@ func (ml *ModelLoader) shutdownModel(ctx context.Context, modelName string, forc
 // and their in-flight requests. The next request re-routes through the
 // router, whose health probe removes the registry row of a replica that is
 // really gone.
+// isRemoteStub reports whether m is the local stub of a replica that runs on
+// a worker node: distributed mode, and no process of this frontend.
+func (ml *ModelLoader) isRemoteStub(m *Model) bool {
+	ml.mu.Lock()
+	distributed := ml.modelRouter != nil
+	ml.mu.Unlock()
+	return distributed && m != nil && m.Process() == nil
+}
+
+// trackAddressBackend registers a backend reached by address with the
+// watchdog, so LRU and group eviction see it loaded. In distributed mode an
+// address-only backend is a remote replica, which the frontend's watchdog
+// leaves to the cluster.
+func (ml *ModelLoader) trackAddressBackend(modelID, address string) {
+	if ml.wd == nil {
+		return
+	}
+	ml.mu.Lock()
+	distributed := ml.modelRouter != nil
+	ml.mu.Unlock()
+	if distributed {
+		return
+	}
+	ml.wd.AddAddressModelMap(address, modelID)
+}
+
 func (ml *ModelLoader) evictRemoteStub(modelName string) {
 	ml.mu.Lock()
 	store := ml.store
