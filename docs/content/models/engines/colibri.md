@@ -62,6 +62,9 @@ for DeepSeek V4, `DSV4_CUDA=1`. Set any of them in the model's `env` to change i
 The engines without a CUDA backend (Qwen-Image, Laya and GLiNER-Decide) are the CPU builds of
 the release.
 
+The pins move with colibri's releases: a scheduled job opens a pull request that updates the
+release tag, its commit and the SHA-256 of every archive together.
+
 ## Models
 
 The backend accepts two kinds of model:
