@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { clearAllMediaHistory, FAVOURITES_KEY, readAllMediaHistory, useMediaHistory } from './useMediaHistory'
+import { SYNC_EVENT } from '../utils/studioHistorySync'
 import { use3DHistory } from './use3DHistory'
 import { collectWork, pruneIds, toggleId } from '../utils/studioWork'
 
@@ -41,6 +42,13 @@ export function useStudioWork() {
     return () => clearTimeout(id)
   }, [])
   useEffect(() => { if (threeD.length > 0) setReady(true) }, [threeD])
+
+  // The server's history lands after the first paint; show it when it does.
+  useEffect(() => {
+    const reload = () => setMedia(readAllMediaHistory())
+    globalThis.addEventListener?.(SYNC_EVENT, reload)
+    return () => globalThis.removeEventListener?.(SYNC_EVENT, reload)
+  }, [])
 
   const items = useMemo(
     () => collectWork({ ...media, image: imageHistory.entries }, threeD, { favourites }),

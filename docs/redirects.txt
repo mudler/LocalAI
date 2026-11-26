@@ -8,6 +8,7 @@
 /addons/catalogue/models-and-media/face/
 /addons/catalogue/models-and-media/fine-tuning/
 /addons/catalogue/models-and-media/quantization/
+/addons/catalogue/models-and-media/studio-history/
 /addons/catalogue/models-and-media/studio/
 /addons/catalogue/models-and-media/talk/
 /addons/catalogue/models-and-media/voice/

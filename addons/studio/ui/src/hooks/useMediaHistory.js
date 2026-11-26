@@ -1,8 +1,35 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { generateId } from '../utils/format'
-import { MEDIA_STORAGE_KEYS as STORAGE_KEYS, FAVOURITES_KEY, clearAllMediaHistory } from '../utils/mediaHistoryStore'
+import { fetchUrl } from '../utils/api'
+import { MEDIA_STORAGE_KEYS as STORAGE_KEYS, FAVOURITES_KEY, clearAllMediaHistory as clearStoredMediaHistory } from '../utils/mediaHistoryStore'
+import {
+  SYNC_EVENT, clearRemote, deleteRemote, deletedInLastSync, historyStorageKey, keepPending, saveRemote,
+  setStudioHistoryTransport, syncStudioHistory,
+} from '../utils/studioHistorySync'
 
-export { FAVOURITES_KEY, clearAllMediaHistory }
+export { FAVOURITES_KEY }
+
+// The history sync reaches /api/studio/history with the signed-in person's own
+// session, like every other core call of the Studio.
+setStudioHistoryTransport(fetchUrl)
+
+// Forget everything the Studio front page shows, here and, when the server
+// keeps the history, there too (every workspace; 3D included, which the caller
+// also clears in IndexedDB). Returns how many stored lists were removed.
+export function clearAllMediaHistory() {
+  const shown = Object.entries(readAllMediaHistory()).flatMap(([type, list]) => list.map(e => ({ id: e.id, type })))
+  let removed = clearStoredMediaHistory()
+  for (const [mediaType, base] of Object.entries(STORAGE_KEYS)) {
+    const key = historyStorageKey(mediaType)
+    if (!key || key === base) continue
+    try {
+      if (localStorage.getItem(key) !== null) removed += 1
+      localStorage.removeItem(key)
+    } catch { /* storage unavailable: nothing to clear */ }
+  }
+  clearRemote('', shown)
+  return removed
+}
 
 const SAVE_DEBOUNCE_MS = 500
 const MAX_ENTRIES = 100
@@ -19,13 +46,16 @@ const MAX_PROMPT_CHARS = 2000
 // so callers wanting 3D read use3DHistory alongside this.
 export function readAllMediaHistory() {
   const all = {}
-  for (const [mediaType, key] of Object.entries(STORAGE_KEYS)) {
-    all[mediaType] = loadEntries(key)
+  for (const mediaType of Object.keys(STORAGE_KEYS)) {
+    all[mediaType] = loadEntries(historyStorageKey(mediaType))
   }
   return all
 }
 
+// A null key means the server has not yet confirmed whose cache this browser
+// holds: nothing is shown until it has.
 function loadEntries(key) {
+  if (!key) return []
   try {
     const stored = localStorage.getItem(key)
     if (stored) {
@@ -39,6 +69,7 @@ function loadEntries(key) {
 }
 
 function saveEntries(key, entries) {
+  if (!key) return
   try {
     localStorage.setItem(key, JSON.stringify(entries))
   } catch (err) {
@@ -49,13 +80,43 @@ function saveEntries(key, entries) {
 }
 
 export function useMediaHistory(mediaType) {
-  const storageKey = STORAGE_KEYS[mediaType]
+  const [storageKey, setStorageKey] = useState(() => historyStorageKey(mediaType))
   const [entries, setEntries] = useState(() => loadEntries(storageKey))
   const [selectedId, setSelectedId] = useState(null)
   const saveTimer = useRef(null)
   const dirty = useRef(false)
   const entriesRef = useRef(entries)
   entriesRef.current = entries
+  // Entries made on this page that the server has not confirmed yet: kept
+  // across a sync that lands after them, until saveRemote answers.
+  const pendingIds = useRef(new Set())
+  const keyRef = useRef(storageKey)
+
+  // Ask the server once per page load; when it answers, show its history
+  // (merged into this account's browser cache by the sync).
+  useEffect(() => {
+    const reload = () => {
+      const key = historyStorageKey(mediaType)
+      const prevKey = keyRef.current
+      keyRef.current = key
+      const deleted = deletedInLastSync(mediaType)
+      // Another account's cache: what this page made under the previous one stays there.
+      if (prevKey && prevKey !== key) pendingIds.current.clear()
+      for (const id of deleted) pendingIds.current.delete(id)
+      setStorageKey(key)
+      setEntries(prev => {
+        const { list, kept } = keepPending({
+          prev, cached: loadEntries(key), pendingIds: pendingIds.current, deleted, prevKey, key,
+        })
+        if (kept.length === 0) return list
+        dirty.current = true
+        return list.slice(0, MAX_ENTRIES)
+      })
+    }
+    globalThis.addEventListener?.(SYNC_EVENT, reload)
+    syncStudioHistory()
+    return () => globalThis.removeEventListener?.(SYNC_EVENT, reload)
+  }, [mediaType])
 
   // Debounced save — only when dirty
   useEffect(() => {
@@ -91,25 +152,41 @@ export function useMediaHistory(mediaType) {
       ...(parentId ? { parentId, edge: edge || 'take' } : {}),
     }
     dirty.current = true
+    pendingIds.current.add(entry.id)
     setEntries(prev => {
       const updated = [entry, ...prev]
       if (updated.length > MAX_ENTRIES) updated.length = MAX_ENTRIES
       return updated
     })
+    saveRemote(mediaType, entry).then(version => {
+      if (!version) return // no server, or not reached: stays pending, uploaded by the next sync
+      pendingIds.current.delete(entry.id)
+      dirty.current = true
+      if (version < 0) { // deleted on another browser before this upload landed
+        setEntries(prev => prev.filter(e => e.id !== entry.id))
+        return
+      }
+      setEntries(prev => prev.map(e => (e.id === entry.id ? { ...e, serverVersion: version } : e)))
+    })
     return entry.id
-  }, [])
+  }, [mediaType])
 
   const deleteEntry = useCallback((id) => {
+    pendingIds.current.delete(id)
     dirty.current = true
     setEntries(prev => prev.filter(e => e.id !== id))
     setSelectedId(prev => prev === id ? null : prev)
-  }, [])
+    deleteRemote(mediaType, id)
+  }, [mediaType])
 
   const clearAll = useCallback(() => {
+    pendingIds.current.clear()
     dirty.current = true
+    const removed = entriesRef.current.map(e => ({ id: e.id, type: mediaType }))
     setEntries([])
     setSelectedId(null)
-  }, [])
+    clearRemote(mediaType, removed)
+  }, [mediaType])
 
   const selectEntry = useCallback((id) => {
     setSelectedId(prev => prev === id ? null : id)
