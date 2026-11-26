@@ -31,6 +31,8 @@ import (
 	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // abiVersion is the AVATARFORCING_ABI_VERSION this backend is written for.
@@ -161,11 +163,11 @@ func (a *AvatarForcing) GenerateVideo(req *pb.GenerateVideoRequest) error {
 		return grpcerrors.ModelNotLoaded("avatarforcing-cpp")
 	}
 	if err := checkVideoRequest(req); err != nil {
-		return err
+		return invalidArgument(err)
 	}
 	ro, err := requestFromProto(req)
 	if err != nil {
-		return err
+		return invalidArgument(err)
 	}
 	a.warnIgnored(req)
 
@@ -178,11 +180,11 @@ func (a *AvatarForcing) GenerateVideo(req *pb.GenerateVideoRequest) error {
 
 	portrait, err := preparePortrait(a.ffmpeg, req.GetStartImage(), a.info.Width, a.info.Height, work)
 	if err != nil {
-		return err
+		return invalidArgument(err)
 	}
 	wav, err := prepareAudio(a.ffmpeg, req.GetAudio(), work)
 	if err != nil {
-		return err
+		return invalidArgument(err)
 	}
 
 	xlog.Info("[avatarforcing-cpp] GenerateVideo", "dst", dst, "request", ro.json())
@@ -190,6 +192,12 @@ func (a *AvatarForcing) GenerateVideo(req *pb.GenerateVideoRequest) error {
 		return fmt.Errorf("avatarforcing-cpp: generation failed: %s", CppLastError(a.ctx))
 	}
 	return nil
+}
+
+// invalidArgument marks an error of the request, so that the HTTP endpoint
+// answers 400 instead of 500.
+func invalidArgument(err error) error {
+	return status.Error(codes.InvalidArgument, err.Error())
 }
 
 // checkVideoRequest checks the inputs that every generation needs.

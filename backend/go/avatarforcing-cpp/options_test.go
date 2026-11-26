@@ -13,6 +13,8 @@ import (
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestAvatarForcingCpp(t *testing.T) {
@@ -214,5 +216,25 @@ var _ = Describe("input preparation", func() {
 		Expect(os.WriteFile(src, []byte("not audio"), 0o600)).To(Succeed())
 		_, err := prepareAudio(ffmpeg, src, work)
 		Expect(err).To(MatchError(ContainSubstring("reading the audio")))
+	})
+})
+
+var _ = Describe("GenerateVideo request errors", func() {
+	It("returns InvalidArgument for a request without audio", func() {
+		a := &AvatarForcing{ctx: 1, info: modelInfo{Width: 512, Height: 512, Fps: 25}}
+		err := a.GenerateVideo(&pb.GenerateVideoRequest{StartImage: "p", Dst: "o.mp4"})
+		st, ok := status.FromError(err)
+		Expect(ok).To(BeTrue())
+		Expect(st.Code()).To(Equal(codes.InvalidArgument))
+		Expect(st.Message()).To(ContainSubstring("speech audio (audio)"))
+	})
+
+	It("returns InvalidArgument for an unknown params key", func() {
+		a := &AvatarForcing{ctx: 1, info: modelInfo{Width: 512, Height: 512, Fps: 25}}
+		err := a.GenerateVideo(&pb.GenerateVideoRequest{StartImage: "p", Audio: "a", Dst: "o.mp4",
+			Params: map[string]string{"steps": "4"}})
+		st, ok := status.FromError(err)
+		Expect(ok).To(BeTrue())
+		Expect(st.Code()).To(Equal(codes.InvalidArgument))
 	})
 })
