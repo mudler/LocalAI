@@ -22,7 +22,7 @@ import (
 // time the model is held.
 //
 // @Summary Cancel one distributed model load.
-// @Description Cancels the load attempt named by `job_id` and stops its remote work. 200 means the attempt is gone or the worker confirmed the stop. 202 means the cancel is recorded and the stop is pending; the model is released after `retry_after` seconds regardless. 409 means a different attempt is current and carries its `current_job_id`. Repeating the call is safe and does not extend the hold.
+// @Description Cancels the load attempt named by `job_id` and stops its remote work. 200 means the attempt is gone or the worker confirmed the stop. 202 means the cancel is recorded and the stop is pending; the model is released after `retry_after` seconds regardless. 409 means a different attempt replaced it on its node and carries its `current_job_id`. Repeating the call is safe and does not extend the hold.
 // @Tags models
 // @Accept json
 // @Produce json

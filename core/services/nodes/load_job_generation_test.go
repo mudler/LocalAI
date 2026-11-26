@@ -467,14 +467,39 @@ var _ = Describe("Load job generation fencing", func() {
 			Expect(other.State).To(Equal(LoadJobStatePending))
 			Expect(other.CancelRequested).To(BeFalse())
 
-			// The cancel of an attempt that is gone names the load that holds
-			// the model now.
+			// An attempt that is gone is gone: the load on the other node did
+			// not replace it, so it is no conflict.
 			Expect(registry.DeleteFailedLoadJob(ctx, a.Ref())).To(MatchError(ErrStaleLoadJob))
 			Expect(db.Where("generation = ?", a.Generation).Delete(&ModelLoadJob{}).Error).To(Succeed())
 			outcome, job, err = registry.CancelLoadJob(ctx, a.Ref())
 			Expect(err).ToNot(HaveOccurred())
+			Expect(outcome).To(Equal(CancelGone))
+			Expect(job).To(BeNil())
+		})
+
+		It("is a conflict when another attempt replaced it on its node", func() {
+			a, _, err := registry.ClaimLoadJobOn(ctx, "replaced", "node-a", "frontend-a")
+			Expect(err).ToNot(HaveOccurred())
+			var replacement *ModelLoadJob
+			// The attempt ends and a new one claims its node between the
+			// cancel's first read and its lock.
+			cancelLockHook = func() {
+				Expect(db.Where("generation = ?", a.Generation).Delete(&ModelLoadJob{}).Error).To(Succeed())
+				var claimed bool
+				replacement, claimed, err = registry.ClaimLoadJobOn(ctx, "replaced", "node-a", "frontend-b")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(claimed).To(BeTrue())
+			}
+			DeferCleanup(func() { cancelLockHook = nil })
+
+			outcome, job, err := registry.CancelLoadJob(ctx, a.Ref())
+
+			Expect(err).ToNot(HaveOccurred())
 			Expect(outcome).To(Equal(CancelConflict))
-			Expect(job.Generation).To(Equal(b.Generation))
+			Expect(job.Generation).To(Equal(replacement.Generation))
+			current, err := registry.GetLoadJobByRef(ctx, replacement.Ref())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(current.CancelRequested).To(BeFalse(), "the replacement is not cancelled")
 		})
 	})
 })

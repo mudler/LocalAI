@@ -116,7 +116,7 @@ var _ = Describe("ModelLoadCancelEndpoint", func() {
 		}
 	})
 
-	It("answers the whole matrix: stopped, stopping, gone, unknown, conflict", func() {
+	It("answers the matrix: stopped, gone, unknown", func() {
 		e := serve(func(id string) bool { return id != "unknown" })
 		job := placed("m")
 
@@ -133,11 +133,15 @@ var _ = Describe("ModelLoadCancelEndpoint", func() {
 		Expect(current.CancelRequested).To(BeTrue())
 		Expect(current.State).To(Equal(nodes.LoadJobStateFailed))
 
-		// A different generation is current: 409 with its id.
+		// An attempt that is gone: 200 gone, even while another attempt of
+		// the model runs. That one may load on another node; it did not
+		// replace the attempt named. (409 is for an attempt that another
+		// one replaced on its node during the cancel; the nodes package
+		// covers that race.)
 		rec = post(e, "m", cancelBody("not-the-current-one"))
-		Expect(rec.Code).To(Equal(http.StatusConflict))
+		Expect(rec.Code).To(Equal(http.StatusOK))
 		Expect(json.Unmarshal(rec.Body.Bytes(), &body)).To(Succeed())
-		Expect(body.CurrentJobID).To(Equal(job.Generation))
+		Expect(body.State).To(Equal("gone"))
 
 		// No load at all: 200 gone for a known model, 404 for an unknown one.
 		rec = post(e, "idle", cancelBody("x"))

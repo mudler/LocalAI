@@ -774,9 +774,14 @@ const (
 	CancelAlready
 	// CancelGone: no job exists for the model.
 	CancelGone
-	// CancelConflict: another generation holds the model. The returned job is it.
+	// CancelConflict: another attempt replaced this one on its node. The
+	// returned job is it.
 	CancelConflict
 )
+
+// cancelLockHook runs, when set, between the first read of a cancel and its
+// lock. A spec uses it to replace the attempt in that window.
+var cancelLockHook func()
 
 // CancelLoadJob records an administrator's cancel of one attempt. It fails the
 // attempt with the stop window, so the model is held while the remote work is
@@ -799,15 +804,13 @@ func (r *NodeRegistry) cancelLoadJob(ctx context.Context, ref LoadJobRef, reason
 		return 0, nil, err
 	}
 	if target == nil {
-		// The attempt is gone. Another attempt of the model may hold it.
-		current, err := r.GetLoadJob(ctx, ref.TrackingKey)
-		if err != nil {
-			return 0, nil, err
-		}
-		if current == nil {
-			return CancelGone, nil, nil
-		}
-		return CancelConflict, current, nil
+		// The attempt is gone. A load of the model on another node did not
+		// replace it, and its node is not known any more, so it is gone, not
+		// a conflict.
+		return CancelGone, nil, nil
+	}
+	if cancelLockHook != nil {
+		cancelLockHook()
 	}
 	var outcome CancelOutcome
 	err = advisorylock.WithLockCtx(ctx, r.db, loadJobLockKey(ref.TrackingKey, target.NodeID), func() error {
@@ -817,7 +820,16 @@ func (r *NodeRegistry) cancelLoadJob(ctx context.Context, ref LoadJobRef, reason
 		}
 		switch {
 		case job == nil:
+			// It ended since the first read. Another attempt on its node
+			// replaced it, or the node has no load of the model now.
+			current, err := r.GetLoadJobOn(ctx, ref.TrackingKey, target.NodeID)
+			if err != nil {
+				return err
+			}
 			outcome = CancelGone
+			if current != nil {
+				outcome = CancelConflict
+			}
 			return nil
 		case job.State == LoadJobStateFailed:
 			outcome = CancelAlready
@@ -845,10 +857,11 @@ func (r *NodeRegistry) cancelLoadJob(ctx context.Context, ref LoadJobRef, reason
 	if outcome == CancelGone {
 		return outcome, nil, nil
 	}
-	job, err := r.GetLoadJobByRef(ctx, ref)
-	if outcome == CancelConflict && err == nil {
-		job, err = r.GetLoadJob(ctx, ref.TrackingKey)
+	if outcome == CancelConflict {
+		job, err := r.GetLoadJobOn(ctx, ref.TrackingKey, target.NodeID)
+		return outcome, job, err
 	}
+	job, err := r.GetLoadJobByRef(ctx, ref)
 	return outcome, job, err
 }
 

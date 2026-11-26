@@ -276,11 +276,11 @@ A failed job holds its node, not the whole model. A request for a model whose on
 
 | Status | Meaning |
 |--------|---------|
-| `200` | `state: stopped` (the worker confirmed) or `state: gone` (no such load any more) |
+| `200` | `state: stopped` (the worker confirmed) or `state: gone` (no such load any more, even when another load of the model runs, for example on another node) |
 | `202` | `state: stopping`. The cancel is recorded and the stop is pending. The model is released after `retry_after` seconds regardless. |
 | `400` | The body is not `{"job_id": "..."}` |
 | `404` | Unknown model, or the server is not distributed |
-| `409` | A different attempt is current. The body carries its `current_job_id`. |
+| `409` | A different attempt replaced the one named on its node while the cancel ran. The body carries its `current_job_id`. |
 
 The call is idempotent. A repeat retries the stop and never extends the hold. A load that has not been placed on a node yet can be cancelled too. Unloading a model on a node, draining a node, and removing a node all cancel the loads placed there through the same stop path, and an unload still unloads the loaded replicas. The replica rows of a cancelled attempt are removed as soon as the worker confirms the stop. The `cancel_model_load` tool of the assistant calls the same service.
 

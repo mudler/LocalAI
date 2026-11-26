@@ -24,8 +24,8 @@ const (
 	LoadCancelGone LoadCancelState = "gone"
 )
 
-// ErrLoadCancelConflict means another generation holds the model.
-// CurrentJobID on the result names it.
+// ErrLoadCancelConflict means another attempt replaced the one named on its
+// node. CurrentJobID on the result names it.
 var ErrLoadCancelConflict = errors.New("a different load generation is current")
 
 // LoadCancelResult is the outcome of one cancel.
@@ -34,8 +34,8 @@ type LoadCancelResult struct {
 	// RetryAfter is how long until the model is released if the stop never
 	// confirms. Zero when the state is stopped or gone.
 	RetryAfter time.Duration
-	// CurrentJobID is the generation that holds the model, set with
-	// ErrLoadCancelConflict.
+	// CurrentJobID is the attempt that replaced the one named on its node, set
+	// with ErrLoadCancelConflict.
 	CurrentJobID string
 }
 
