@@ -36,6 +36,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.Insets
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -353,9 +354,18 @@ class WebuiHost(
             if (e.action == KeyEvent.ACTION_DOWN) lastInputMs = SystemClock.uptimeMillis()
             false
         }
-        ViewCompat.setOnApplyWindowInsetsListener(wv) { _, insets ->
+        // The margins of applyLayout keep the view clear of the system bars
+        // and the keyboard, so the page must not clear them a second time:
+        // a WebView of M139 or later shrinks its visual viewport by the
+        // keyboard inset it receives, and later ones also report the bars as
+        // safe areas. The view gets these insets as zero (not consumed, so it
+        // still sees every change).
+        ViewCompat.setOnApplyWindowInsetsListener(wv) { v, insets ->
             applyLayout(insets)
-            insets
+            val cleared = WindowInsetsCompat.Builder(insets)
+                .setInsets(WindowInsetsCompat.Type.ime() or WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout(), Insets.NONE)
+                .build()
+            ViewCompat.onApplyWindowInsets(v, cleared)
         }
         container.addView(wv, ViewGroup.MarginLayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         shellInFront = null
@@ -397,7 +407,8 @@ class WebuiHost(
      * Places the view: below the shell's top strip and the status bar, above
      * the shell's bottom strip, the bar and the navigation bar. While the
      * keyboard is open the shell hides the bar, so the view ends at the
-     * keyboard and keeps no room for the bar.
+     * keyboard and keeps no room for the bar. The container may already end
+     * at the keyboard (see WebuiLayout); then the keyboard adds no margin.
      */
     private fun applyLayout(given: WindowInsetsCompat? = null) {
         val wv = webView ?: return
@@ -418,15 +429,33 @@ class WebuiHost(
         val statusTop = insets?.getInsets(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout())?.top ?: 0
         val navBottom = insets?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom ?: 0
         val imeOpen = insets?.isVisible(WindowInsetsCompat.Type.ime()) == true
-        val imeBottom = insets?.getInsets(WindowInsetsCompat.Type.ime())?.bottom ?: 0
+        val imeBottom = if (imeOpen) insets?.getInsets(WindowInsetsCompat.Type.ime())?.bottom ?: 0 else 0
         val top = topPx + statusTop
-        val bottom = if (imeOpen && imeBottom > 0) imeBottom else bottomPx + barHeightPx + navBottom
+        val bottom = WebuiLayout.bottomMargin(imeBottom, clearedBelowContainer(), bottomPx, barHeightPx, navBottom)
         val lp = wv.layoutParams as? ViewGroup.MarginLayoutParams ?: return
         if (lp.topMargin != top || lp.bottomMargin != bottom) {
             lp.topMargin = top
             lp.bottomMargin = bottom
             wv.layoutParams = lp
         }
+    }
+
+    /**
+     * The part of the window below the container that is already kept clear.
+     * Capacitor's SystemBars plugin pads the root view by the keyboard height
+     * in the same insets pass that reaches the view, before the container is
+     * laid out again, so the padding is read too, not only the position.
+     */
+    private fun clearedBelowContainer(): Int {
+        val root = container.rootView
+        val measured = if (container.isLaidOut && root.height > 0) {
+            val at = IntArray(2)
+            container.getLocationInWindow(at)
+            root.height - (at[1] + container.height)
+        } else {
+            0
+        }
+        return maxOf(root.paddingBottom, measured)
     }
 
     // ---- callbacks from WebuiClients ------------------------------------------------
