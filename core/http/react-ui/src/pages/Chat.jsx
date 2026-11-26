@@ -408,13 +408,16 @@ function ChatPage() {
     byTool: cardsByTool(egress.cards.filter(c => c.state !== 'pending' && c.tool_seq)), chatId: activeId, egress,
   }), [egress, activeId])
   const waitingCards = egress.cards.filter(c => c.state === 'pending' || (!c.tool_seq && c.state !== 'expired'))
-  const chatFiles = useChatFiles(chat.files.on ? activeId : null, chat.ticks.files)
+  // A zero-retention chat has no files: it takes no attachment, so the chat
+  // reads no file list and draws no Files button and no preview pane.
+  const filesOn = chat.files.on && !incognitoBlocked.attach
+  const chatFiles = useChatFiles(filesOn ? activeId : null, chat.ticks.files)
   // The preview pane on the right: the chat's files and what its answers
   // produced. It opens by itself on a new result (useChatPreviewPane).
   const pane = useChatPreviewPane({
-    chatId: activeId, userId: user?.id, files: chatFiles.files, loaded: chat.files.on ? chatFiles.loaded : true,
+    chatId: activeId, userId: user?.id, files: chatFiles.files, loaded: filesOn ? chatFiles.loaded : true,
     messages: chat.messages, ready: !!activeId && !chat.loading && chat.detail?.id === activeId, running: chat.running,
-    blocked: pageDock.dock.open, madeHere: chat.madeHere || arrival.handoff?.chat?.id || null, startedTurn: chat.startedTurn,
+    blocked: pageDock.dock.open || incognitoBlocked.attach, madeHere: chat.madeHere || arrival.handoff?.chat?.id || null, startedTurn: chat.startedTurn,
   })
   // The dock and the files pane share the right side, one at a time: the one
   // the person opens last takes it, and the other hides without being closed
@@ -708,6 +711,7 @@ function ChatPage() {
 
   // The Download and Open preview buttons of a code block.
   const openBlock = pane.openBlock
+  const paneBlocked = incognitoBlocked.attach
   useEffect(() => {
     const el = messagesRef.current
     if (!el) return undefined
@@ -717,6 +721,8 @@ function ChatPage() {
       const pre = btn.closest('.code-block')?.querySelector('pre')
       const found = pre && blockOfRef.current(pre)
       if (btn.classList.contains('code-preview-btn')) {
+        // A zero-retention chat has no preview pane.
+        if (paneBlocked) { addToast(tc('incognito.blocked'), 'warning'); return }
         if (found) openBlock(`${found.msg.seq}-${found.block.index}`)
         return
       }
@@ -731,7 +737,7 @@ function ChatPage() {
     }
     el.addEventListener('click', handler)
     return () => el.removeEventListener('click', handler)
-  }, [openBlock])
+  }, [openBlock, paneBlocked, addToast, tc])
 
   // Sends the composer. The message that starts a chat creates it first. In a
   // chat that exists a message always goes: while a turn runs it waits and
@@ -1095,7 +1101,6 @@ function ChatPage() {
     return <WorkspaceChangeNote key={`wc-${row.msg.turn}`} desc={desc} live={live.has(row.msg.turn)} addToast={addToast} pageTitle={pageTitle} />
   }
   // A file chip of a step, or of an answer, opens the preview pane at its file.
-  const filesOn = chat.files.on
   const openFile = pane.openFile
   useEffect(() => {
     if (!filesOn) return undefined
@@ -1415,7 +1420,7 @@ function ChatPage() {
           )}
           extra={(
             <>
-              {activeId && chat.files.on && <FilesButton open={pane.open} count={chatFiles.files.length} onToggle={pane.toggle} />}
+              {activeId && filesOn && <FilesButton open={pane.open} count={chatFiles.files.length} onToggle={pane.toggle} />}
               {dockOn && <DockButton open={pageDock.dock.open} onToggle={pageDock.toggle} />}
               <WorkspaceSlot name="chatHeader" onTool={handleSend} onCommand={fillComposer} />
             </>
@@ -1725,7 +1730,7 @@ function ChatPage() {
           onAsk={fillComposer}
         />
       )}
-      {pane.open && activeId && (
+      {pane.open && activeId && !incognitoBlocked.attach && (
         <ChatFilesPane
           state={chatFiles}
           chatId={activeId}

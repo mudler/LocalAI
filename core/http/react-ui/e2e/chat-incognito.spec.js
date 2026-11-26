@@ -106,6 +106,9 @@ test.describe('Incognito chats', () => {
     // no level to pick.
     await expect(page.getByTestId('chat-incognito-note')).toContainText('only usage counts')
     await expect(attach).toHaveCount(0)
+    // It has no files either: the header draws no Files button.
+    await expect(page.getByTestId('chat-files-toggle')).toHaveCount(0)
+    await expect(page.locator('#chat-files-pane')).toHaveCount(0)
     await expect(page.locator('.cx-dock .home-cmd__foot').getByTestId('chat-incognito-button')).toHaveText('Zero retention')
     await page.getByTestId('chat-incognito-button').click()
     await expect(page.getByTestId('chat-incognito-level')).toHaveCount(0)
@@ -122,6 +125,23 @@ test.describe('Incognito chats', () => {
     await page.goto('/app')
     await expect(page.getByTestId('home-model-chip')).toContainText('qwen3-8b-instruct')
     await expect(page.getByTestId('chat-incognito')).toHaveCount(0)
+  })
+
+  test('a memory-off chat keeps the Files button of the header', async ({ page }) => {
+    const seen = await server(page)
+    await page.route('**/api/chats/i1/files', route => route.fulfill({ json: { files: [] } }))
+    await page.goto('/app')
+    await expect(page.getByTestId('home-model-chip')).toContainText('qwen3-8b-instruct')
+    await page.getByTestId('chat-incognito-button').click()
+    await page.getByTestId('chat-incognito-switch').click()
+    await expect(page.getByTestId('chat-incognito')).toHaveAttribute('data-level', 'memory-off')
+    await page.keyboard.press('Escape')
+    await page.getByTestId('home-input').fill('hello')
+    await page.getByTestId('home-send').click()
+    await expect(page).toHaveURL(/\/app\/chats\/i1/)
+    expect(seen.created[0].level).toBe('memory-off')
+    await expect(page.getByTestId('chat-incognito')).toHaveAttribute('data-level', 'memory-off')
+    await expect(page.getByTestId('chat-files-toggle')).toBeVisible()
   })
 
   test('a server that offers memory-off only shows no level picker', async ({ page }) => {
