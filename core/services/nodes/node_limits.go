@@ -261,6 +261,10 @@ func (r *NodeRegistry) SetMemoryPolicy(src MemoryPolicySource) {
 	r.memoryPolicy.Store(&src)
 }
 
+// HasMemoryPolicy reports whether a source of the cluster memory policy is
+// installed (distributed mode with the cluster settings attached).
+func (r *NodeRegistry) HasMemoryPolicy() bool { return r.memoryPolicy.Load() != nil }
+
 // MemoryPolicy returns the cluster memory policy in force.
 func (r *NodeRegistry) MemoryPolicy() MemoryPolicy {
 	if src := r.memoryPolicy.Load(); src != nil {

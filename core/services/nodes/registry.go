@@ -241,9 +241,12 @@ type NodeModel struct {
 	CleanupNextRetryAt   *time.Time `gorm:"column:cleanup_next_retry_at" json:"cleanup_next_retry_at,omitempty"`
 	// LoadGeneration names the load attempt that created this replica row. A row
 	// still staging or loading whose attempt no longer has a job is abandoned.
-	LoadGeneration string    `gorm:"column:load_generation;size:36;not null;default:''" json:"-"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	LoadGeneration string `gorm:"column:load_generation;size:36;not null;default:''" json:"-"`
+	// SizeBytes is the memory estimate the replica was placed with, for the
+	// largest-first eviction order (size_aware_eviction). 0 when unknown.
+	SizeBytes uint64    `gorm:"column:size_bytes;default:0" json:"size_bytes,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // ModelLoadInfo is per-model load metadata kept independently of NodeModel rows

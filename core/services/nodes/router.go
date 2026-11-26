@@ -564,6 +564,7 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		return nil, fmt.Errorf("publishing loaded model: %w", err)
 	}
 	lifecycleSettled = true
+	r.recordReplicaSize(ctx, node.ID, trackingKey, replicaIndex, r.replicaSize(ctx, placed, modelOpts))
 
 	// Store load metadata for future replica scale-ups by the reconciler.
 	// Writes both per-replica (NodeModel.model_opts_blob) for backward compat
@@ -1439,6 +1440,11 @@ func (r *SmartRouter) placeNewReplica(ctx context.Context, modelID string, model
 	// per-node watchdog evicts on arrival.
 	candidateNodeIDs, err = r.narrowByGroupAntiAffinity(ctx, modelID, candidateNodeIDs)
 	if err != nil {
+		return nil, err
+	}
+	// The per-node model limit and model swap (router_swap_policy.go). It
+	// only narrows; makeRoom evicts for the limit after the claim.
+	if candidateNodeIDs, err = r.narrowByModelLimit(ctx, modelID, candidateNodeIDs); err != nil {
 		return nil, err
 	}
 
@@ -2631,12 +2637,14 @@ func (r *SmartRouter) evictLRUAndFreeNode(ctx context.Context) (*BackendNode, er
 // unavailable this repeated, and the evicted model appeared to bounce between
 // nodes.
 func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNodeIDs []string) (*BackendNode, error) {
-	const maxEvictionRetries = 5
-	const evictionRetryInterval = 500 * time.Millisecond
-
 	if r.db == nil {
 		return nil, ErrEvictionBusy // no DB means no row-level locking for safe eviction
 	}
+	candidateNodeIDs, err := r.swapCandidates(ctx, candidateNodeIDs)
+	if err != nil {
+		return nil, err
+	}
+	maxEvictionRetries, evictionRetryInterval := r.evictionRetries(ctx)
 
 	for attempt := range maxEvictionRetries {
 		var lru NodeModel
@@ -2644,7 +2652,7 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 			// Lock the row so no other frontend can evict the same model.
 			q := r.evictableReplicas(tx.Clauses(clause.Locking{Strength: "UPDATE"}), candidateNodeIDs)
 			if err := q.
-				Order("node_models.last_used ASC").
+				Order(r.evictionOrder()).
 				First(&lru).Error; err != nil {
 				return err
 			}
@@ -2694,16 +2702,18 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 // and returns ErrEvictionBusy when none does. makeRoom evicts it later, after
 // the load is claimed, and checks again that it is still evictable.
 func (r *SmartRouter) planLRUEviction(ctx context.Context, candidateNodeIDs []string) (*NodeModel, *BackendNode, error) {
-	const maxEvictionRetries = 5
-	const evictionRetryInterval = 500 * time.Millisecond
-
 	if r.db == nil {
 		return nil, nil, ErrEvictionBusy // no DB means no row-level locking for safe eviction
 	}
+	candidateNodeIDs, err := r.swapCandidates(ctx, candidateNodeIDs)
+	if err != nil {
+		return nil, nil, err
+	}
+	maxEvictionRetries, evictionRetryInterval := r.evictionRetries(ctx)
 	for attempt := range maxEvictionRetries {
 		var lru NodeModel
 		err := r.evictableReplicas(r.db.WithContext(ctx).Model(&NodeModel{}), candidateNodeIDs).
-			Order("node_models.last_used ASC").
+			Order(r.evictionOrder()).
 			First(&lru).Error
 		if err == nil {
 			node, nodeErr := r.registry.Get(ctx, lru.NodeID)
@@ -2745,14 +2755,14 @@ func (r *SmartRouter) evictableReplicas(db *gorm.DB, candidateNodeIDs []string) 
 	// floor the reconciler then has to rebuild.
 	q := currentModelRevision(db).
 		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
-		Where(`node_models.in_flight = 0 AND node_models.state = ? AND backend_nodes.status = ?
+		Where(`(node_models.in_flight = 0 OR ?) AND node_models.state = ? AND backend_nodes.status = ?
   AND (
     NOT EXISTS (SELECT 1 FROM model_scheduling_configs sc WHERE COALESCE(NULLIF(sc.target_model, ''), sc.model_name) = node_models.model_name AND (sc.min_replicas > 0 OR sc.max_replicas > 0))
     OR (SELECT COUNT(*) FROM node_models nm2 WHERE nm2.model_name = node_models.model_name AND nm2.state = 'loaded'
          AND (NOT EXISTS (SELECT 1 FROM model_config_states mcs2 WHERE mcs2.model_name = nm2.model_name)
               OR nm2.config_revision = (SELECT mcs3.config_revision FROM model_config_states mcs3 WHERE mcs3.model_name = nm2.model_name)))
        > COALESCE((SELECT MAX(sc2.min_replicas) FROM model_scheduling_configs sc2 WHERE COALESCE(NULLIF(sc2.target_model, ''), sc2.model_name) = node_models.model_name), 1)
-  )`, "loaded", StatusHealthy)
+  )`, r.forceEviction(), "loaded", StatusHealthy)
 	if len(candidateNodeIDs) > 0 {
 		q = q.Where("node_models.node_id IN ?", candidateNodeIDs)
 	}

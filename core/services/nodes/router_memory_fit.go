@@ -106,8 +106,11 @@ func (r *SmartRouter) planMemoryFit(ctx context.Context, need uint64, candidateN
 			continue
 		}
 		var evictable []NodeModel
+		if !r.nodePolicy(n).ModelSwap {
+			continue // nothing may be unloaded on this node for a load
+		}
 		if err := r.evictableReplicas(db.Model(&NodeModel{}), []string{n.ID}).
-			Order("node_models.last_used ASC").
+			Order(r.evictionOrder()).
 			Find(&evictable).Error; err != nil {
 			return nil, fmt.Errorf("listing evictable replicas on node %s: %w", n.Name, err)
 		}
@@ -143,6 +146,9 @@ func (r *SmartRouter) planMemoryFit(ctx context.Context, need uint64, candidateN
 func (r *SmartRouter) makeRoom(ctx context.Context, modelID string, p *replicaPlacement) error {
 	room := p.room
 	p.room = roomPlan{}
+	if err := r.makeRoomForLimit(ctx, modelID, p, &room); err != nil {
+		return err
+	}
 	if len(room.memory) > 0 && r.stillShortOfMemory(ctx, p) {
 		for _, nm := range room.memory {
 			if !r.evictReplica(ctx, nm) {
