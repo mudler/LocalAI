@@ -215,6 +215,10 @@ jobs:
     # !cancelled() lets the merge run even when a few build legs fail —
     # see the matching note in backend.yml.
     if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.generate-matrix.outputs['has-merges-multiarch'] == 'true' }}
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     uses: ./.github/workflows/backend_merge.yml
     with:
       tag-latest: ${{ matrix.tag-latest }}
@@ -229,6 +233,10 @@ jobs:
   backend-merge-jobs-singlearch-1:
     needs: [generate-matrix, backend-jobs-singlearch-1]
     if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.generate-matrix.outputs['has-merges-singlearch-1'] == 'true' }}
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     uses: ./.github/workflows/backend_merge.yml
     with:
       tag-latest: ${{ matrix.tag-latest }}
@@ -243,6 +251,10 @@ jobs:
   backend-merge-jobs-singlearch-2:
     needs: [generate-matrix, backend-jobs-singlearch-2]
     if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.generate-matrix.outputs['has-merges-singlearch-2'] == 'true' }}
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     uses: ./.github/workflows/backend_merge.yml
     with:
       tag-latest: ${{ matrix.tag-latest }}
@@ -257,6 +269,10 @@ jobs:
   backend-merge-jobs-singlearch-3:
     needs: [generate-matrix, backend-jobs-singlearch-3]
     if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.generate-matrix.outputs['has-merges-singlearch-3'] == 'true' }}
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     uses: ./.github/workflows/backend_merge.yml
     with:
       tag-latest: ${{ matrix.tag-latest }}
@@ -271,6 +287,10 @@ jobs:
   backend-merge-jobs-singlearch-4:
     needs: [generate-matrix, backend-jobs-singlearch-4]
     if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.generate-matrix.outputs['has-merges-singlearch-4'] == 'true' }}
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     uses: ./.github/workflows/backend_merge.yml
     with:
       tag-latest: ${{ matrix.tag-latest }}
