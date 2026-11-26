@@ -39,7 +39,6 @@ const (
 
 var (
 	podsGVR        = schema.GroupVersionResource{Version: "v1", Resource: "pods"}
-	eventsGVR      = schema.GroupVersionResource{Version: "v1", Resource: "events"}
 	replicaSetsGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}
 )
 
@@ -337,7 +336,7 @@ func (c *call) logs(raw map[string]json.RawMessage) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	// The newest lines matter: read a bounded amount and keep its end.
 	b, err := io.ReadAll(io.LimitReader(rc, maxLogRead+1))
 	if err != nil {

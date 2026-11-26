@@ -42,7 +42,7 @@ type cluster struct {
 func freePort() int {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	Expect(err).NotTo(HaveOccurred())
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 	return l.Addr().(*net.TCPAddr).Port
 }
 
@@ -131,7 +131,7 @@ func startCluster() *cluster {
 		if err != nil {
 			return 0
 		}
-		res.Body.Close()
+		_ = res.Body.Close()
 		return res.StatusCode
 	}, 60*time.Second, 250*time.Millisecond).Should(Equal(200))
 	return c

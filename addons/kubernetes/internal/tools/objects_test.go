@@ -6,14 +6,10 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
-
-var t0 = time.Date(2026, 11, 20, 12, 0, 0, 0, time.UTC)
 
 func meta(ns, name string, age time.Duration) metav1.ObjectMeta {
 	return metav1.ObjectMeta{Namespace: ns, Name: name, UID: types.UID(ns + "-" + name), ResourceVersion: "1",
@@ -66,12 +62,6 @@ func secret(ns, name string) *corev1.Secret {
 		Data: map[string][]byte{"password": []byte("secret-value"), "user": []byte("app")}}
 	s.Annotations = map[string]string{"kubectl.kubernetes.io/last-applied-configuration": `{"data":{"password":"c2VjcmV0LXZhbHVl"}}`}
 	return s
-}
-
-func pdb(ns, name string, selector map[string]string) *policyv1.PodDisruptionBudget {
-	one := intstr.FromInt32(1)
-	return &policyv1.PodDisruptionBudget{ObjectMeta: meta(ns, name, time.Hour),
-		Spec: policyv1.PodDisruptionBudgetSpec{MinAvailable: &one, Selector: &metav1.LabelSelector{MatchLabels: selector}}}
 }
 
 func namespace(name string) *corev1.Namespace {
