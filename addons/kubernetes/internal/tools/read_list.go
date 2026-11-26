@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/kubeapi"
+	"github.com/mudler/LocalAI/addons/kubernetes/internal/mask"
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/policy"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -45,6 +46,7 @@ func clean(u *unstructured.Unstructured) {
 // says. Every object passes here before it becomes text.
 func (c *call) present(u *unstructured.Unstructured, t kubeapi.Target) {
 	clean(u)
+	mask.Apply(u, t, c.pol)
 }
 
 // toYAML writes an object as YAML, capped.

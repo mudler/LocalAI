@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/kubeapi"
+	"github.com/mudler/LocalAI/addons/kubernetes/internal/mask"
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/policy"
 	"github.com/pmezard/go-difflib/difflib"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -83,6 +84,25 @@ func (c *call) shown(u *unstructured.Unstructured, t kubeapi.Target) *unstructur
 	u = u.DeepCopy()
 	c.present(u, t)
 	return u
+}
+
+// shownPair masks the two sides of a diff. For a Secret it marks the keys
+// whose value changes, since equal lengths would otherwise hide the change.
+func (c *call) shownPair(live, next *unstructured.Unstructured, t kubeapi.Target) (*unstructured.Unstructured, *unstructured.Unstructured) {
+	if c.pol.ReadSecretValues || !mask.IsSecret(t) {
+		return c.shown(live, t), c.shown(next, t)
+	}
+	var l, n *unstructured.Unstructured
+	if live != nil {
+		l = live.DeepCopy()
+		clean(l)
+	}
+	if next != nil {
+		n = next.DeepCopy()
+		clean(n)
+	}
+	mask.SecretPair(l, n)
+	return l, n
 }
 
 // apply -------------------------------------------------------------------------
@@ -176,7 +196,7 @@ func (o *applyOp) inspect(c *call) (map[string]any, uint64, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	o.diff, o.cut = diffYAML(c.shown(live, o.t), c.shown(dry, o.t))
+	o.diff, o.cut = diffYAML(c.shownPair(live, dry, o.t))
 	uid := ""
 	if live != nil {
 		uid = string(live.GetUID())
@@ -265,7 +285,7 @@ func (o *patchOp) inspect(c *call) (map[string]any, uint64, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	o.diff, o.cut = diffYAML(c.shown(live, o.t), c.shown(dry, o.t))
+	o.diff, o.cut = diffYAML(c.shownPair(live, dry, o.t))
 	s := map[string]any{"tool": ToolPatch, "kind": o.t.Kind, "namespace": o.Namespace, "name": o.Name, "patchType": o.PatchType,
 		"change": change(live, o.diff), "diff": o.diff, "diffCut": o.cut}
 	return s, c.revision(ToolPatch, o.t.GVR.String(), o.Namespace, o.Name, o.PatchType, hashText(string(o.data)), hashText(o.diff), string(live.GetUID())), nil
