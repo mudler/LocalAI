@@ -228,6 +228,11 @@ func Engine() *es.Engine {
 		Presets:  append(append([]es.Preset{}, profiles...), presets...),
 		// The MoE placement section of the editor writes these.
 		ReservedOptions: []string{"cpu_moe", "n_cpu_moe", "moe_cache_mib"},
+		Estimate: map[string]string{
+			"context_size": "context_size", "gpu_layers": "gpu_layers",
+			"cache_type_k": "cache_type_k", "cache_type_v": "cache_type_v",
+			"batch": "batch", "ubatch": "ubatch",
+		},
 		Command: &es.CommandLine{
 			Binary:  Binary,
 			Example: "llama-server -m model.gguf --ctx-size 8192 -ngl 99 -fa on",

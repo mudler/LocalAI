@@ -490,6 +490,8 @@ var _ = Describe("the llama.cpp engine", func() {
 		Expect(byID["bigMoe"].Settings["gpu_layers"]).To(Equal(999))
 		Expect(byID["bigMoe"].Profile).To(BeFalse())
 		Expect(s.ReservedOptions).To(ContainElement("n_cpu_moe"))
+		Expect(s.Estimate).To(HaveKeyWithValue("ubatch", "ubatch"))
+		Expect(s.Estimate).To(HaveKeyWithValue("cache_type_v", "cache_type_v"))
 	})
 
 	It("has three quick setup profiles over the same keys, Balanced unsetting them all", func() {

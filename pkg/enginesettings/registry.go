@@ -100,6 +100,8 @@ type Schema struct {
 	Presets         []Preset         `json:"presets"`
 	ReservedOptions []string         `json:"reserved_options"`
 	Placement       *PlacementSchema `json:"placement,omitempty"`
+	// Estimate maps VRAM estimate request fields to flag keys.
+	Estimate map[string]string `json:"estimate,omitempty"`
 }
 
 // Schema returns the settings schema of the engine.
@@ -111,6 +113,7 @@ func (e *Engine) Schema() Schema {
 		Combined:        e.Combined,
 		Presets:         e.Presets,
 		ReservedOptions: e.ReservedOptions,
+		Estimate:        e.Estimate,
 	}
 	if s.Combined == nil {
 		s.Combined = []Combined{}

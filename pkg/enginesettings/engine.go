@@ -20,6 +20,12 @@ const (
 	CapabilityTensorPlacement Capability = "tensor-placement"
 )
 
+// estimateFields are the request fields of POST /api/models/vram-estimate
+// that a setting can feed.
+var estimateFields = map[string]bool{
+	"context_size": true, "gpu_layers": true, "cache_type_k": true, "cache_type_v": true, "batch": true, "ubatch": true,
+}
+
 // ErrUnsupported is returned when an engine lacks the capability an
 // operation needs.
 var ErrUnsupported = errors.New("the engine does not support this operation")
@@ -45,6 +51,10 @@ type Engine struct {
 	// ReservedOptions are option names another part of LocalAI writes. The
 	// editor does not offer them as raw options.
 	ReservedOptions []string
+	// Estimate maps the fields of POST /api/models/vram-estimate
+	// (context_size, gpu_layers, cache_type_k, cache_type_v, batch, ubatch)
+	// to flag keys, so a client can ask for the memory of a config. Optional.
+	Estimate map[string]string
 	// Command adds the command-line capability. Optional.
 	Command *CommandLine
 	// Placement adds the tensor-placement capability. Optional.
@@ -319,6 +329,14 @@ func (e *Engine) Validate() error {
 					bad("engine %s: choice %s.%s sets the unknown key %s", e.ID, c.ID, ch.Value, k)
 				}
 			}
+		}
+	}
+	for field, k := range e.Estimate {
+		if !estimateFields[field] {
+			bad("engine %s: the estimate field %s is not one of the VRAM estimate", e.ID, field)
+		}
+		if !keys[k] {
+			bad("engine %s: the estimate field %s names the unknown key %s", e.ID, field, k)
 		}
 	}
 	var profileKeys map[string]bool

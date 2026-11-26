@@ -166,6 +166,8 @@ var _ = Describe("Engine.Validate", func() {
 					{ID: "b", Profile: true, Settings: map[string]any{"eager": true}},
 				}
 			},
+			"estimate unknown field": func(e *es.Engine) { e.Estimate = map[string]string{"nope": "max_model_len"} },
+			"estimate unknown key":   func(e *es.Engine) { e.Estimate = map[string]string{"context_size": "nope"} },
 			"profile with a placement": func(e *es.Engine) {
 				e.Presets = []es.Preset{{ID: "a", Profile: true, Settings: map[string]any{}, Placement: &es.Placement{Mode: es.ExpertsCPUAll}}}
 			},
