@@ -1217,6 +1217,35 @@ var _ = Describe("SmartRouter", func() {
 		})
 	})
 
+	// The warm path must judge a cached replica by the rule the way placement
+	// does: a selector it cannot read, or labels it cannot read, are not
+	// proof that the node matches, so the replica is not used.
+	Describe("nodeMatchesScheduling fails closed", func() {
+		node := &BackendNode{ID: "n-1", Name: "node-1"}
+
+		It("rejects a node when the selector cannot be parsed", func() {
+			reg := &fakeModelRouter{getNodeLabels: []NodeLabel{{NodeID: "n-1", Key: "gpu.vendor", Value: "nvidia"}}}
+			router := NewSmartRouter(reg, SmartRouterOptions{})
+			Expect(router.nodeMatchesScheduling(context.Background(), node,
+				&ModelSchedulingConfig{ModelName: "m", NodeSelector: `{not json`})).To(BeFalse())
+		})
+
+		It("rejects a node when its labels cannot be read", func() {
+			reg := &fakeModelRouter{getNodeLabelsErr: errors.New("canceling statement due to statement timeout")}
+			router := NewSmartRouter(reg, SmartRouterOptions{})
+			Expect(router.nodeMatchesScheduling(context.Background(), node,
+				&ModelSchedulingConfig{ModelName: "m", NodeSelector: `{"gpu.vendor":"nvidia"}`})).To(BeFalse())
+		})
+
+		It("accepts a node that carries every label of the selector", func() {
+			reg := &fakeModelRouter{getNodeLabels: []NodeLabel{{NodeID: "n-1", Key: "gpu.vendor", Value: "nvidia"}}}
+			router := NewSmartRouter(reg, SmartRouterOptions{})
+			Expect(router.nodeMatchesScheduling(context.Background(), node,
+				&ModelSchedulingConfig{ModelName: "m", NodeSelector: `{"gpu.vendor":"nvidia"}`})).To(BeTrue())
+			Expect(router.nodeMatchesScheduling(context.Background(), node, nil)).To(BeTrue())
+		})
+	})
+
 	Describe("ScheduleAndLoadModel (mock-based)", func() {
 		It("returns an error and does not fire a NATS install when no load info is stored", func() {
 			// Reproduces the reconciler scale-up bug: when GetModelLoadInfo

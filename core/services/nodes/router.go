@@ -1295,20 +1295,30 @@ func (r *SmartRouter) narrowByGroupAntiAffinity(ctx context.Context, modelID str
 
 // nodeMatchesScheduling checks if a node satisfies the scheduling constraints for a model.
 // Returns true if no constraints exist or the node matches all selector labels.
+//
+// It fails closed, like placement: a selector that cannot be parsed, or labels
+// that cannot be read, do not prove that the node matches, so a cached replica
+// there is not used and the request falls through to a load on a node that
+// does match.
 func (r *SmartRouter) nodeMatchesScheduling(ctx context.Context, node *BackendNode, sched *ModelSchedulingConfig) bool {
 	if sched == nil || sched.NodeSelector == "" {
 		return true // no constraints
 	}
 
-	selector := parseSelector(sched.NodeSelector)
+	selector, err := decodeSelector(sched.NodeSelector)
+	if err != nil {
+		xlog.Warn("The node selector of the model's rule cannot be parsed; not using the cached replica",
+			"model", sched.ModelName, "node", node.ID, "error", err)
+		return false
+	}
 	if len(selector) == 0 {
 		return true
 	}
 
 	labels, err := r.registry.GetNodeLabels(ctx, node.ID)
 	if err != nil {
-		xlog.Warn("Failed to get node labels for selector check", "node", node.ID, "error", err)
-		return true // fail open
+		xlog.Warn("Failed to get node labels for selector check; not using the cached replica", "node", node.ID, "error", err)
+		return false
 	}
 
 	labelMap := make(map[string]string)
