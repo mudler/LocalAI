@@ -97,6 +97,15 @@ var flags = []es.Flag{
 		Doc:           "Physical batch size: the most tokens one compute step handles. Larger values prefill faster and use more compute memory; smaller values use less.",
 		OptionAliases: []string{"n_ubatch"},
 	},
+	// GPU sampling is read by LocalAI's llama.cpp backend as a plain option.
+	// A backend without it ignores the entry. The editor draws it as the
+	// backendSampling combined control: Off (no entry), Auto, On.
+	{
+		Key: "backend_sampling", Target: es.TargetOption, Path: "options", Option: "backend_sampling",
+		Type: es.TypeEnum, Enum: []string{"off", "auto", "on"}, Default: "off", Group: GroupSpeed, LocalAIOnly: true,
+		Doc: "Sample tokens on the GPU. off: on the CPU. auto: on the GPU when the model runs on a GPU with several parallel requests " +
+			"and the request does not need grammar or logprobs. on: always on the GPU, turned off for a request with a grammar, a reasoning budget or logprobs.",
+	},
 	// Paged serving is a patch of LocalAI's llama.cpp backend, not a
 	// llama-server flag. A backend without it ignores these options.
 	{

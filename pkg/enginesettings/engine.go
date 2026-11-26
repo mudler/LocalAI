@@ -130,6 +130,9 @@ type Choice struct {
 	Value string         `json:"value"`
 	Label string         `json:"label"`
 	Set   map[string]any `json:"set"`
+	// Doc says what the choice does. Optional; a client shows it for the
+	// current choice.
+	Doc string `json:"doc,omitempty"`
 }
 
 // Preset is a whole-setup starting point.
