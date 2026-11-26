@@ -97,7 +97,7 @@ type ScoreClassifierOptions struct {
 	// both are set, Classify drops the oldest turns until the rendered
 	// prompt fits the classifier's context. Nil/0 disables — Classify
 	// sends Probe.Prompt as-is and relies on the backend's n_ctx guard.
-	TokenCounter     func(string) (int, error)
+	TokenCounter     Tokenizer
 	MaxContextTokens int
 
 	// CompletionReserveTokens reserves additional context beyond the longest
@@ -253,11 +253,11 @@ func (c *ScoreClassifier) Name() string { return ClassifierScore }
 // renderProbe returns the exact prompt Classify scores for p (system
 // prompt + trimmed user turns through the model's chat template), plus the
 // trimmed user text used as the memo-cache key.
-func (c *ScoreClassifier) renderProbe(p Probe) (prompt, userText string, err error) {
+func (c *ScoreClassifier) renderProbe(ctx context.Context, p Probe) (prompt, userText string, err error) {
 	// Trim oldest turns until the rendered prompt fits the classifier's
 	// context. Cache-keyed on the trimmed text so conversations that
 	// trim to the same tail share an entry.
-	userText = trimmedProbeText(p, c.budget, func(joined string) (string, error) {
+	userText = trimmedProbeText(ctx, p, c.budget, func(joined string) (string, error) {
 		return c.renderer(c.systemPrompt, joined)
 	})
 	prompt, err = c.renderer(c.systemPrompt, userText)
@@ -300,8 +300,8 @@ func (c *ScoreClassifier) stablePrefixLen(prompt string) int {
 // The caller constrains the remaining tokens with a grammar and closes
 // the object; keeping the field style byte-identical to the scored
 // candidates keeps the continuation on-distribution.
-func (c *ScoreClassifier) SlotFillPrompt(p Probe, label, firstSlot string) (string, error) {
-	prompt, _, err := c.renderProbe(p)
+func (c *ScoreClassifier) SlotFillPrompt(ctx context.Context, p Probe, label, firstSlot string) (string, error) {
+	prompt, _, err := c.renderProbe(ctx, p)
 	if err != nil {
 		return "", fmt.Errorf("score slot fill: render prompt: %w", err)
 	}
@@ -318,7 +318,7 @@ func (c *ScoreClassifier) Classify(ctx context.Context, p Probe) (Decision, erro
 
 	start := time.Now()
 
-	prompt, userText, err := c.renderProbe(p)
+	prompt, userText, err := c.renderProbe(ctx, p)
 	if err != nil {
 		return errDecision(start, fmt.Errorf("score classify: render prompt: %w", err))
 	}

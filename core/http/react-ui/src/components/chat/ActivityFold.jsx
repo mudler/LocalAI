@@ -2,6 +2,7 @@ import { useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { renderMarkdown, highlightAll } from '../../utils/markdown'
 import { toolLine, toolOutput } from '../../utils/chatThread'
+import { groupSteps, groupFacts, liveSteps, thoughtGist, turnFacts } from '../../utils/chatLive'
 import { addonChange, toolRefusal } from '../../utils/addonChange'
 import { CHANGE_CARD, triggerCards } from '../../utils/chatProposal'
 import { changeProposalIds } from '../../utils/changeProposal'
@@ -34,6 +35,23 @@ import { useAddonTitle } from '../../addons/useAddonRegistry'
 // Output longer than this many lines shows its start and a "Show all" button.
 const OUTPUT_LINES = 12
 
+// A thought line holds two lines of text, so the cut of its words is made at
+// the width of the screen, not by the browser in the middle of a word.
+const NARROW = '(max-width: 640px)'
+const GIST_CHARS = { wide: 120, narrow: 64 }
+function useGistChars() {
+  const media = () => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(NARROW) : null)
+  const [narrow, setNarrow] = useState(() => Boolean(media()?.matches))
+  useEffect(() => {
+    const query = media()
+    if (!query) return undefined
+    const on = (e) => setNarrow(e.matches)
+    query.addEventListener('change', on)
+    return () => query.removeEventListener('change', on)
+  }, [])
+  return narrow ? GIST_CHARS.narrow : GIST_CHARS.wide
+}
+
 // The words of a run: "Worked for 1.2 s · 4 steps", "Read quote-acme.pdf",
 // "Thought for 2 s".
 function summarise(items, t, lng) {
@@ -50,7 +68,8 @@ function summarise(items, t, lng) {
     const { name, summary } = toolLine(calls[0].text)
     return labelText(toolLabel(name, summary, ''), t)
   }
-  const count = t('steps.count', { count: calls.length })
+  // The steps are the thoughts and the calls: what the list under the line shows.
+  const count = t('steps.count', { count: calls.length + items.filter(i => i.role === 'reasoning').length })
   return duration ? `${t('steps.worked', { duration })} · ${count}` : count
 }
 
@@ -60,23 +79,34 @@ function labelText(label, t) {
   return [verb, label.verb === 'used' ? label.tool : '', label.arg].filter(Boolean).join(' ')
 }
 
+// The line of a fold: what the run was, and a chevron. The live turn draws it
+// too (StreamingFlow), so the line is the same one when the turn is stored.
 // eslint-disable-next-line no-unused-vars
-function FoldFrame({ summary, open, live, working, onToggle, icon, children, id }) {
+function FoldHead({ summary, open, live, working, onToggle, icon, controls, failed = 0 }) {
+  const { t } = useTranslation('chat')
+  return (
+    <button
+      type="button"
+      className="cx-fold__head"
+      aria-expanded={open}
+      aria-controls={open ? controls : undefined}
+      onClick={onToggle}
+    >
+      <Icon name={icon} />
+      <span className="cx-fold__label">{summary}</span>
+      {failed > 0 && <span className="cx-badge" data-testid="chat-fold-failed">{t('steps.group.failed', { count: failed })}</span>}
+      {working && <span className="cx-dots cx-dots--inline" aria-hidden="true"><span /><span /><span /></span>}
+      <Icon name="chevron-right" className="cx-fold__chev" />
+    </button>
+  )
+}
+
+// eslint-disable-next-line no-unused-vars
+function FoldFrame({ summary, open, live, working, onToggle, icon, children, id, failed = 0 }) {
   const bodyId = `${id}-body`
   return (
     <div className="cx-fold" data-open={open || undefined} data-live={live || undefined} data-testid="chat-activity">
-      <button
-        type="button"
-        className="cx-fold__head"
-        aria-expanded={open}
-        aria-controls={open ? bodyId : undefined}
-        onClick={onToggle}
-      >
-        <Icon name={icon} />
-        <span className="cx-fold__label">{summary}</span>
-        {working && <span className="cx-dots cx-dots--inline" aria-hidden="true"><span /><span /><span /></span>}
-        <Icon name="chevron-right" className="cx-fold__chev" />
-      </button>
+      <FoldHead summary={summary} open={open} working={working} onToggle={onToggle} icon={icon} controls={bodyId} failed={failed} />
       {open && <div className="cx-fold__body" id={bodyId}>{children}</div>}
     </div>
   )
@@ -147,11 +177,15 @@ function ToolDetail({ name, summary, output }) {
 // One step. The line toggles its detail when it has one. state is running,
 // done, failed or thought. A line that holds its own button (the file chip,
 // split) is not a button: a click on it still toggles, and the chevron is
-// the button for the keyboard.
+// the button for the keyboard. defaultOpen follows the state of the step (a
+// failed call opens, a finished thought folds) until the reader clicks the
+// line: then what the reader chose stays.
 // eslint-disable-next-line no-unused-vars
-function Step({ state, duration, children, detail, defaultOpen = false, testId, split = false, after = null }) {
+function Step({ state, duration, children, detail, defaultOpen = false, testId, split = false, after = null, className = '' }) {
   const { t } = useTranslation('chat')
-  const [open, setOpen] = useState(defaultOpen)
+  const [manual, setManual] = useState(null)
+  const open = manual ?? defaultOpen
+  const toggle = () => setManual(!open)
   const icon = { running: 'spinner', done: 'check', failed: 'alert-circle', thought: 'lightbulb' }[state]
   const status = { running: t('steps.running'), failed: t('steps.failed') }[state]
   const head = (
@@ -163,19 +197,19 @@ function Step({ state, duration, children, detail, defaultOpen = false, testId, 
       <span className="cx-step__line">{children}</span>
       {duration ? <span className="cx-step__dur">{duration}</span> : <span />}
       {detail && split ? (
-        <button type="button" className="cx-step__toggle" aria-expanded={open} aria-label={t('steps.details')} onClick={(e) => { e.stopPropagation(); setOpen(v => !v) }}>
+        <button type="button" className="cx-step__toggle" aria-expanded={open} aria-label={t('steps.details')} onClick={(e) => { e.stopPropagation(); toggle() }}>
           <Icon name="chevron-right" className="cx-step__chev" />
         </button>
       ) : detail ? <Icon name="chevron-right" className="cx-step__chev" /> : <span />}
     </>
   )
   return (
-    <li className="cx-step" data-state={state} data-open={(detail && open) || undefined} data-testid={testId}>
+    <li className={`cx-step ${className}`} data-state={state} data-open={(detail && open) || undefined} data-testid={testId}>
       {detail && split ? (
         // A click anywhere on the line toggles; the chevron is the keyboard control.
-        <div className="cx-step__head cx-step__head--split" onClick={() => setOpen(v => !v)}>{head}</div>
+        <div className="cx-step__head cx-step__head--split" onClick={toggle}>{head}</div>
       ) : detail ? (
-        <button type="button" className="cx-step__head" aria-expanded={open} onClick={() => setOpen(v => !v)}>{head}</button>
+        <button type="button" className="cx-step__head" aria-expanded={open} onClick={toggle}>{head}</button>
       ) : (
         <div className="cx-step__head">{head}</div>
       )}
@@ -183,12 +217,6 @@ function Step({ state, duration, children, detail, defaultOpen = false, testId, 
       {detail && open && <div className="cx-step__detail">{detail}</div>}
     </li>
   )
-}
-
-// The first line of a reasoning text, without Markdown marks, for the step line.
-function gist(text) {
-  const first = String(text || '').trim().split('\n').find(l => l.trim()) || ''
-  return first.replace(/[#*_`>]/g, '').replace(/\s+/g, ' ').trim()
 }
 
 // Reasoning as Markdown, with its code highlighted.
@@ -209,22 +237,71 @@ function Reasoning({ text, live }) {
   )
 }
 
-// A reasoning line of the transcript or of the live turn.
+// A reasoning line of the transcript or of the live turn. Folded, it is one
+// line of its words (see thoughtGist); a thought that is still arriving shows
+// its latest line and is the one that shimmers.
 // eslint-disable-next-line no-unused-vars
-function ThoughtStep({ text, duration, live, thinking }) {
+function ThoughtStep({ text, duration, live }) {
   const { t } = useTranslation('chat')
-  const short = gist(text)
-  const more = live || String(text || '').trim() !== short || short.length > 90
+  const gist = thoughtGist(text, { tail: live, max: useGistChars() })
+  const more = live || gist.more
   return (
     <Step
       state="thought"
+      className="cx-step--thought"
       duration={duration}
-      defaultOpen={live}
       detail={more ? <Reasoning text={text} live={live} /> : null}
     >
-      <b className="cx-step__verb">{thinking ? t('steps.thinking') : t('activity.thought')}</b>
-      <span className="cx-step__gist">{short}</span>
+      <b className={`cx-step__verb${live ? ' cx-shimmer' : ''}`}>{live ? t('steps.thinking') : t('activity.thought')}</b>
+      <span className="cx-step__gist">{gist.text}</span>
     </Step>
+  )
+}
+
+// What the model said before a tool call. It is quiet commentary in the flow,
+// not the answer: smaller and muted. The turn's answer is the text after the
+// last call, and it is the same element until a call follows it (see
+// StreamingFlow), so the change of style is one short transition.
+// eslint-disable-next-line no-unused-vars
+function NoteLine({ text }) {
+  return (
+    <li className="cx-note" data-testid="chat-note">
+      <div className="cx-prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(text || '') }} />
+    </li>
+  )
+}
+
+// A run of calls with nothing between them, as one line: "Used 5 tools" and its
+// time. While it runs the line is the call that runs now. A failed call shows
+// as a badge on the line, and the group opens on it. Each call is a step of the
+// group, with the input and the output one click away.
+// eslint-disable-next-line no-unused-vars
+function ToolGroup({ facts, label, live, children, duration }) {
+  const { t } = useTranslation('chat')
+  const [manual, setManual] = useState(null)
+  const running = facts.active >= 0
+  const open = manual ?? (facts.failed > 0 && !running)
+  const state = running ? 'running' : facts.failed > 0 ? 'failed' : 'done'
+  const icon = { running: 'spinner', done: 'check', failed: 'alert-circle' }[state]
+  const text = running
+    ? `${label} · ${t('steps.group.calls', { count: facts.count })}`
+    : t('steps.group.used', { count: facts.count })
+  return (
+    <li className="cx-step cx-group" data-state={state} data-open={open || undefined} data-testid="chat-step-group">
+      <button type="button" className="cx-step__head" aria-expanded={open} onClick={() => setManual(!open)}>
+        <span className="cx-step__icon" key={state}>
+          <Icon name={icon} spin={running} />
+          {running && <span className="sr-only">{t('steps.running')}</span>}
+        </span>
+        <span className="cx-step__line">
+          <b className={`cx-step__verb${running ? ' cx-shimmer' : ''}`}>{text}</b>
+          {facts.failed > 0 && <span className="cx-badge" data-testid="chat-step-group-failed">{t('steps.group.failed', { count: facts.failed })}</span>}
+        </span>
+        {duration ? <span className="cx-step__dur">{duration}</span> : <span />}
+        <Icon name="chevron-right" className="cx-step__chev" />
+      </button>
+      {open && <ol className="cx-group__steps">{children}</ol>}
+    </li>
   )
 }
 
@@ -301,6 +378,7 @@ function ToolStep({ text, duration, card }) {
   return (
     <Step
       state={refused ? 'failed' : 'done'}
+      defaultOpen={refused}
       duration={duration}
       split={label.file && Boolean(label.arg)}
       testId="chat-step"
@@ -313,19 +391,49 @@ function ToolStep({ text, duration, card }) {
   )
 }
 
-// One run of reasoning and tool lines between two messages. Add-on changes,
-// refusals and trigger proposals are listed under the fold, so their buttons
-// and reasons stay in sight.
-export function ActivityGroup({ items, id, proposalTick = 0, withProposals = true }) {
+// A run of reasoning, notes and tool lines between two messages, in the order
+// they happened, under one fold line ("Worked for 5.6 s · 7 steps"). A thought
+// is one line, a note is quiet commentary, a call is a line of its own, and
+// calls in a row group from GROUP_MIN calls (the same rule as the live turn).
+// A stored turn starts folded. Add-on changes, refusals and trigger proposals
+// are listed under the fold, so their buttons and reasons stay in sight.
+export function ActivityGroup({ items, id, proposalTick = 0, withProposals = true, failedHint = 0 }) {
+  const [expanded, setExpanded] = useState(false)
   const { t, i18n } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
-  const [expanded, setExpanded] = useState(false)
 
   if (!items || items.length === 0) return null
   const changes = items.filter(item => item.role === 'tool' && (addonChange(item.text) || toolRefusal(item.text)))
   const icon = items.some(i => i.role === 'reasoning') ? 'lightbulb' : 'wrench'
   const { steps } = runTimes(items)
   const dur = (i) => (steps[i] !== null ? formatDuration(steps[i], t, i18n.language) : '')
+  const entries = items.map((item, idx) => ({ kind: item.role === 'tool' ? 'tool' : item.role === 'note' ? 'note' : 'thought', key: `i${idx}`, idx, item }))
+  const flow = groupSteps(entries.filter(e => e.kind !== 'note' || e.item.text?.trim()))
+  const toolStep = (e) => <ToolStep key={e.key} text={e.item.text} duration={dur(e.idx)} card={e.item.card} />
+
+  const list = (
+        <ol className="cx-steps">
+          {flow.map((e) => {
+            if (e.kind === 'thought') return <ThoughtStep key={e.key} text={e.item.text} duration={dur(e.idx)} />
+            if (e.kind === 'note') return <NoteLine key={e.key} text={e.item.text} />
+            if (e.kind === 'group') {
+              const gone = e.tools.filter(x => toolRefusal(x.item.text)).length
+              const known = e.tools.map(x => steps[x.idx])
+              const total = known.every(x => x !== null) ? known.reduce((a, x) => a + x, 0) : null
+              return (
+                <ToolGroup
+                  key={e.key}
+                  facts={{ count: e.tools.length, failed: gone, active: -1, total }}
+                  duration={total !== null ? formatDuration(total, t, i18n.language) : ''}
+                >
+                  {e.tools.map(toolStep)}
+                </ToolGroup>
+              )
+            }
+            return toolStep(e)
+          })}
+        </ol>
+  )
 
   return (
     <>
@@ -334,13 +442,10 @@ export function ActivityGroup({ items, id, proposalTick = 0, withProposals = tru
         icon={icon}
         summary={summarise(items, t, i18n.language)}
         open={expanded}
+        failed={Math.max(failedHint || 0, items.filter(i => i.role === 'tool' && toolRefusal(i.text)).length)}
         onToggle={() => setExpanded(v => !v)}
       >
-        <ol className="cx-steps">
-          {items.map((item, idx) => (item.role === 'reasoning'
-            ? <ThoughtStep key={idx} text={item.text} duration={dur(idx)} />
-            : <ToolStep key={idx} text={item.text} duration={dur(idx)} card={item.card} />))}
-        </ol>
+        {list}
       </FoldFrame>
       {changes.map((item) => <ChangeNote key={`c-${item.seq}`} text={item.text} t={tc} />)}
       <NetworkCards items={items} />
@@ -401,111 +506,89 @@ export function AppRow({ chatId, row, onSend }) {
   )
 }
 
-const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
-
-// When each live step started and ended, as seen by this page. A step whose
-// start and end arrive in the same render (a replay after a reconnect) has no
-// time: what the page measured would not be how long it ran.
-function useLiveTimes(reasoning, toolCalls, hasResponse) {
-  const [times, setTimes] = useState({ reasoning: null, tools: [] })
-  const thinking = Boolean(reasoning)
-  const thoughtDone = thinking && (toolCalls.length > 0 || hasResponse)
-  const ended = toolCalls.map(tc => tc.type !== 'tool_call')
-  const key = `${thinking}|${thoughtDone}|${ended.join(',')}`
-  useEffect(() => {
-    const at = now()
-    setTimes(prev => {
-      let changed = false
-      let r = prev.reasoning
-      if (thinking && !r) { r = { start: at, end: thoughtDone ? null : undefined }; changed = true }
-      else if (r && thoughtDone && r.end === undefined) { r = { ...r, end: at }; changed = true }
-      const tools = ended.map((done, i) => {
-        const p = prev.tools[i]
-        if (!p) { changed = true; return { start: at, end: done ? null : undefined } }
-        if (done && p.end === undefined) { changed = true; return { ...p, end: at } }
-        return p
-      })
-      return changed ? { reasoning: r, tools } : prev
-    })
-    // key holds everything the effect reads
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key])
-  const span = (x) => (x && typeof x.end === 'number' ? x.end - x.start : null)
-  const known = [times.reasoning, ...times.tools].filter(Boolean)
-  const first = known[0]
-  const last = known[known.length - 1]
-  const total = first && last && typeof last.end === 'number' && known.every(x => x.end !== null)
-    ? last.end - first.start
-    : null
-  return { reasoning: span(times.reasoning), tools: times.tools.map(span), total }
-}
-
-// The same line while the reply is still coming: open while the model thinks
-// or calls a tool, folded once the answer starts. The reader can override both.
-// toolCalls come from streamingParts (chatThread.js).
-export function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
+// The turn while it runs, in the order it happened: a thought line, the note
+// the model said before a call, the call; calls in a row group. The text after
+// the last call is the answer, drawn by renderText (the page's prose) in the
+// same list, so the text that is the answer so far is the same element when a
+// call follows it and it becomes a note. Only the last step is active: the one
+// thing that shimmers or spins. When nothing is, three quiet dots show that the
+// model works on the next step.
+export function StreamingFlow({ live, renderText }) {
   const { t, i18n } = useTranslation('chat')
-  const [manualCollapse, setManualCollapse] = useState(null)
-  const calls = toolCalls || []
-  const hasTools = calls.length > 0
-  const autoExpanded = (!!reasoning || hasTools) && !hasResponse
-  const expanded = manualCollapse !== null ? !manualCollapse : autoExpanded
-  const times = useLiveTimes(reasoning, calls, hasResponse)
-
-  useEffect(() => { setManualCollapse(null) }, [hasResponse])
-
-  if (!reasoning && !hasTools) return null
-
   const lng = i18n.language
-  const fmt = (ms) => (ms !== null && ms !== undefined ? formatDuration(ms, t, lng) : '')
-  const running = calls.some(tc => tc.type === 'tool_call')
-  const count = hasTools ? t('steps.count', { count: calls.length }) : ''
-  let summary
-  if (!hasResponse) {
-    summary = hasTools ? `${t('steps.working')} · ${count}` : t('steps.thinking')
-  } else if (times.total !== null) {
-    summary = hasTools ? `${t('steps.worked', { duration: fmt(times.total) })} · ${count}` : t('steps.thoughtFor', { duration: fmt(times.total) })
-  } else {
-    summary = hasTools ? count : t('activity.thought')
+  const { steps, answer, answerKey } = liveSteps(live)
+  const flow = groupSteps(steps)
+  const [manual, setManual] = useState(null)
+  const ended = Boolean(live.ended)
+  const folded = ended && !manual
+  const fmt = (ms) => (Number.isFinite(ms) && ms >= 500 ? formatDuration(ms, t, lng) : '')
+  const toolRow = (e) => {
+    const tc = e.tool
+    const state = tc.state === 'running' ? 'running' : (tc.state === 'failed' ? 'failed' : 'done')
+    const label = toolLabel(tc.name, tc.summary, state === 'failed' ? '' : tc.output)
+    return (
+      <Step
+        key={e.key}
+        state={state}
+        duration={state === 'running' ? '' : fmt(e.ms)}
+        testId="chat-step"
+        split={label.file && Boolean(label.arg)}
+        defaultOpen={state === 'failed'}
+        detail={<ToolDetail name={tc.name} summary={tc.summary} output={tc.output} />}
+      >
+        <ToolText label={label} />
+      </Step>
+    )
   }
-
-  // A command that waits for a yes shows its card under the fold, so the
-  // buttons stay in sight when the fold is closed.
-  const consents = calls.filter(tc => tc.type === 'tool_call' && tc.consent?.id).map(tc => tc.consent)
+  const consents = steps.filter(e => e.kind === 'tool' && e.tool.state === 'running' && e.tool.consent?.id).map(e => e.tool.consent)
+  const last = flow[flow.length - 1]
+  const busy = !answer && !ended && !(last && ((last.kind === 'thought' && last.open) || (last.kind === 'tool' && last.tool.state === 'running') || (last.kind === 'group' && last.tools.some(x => x.tool.state === 'running'))))
+  if (flow.length === 0 && !answer) return null
+  // The line of the finished turn, as the stored turn draws it (summarise). It
+  // is in the list from the start, with no height, and the steps fold to no
+  // height when the turn ends: one move, in place.
+  const facts = turnFacts(live)
+  const worked = facts.ms !== null ? fmt(Math.max(facts.ms, 500)) : ''
+  const count = t('steps.count', { count: facts.steps })
+  const summary = facts.calls === 0
+    ? (worked ? t('steps.thoughtFor', { duration: worked }) : t('activity.thought'))
+    : (worked ? `${t('steps.worked', { duration: worked })} · ${count}` : count)
   return (
     <>
-    <FoldFrame
-      id="cx-live-fold"
-      icon={reasoning && !running ? 'lightbulb' : 'wrench'}
-      summary={summary}
-      open={expanded}
-      live
-      working={!hasResponse}
-      onToggle={() => setManualCollapse(expanded)}
-    >
-      <ol className="cx-steps">
-        {reasoning && (
-          <ThoughtStep text={reasoning} duration={fmt(times.reasoning)} live thinking={!hasTools && !hasResponse} />
+      <ol className="cx-steps cx-flow" id="cx-live-flow" data-testid="chat-flow" data-live data-ended={ended || undefined} data-folded={folded || undefined}>
+        {flow.length > 0 && (
+          <li className="cx-flow__fold">
+            <div className="cx-fold" data-open={!folded || undefined}>
+              <FoldHead
+                summary={summary}
+                failed={steps.filter(e => e.kind === 'tool' && e.tool.state === 'failed').length}
+                icon={facts.thoughts > 0 ? 'lightbulb' : 'wrench'}
+                open={!folded}
+                controls="cx-live-flow"
+                onToggle={() => setManual(folded)}
+              />
+            </div>
+          </li>
         )}
-        {calls.map((tc, idx) => {
-          const state = tc.type === 'tool_call' ? 'running' : (tc.failed ? 'failed' : 'done')
-          const label = toolLabel(tc.name, tc.summary, tc.failed ? '' : tc.result)
-          return (
-            <Step
-              key={idx}
-              state={state}
-              duration={state === 'running' ? '' : fmt(times.tools[idx])}
-              testId="chat-step"
-              split={label.file && Boolean(label.arg)}
-              detail={<ToolDetail name={tc.name} summary={tc.summary} output={tc.result} />}
-            >
-              <ToolText label={label} />
-            </Step>
-          )
+        {flow.map((e) => {
+          if (e.kind === 'thought') return <ThoughtStep key={e.key} text={e.text} duration={e.open ? '' : fmt(e.ms)} live={e.open} />
+          if (e.kind === 'note') return renderText({ key: e.key, text: e.text, note: true })
+          if (e.kind === 'group') {
+            const facts = groupFacts(e.tools)
+            const activeTool = facts.active >= 0 ? e.tools[facts.active].tool : null
+            const label = activeTool ? labelText(toolLabel(activeTool.name, activeTool.summary, ''), t) : ''
+            return (
+              <ToolGroup key={e.key} facts={facts} label={label} live duration={facts.total !== null ? fmt(facts.total) : ''}>
+                {e.tools.map(toolRow)}
+              </ToolGroup>
+            )
+          }
+          return toolRow(e)
         })}
+        {answer && renderText({ key: answerKey, text: answer, note: false })}
+        {busy && <li className="cx-flow__wait" aria-hidden="true"><span className="cx-dots cx-dots--inline"><span /><span /><span /></span></li>}
       </ol>
-    </FoldFrame>
-    {consents.map(c => <CommandsConsentCard key={c.id} consent={c} />)}
+      {consents.map(c => <CommandsConsentCard key={c.id} consent={c} />)}
     </>
   )
 }

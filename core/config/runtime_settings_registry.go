@@ -585,6 +585,33 @@ var runtimeSettingsFields = []fieldSpec{
 			o.ChatsToolSearch = v
 			return true
 		}),
+	// Incognito conversations: read at each request, so no restart.
+	withApply(field("incognito",
+		func(s *RuntimeSettings) **string { return &s.Incognito },
+		func(o *ApplicationConfig) string { return string(o.IncognitoPolicy()) },
+		func(o *ApplicationConfig, v string) { o.Incognito = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.ToLower(strings.TrimSpace(*s.Incognito))
+			if !ValidIncognito(v) {
+				xlog.Warn("invalid incognito in runtime settings", "value", v)
+				return false
+			}
+			o.Incognito = v
+			return true
+		}),
+	withApply(field("incognito_max_level",
+		func(s *RuntimeSettings) **string { return &s.IncognitoMaxLevel },
+		func(o *ApplicationConfig) string { return o.IncognitoMaxLevel().String() },
+		func(o *ApplicationConfig, v string) { o.IncognitoMaxLevelName = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.ToLower(strings.TrimSpace(*s.IncognitoMaxLevel))
+			if !ValidIncognitoMaxLevel(v) {
+				xlog.Warn("invalid incognito_max_level in runtime settings", "value", v)
+				return false
+			}
+			o.IncognitoMaxLevelName = v
+			return true
+		}),
 	// The saved agents as sub-agents of a chat: read at each turn, so no
 	// restart. Stored as the negation, so it is on by default.
 	field("chats_saved_agents",

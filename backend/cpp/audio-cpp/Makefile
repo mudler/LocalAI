@@ -9,7 +9,7 @@
 # recipe is a make target (not a prepare.sh) so 'make purge && make' is a clean
 # rebuild and so the bump bot can see the pin.
 
-AUDIO_CPP_VERSION?=f79c88068a37319eaee105108a1941e471dea8a7
+AUDIO_CPP_VERSION?=86d9355a8e0647d1d190ac1a01a121fae97ca82a
 AUDIO_CPP_REPO?=https://github.com/0xShug0/audio.cpp
 
 CURRENT_MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -146,9 +146,15 @@ endif
 .PHONY: all grpc-server package test test-engine clean purge
 all: grpc-server
 
-# Clone the upstream source at the pinned commit. The directory is the target
-# so make only re-clones when it is missing. After bumping AUDIO_CPP_VERSION,
-# run 'make purge && make' to refetch.
+# Clone the upstream source at the pinned commit, then apply patches/*.patch
+# in name order. The directory is the target so make only re-clones when it is
+# missing. After bumping AUDIO_CPP_VERSION, run 'make purge && make' to refetch.
+#
+# A patch that does not apply fails the target, loudly, instead of surfacing
+# later as a compile error or as a silently unpatched build. The checkout is
+# removed on that failure, because the directory is the target: if it stayed,
+# the next make would take it as up to date and build it without the patch.
+# git apply is used rather than patch(1) because git is already needed here.
 audio.cpp:
 	mkdir -p audio.cpp
 	cd audio.cpp && \
@@ -156,6 +162,14 @@ audio.cpp:
 	git remote add origin $(AUDIO_CPP_REPO) && \
 	git fetch --depth 1 origin $(AUDIO_CPP_VERSION) && \
 	git checkout FETCH_HEAD
+	@for p in $(sort $(wildcard $(CURRENT_MAKEFILE_DIR)patches/*.patch)); do \
+		echo "Applying patch $$(basename $$p)"; \
+		git -C audio.cpp apply --verbose "$$p" || { \
+			echo "audio-cpp: $$(basename $$p) does not apply to audio.cpp $(AUDIO_CPP_VERSION); update or drop it" >&2; \
+			rm -rf audio.cpp; \
+			exit 1; \
+		}; \
+	done
 
 grpc-server: audio.cpp
 	mkdir -p $(BUILD_DIR)

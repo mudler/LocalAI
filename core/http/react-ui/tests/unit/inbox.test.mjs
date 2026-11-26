@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import i18next from 'i18next'
 import {
-  badgeText, sourceOf, toneOf, iconOf, targetOf, reasonText, dayOf, groupByDay, filterItems,
-  hasUnreadFailure, entryVisible, inboxOff, streamWanted, textOf, linkDisabled,
+  badgeText, sourceOf, toneOf, iconOf, targetOf, reasonText, bodyOf, dayOf, groupByDay, filterItems,
+  hasUnreadFailure, entryVisible, inboxOff, streamWanted, textOf, WATCH_CODES, linkDisabled, runProgressOf, runItemKind,
 } from '../../src/utils/inbox.js'
 
 const note = (extra = {}) => ({ id: 1, kind: 'run_ended', status: 'ok', title: 'T', body: '', link: '', read: false, created: '', ...extra })
@@ -284,5 +284,108 @@ test('inbox: an add-on install is worded, and one that needs a new review says s
     const t = await translator(l)
     const title = textOf(op('updates.opFailed', { kind: 'addon', action: 'install', name: 'NAME', outcome: 'failed', needsApproval: true }), t).title
     assert.ok(title.includes('NAME') && !title.includes('{{') && title !== 'stored', `${l}: ${title}`)
+  }
+})
+
+// ---- Update runs --------------------------------------------------------------
+
+const live = (p, extra = {}) => note({ kind: 'system', code: 'updates.run', title: 'stored title', body: 'stored body', params: { run: 'r1', total: 6, done: 2, progress: 33, source: 'manual', ...p }, ...extra })
+const ended = (p, extra = {}) => note({ kind: 'system', code: 'updates.run.end', title: 'stored title', body: 'stored body', params: { run: 'r1', total: 6, updated: 5, failed: 1, source: 'manual', ...p }, ...extra })
+
+test('inbox: the live item of an update run says how far it is, with its counts when the server sends them', async () => {
+  const t = await translator('en')
+  assert.deepEqual(textOf(live({}), t), { title: 'Updating 6 items', body: '2 of 6 done' })
+  assert.deepEqual(textOf(live({ updated: 2, running: 2, queued: 2 }), t), { title: 'Updating 6 items', body: '2 updated, 2 running, 2 waiting' })
+  assert.equal(textOf(live({ source: 'auto', total: 1 }), t).title, 'Automatic update: 1 item')
+  assert.equal(runProgressOf(live({})), 33)
+  assert.equal(runProgressOf(live({ progress: 140 })), 100)
+  assert.equal(runProgressOf(live({ progress: 'x' })), 0)
+  assert.equal(runProgressOf(ended({})), null, 'the summary has no bar')
+  assert.equal(runItemKind(live({})), 'live')
+  assert.equal(runItemKind(ended({})), 'end')
+  assert.equal(iconOf(live({})), 'refresh')
+  assert.equal(toneOf(live({})), 'accent')
+  // A total that is not a count shows what the server stored.
+  assert.deepEqual(textOf(live({ total: 0 }), t), { title: 'stored title', body: 'stored body' })
+})
+
+test('inbox: the end of an update run gives the counts and the first item that needs attention', async () => {
+  const t = await translator('en')
+  const out = textOf(ended({ first_name: 'Notes sync', first_from: 'v0.8.1', first_error: 'the new version did not start.' }), t)
+  assert.deepEqual(out, { title: '5 updated, 1 needs attention', body: 'Notes sync is still on v0.8.1: the new version did not start.' })
+  assert.equal(textOf(ended({ first_name: 'Notes sync', first_from: 'v0.8.1' }), t).body, 'Notes sync is still on v0.8.1.')
+  assert.deepEqual(textOf(ended({ updated: 6, failed: 0 }), t), { title: '6 updated', body: 'stored body' })
+  assert.equal(textOf(ended({ updated: 1, failed: 0, total: 1, source: 'auto' }), t).title, 'Automatic: 1 updated')
+  assert.equal(toneOf(ended({})), 'warn')
+  assert.equal(iconOf(ended({})), 'alert-circle')
+  assert.equal(toneOf(ended({ failed: 0 })), 'ok')
+  assert.equal(iconOf(ended({ failed: 0 })), 'check-circle')
+})
+
+test('inbox: the end of an update run keeps the case of the name it starts with', async () => {
+  const t = await translator('en')
+  const n = ended({ first_name: 'e2e-bad', first_from: '1.0.0', first_error: 'exit code 3' }, { status: 'failed' })
+  assert.equal(bodyOf(n, textOf(n, t)), 'e2e-bad is still on 1.0.0: exit code 3.')
+  // Any other failure starts with a capital, as before.
+  const op = note({ kind: 'system', code: 'updates.opFailed', status: 'failed', title: 'x', body: 'took longer than 15m' })
+  assert.equal(bodyOf(op, { title: 'x', body: 'took longer than 15m' }), 'Took longer than 15m')
+})
+
+test('inbox: the end of a run whose new build did not start says so before the cause', async () => {
+  const t = await translator('en')
+  const out = textOf(ended({ first_name: 'e2e-bad', first_from: '1.0.0', first_key: 'start', first_error: 'the backend process exited (exit code 3)' }), t)
+  assert.equal(out.body, 'e2e-bad is still on 1.0.0: the new version did not start: the backend process exited (exit code 3).')
+})
+
+test('inbox: the end of a cancelled run says it was cancelled, as the Updates page does', async () => {
+  const t = await translator('en')
+  assert.equal(textOf(ended({ state: 'cancelled', cancelled: 2, updated: 1, failed: 0, total: 3 }), t).title, 'Update run cancelled: 1 updated')
+  assert.equal(textOf(ended({ state: 'cancelled', cancelled: 1, updated: 1, failed: 1, total: 3 }), t).title, 'Update run cancelled: 1 updated, 1 needs attention')
+  assert.equal(textOf(ended({ state: 'cancelled', updated: 1, failed: 0, total: 3, source: 'auto' }), t).title, 'Automatic: Update run cancelled: 1 updated')
+})
+
+test('inbox: both items of an update run lead to the run on the Updates page', () => {
+  assert.equal(targetOf(live({}, { link: '/app/updates?run=r1' })), '/app/updates?run=r1')
+  assert.equal(targetOf(live({})), '/app/updates?run=r1', 'no stored link: the run id makes one')
+  assert.equal(targetOf(ended({ run: 'a b' })), '/app/updates?run=a%20b')
+  assert.equal(targetOf(ended({ run: undefined })), '/app/updates')
+  // The chats being off does not hide the Updates page.
+  assert.equal(targetOf(live({}), false), '/app/updates?run=r1')
+})
+
+test('inbox: the update run items are worded in every language', async () => {
+  for (const l of LOCALES) {
+    const t = await translator(l)
+    for (const n of [live({}), live({ updated: 1, running: 1, queued: 1 }), live({ source: 'auto' }), ended({ first_name: 'NAME', first_from: 'v1', first_error: 'why' }), ended({ failed: 0 }), ended({ failed: 0, source: 'auto' })]) {
+      const out = textOf(n, t)
+      assert.ok(out.title && out.title !== 'stored title' && !out.title.includes('{{'), `${l}: ${out.title}`)
+      assert.ok(!out.body.includes('{{'), `${l}: ${out.body}`)
+    }
+    for (const key of ['inbox.viewProgress', 'inbox.seeRun', 'inbox.openUpdates', 'inbox.updatesNone']) {
+      assert.notEqual(t(key), key, `${l}: ${key}`)
+    }
+    assert.ok(t('inbox.updatesPending', { count: 3 }).includes('3'), l)
+  }
+})
+
+test('inbox: the lines of a watch are worded from their code, in the language of the person', async () => {
+  const line = (code, params) => note({ code: `watch.${code}`, title: 'My calendar', body: 'stored English line', params })
+  const en = await translator('en')
+  const set = textOf(line('set', { title: 'Dentist', at: '2026-11-26T08:45:00Z', zone: 'UTC' }), en)
+  assert.equal(set.title, 'My calendar', 'the watch keeps its name, so its lines group together')
+  assert.match(set.body, /^Set the reminder for "Dentist": .*08:45( UTC)?\.$/)
+  assert.equal(textOf(line('missed', { title: 'Dentist' }), en).body, 'Missed: Dentist. The server was down at the reminder time.')
+  const it = await translator('it')
+  assert.equal(textOf(line('cancelled', { title: 'Dentista' }), it).body, 'Promemoria per "Dentista" annullato.')
+  const itSet = textOf(line('set', { title: 'Dentista', at: '2026-11-26T08:45:00Z', zone: 'UTC' }), it, 'it').body
+  assert.match(itSet, /gio/i, `the time is written in the locale of the page: ${itSet}`)
+  assert.equal(textOf(line('moved', { title: 'Dentist' }), en).body, 'stored English line', 'a timed line without its time keeps the stored line')
+  assert.equal(textOf(line('unknown', { title: 'Dentist' }), en).body, 'stored English line')
+  for (const lng of LOCALES) {
+    const t = await translator(lng)
+    for (const code of WATCH_CODES) {
+      const out = textOf(line(code, { title: 'X', at: '2026-11-26T08:45:00Z' }), t)
+      assert.ok(out.body && !out.body.includes('inbox.codes'), `${lng} ${code}: ${out.body}`)
+    }
   }
 })

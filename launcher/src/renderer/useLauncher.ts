@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { capabilitiesOf } from '../shared/apiGroups'
 import type {
+  Capabilities,
   HardwareSummaryView,
   InstallStateView,
   LauncherInfo,
@@ -15,11 +17,12 @@ import type { Bridge, InstallDetailsView, UpdateInfoView, WindowSettingsView, Wo
 import { hardwareLine, INITIAL_TRACK, trackInstall, type InstallTrack, type ShellInput } from './viewModel'
 
 /** A value read once and then pushed by the main process. `get` and `on` may be missing (optional channel). */
-function useLive<T>(get: (() => Promise<T>) | undefined, on: ((cb: (v: T) => void) => () => void) | undefined): [T | undefined, (v: T) => void] {
+function useLive<T>(get: (() => Promise<T>) | undefined, on: ((cb: (v: T) => void) => () => void) | undefined): [T | undefined, (v: T) => void, boolean] {
   const [v, setV] = useState<T>()
+  const [failed, setFailed] = useState(false)
   useEffect(() => {
     let live = true
-    if (get) void get().then((x) => live && setV(x)).catch(() => undefined)
+    if (get) void get().then((x) => live && setV(x)).catch(() => live && setFailed(true))
     const off = on?.((x) => setV(x))
     return () => {
       live = false
@@ -28,10 +31,28 @@ function useLive<T>(get: (() => Promise<T>) | undefined, on: ((cb: (v: T) => voi
     // The bridge does not change while the shell runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  return [v, setV]
+  return [v, setV, failed]
+}
+
+/** The launcher info, read once, and whether the read failed. */
+function useInfo(b: Bridge): [LauncherInfo | undefined, boolean] {
+  const [info, setInfo] = useState<LauncherInfo>()
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    let live = true
+    b.info().then(
+      (x) => live && setInfo(x),
+      () => live && setFailed(true),
+    )
+    return () => {
+      live = false
+    }
+  }, [b])
+  return [info, failed]
 }
 
 export interface ShellData extends ShellInput {
+  capabilities: Capabilities
   updateInfo?: UpdateInfoView
   installDetails?: InstallDetailsView
   hardware?: string
@@ -57,16 +78,20 @@ export interface ShellControls {
   reloadSettings(): Promise<void>
 }
 
-/** Everything the shell shows, read from the bridge and kept current. Undefined until the server state is known. */
+/**
+ * Everything the shell shows, read from the bridge and kept current. Undefined
+ * until `info` is known and, on a bridge with a local server, its state too.
+ * The local reads are optional: a client-only bridge has none of them.
+ */
 export function useShellData(b: Bridge): [ShellData | undefined, ShellControls] {
   const [server] = useLive<ServerSnapshot>(b.getServer, b.onServer)
-  const [info] = useLive<LauncherInfo>(b.info, undefined)
+  const [info, infoFailed] = useInfo(b)
   const [updater] = useLive<UpdaterStatus>(b.getUpdater, b.onUpdater)
   const [sandbox, setSandbox] = useLive<SandboxView>(b.getSandboxState, b.onSandbox)
   const [settings, setSettings] = useLive<LauncherSettings>(b.getSettings, undefined)
   const [statusBarSaved, setStatusBarSaved] = useLive<boolean>(b.getStatusBarVisible, b.onStatusBar)
   const [webui] = useLive<WebuiViewState>(b.getWebui, b.onWebui)
-  const [servers] = useLive<ServersView>(b.getServers, b.onServers)
+  const [servers, , serversFailed] = useLive<ServersView>(b.getServers, b.onServers)
   const [worker, setWorker] = useLive<WorkerView>(b.getWorker, b.onWorker)
   const [windowSettings, setWindowSettings] = useLive<WindowSettingsView>(b.getWindowSettings, undefined)
   const [updateInfo, setUpdateInfo] = useLive<UpdateInfoView>(b.getUpdateInfo, undefined)
@@ -92,16 +117,16 @@ export function useShellData(b: Bridge): [ShellData | undefined, ShellControls] 
   }, [])
   useEffect(() => {
     let live = true
-    void b.getInstallState().then((v) => live && setInstall(v)).catch(() => undefined)
-    const off = b.onInstall(setInstall)
+    void b.getInstallState?.().then((v) => live && setInstall(v)).catch(() => undefined)
+    const off = b.onInstall?.(setInstall)
     return () => {
       live = false
-      off()
+      off?.()
     }
   }, [b, setInstall])
 
   const reloadSettings = useCallback(async () => {
-    setSettings(await b.getSettings())
+    if (b.getSettings) setSettings(await b.getSettings())
   }, [b, setSettings])
 
   const controls: ShellControls = {
@@ -116,10 +141,20 @@ export function useShellData(b: Bridge): [ShellData | undefined, ShellControls] 
     reloadSettings,
   }
 
-  if (!server) return [undefined, controls]
+  // Client-only mode is picked from `info` only: before it answers the
+  // capabilities read as the desktop set, so the shell waits for it. A failed
+  // `info()` means the desktop set, as a missing value does. A local server
+  // also needs its state first (as before).
+  if (!info && !infoFailed) return [undefined, controls]
+  const capabilities = capabilitiesOf(info)
+  if (capabilities.localServer && !server) return [undefined, controls]
+  // Without a local server the screen depends on the saved servers: before the
+  // list answers, a client with a saved default would show first-connect.
+  if (!capabilities.localServer && b.getServers && !servers && !serversFailed) return [undefined, controls]
   return [
     {
       server,
+      capabilities,
       info,
       updater,
       install,

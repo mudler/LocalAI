@@ -318,3 +318,11 @@
     .nx-panel { animation: dk-sheet-up-in var(--dur-slow) var(--ease-out) both; }
   }
 }
+
+/* An update run: the warn tile of a summary that needs attention, the bar of
+   the live item, the words that say where the row leads, and the way to the
+   Updates page in the footer. */
+.nx-tile--warn { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
+.nx-item__bar { margin: var(--sp-1) 0; }
+.nx-item__run { font-weight: var(--font-weight-semibold); color: var(--dk-text); }
+.nx-jump { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2); width: 100%; }

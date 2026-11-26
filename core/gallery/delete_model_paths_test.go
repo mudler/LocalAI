@@ -69,4 +69,73 @@ files:
 		Expect(weights).ToNot(BeAnExistingFile())
 		Expect(filepath.Join(modelsPath, "m.yaml")).ToNot(BeAnExistingFile())
 	})
+
+	Describe("Strata pack directories", func() {
+		writeModel := func(name, dir string) string {
+			pack := filepath.Join(modelsPath, dir, "pack")
+			Expect(os.MkdirAll(filepath.Join(pack, "tokenizer"), 0o755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(pack, "index.txt"), []byte("i"), 0o644)).To(Succeed())
+			Expect(os.MkdirAll(filepath.Join(modelsPath, dir, "pack.partial"), 0o755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(modelsPath, dir, "w-00001-of-00002.gguf"), []byte("w"), 0o644)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(modelsPath, name+".yaml"), []byte("name: "+name+"\nbackend: strata\nparameters:\n  model: "+dir+"\noptions:\n  - pack_gguf:w-00001-of-00002.gguf\n"), 0o644)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(modelsPath, gallery.GalleryFileName(name)), []byte("files:\n  - filename: "+dir+"/w-00001-of-00002.gguf\n"), 0o644)).To(Succeed())
+			return pack
+		}
+
+		It("removes the pack the backend built and leaves other models alone", func() {
+			packA := writeModel("a", "strata/models/a")
+			packB := writeModel("b", "strata/models/b")
+
+			Expect(gallery.DeleteModelFromSystem(state, "a")).To(Succeed())
+			Expect(packA).ToNot(BeADirectory())
+			Expect(filepath.Join(modelsPath, "strata/models/a/pack.partial")).ToNot(BeADirectory())
+			Expect(filepath.Join(modelsPath, "strata/models/a/w-00001-of-00002.gguf")).ToNot(BeAnExistingFile())
+			Expect(packB).To(BeADirectory())
+			Expect(filepath.Join(packB, "index.txt")).To(BeARegularFile())
+			Expect(filepath.Join(modelsPath, "b.yaml")).To(BeARegularFile())
+		})
+
+		It("keeps the pack while another model uses the same directory", func() {
+			pack := writeModel("a", "strata/models/shared")
+			writeModel("b", "strata/models/shared")
+
+			Expect(gallery.DeleteModelFromSystem(state, "a")).To(Succeed())
+			Expect(pack).To(BeADirectory())
+			Expect(gallery.DeleteModelFromSystem(state, "b")).To(Succeed())
+			Expect(pack).ToNot(BeADirectory())
+		})
+
+		It("never removes a pack outside the models directory", func() {
+			victim := filepath.Join(outside, "pack")
+			Expect(os.MkdirAll(victim, 0o755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(modelsPath, "t.yaml"), []byte("name: t\nparameters:\n  model: ../outside\noptions:\n  - pack_gguf:x.gguf\n"), 0o644)).To(Succeed())
+			_ = gallery.DeleteModelFromSystem(state, "t")
+			Expect(victim).To(BeADirectory())
+		})
+
+		It("never removes a pack through a link that leaves the models directory", func() {
+			victim := filepath.Join(outside, "pack")
+			Expect(os.MkdirAll(victim, 0o755)).To(Succeed())
+			Expect(os.Symlink(outside, filepath.Join(modelsPath, "link"))).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(modelsPath, "l.yaml"), []byte("name: l\nparameters:\n  model: link\noptions:\n  - pack_gguf:x.gguf\n"), 0o644)).To(Succeed())
+			_ = gallery.DeleteModelFromSystem(state, "l")
+			Expect(victim).To(BeADirectory())
+		})
+
+		It("does not touch the models directory when the model path is the models directory", func() {
+			shared := filepath.Join(modelsPath, "pack")
+			Expect(os.MkdirAll(shared, 0o755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(modelsPath, "r.yaml"), []byte("name: r\nparameters:\n  model: .\noptions:\n  - pack_gguf:x.gguf\n"), 0o644)).To(Succeed())
+			_ = gallery.DeleteModelFromSystem(state, "r")
+			Expect(shared).To(BeADirectory())
+		})
+
+		It("leaves a pack the user pointed at with the pack option", func() {
+			pack := writeModel("u", "strata/models/u")
+			Expect(os.WriteFile(filepath.Join(modelsPath, "u.yaml"), []byte("name: u\nparameters:\n  model: strata/models/u\noptions:\n  - pack:pack\n  - pack_gguf:w-00001-of-00002.gguf\n"), 0o644)).To(Succeed())
+			// The model directory still holds the pack, so the delete reports it.
+			_ = gallery.DeleteModelFromSystem(state, "u")
+			Expect(pack).To(BeADirectory())
+		})
+	})
 })

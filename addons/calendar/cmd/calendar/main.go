@@ -6,6 +6,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/addons/calendar/internal/store"
 	"github.com/mudler/LocalAI/addons/calendar/internal/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/hostclient"
 	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
@@ -26,6 +28,16 @@ func main() {
 			xlog.Error("calendar: cannot open the calendar file", "error", err)
 			os.Exit(7)
 		}
-		return tools.New(st)
+		rt := tools.New(st)
+		rt.Events = hostEvents{hostclient.New(s)}
+		return rt
 	}))
+}
+
+// hostEvents reports the changes of the calendar with the events.emit host
+// operation, under the live call that made them.
+type hostEvents struct{ c *hostclient.Client }
+
+func (h hostEvents) Emit(ctx context.Context, operationID, typ string, payload any, dedupe string) error {
+	return h.c.Do(ctx, operationID, "events.emit", map[string]any{"type": typ, "payload": payload, "dedupe_key": dedupe}, nil)
 }

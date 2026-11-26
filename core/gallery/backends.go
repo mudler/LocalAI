@@ -213,7 +213,9 @@ func newGalleryVerifier(p *config.GalleryVerification) (*cosignverify.Verifier, 
 // InstallBackendFromGallery installs a backend from the gallery.
 // requireIntegrity escalates a missing SHA256 / verification policy from a
 // warning to a hard failure (see backendDownloadOptions).
-func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, name string, downloadStatus func(string, string, string, float64), force, requireIntegrity bool) error {
+//
+// opts change how an installed build is replaced (see WithStartCheck).
+func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, name string, downloadStatus func(string, string, string, float64), force, requireIntegrity bool, opts ...BackendInstallOption) error {
 	if !force {
 		// check if we already have the backend installed
 		backends, err := ListSystemBackends(systemState)
@@ -252,6 +254,11 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 
 	if backend.IsMeta() {
 		xlog.Debug("Backend is a meta backend", "systemState", systemState, "name", name)
+		// Its directory is created below, after the concrete install; refuse
+		// a name that is not one path element before anything is installed.
+		if err := ValidateBackendName(name); err != nil {
+			return err
+		}
 
 		// Then, let's try to find the best backend based on the capabilities map
 		bestBackend := backend.FindBestBackendFromMeta(systemState, backends)
@@ -262,7 +269,7 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 		xlog.Debug("Installing backend from meta backend", "name", name, "bestBackend", bestBackend.Name)
 
 		// Then, let's install the best backend
-		if err := InstallBackend(ctx, systemState, modelLoader, bestBackend, downloadStatus, requireIntegrity); err != nil {
+		if err := InstallBackend(ctx, systemState, modelLoader, bestBackend, downloadStatus, requireIntegrity, opts...); err != nil {
 			return err
 		}
 
@@ -288,7 +295,7 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 		return nil
 	}
 
-	return InstallBackend(ctx, systemState, modelLoader, backend, downloadStatus, requireIntegrity)
+	return InstallBackend(ctx, systemState, modelLoader, backend, downloadStatus, requireIntegrity, opts...)
 }
 
 // RequiredBackendInstalled reports which backend the gallery entry `name`
@@ -322,7 +329,12 @@ func RequiredBackendInstalled(ctx context.Context, galleries []config.Gallery, s
 	return entry.Backend, ok, err
 }
 
-func InstallBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, config *GalleryBackend, downloadStatus func(string, string, string, float64), requireIntegrity bool) error {
+// InstallBackend downloads config into a staging directory and swaps it into
+// place. When it replaces an installed build and opts carry a start check
+// (WithStartCheck), the replaced build is kept until the check passes on the
+// new one and put back when it fails; the error then has the code start.
+func InstallBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, config *GalleryBackend, downloadStatus func(string, string, string, float64), requireIntegrity bool, opts ...BackendInstallOption) error {
+	options := applyBackendInstallOptions(opts)
 	if systemState.DisableBackendInstall {
 		return fmt.Errorf("%w: %s", ErrBackendInstallDisabled, config.Name)
 	}
@@ -340,6 +352,11 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 	}
 
 	name := config.Name
+	// The name comes from a gallery: refuse one that would build a path
+	// outside the backends path before anything is written.
+	if err := ValidateBackendName(name); err != nil {
+		return err
+	}
 	backendPath := filepath.Join(systemState.Backend.BackendsPath, name)
 	// Clean up legacy flat-layout artefacts: earlier dev builds of the
 	// golang backends dropped the compiled binary directly at
@@ -363,10 +380,13 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 	// Mirrors the atomic-swap UpgradeBackend already performs.
 	stagingPath := backendPath + ".install-tmp"
 	backupPath := backendPath + ".install-backup"
-	// Clean any stale staging/backup dirs from a prior interrupted attempt
-	// (best-effort; a missing dir is the common case).
+	// Clean a stale staging dir from a prior interrupted attempt
+	// (best-effort; a missing dir is the common case). A stale backup can be
+	// the last build that worked, so it is moved aside, never deleted.
 	_ = os.RemoveAll(stagingPath)
-	_ = os.RemoveAll(backupPath)
+	if err := keepPreviousBuild(backupPath); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(stagingPath, 0750); err != nil {
 		return fmt.Errorf("failed to create staging path: %v", err)
 	}
@@ -522,10 +542,12 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 
 	// Atomic swap: move any existing install aside, move the staged dir into
 	// place, and roll the old one back if the final rename fails.
+	replaced := false
 	if _, statErr := os.Stat(backendPath); statErr == nil {
 		if err := os.Rename(backendPath, backupPath); err != nil {
 			return fmt.Errorf("failed to move current backend to backup: %w", err)
 		}
+		replaced = true
 	}
 	if err := os.Rename(stagingPath, backendPath); err != nil {
 		xlog.Error("Failed to move new backend into place, restoring backup", "error", err)
@@ -534,9 +556,31 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		}
 		return fmt.Errorf("failed to move new backend into place: %w", err)
 	}
-	_ = os.RemoveAll(backupPath)
 
-	return RegisterBackends(systemState, modelLoader)
+	if replaced && options.startCheck != nil {
+		// The replaced build stays at backupPath until the new one starts
+		// from its final path, and goes back when it does not.
+		if err := options.startCheck(ctx, filepath.Join(backendPath, runFile)); err != nil {
+			// The code says that the new build did not start; the readers
+			// word the code, so the text is the bare cause.
+			return rollbackSwap(ctx, systemState, modelLoader, UpgradeFailureStart, err, backendPath, backupPath)
+		}
+	}
+	if err := registerBackends(systemState, modelLoader); err != nil {
+		if replaced && options.startCheck != nil {
+			return rollbackSwap(ctx, systemState, modelLoader, UpgradeFailureSwap, fmt.Errorf("failed to register backends after install: %w", err), backendPath, backupPath)
+		}
+		// The new build is in place but not registered: the replaced one
+		// stays at backupPath, where the next install moves it aside.
+		if replaced {
+			xlog.Warn("Keeping the replaced build after a failed registration", "path", filepath.Base(backupPath))
+		}
+		return err
+	}
+	if err := os.RemoveAll(backupPath); err != nil {
+		xlog.Warn("Could not remove the replaced build after the install", "path", filepath.Base(backupPath), "error", err)
+	}
+	return nil
 }
 
 func DeleteBackendFromSystem(systemState *system.SystemState, name string) error {
@@ -558,7 +602,16 @@ func DeleteBackendFromSystem(systemState *system.SystemState, name string) error
 			}
 		}
 		if !ok {
-			return fmt.Errorf("backend %q: %w", name, ErrBackendNotFound)
+			// The listing leaves out a meta whose concrete is gone. Look for
+			// that meta directory on disk, so that it can still be removed.
+			dir, found, err := findOrphanMeta(systemState.Backend.BackendsPath, name)
+			if err != nil {
+				return err
+			}
+			if !found {
+				return fmt.Errorf("backend %q: %w", name, ErrBackendNotFound)
+			}
+			backend = SystemBackend{Name: dir, IsMeta: true}
 		}
 	}
 
@@ -624,9 +677,86 @@ func DeleteBackendFromSystem(systemState *system.SystemState, name string) error
 		} else {
 			return statErr
 		}
+		return os.RemoveAll(backendDirectory)
 	}
 
-	return os.RemoveAll(backendDirectory)
+	if err := os.RemoveAll(backendDirectory); err != nil {
+		return err
+	}
+	// A meta that points at the removed concrete has nothing left to run.
+	// Kept, it would make Exists(meta) true, and an install of the meta
+	// would return early as "already installed".
+	return removeMetasFor(systemState.Backend.BackendsPath, filepath.Base(backendDirectory))
+}
+
+// removeMetasFor removes every meta backend directory in backendsPath whose
+// metadata points at the concrete backend.
+func removeMetasFor(backendsPath, concrete string) error {
+	entries, err := os.ReadDir(backendsPath)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if !e.IsDir() || isSwapDir(e.Name()) {
+			continue
+		}
+		dir := filepath.Join(backendsPath, e.Name())
+		metadata, err := readBackendMetadata(dir)
+		if err != nil {
+			// The concrete is already gone: one unreadable directory must
+			// not fail the delete or stop the check of the others.
+			xlog.Warn("Could not read backend metadata while removing the metas of a deleted backend", "dir", e.Name(), "error", err)
+			continue
+		}
+		if metadata == nil || metadata.MetaBackendFor != concrete {
+			continue
+		}
+		xlog.Debug("Deleting meta backend of the deleted concrete backend", "meta", e.Name(), "concrete", concrete)
+		if err := os.RemoveAll(dir); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// findOrphanMeta finds the directory in backendsPath of the meta backend
+// called name whose concrete backend directory is missing.
+func findOrphanMeta(backendsPath, name string) (string, bool, error) {
+	entries, err := os.ReadDir(backendsPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	for _, e := range entries {
+		if !e.IsDir() || isSwapDir(e.Name()) {
+			continue
+		}
+		metadata, err := readBackendMetadata(filepath.Join(backendsPath, e.Name()))
+		if err != nil {
+			return "", false, err
+		}
+		if metadata == nil || metadata.MetaBackendFor == "" {
+			continue
+		}
+		if e.Name() != name && metadata.Name != name {
+			continue
+		}
+		if !concreteMissing(backendsPath, metadata.MetaBackendFor) {
+			continue
+		}
+		return e.Name(), true, nil
+	}
+	return "", false, nil
+}
+
+// concreteMissing reports whether the concrete backend directory of a meta
+// is gone from basePath. Any other stat error counts as present, so that an
+// unreadable directory does not hide a meta.
+func concreteMissing(basePath, concrete string) bool {
+	_, err := os.Stat(filepath.Join(basePath, concrete))
+	return errors.Is(err, os.ErrNotExist)
 }
 
 // BackendAvailability answers whether a backend can serve models for this
@@ -772,7 +902,7 @@ func collectRoot(basePath string, isSystem, lenient bool) (map[string]collectedB
 		return entries, err
 	}
 	for _, e := range dirEntries {
-		if !e.IsDir() {
+		if !e.IsDir() || isSwapDir(e.Name()) {
 			continue
 		}
 		if cerr := collectBackendDir(basePath, e.Name(), isSystem, entries); cerr != nil {
@@ -783,6 +913,26 @@ func collectRoot(basePath string, isSystem, lenient bool) (map[string]collectedB
 		}
 	}
 	return entries, nil
+}
+
+// swapDirSuffixes name the directories an install or an upgrade keeps next
+// to a backend while it replaces it: the staged new build, the previous build
+// kept until the new one starts, and a failed build moved aside. They are not
+// backends. Listing one registered it under a name like "x.backup", and an
+// unreadable metadata file in it failed the whole listing in the middle of a
+// swap.
+var swapDirSuffixes = []string{".upgrade-tmp", ".backup", ".install-tmp", ".install-backup", failedSuffix}
+
+func isSwapDir(name string) bool {
+	if isKeptDir(name) {
+		return true
+	}
+	for _, suffix := range swapDirSuffixes {
+		if strings.HasSuffix(name, suffix) && len(name) > len(suffix) {
+			return true
+		}
+	}
+	return false
 }
 
 func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error) {
@@ -859,8 +1009,10 @@ func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error)
 				backendCandidate{name: dir, runFile: run, isSystem: entry.isSystem, metadata: entry.metadata})
 		}
 
-		// Meta backends indirection
-		if entry.metadata.MetaBackendFor != "" {
+		// Meta backends indirection. A meta whose concrete directory is
+		// gone is left out: Exists and Get must not report a backend that
+		// has nothing to run. DeleteBackendFromSystem still finds it on disk.
+		if entry.metadata.MetaBackendFor != "" && !concreteMissing(entry.basePath, entry.metadata.MetaBackendFor) {
 			backends[entry.metadata.Name] = SystemBackend{
 				Name:     entry.metadata.Name,
 				RunFile:  filepath.Join(entry.basePath, entry.metadata.MetaBackendFor, runFile),

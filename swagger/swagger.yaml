@@ -835,6 +835,13 @@ definitions:
         type: string
       driftNodes:
         type: integer
+      heldBack:
+        description: |-
+          HeldBack is true when the automatic update does not take this
+          release: the same release already rolled back, or failed because it
+          does not work here, in a recent upgrade run. A manual update still
+          can. It goes away when the gallery lists another release.
+        type: boolean
       id:
         type: string
       installedDigest:
@@ -1590,6 +1597,16 @@ definitions:
           still waits for a confirmation. Only a tool with Approval "always" may
           set it.
         type: boolean
+      deferred:
+        description: |-
+          Deferred says that a chat offers this tool through the tool search
+          (tool_search, tool_describe and tool_call) instead of as a typed tool, so
+          its schema is not sent on every turn. It changes the model's prompt only:
+          the tool keeps its name, its kind, its role check and its approval, and
+          pages, MCP clients, agents and triggers list it as before. It is refused
+          on a UIOnly tool, which no model is offered, and on a tool that Shadows a
+          built-in one, which must keep its name.
+        type: boolean
       description:
         description: Description is plain text for the model.
         type: string
@@ -1686,6 +1703,353 @@ definitions:
       min:
         type: integer
     type: object
+  enginesettings.BackendMatch:
+    properties:
+      empty:
+        description: 'Empty: a model with no backend (auto-detect) resolves to this
+          engine.'
+        type: boolean
+      excluded:
+        description: |-
+          Excluded names never match, also as the last part of a variant. They
+          are other engines whose names end like a family.
+        items:
+          type: string
+        type: array
+      families:
+        description: |-
+          Families match exactly and as the last part of a hardware variant:
+          family "llama-cpp" matches "llama-cpp" and "cuda12-llama-cpp".
+        items:
+          type: string
+        type: array
+      names:
+        description: Names match exactly.
+        items:
+          type: string
+        type: array
+    type: object
+  enginesettings.BuildResult:
+    properties:
+      command:
+        type: string
+      warnings:
+        items:
+          type: string
+        type: array
+    type: object
+  enginesettings.Capability:
+    enum:
+    - command-line
+    - tensor-placement
+    type: string
+    x-enum-varnames:
+    - CapabilityCommandLine
+    - CapabilityTensorPlacement
+  enginesettings.Choice:
+    properties:
+      label:
+        type: string
+      set:
+        additionalProperties: {}
+        type: object
+      value:
+        type: string
+    type: object
+  enginesettings.Combined:
+    properties:
+      choices:
+        description: |-
+          Choices are the values of the control. A choice sets each key to a
+          value, or unsets it with null. To read the current choice, a client
+          takes the choice that sets nothing when every key is unset; else it
+          tries the choices from the last to the first and takes the first one
+          whose non-null values all equal the values in the config (Unset for a
+          missing key).
+        items:
+          $ref: '#/definitions/enginesettings.Choice'
+        type: array
+      doc:
+        type: string
+      flag:
+        description: Flag is the command-line flag that sets the same values, if any.
+        type: string
+      group:
+        type: string
+      id:
+        type: string
+      keys:
+        description: Keys are the flag keys the control writes.
+        items:
+          type: string
+        type: array
+      unset:
+        additionalProperties: {}
+        description: Unset is the value that applies to a key that is not set.
+        type: object
+    type: object
+  enginesettings.Config:
+    additionalProperties: {}
+    type: object
+  enginesettings.Flag:
+    properties:
+      cli:
+        description: |-
+          CLI lists the accepted command-line spellings. The first one is used
+          when a command is built. Empty for an engine with no command line.
+        items:
+          type: string
+        type: array
+      cli_negated:
+        description: CLINegated lists spellings that set a bool flag to false.
+        items:
+          type: string
+        type: array
+      default:
+        description: Default describes what applies when the setting is not set.
+        type: string
+      doc:
+        type: string
+      enum:
+        items:
+          type: string
+        type: array
+      group:
+        type: string
+      key:
+        description: Key is a stable identifier, unique in the table.
+        type: string
+      max:
+        type: number
+      min:
+        type: number
+      option:
+        description: |-
+          Option is the option name for TargetOption flags. For raw passthrough
+          flags it is the flag itself (for example "-ot").
+        type: string
+      option_aliases:
+        description: |-
+          OptionAliases are other option names the backend reads for the same
+          setting. The editor reads them and writes Option.
+        items:
+          type: string
+        type: array
+      path:
+        description: |-
+          Path is the YAML path of the setting, for example "context_size",
+          "parameters.temperature" or "options".
+        type: string
+      repeatable:
+        description: Repeatable marks flags that may appear more than once.
+        type: boolean
+      target:
+        allOf:
+        - $ref: '#/definitions/enginesettings.Target'
+        description: Target says where the value lands in the model config.
+      type:
+        $ref: '#/definitions/enginesettings.ValueType'
+    type: object
+  enginesettings.Info:
+    properties:
+      backends:
+        $ref: '#/definitions/enginesettings.BackendMatch'
+      binary:
+        type: string
+      capabilities:
+        items:
+          $ref: '#/definitions/enginesettings.Capability'
+        type: array
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  enginesettings.LayerRange:
+    properties:
+      from:
+        type: integer
+      to:
+        type: integer
+    type: object
+  enginesettings.ParseResult:
+    properties:
+      fields:
+        allOf:
+        - $ref: '#/definitions/enginesettings.Config'
+        description: |-
+          Fields holds the model config keys the command maps to. It never has
+          an "options" key: see Options.
+      options:
+        description: |-
+          Options is the "options" list: known entries in table order, then raw
+          passthrough entries in the order they appeared.
+        items:
+          type: string
+        type: array
+      placements:
+        description: |-
+          Placements describes every placement entry of Options. Only for
+          engines with the tensor-placement capability.
+        items:
+          $ref: '#/definitions/enginesettings.PlacementInfo'
+        type: array
+      unmapped:
+        description: |-
+          Unmapped lists flags that were not turned into a first-class key.
+          Unknown flags are in Options as raw entries too, so nothing is lost.
+        items:
+          $ref: '#/definitions/enginesettings.Unmapped'
+        type: array
+      warnings:
+        items:
+          type: string
+        type: array
+    type: object
+  enginesettings.Placement:
+    properties:
+      first_gpu_layers:
+        description: FirstGPULayers is used by first_layers_gpu.
+        type: integer
+      layers:
+        description: Layers is used by experts_cpu_layers.
+        items:
+          $ref: '#/definitions/enginesettings.LayerRange'
+        type: array
+      mode:
+        $ref: '#/definitions/enginesettings.PlacementMode'
+      total_layers:
+        description: |-
+          TotalLayers is optional for first_layers_gpu. When set, the entry
+          lists the remaining layers as one range; when 0, it matches every
+          layer from FirstGPULayers up.
+        type: integer
+    type: object
+  enginesettings.PlacementInfo:
+    properties:
+      option:
+        type: string
+      placement:
+        $ref: '#/definitions/enginesettings.Placement'
+    type: object
+  enginesettings.PlacementMode:
+    enum:
+    - experts_cpu_all
+    - experts_cpu_layers
+    - first_layers_gpu
+    type: string
+    x-enum-varnames:
+    - ExpertsCPUAll
+    - ExpertsCPULayers
+    - FirstLayersGPU
+  enginesettings.PlacementSchema:
+    properties:
+      aliases:
+        items:
+          type: string
+        type: array
+      group:
+        type: string
+      modes:
+        items:
+          $ref: '#/definitions/enginesettings.PlacementMode'
+        type: array
+      option:
+        description: |-
+          Option is the options name of a placement entry; Aliases are other
+          names the backend reads for the same entry.
+        type: string
+    type: object
+  enginesettings.Preset:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      placement:
+        allOf:
+        - $ref: '#/definitions/enginesettings.Placement'
+        description: |-
+          Placement is an optional tensor placement. Only for engines with the
+          tensor-placement capability.
+      settings:
+        additionalProperties: {}
+        description: Settings maps flag keys to values.
+        type: object
+    type: object
+  enginesettings.Schema:
+    properties:
+      backends:
+        $ref: '#/definitions/enginesettings.BackendMatch'
+      binary:
+        type: string
+      capabilities:
+        items:
+          $ref: '#/definitions/enginesettings.Capability'
+        type: array
+      combined:
+        items:
+          $ref: '#/definitions/enginesettings.Combined'
+        type: array
+      example:
+        description: Example is a sample command for the paste box (command-line only).
+        type: string
+      flags:
+        items:
+          $ref: '#/definitions/enginesettings.Flag'
+        type: array
+      groups:
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      name:
+        type: string
+      placement:
+        $ref: '#/definitions/enginesettings.PlacementSchema'
+      presets:
+        items:
+          $ref: '#/definitions/enginesettings.Preset'
+        type: array
+      reserved_options:
+        items:
+          type: string
+        type: array
+    type: object
+  enginesettings.Target:
+    enum:
+    - config
+    - option
+    type: string
+    x-enum-varnames:
+    - TargetConfig
+    - TargetOption
+  enginesettings.Unmapped:
+    properties:
+      flag:
+        type: string
+      reason:
+        type: string
+      value:
+        type: string
+    type: object
+  enginesettings.ValueType:
+    enum:
+    - int
+    - float
+    - bool
+    - enum
+    - string
+    type: string
+    x-enum-varnames:
+    - TypeInt
+    - TypeFloat
+    - TypeBool
+    - TypeEnum
+    - TypeString
   failover.ChainState:
     enum:
     - primary
@@ -2042,6 +2406,11 @@ definitions:
         type: string
       error:
         type: string
+      error_key:
+        description: |-
+          ErrorKey is the gallery.UpgradeFailureCode of a failed backend upgrade
+          on this node (status error or rolled_back).
+        type: string
       file_name:
         type: string
       node_id:
@@ -2072,6 +2441,13 @@ definitions:
         type: boolean
       downloaded_size:
         type: string
+      error_key:
+        description: |-
+          ErrorKey is the stable code of a failed backend upgrade (the string
+          of a gallery.UpgradeFailureCode), next to the text of the failure. It
+          is empty for every other outcome. Readers branch on it, never on the
+          message.
+        type: string
       file_name:
         type: string
       file_size:
@@ -2096,8 +2472,22 @@ definitions:
         type: boolean
       progress:
         type: number
+      rolled_back:
+        description: |-
+          RolledBack is true for a failed backend upgrade (or forced install)
+          whose new build did not start and whose previous build was put back:
+          the backend still runs the version it ran before. On a cluster it is
+          true when every node that failed rolled back.
+        type: boolean
       total_bytes:
         type: integer
+      unconfirmed:
+        description: |-
+          Unconfirmed is true for a backend upgrade whose outcome is not known:
+          a worker did not reply (a timeout, or a link that broke after it took
+          the request). It is neither a failure nor a success; a later check of
+          the node decides.
+        type: boolean
       upgrade:
         description: |-
           Upgrade is true if the operation re-installs a backend to move it to a
@@ -3413,6 +3803,50 @@ definitions:
           $ref: '#/definitions/localai.ReplicaView'
         type: array
     type: object
+  localai.EngineCommandPreviewRequest:
+    properties:
+      config:
+        allOf:
+        - $ref: '#/definitions/enginesettings.Config'
+        description: |-
+          Config is a partial model config: YAML keys, nested blocks and the
+          options list.
+    type: object
+  localai.EngineListResponse:
+    properties:
+      engines:
+        items:
+          $ref: '#/definitions/enginesettings.Info'
+        type: array
+    type: object
+  localai.EngineParseCommandRequest:
+    properties:
+      command:
+        description: Command is a command line of the engine. It is tokenised, never
+          run.
+        type: string
+    type: object
+  localai.EnginePlacementRequest:
+    properties:
+      layers:
+        description: Layers is an optional "0-6,18-23" string. It replaces placement.layers.
+        type: string
+      option:
+        type: string
+      placement:
+        $ref: '#/definitions/enginesettings.Placement'
+    type: object
+  localai.EnginePlacementResponse:
+    properties:
+      option:
+        type: string
+      placement:
+        allOf:
+        - $ref: '#/definitions/enginesettings.Placement'
+        description: Placement is null when the entry is not one this server builds.
+      raw:
+        type: boolean
+    type: object
   localai.FailoverChainsResponse:
     properties:
       chains:
@@ -3705,6 +4139,19 @@ definitions:
       success:
         type: boolean
     type: object
+  localai.ModelUpgradeRunResponse:
+    properties:
+      id:
+        type: string
+      jobID:
+        type: string
+      message:
+        type: string
+      run:
+        $ref: '#/definitions/upgraderun.Run'
+      status_url:
+        type: string
+    type: object
   localai.MotionSessionInfo:
     properties:
       frames:
@@ -3936,6 +4383,18 @@ definitions:
       split_server:
         type: boolean
     type: object
+  localai.SingleUpgradePending:
+    properties:
+      code:
+        description: Code is always "pending".
+        type: string
+      message:
+        type: string
+      run:
+        $ref: '#/definitions/upgraderun.Run'
+      run_id:
+        type: string
+    type: object
   localai.TTSModelVoices:
     properties:
       model:
@@ -3965,6 +4424,109 @@ definitions:
         description: Value is the VRAM cap ("80%" or "12GB"). Empty string clears
           the cap.
         type: string
+    type: object
+  localai.UpgradeRunError:
+    properties:
+      code:
+        example: run_active
+        type: string
+      key:
+        example: gallery:kokoro
+        type: string
+      message:
+        example: another upgrade run is running
+        type: string
+    type: object
+  localai.UpgradeRunList:
+    properties:
+      runs:
+        items:
+          $ref: '#/definitions/upgraderun.Run'
+        type: array
+    type: object
+  localai.UpgradeRunPreview:
+    properties:
+      active_run_id:
+        description: ActiveRunID is the run that runs now; a start is refused while
+          it runs.
+        type: string
+      complete:
+        description: |-
+          Complete is false when a source did not answer, so items may be
+          missing.
+        type: boolean
+      items:
+        items:
+          $ref: '#/definitions/localai.UpgradeRunPreviewItem'
+        type: array
+      order:
+        description: Order is the keys in run order.
+        items:
+          type: string
+        type: array
+    type: object
+  localai.UpgradeRunPreviewItem:
+    properties:
+      default_selected:
+        type: boolean
+      expected_to:
+        description: |-
+          ExpectedTo is what a start request should send back as expected_to:
+          the version, or for an add-on the digest of the candidate.
+        type: string
+      from:
+        description: From and To are the versions for display.
+        type: string
+      key:
+        type: string
+      kind:
+        $ref: '#/definitions/upgraderun.Kind'
+      name:
+        type: string
+      order:
+        description: Order is the position in the run, from 0.
+        type: integer
+      reason:
+        type: string
+      risk:
+        items:
+          $ref: '#/definitions/localai.UpgradeRunRisk'
+        type: array
+      risks:
+        description: Risks are what the update does beyond replacing the item.
+        items:
+          type: string
+        type: array
+      selected:
+        description: 'Selected is the default selection: backends and add-ons, not
+          models.'
+        type: boolean
+      stage:
+        type: integer
+      startable:
+        type: boolean
+      title:
+        description: Title is the name a person knows the item by (an add-on's title).
+        type: string
+      to:
+        type: string
+    type: object
+  localai.UpgradeRunPreviewRequest:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/upgraderun.ItemRef'
+        type: array
+    type: object
+  localai.UpgradeRunRisk:
+    properties:
+      code:
+        example: stops_models
+        type: string
+      params:
+        additionalProperties:
+          type: string
+        type: object
     type: object
   localai.VoiceProfileListResponse:
     properties:
@@ -4717,6 +5279,12 @@ definitions:
         items:
           type: string
         type: array
+      omit_lan_addrs:
+        description: |-
+          OmitLANAddrs keeps the private addresses of this server out of the
+          link. By default the link carries them, so a device on the same network
+          can redeem it with no relay and no multicast discovery.
+        type: boolean
       relays:
         description: Relays is "auto", "none" or a list of relay IDs.
         example: auto
@@ -6280,7 +6848,11 @@ definitions:
         type: string
       enabled:
         type: boolean
+      event_type:
+        type: string
       folder:
+        type: string
+      hook_path:
         type: string
       id:
         type: string
@@ -6294,6 +6866,10 @@ definitions:
         description: |-
           LastRun is the newest run, if any, and LastDone the end of the newest
           run that finished without an error.
+      matches:
+        items:
+          type: string
+        type: array
       min_gap_seconds:
         description: MinGapSeconds is the shortest time between two runs of a file
           trigger.
@@ -6328,6 +6904,11 @@ definitions:
         type: string
       schedule:
         type: string
+      source:
+        description: |-
+          Source, EventType and Matches say which events an event trigger takes.
+          HookPath is the path of its hook; add the address of the server.
+        type: string
       source_chat_id:
         type: string
       summary:
@@ -6337,6 +6918,10 @@ definitions:
         type: string
       time_zone:
         type: string
+      watch:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsWatchRule'
+        description: Watch is the reminder rule of a watch; absent on any other trigger.
     type: object
   schema.ChatsAdminTriggerList:
     properties:
@@ -8754,6 +9339,12 @@ definitions:
           needs. It is set when a single chat is opened, created or changed.
       id:
         type: string
+      incognito:
+        description: |-
+          Incognito is the privacy level of an incognito chat (memory-off or
+          zero-retention), empty for any other chat. An incognito chat lives in
+          the memory of the server only and is never listed.
+        type: string
       kind:
         description: chat or subagent
         type: string
@@ -8851,6 +9442,12 @@ definitions:
           a yes while a turn runs; answer it with POST /api/chats/{id}/host-exec/consent.
       id:
         type: string
+      incognito:
+        description: |-
+          Incognito is the privacy level of an incognito chat (memory-off or
+          zero-retention), empty for any other chat. An incognito chat lives in
+          the memory of the server only and is never listed.
+        type: string
       jobs:
         description: |-
           Jobs are the background jobs of the chat and of its sub-agents, running
@@ -8936,6 +9533,12 @@ definitions:
           ImageModel is the model that describes the images of a chat whose own
           model cannot look at them. It is empty when no model can.
         type: string
+      incognito:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsIncognito'
+        description: |-
+          Incognito is the server's incognito setting, so the page knows whether
+          to offer incognito chats and up to which level.
       persistent:
         description: |-
           Persistent is false when conversations live in memory and are lost when
@@ -9303,6 +9906,9 @@ definitions:
     properties:
       after:
         type: integer
+      backend:
+        description: Backend names the backend of a model_backend_outdated failure.
+        type: string
       before:
         description: Before and After are context sizes in tokens, for compacted.
         type: integer
@@ -9456,6 +10062,11 @@ definitions:
     type: object
   schema.ChatsFailure:
     properties:
+      backend:
+        description: |-
+          Backend is the backend the cause is about, when it is known (code
+          model_backend_outdated).
+        type: string
       code:
         description: Code names the cause, such as model_not_found, upstream, timeout
           or agent.
@@ -9790,6 +10401,13 @@ definitions:
       model:
         description: Model replaces the model of the file. It is needed when the file
           names none.
+        type: string
+    type: object
+  schema.ChatsIncognito:
+    properties:
+      max_level:
+        type: string
+      policy:
         type: string
     type: object
   schema.ChatsInvocation:
@@ -10692,6 +11310,12 @@ definitions:
         type: string
       name:
         type: string
+      owner:
+        description: |-
+          Owner is the id of the user that owns the project. Every response
+          carries it: the caller's own id, or the user an administrator acts for
+          with ?user_id=.
+        type: string
       skills_blocked:
         description: |-
           SkillsBlocked is true when the project's own skills are off because
@@ -11035,6 +11659,88 @@ definitions:
   schema.ChatsPushUnsubscribe:
     properties:
       endpoint:
+        type: string
+    type: object
+  schema.ChatsReminder:
+    properties:
+      adjusted:
+        type: string
+      all_day:
+        type: boolean
+      at:
+        description: |-
+          At is a time the reminder was set to, SnoozedTo a time the owner
+          snoozed it to.
+        type: string
+      due:
+        description: |-
+          Due is when the owner hears; Start is when the run starts (Due minus
+          the lead). Both are absent when the item has begun.
+        type: string
+      id:
+        type: string
+      item_time:
+        description: ItemTime is the time of the item, absent for an item with no
+          time.
+        type: string
+      lead_minutes:
+        type: integer
+      link:
+        description: Link opens the item in its add-on.
+        type: string
+      offset_minutes:
+        type: integer
+      skipped:
+        description: |-
+          Skipped says the owner skipped the coming time. Adjusted is quiet or
+          all_day when the rule moved the time.
+        type: boolean
+      snoozable:
+        type: boolean
+      snoozed_to:
+        type: string
+      start:
+        type: string
+      task:
+        type: string
+      title:
+        type: string
+    type: object
+  schema.ChatsReminderChange:
+    properties:
+      after:
+        $ref: '#/definitions/schema.ChatsReminder'
+      before:
+        $ref: '#/definitions/schema.ChatsReminder'
+      title:
+        type: string
+      watch_id:
+        type: string
+      watch_name:
+        type: string
+      watch_zone:
+        type: string
+    type: object
+  schema.ChatsReminderList:
+    properties:
+      reminders:
+        items:
+          $ref: '#/definitions/schema.ChatsReminder'
+        type: array
+    type: object
+  schema.ChatsReminderPatch:
+    properties:
+      at:
+        type: string
+      offset_minutes:
+        type: integer
+      skip:
+        type: boolean
+      snooze_minutes:
+        type: integer
+      snoozed_to:
+        type: string
+      task:
         type: string
     type: object
   schema.ChatsSandboxProfile:
@@ -11530,6 +12236,62 @@ definitions:
         description: Project is the project's ID, for the project layer.
         type: string
     type: object
+  schema.ChatsSourceReminder:
+    properties:
+      adjusted:
+        type: string
+      all_day:
+        type: boolean
+      at:
+        description: |-
+          At is a time the reminder was set to, SnoozedTo a time the owner
+          snoozed it to.
+        type: string
+      due:
+        description: |-
+          Due is when the owner hears; Start is when the run starts (Due minus
+          the lead). Both are absent when the item has begun.
+        type: string
+      id:
+        type: string
+      item_id:
+        type: string
+      item_time:
+        description: ItemTime is the time of the item, absent for an item with no
+          time.
+        type: string
+      lead_minutes:
+        type: integer
+      link:
+        description: Link opens the item in its add-on.
+        type: string
+      offset_minutes:
+        type: integer
+      skipped:
+        description: |-
+          Skipped says the owner skipped the coming time. Adjusted is quiet or
+          all_day when the rule moved the time.
+        type: boolean
+      snoozable:
+        type: boolean
+      snoozed_to:
+        type: string
+      start:
+        type: string
+      task:
+        type: string
+      title:
+        type: string
+      watch_id:
+        type: string
+    type: object
+  schema.ChatsSourceReminders:
+    properties:
+      reminders:
+        items:
+          $ref: '#/definitions/schema.ChatsSourceReminder'
+        type: array
+    type: object
   schema.ChatsSubAgent:
     properties:
       created:
@@ -11888,7 +12650,11 @@ definitions:
         type: string
       enabled:
         type: boolean
+      event_type:
+        type: string
       folder:
+        type: string
+      hook_path:
         type: string
       id:
         type: string
@@ -11902,6 +12668,10 @@ definitions:
         description: |-
           LastRun is the newest run, if any, and LastDone the end of the newest
           run that finished without an error.
+      matches:
+        items:
+          type: string
+        type: array
       min_gap_seconds:
         description: MinGapSeconds is the shortest time between two runs of a file
           trigger.
@@ -11934,6 +12704,11 @@ definitions:
         type: string
       schedule:
         type: string
+      source:
+        description: |-
+          Source, EventType and Matches say which events an event trigger takes.
+          HookPath is the path of its hook; add the address of the server.
+        type: string
       source_chat_id:
         type: string
       summary:
@@ -11943,6 +12718,10 @@ definitions:
         type: string
       time_zone:
         type: string
+      watch:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsWatchRule'
+        description: Watch is the reminder rule of a watch; absent on any other trigger.
     type: object
   schema.ChatsTriggerChange:
     properties:
@@ -11964,6 +12743,12 @@ definitions:
         $ref: '#/definitions/schema.ChatsTriggerRun'
       op:
         type: string
+      reminder:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsReminderChange'
+        description: |-
+          Reminder is set on a change of a reminder of a watch, which a chat
+          proposed; before is then the watch.
       stale:
         type: boolean
       state:
@@ -12000,6 +12785,121 @@ definitions:
         type: boolean
       runs:
         type: integer
+    type: object
+  schema.ChatsTriggerCreated:
+    properties:
+      acts:
+        description: |-
+          Acts are the action classes that a run with nobody present may use:
+          act.files, act.addons, act.addons:<id>, act.send, act.spend. A run
+          without any only reads.
+        items:
+          type: string
+        type: array
+      acts_held:
+        description: |-
+          ActsHeld are the act.* names that apply to a run now: Acts within the
+          grants of the agent, plus act.files when the plan names a file it writes.
+          ReadOnly is true when a run can only read, and ReadOnlyWhy says why:
+          declared (the proposal said so), binding (a connection in read only mode
+          made it), no_acts (it holds none) or agent (its agent holds none of them).
+        items:
+          type: string
+        type: array
+      agent_id:
+        type: string
+      binding:
+        description: |-
+          Binding is the ID of the messaging connection that a trigger belongs to
+          when it was made without asking under that connection's approval. Such a
+          trigger stays within the acts the connection allows. Empty otherwise.
+        type: string
+      cost:
+        $ref: '#/definitions/schema.ChatsTriggerCost'
+      daily_cap:
+        type: integer
+      delivery:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsTriggerDelivery'
+        description: Delivery says where the answer of each run goes.
+      effective_run_limit:
+        type: string
+      enabled:
+        type: boolean
+      event_type:
+        type: string
+      folder:
+        type: string
+      hook_path:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+      last_done:
+        type: string
+      last_run:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsTriggerRun'
+        description: |-
+          LastRun is the newest run, if any, and LastDone the end of the newest
+          run that finished without an error.
+      matches:
+        items:
+          type: string
+        type: array
+      min_gap_seconds:
+        description: MinGapSeconds is the shortest time between two runs of a file
+          trigger.
+        type: integer
+      model:
+        type: string
+      name:
+        type: string
+      next_run:
+        type: string
+      plan:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsTriggerPlan'
+        description: |-
+          Plan says what a run reads and writes and which Home widget shows the
+          file it writes; Cost what a run costs.
+      prompt:
+        type: string
+      quiet_seconds:
+        type: integer
+      read_only:
+        type: boolean
+      read_only_why:
+        type: string
+      run_limit:
+        description: |-
+          RunLimit is the longest one run may take, as a duration such as 30m;
+          empty means the administrator's run limit. EffectiveRunLimit is what
+          applies now: the least of RunLimit and the administrator's limit.
+        type: string
+      schedule:
+        type: string
+      secret:
+        type: string
+      source:
+        description: |-
+          Source, EventType and Matches say which events an event trigger takes.
+          HookPath is the path of its hook; add the address of the server.
+        type: string
+      source_chat_id:
+        type: string
+      summary:
+        description: |-
+          Summary says when it runs in plain words. NextRun is set for a schedule
+          trigger that is on.
+        type: string
+      time_zone:
+        type: string
+      watch:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsWatchRule'
+        description: Watch is the reminder rule of a watch; absent on any other trigger.
     type: object
   schema.ChatsTriggerDelivery:
     properties:
@@ -12047,6 +12947,76 @@ definitions:
         type: string
       target:
         type: string
+    type: object
+  schema.ChatsTriggerDeliveryWrite:
+    properties:
+      channel:
+        type: string
+      connection:
+        type: string
+      mode:
+        enum:
+        - always
+        - on_change
+        - on_problem
+        type: string
+      target:
+        enum:
+        - inbox
+        - channel
+        - origin
+        type: string
+    type: object
+  schema.ChatsTriggerDestination:
+    properties:
+      addon:
+        type: string
+      can_receive_reports:
+        type: boolean
+      channels:
+        items:
+          $ref: '#/definitions/schema.ChatsTriggerDestinationChannel'
+        type: array
+      enabled:
+        type: boolean
+      id:
+        type: string
+      kind:
+        type: string
+      kind_title:
+        type: string
+      name:
+        type: string
+      reason:
+        enum:
+        - "off"
+        - addon_off
+        - tool_only
+        - talkback_off
+        - no_channel
+        type: string
+      talkback_allowed:
+        type: boolean
+    type: object
+  schema.ChatsTriggerDestinationChannel:
+    properties:
+      current:
+        type: boolean
+      id:
+        type: string
+      label:
+        type: string
+    type: object
+  schema.ChatsTriggerDestinations:
+    properties:
+      connections:
+        items:
+          $ref: '#/definitions/schema.ChatsTriggerDestination'
+        type: array
+      connectors_off:
+        type: boolean
+      from_chat:
+        type: boolean
     type: object
   schema.ChatsTriggerList:
     properties:
@@ -12117,6 +13087,11 @@ definitions:
           $ref: '#/definitions/schema.ChatsTriggerRun'
         type: array
     type: object
+  schema.ChatsTriggerSecret:
+    properties:
+      secret:
+        type: string
+    type: object
   schema.ChatsTriggerWrite:
     properties:
       acts:
@@ -12134,6 +13109,13 @@ definitions:
         type: string
       daily_cap:
         type: integer
+      delivery:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsTriggerDeliveryWrite'
+        description: |-
+          Delivery is where the runs report. Leave it out to keep where the
+          trigger reports now (the Inbox for a new trigger); {"target": "inbox"}
+          sends the reports back to the Inbox. It is refused on a proposal.
       enabled:
         type: boolean
       estimated_tokens:
@@ -12141,10 +13123,16 @@ definitions:
           EstimatedTokens is about how many tokens one run uses; 0 keeps the
           trigger's value.
         type: integer
+      event_type:
+        type: string
       folder:
         type: string
       kind:
         type: string
+      matches:
+        items:
+          type: string
+        type: array
       min_gap_seconds:
         description: |-
           MinGapSeconds is the shortest time between two runs of a file trigger;
@@ -12170,10 +13158,23 @@ definitions:
         type: string
       schedule:
         type: string
+      source:
+        description: |-
+          Source, EventType and Matches are for an event trigger: the sender name
+          (required), the event type (empty takes any), and up to 8 "field=value"
+          matches on the JSON payload. The secret is made by the server; a secret
+          in the body is ignored.
+        type: string
       source_chat_id:
         type: string
       time_zone:
         type: string
+      watch:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsWatchRule'
+        description: |-
+          Watch makes an event trigger of an add-on a watch. Left out on an
+          update, a watch keeps its rule.
     type: object
   schema.ChatsUndoRequest:
     properties:
@@ -12291,6 +13292,64 @@ definitions:
           script", the id and label of the job, or the id of the background
           sub-agent: the text of a command is never in this object.
         type: string
+    type: object
+  schema.ChatsWatchEventType:
+    properties:
+      label:
+        description: Label is the name of the event in the language of the request.
+        type: string
+      lifecycle:
+        type: string
+      type:
+        type: string
+    type: object
+  schema.ChatsWatchRule:
+    properties:
+      all_day:
+        description: 'AllDay is morning (the default: 08:00 on the day) or none.'
+        type: string
+      no_default:
+        type: boolean
+      offset_minutes:
+        description: |-
+          OffsetMinutes is the default reminder time relative to the item's time:
+          -15 is 15 minutes before. NoDefault sets no reminder unless the task
+          defaults call for one.
+        type: integer
+      quiet_from:
+        description: QuietFrom and QuietTo are quiet hours (HH:MM, in the watch's
+          time zone).
+        type: string
+      quiet_to:
+        type: string
+      tasks:
+        description: Tasks are the task defaults in the owner's words.
+        type: string
+      types:
+        description: |-
+          Types are the event types the watch takes; empty is every type of the
+          source.
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ChatsWatchSource:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/schema.ChatsWatchEventType'
+        type: array
+      id:
+        type: string
+      title:
+        type: string
+    type: object
+  schema.ChatsWatchSources:
+    properties:
+      sources:
+        items:
+          $ref: '#/definitions/schema.ChatsWatchSource'
+        type: array
     type: object
   schema.ChatsWebProviderTest:
     properties:
@@ -13990,6 +15049,12 @@ definitions:
         items:
           type: string
         type: array
+      code:
+        description: |-
+          Code is a stable code when the refusal has one, such as run_active
+          (another upgrade run is running) or the error key of an upgrade run
+          item that could not start.
+        type: string
       error:
         type: string
       keys:
@@ -16362,6 +17427,186 @@ definitions:
           one ran moments ago. The status is then the last one.
         type: boolean
     type: object
+  upgraderun.Item:
+    properties:
+      cancellable:
+        type: boolean
+      error:
+        type: string
+      error_key:
+        type: string
+      expected_to:
+        description: |-
+          ExpectedTo is the version or digest the item had to move to when the
+          run was requested (for an add-on the digest of its candidate). A later
+          change of the target fails the item as stale instead of installing
+          something nobody looked at.
+        type: string
+      from:
+        description: |-
+          From and To are the versions for display: the version, or the digest
+          when there is no version.
+        type: string
+      job_id:
+        type: string
+      key:
+        type: string
+      kind:
+        $ref: '#/definitions/upgraderun.Kind'
+      message:
+        type: string
+      name:
+        type: string
+      nodes:
+        items:
+          $ref: '#/definitions/upgraderun.NodeState'
+        type: array
+      phase:
+        $ref: '#/definitions/upgraderun.Phase'
+      progress:
+        type: integer
+      queued_reason:
+        description: QueuedReason says why a queued item waits.
+        type: string
+      retryable:
+        type: boolean
+      title:
+        description: |-
+          Title is the name a person knows the item by (an add-on's title);
+          empty when it is Name.
+        type: string
+      to:
+        type: string
+      verifying:
+        description: |-
+          Verifying is set between the end of the operation and the answer of
+          the fresh check. The page reads it: an unconfirmed item that is
+          verifying is still in progress (Busy), one that is not is settled.
+        type: boolean
+    type: object
+  upgraderun.ItemRef:
+    properties:
+      kind:
+        $ref: '#/definitions/upgraderun.Kind'
+      name:
+        type: string
+    type: object
+  upgraderun.Kind:
+    enum:
+    - gallery
+    - library
+    - addon
+    - model
+    type: string
+    x-enum-varnames:
+    - KindGallery
+    - KindLibrary
+    - KindAddon
+    - KindModel
+  upgraderun.NodeState:
+    properties:
+      error_key:
+        description: |-
+          ErrorKey is the failure code of the upgrade on this node, when its
+          phase is error or rolled_back.
+        type: string
+      id:
+        type: string
+      message:
+        type: string
+      name:
+        type: string
+      phase:
+        type: string
+      progress:
+        type: integer
+    type: object
+  upgraderun.Phase:
+    enum:
+    - queued
+    - running
+    - updated
+    - failed
+    - rolled_back
+    - cancelled
+    - skipped
+    - unconfirmed
+    type: string
+    x-enum-varnames:
+    - PhaseQueued
+    - PhaseRunning
+    - PhaseUpdated
+    - PhaseFailed
+    - PhaseRolledBack
+    - PhaseCancelled
+    - PhaseSkipped
+    - PhaseUnconfirmed
+  upgraderun.Run:
+    properties:
+      actor:
+        type: string
+      cancel_requested:
+        description: |-
+          CancelRequested is set when the whole run was cancelled; nothing new
+          starts, and the run ends cancelled once the running items settle.
+        type: boolean
+      created_at:
+        type: string
+      dismissed:
+        description: Dismissed hides a finished run from the default list.
+        type: boolean
+      finished_at:
+        type: string
+      id:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/upgraderun.Item'
+        type: array
+      source:
+        $ref: '#/definitions/upgraderun.Source'
+      state:
+        $ref: '#/definitions/upgraderun.RunState'
+    type: object
+  upgraderun.RunState:
+    enum:
+    - running
+    - finished
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - RunRunning
+    - RunFinished
+    - RunCancelled
+  upgraderun.Source:
+    enum:
+    - manual
+    - auto
+    type: string
+    x-enum-varnames:
+    - SourceManual
+    - SourceAuto
+  upgraderun.StartItem:
+    properties:
+      expected_to:
+        description: |-
+          ExpectedTo is the version or digest the caller saw as the target
+          (PlanItem.ExpectedTo). A start whose target moved since is refused.
+        type: string
+      kind:
+        $ref: '#/definitions/upgraderun.Kind'
+      name:
+        type: string
+    type: object
+  upgraderun.StartRequest:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/upgraderun.StartItem'
+        type: array
+      source:
+        $ref: '#/definitions/upgraderun.Source'
+    type: object
   voiceprofile.AudioMetadata:
     properties:
       bit_depth:
@@ -17068,6 +18313,12 @@ paths:
       responses:
         "200":
           description: Operation accepted; the payload is the operation status
+          schema:
+            $ref: '#/definitions/contract.Result'
+        "202":
+          description: Operation accepted and handed to an upgrade run that did not
+            start it within the wait; the payload has run and runId but no jobId,
+            and the run starts the recorded operation later
           schema:
             $ref: '#/definitions/contract.Result'
         "400":
@@ -21450,6 +22701,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.ChatsChatProject'
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The chat
@@ -21457,6 +22713,10 @@ paths:
             $ref: '#/definitions/schema.ChatsConversation'
         "400":
           description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -21489,6 +22749,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.ChatsChatPulledProjects'
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The chat
@@ -21496,6 +22761,10 @@ paths:
             $ref: '#/definitions/schema.ChatsConversation'
         "400":
           description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25171,11 +26440,25 @@ paths:
         folders, so a project you added or edited by hand shows up. chat_count counts
         up to 500 chats; agent_count is the number of your agents that belong to the
         project. Another user's projects are never listed.
+      parameters:
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: Your projects, sorted by name
           schema:
             $ref: '#/definitions/schema.ChatsProjectList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "409":
           description: Projects are not available (projects_off)
           schema:
@@ -25195,6 +26478,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.ChatsProjectWrite'
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "201":
           description: The project
@@ -25202,6 +26490,10 @@ paths:
             $ref: '#/definitions/schema.ChatsProject'
         "400":
           description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
@@ -25222,9 +26514,22 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "204":
           description: Deleted
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25243,11 +26548,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The project
           schema:
             $ref: '#/definitions/schema.ChatsProject'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25283,6 +26601,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.ChatsProjectWrite'
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The project
@@ -25290,6 +26613,10 @@ paths:
             $ref: '#/definitions/schema.ChatsProject'
         "400":
           description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25317,11 +26644,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The agents of the project
           schema:
             $ref: '#/definitions/schema.ChatsProjectAgentList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25342,11 +26682,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The project
           schema:
             $ref: '#/definitions/schema.ChatsProject'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25372,11 +26725,24 @@ paths:
         in: query
         name: limit
         type: integer
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The chats
           schema:
             $ref: '#/definitions/schema.ChatsConversationList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25396,11 +26762,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The connections
           schema:
             $ref: '#/definitions/schema.ChatsProjectConnectionList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25425,11 +26804,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The loops
           schema:
             $ref: '#/definitions/schema.ChatsProjectLoopList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25451,11 +26843,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The index and the topic files
           schema:
             $ref: '#/definitions/schema.ChatsProjectMemory'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25487,11 +26892,20 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.ChatsProjectMemoryWrite'
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "204":
           description: Written
         "400":
           description: The file name or the body is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25513,11 +26927,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The project
           schema:
             $ref: '#/definitions/schema.ChatsProject'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25542,11 +26969,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The triggers
           schema:
             $ref: '#/definitions/schema.ChatsProjectTriggerList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -26400,8 +27840,13 @@ paths:
     post:
       description: 'kind is schedule (schedule: "daily 08:00", "weekdays 09:30", "weekly
         mon,thu 09:30", "monthly 15 08:00", "once 2026-12-24 18:00" or five cron fields;
-        time_zone: an IANA name) or file (folder: a path inside your files). It runs
-        nothing for the time before it was saved. At most 50 triggers.'
+        time_zone: an IANA name), file (folder: a path inside your files) or event
+        (source: the sender name; event_type and matches narrow the events it takes).
+        It runs nothing for the time before it was saved. At most 50 triggers. The
+        response to an event trigger has secret, the key that signs its events: it
+        is shown here and when you rotate it, and never again. hook_path is where
+        the events go. delivery sets where the runs report (the Inbox when left out):
+        a channel of one of your connections, from GET /api/chats/triggers/destinations.'
       parameters:
       - description: the trigger
         in: body
@@ -26411,9 +27856,9 @@ paths:
           $ref: '#/definitions/schema.ChatsTriggerWrite'
       responses:
         "201":
-          description: The trigger
+          description: The trigger, with its secret when it is an event trigger
           schema:
-            $ref: '#/definitions/schema.ChatsTrigger'
+            $ref: '#/definitions/schema.ChatsTriggerCreated'
         "400":
           description: The request is not valid
           schema:
@@ -26453,8 +27898,11 @@ paths:
       tags:
       - chats
     put:
-      description: The body replaces every field. A change of when it runs, or switching
-        it on, means it runs nothing for the time before the change.
+      description: 'The body replaces every field, except delivery: leave it out to
+        keep where the trigger reports, or send it to move the reports (target inbox
+        clears a channel). A new place is checked as on create; the same place with
+        another mode is not checked again. A change of when it runs, or switching
+        it on, means it runs nothing for the time before the change.'
       parameters:
       - description: the trigger's id
         in: path
@@ -26511,6 +27959,137 @@ paths:
       summary: Switch a trigger on.
       tags:
       - chats
+  /api/chats/triggers/{id}/hook:
+    post:
+      description: Starts a run of an event trigger. Sign the body with the secret
+        of the trigger (X-Webhook-Signature-V2 with X-Webhook-Timestamp, or X-Hub-Signature-256),
+        or send the secret as a bearer value. An event that the trigger does not match
+        answers 202 with no run.
+      parameters:
+      - description: The trigger id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "202":
+          description: The run, or an empty run id when the trigger does not match
+            the event
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Refused, whatever the reason
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "413":
+          description: The body is over 256 KiB
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: More than 60 events in a minute
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Send an event to an event trigger.
+      tags:
+      - chats
+  /api/chats/triggers/{id}/reminders:
+    get:
+      description: Soonest first. A reminder whose item has begun has no due time
+        and comes last. 400 when the trigger is not a watch.
+      parameters:
+      - description: the watch's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The reminders
+          schema:
+            $ref: '#/definitions/schema.ChatsReminderList'
+        "404":
+          description: No such watch
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the reminders of a watch.
+      tags:
+      - chats
+  /api/chats/triggers/{id}/reminders/{rid}:
+    delete:
+      parameters:
+      - description: the watch's id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the reminder's id
+        in: path
+        name: rid
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Cancelled
+        "404":
+          description: No such watch or reminder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Cancel a reminder of a watch.
+      tags:
+      - chats
+    patch:
+      description: Each field that is set applies. snooze_minutes moves the reminder
+        to now plus that much (at most a day); snoozed_to sets a time or, empty, takes
+        the snooze back; skip true skips the coming time and false takes the skip
+        back; at (2026-11-26 14:45 in the watch's time zone, or RFC 3339) or offset_minutes
+        re-time it; task changes what the run does. The page undoes a change by sending
+        the old values back.
+      parameters:
+      - description: the watch's id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the reminder's id
+        in: path
+        name: rid
+        required: true
+        type: string
+      - description: the add-on whose page asks; a reminder of a watch on another
+          add-on is not found
+        in: query
+        name: source
+        type: string
+      - description: the change
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsReminderPatch'
+      responses:
+        "200":
+          description: The reminder after the change
+          schema:
+            $ref: '#/definitions/schema.ChatsReminder'
+        "400":
+          description: The change is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such watch or reminder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Snooze, skip, re-time or change the task of a reminder.
+      tags:
+      - chats
   /api/chats/triggers/{id}/run:
     post:
       description: Starts a run at once, whether the trigger is on or not. The run
@@ -26548,6 +28127,33 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsTriggerRunList'
       summary: List the runs of a trigger.
+      tags:
+      - chats
+  /api/chats/triggers/{id}/secret:
+    post:
+      description: Returns the new secret once. The old secret stops working at once,
+        so update the sender before the next event. 400 when the trigger is not an
+        event trigger.
+      parameters:
+      - description: the trigger's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The new secret
+          schema:
+            $ref: '#/definitions/schema.ChatsTriggerSecret'
+        "400":
+          description: The trigger is not an event trigger
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such trigger
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Make a new secret for an event trigger.
       tags:
       - chats
   /api/chats/triggers/changes/{id}:
@@ -26633,6 +28239,36 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Undo a trigger change.
+      tags:
+      - chats
+  /api/chats/triggers/destinations:
+    get:
+      description: Your messaging connections, with the channels you approved for
+        each one that can receive the report of a trigger now. Pass agent_id, the
+        agent the trigger runs as, because the permission to write in channels can
+        depend on it. Pass trigger, the id of the trigger you edit, to mark the channel
+        it reports to now (current); a trigger that a chat of a messaging app proposed
+        lists only its own connection, with from_chat set. Use an id from here in
+        delivery on POST or PUT /api/chats/triggers. No credential or sender is listed.
+      parameters:
+      - description: the agent the trigger runs as
+        in: query
+        name: agent_id
+        type: string
+      - description: the id of the trigger you edit
+        in: query
+        name: trigger
+        type: string
+      responses:
+        "200":
+          description: Your connections as places for reports
+          schema:
+            $ref: '#/definitions/schema.ChatsTriggerDestinations'
+        "404":
+          description: No such trigger
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List where a trigger can report.
       tags:
       - chats
   /api/chats/triggers/preview:
@@ -26741,8 +28377,10 @@ paths:
       - chats
   /api/chats/triggers/proposals/{id}/confirm:
     post:
-      description: Turns the proposal into a trigger that is on. time_zone is used
-        when the proposal names none.
+      description: 'Turns the proposal into a trigger that is on. time_zone is used
+        when the proposal names none. For an event trigger the response has secret,
+        the key that signs its events: it is shown here and when you rotate it, and
+        never again; hook_path is where the events go.'
       parameters:
       - description: the proposal's id
         in: path
@@ -26756,9 +28394,9 @@ paths:
           $ref: '#/definitions/schema.ChatsTriggerConfirm'
       responses:
         "200":
-          description: The trigger
+          description: The trigger, with its secret when it is an event trigger
           schema:
-            $ref: '#/definitions/schema.ChatsTrigger'
+            $ref: '#/definitions/schema.ChatsTriggerCreated'
       summary: Confirm a trigger proposal.
       tags:
       - chats
@@ -26796,6 +28434,43 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsTriggerProposal'
       summary: Undo an accepted trigger proposal.
+      tags:
+      - chats
+  /api/chats/triggers/reminders:
+    get:
+      description: The page of an add-on marks its items that have a reminder (the
+        bell of the calendar). source is the add-on ID; it is required.
+      parameters:
+      - description: the add-on ID
+        in: query
+        name: source
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The reminders
+          schema:
+            $ref: '#/definitions/schema.ChatsSourceReminders'
+      summary: List the reminders for the items of an add-on.
+      tags:
+      - chats
+  /api/chats/triggers/sources:
+    get:
+      description: An add-on that reports changes (a calendar, say) declares its event
+        types. A watch takes one of these sources and keeps reminders for its items.
+        The list is empty when no installed add-on reports changes. lang (or Accept-Language)
+        chooses the language of the labels.
+      parameters:
+      - description: language of the labels
+        in: query
+        name: lang
+        type: string
+      responses:
+        "200":
+          description: The sources
+          schema:
+            $ref: '#/definitions/schema.ChatsWatchSources'
+      summary: List the add-ons a watch can watch.
       tags:
       - chats
   /api/chats/wellknown/{name}:
@@ -27492,6 +29167,177 @@ paths:
       summary: Add a file to a collection.
       tags:
       - collections
+  /api/engines:
+    get:
+      description: Lists the engines whose runtime settings LocalAI maps to model
+        config keys, with the backend names each serves and its capabilities. With
+        the backend query parameter, lists only the engine that serves that backend
+        name (an empty value is a model with no backend).
+      parameters:
+      - description: A model backend name
+        in: query
+        name: backend
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Engines
+          schema:
+            $ref: '#/definitions/localai.EngineListResponse'
+      summary: List the engines with runtime settings
+      tags:
+      - config
+  /api/engines/{engine}/command-preview:
+    post:
+      consumes:
+      - application/json
+      description: Builds the command line of the engine that matches a partial model
+        config. The text is for display; nothing is run. Needs the command-line capability.
+      parameters:
+      - description: Engine id, for example llama-cpp
+        in: path
+        name: engine
+        required: true
+        type: string
+      - description: Partial model config
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.EngineCommandPreviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Command
+          schema:
+            $ref: '#/definitions/enginesettings.BuildResult'
+        "400":
+          description: Invalid body, or no command-line capability
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Unknown engine
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Body too large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Preview the command line of a model config
+      tags:
+      - config
+  /api/engines/{engine}/parse-command:
+    post:
+      consumes:
+      - application/json
+      description: Reads a command line of the engine and returns the model config
+        keys and options it maps to. The command is only tokenised; it is never run.
+        Flags without a first-class key are listed as unmapped and kept as raw passthrough
+        options. Needs the command-line capability.
+      parameters:
+      - description: Engine id, for example llama-cpp
+        in: path
+        name: engine
+        required: true
+        type: string
+      - description: The command line
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.EngineParseCommandRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Parsed settings
+          schema:
+            $ref: '#/definitions/enginesettings.ParseResult'
+        "400":
+          description: Invalid body or command, or no command-line capability
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Unknown engine
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Command too large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Parse a command line of an engine
+      tags:
+      - config
+  /api/engines/{engine}/placement:
+    post:
+      consumes:
+      - application/json
+      description: 'With a placement, returns the options entry that keeps the expert
+        tensors of the chosen layers on the CPU. With an option, returns its structured
+        form, or null when the entry is not one this server builds. Placement is always
+        opt-in: nothing applies it by default. Needs the tensor-placement capability.'
+      parameters:
+      - description: Engine id, for example llama-cpp
+        in: path
+        name: engine
+        required: true
+        type: string
+      - description: A placement or an option
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.EnginePlacementRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Placement
+          schema:
+            $ref: '#/definitions/localai.EnginePlacementResponse'
+        "400":
+          description: Invalid input, or no tensor-placement capability
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Unknown engine
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Body too large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Build or recognise a tensor placement
+      tags:
+      - config
+  /api/engines/{engine}/settings-schema:
+    get:
+      description: Returns the settings of an engine with their model config keys,
+        types, limits, defaults and a doc line, the editor groups, the combined controls,
+        the presets and the capabilities, so a client can render the fields from one
+        source.
+      parameters:
+      - description: Engine id, for example llama-cpp
+        in: path
+        name: engine
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Settings schema
+          schema:
+            $ref: '#/definitions/enginesettings.Schema'
+        "404":
+          description: Unknown engine
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get the runtime settings schema of an engine
+      tags:
+      - config
   /api/failover:
     get:
       produces:
@@ -28255,7 +30101,8 @@ paths:
     post:
       description: Runs the last upgrade of the model again, with its options and
         choices, toward what the gallery entry installs now. Refused with 409 when
-        the last upgrade did not fail or the model is held.
+        the last upgrade did not fail or the model is held, and with 409 and code
+        run_active while an upgrade run runs.
       parameters:
       - description: Installed model name
         in: path
@@ -28272,7 +30119,8 @@ paths:
           schema:
             $ref: '#/definitions/schema.ModelUpgradeError'
         "409":
-          description: Nothing to retry, held, or an upgrade runs
+          description: Nothing to retry, held, an upgrade runs, or an upgrade run
+            runs (code run_active)
           schema:
             $ref: '#/definitions/schema.ModelUpgradeError'
       summary: Retry a failed model upgrade
@@ -28678,15 +30526,18 @@ paths:
   /api/models/upgrade/{name}:
     post:
       description: Queues an upgrade and returns its operation; follow it on status_url
-        or /api/operations. The upgrade checks the backend, the free disk and the
-        files other models share, downloads the changed files beside the old ones
-        and verifies their sha256, stops the model, switches the files and the config,
-        and loads the new version as a check. A failed load puts the old version back
-        (state failed, with the error and a retry). The old files are kept until removed
-        with POST /api/models/{name}/remove-old. Keys a person edited are kept; an
-        edited key the update also changes needs a choice in choices, or the request
-        is refused with 409 and the keys. A held model is refused with 409; release
-        the hold first. Nothing upgrades without this request.
+        or /api/operations. Without config_only and choices the upgrade runs as an
+        upgrade run of one item (see /api/updates/runs) and the answer adds the run;
+        with them it is queued directly. While an upgrade run runs, every request
+        is refused with 409 and code run_active. The upgrade checks the backend, the
+        free disk and the files other models share, downloads the changed files beside
+        the old ones and verifies their sha256, stops the model, switches the files
+        and the config, and loads the new version as a check. A failed load puts the
+        old version back (state failed, with the error and a retry). The old files
+        are kept until removed with POST /api/models/{name}/remove-old. Keys a person
+        edited are kept; an edited key the update also changes needs a choice in choices,
+        or the request is refused with 409 and the keys. A held model is refused with
+        409; release the hold first. Nothing upgrades without this request.
       parameters:
       - description: Installed model name
         in: path
@@ -28700,15 +30551,21 @@ paths:
           $ref: '#/definitions/schema.ModelUpgradeRequest'
       responses:
         "200":
-          description: Operation
+          description: Operation, and the run when one started it
           schema:
-            $ref: '#/definitions/schema.ModelUpgradeResponse'
+            $ref: '#/definitions/localai.ModelUpgradeRunResponse'
+        "202":
+          description: The run did not get the operation accepted in time; it starts
+            it later (code pending)
+          schema:
+            $ref: '#/definitions/localai.SingleUpgradePending'
         "404":
           description: Not installed
           schema:
             $ref: '#/definitions/schema.ModelUpgradeError'
         "409":
-          description: Running, held, or edited keys need a choice
+          description: Running, held, edited keys need a choice, or another upgrade
+            run runs (code run_active)
           schema:
             $ref: '#/definitions/schema.ModelUpgradeError'
         "422":
@@ -30714,6 +32571,247 @@ paths:
       summary: Summarize recent API traces
       tags:
       - monitoring
+  /api/updates/runs:
+    get:
+      description: The running run first, then the newest. active=1 lists only the
+        running run. Dismissed runs are left out. Administrators only.
+      parameters:
+      - description: 1 lists only the running run
+        in: query
+        name: active
+        type: string
+      - description: Most runs to return (default 20)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Runs
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunList'
+        "503":
+          description: Upgrade runs are not available
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+      summary: List upgrade runs
+      tags:
+      - updates
+    post:
+      consumes:
+      - application/json
+      description: 'Checks every item (installed, an update available, the update
+        still goes to expected_to) and starts one run; if one item fails a check,
+        no run is created. Only one run runs at a time (409 run_active). A held model
+        or one whose update changes edited keys is part of the run as skipped. Add-on
+        items run for the administrator who started the run, through the same owner
+        checks as POST /api/addons/{id}/upgrade; they need the administrator''s own
+        browser session with the header X-LocalAI-Confirm: upgrade-run, or they are
+        skipped with error key not_human_surface. source must be manual. Administrators
+        only.'
+      parameters:
+      - description: Items and the version or digest each must move to
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/upgraderun.StartRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: The run
+          schema:
+            $ref: '#/definitions/upgraderun.Run'
+        "400":
+          description: Code invalid
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+        "409":
+          description: Code no_update, stale, run_active or source_unchecked
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+        "503":
+          description: Upgrade runs are not available
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+      summary: Start an upgrade run
+      tags:
+      - updates
+  /api/updates/runs/{id}:
+    delete:
+      description: Hides a finished run from the default list. Administrators only.
+      parameters:
+      - description: Run id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Dismissed
+        "404":
+          description: Code not_found
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+        "409":
+          description: Code run_not_finished
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+      summary: Dismiss an upgrade run
+      tags:
+      - updates
+    get:
+      description: 'The run with each item: phase, progress, error key and the operation
+        (job_id) of /api/operations it runs. Administrators only.'
+      parameters:
+      - description: Run id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The run
+          schema:
+            $ref: '#/definitions/upgraderun.Run'
+        "404":
+          description: Code not_found
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+      summary: Read an upgrade run
+      tags:
+      - updates
+  /api/updates/runs/{id}/cancel:
+    post:
+      description: Drops the queued items and stops the running ones that can stop;
+        the run then ends cancelled. Administrators only.
+      parameters:
+      - description: Run id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The run
+          schema:
+            $ref: '#/definitions/upgraderun.Run'
+        "404":
+          description: Code not_found
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+        "409":
+          description: Code run_finished
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+      summary: Cancel an upgrade run
+      tags:
+      - updates
+  /api/updates/runs/{id}/items/{key}/cancel:
+    post:
+      description: A queued item is dropped; a running item is stopped only while
+        its operation says it can stop. Administrators only.
+      parameters:
+      - description: Run id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Item key, <kind>:<name>, URL-encoded
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The run
+          schema:
+            $ref: '#/definitions/upgraderun.Run'
+        "404":
+          description: Code not_found
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+        "409":
+          description: Code not_cancellable or run_finished
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+      summary: Cancel one item of an upgrade run
+      tags:
+      - updates
+  /api/updates/runs/{id}/retry:
+    post:
+      description: 'Starts a new run with the items of a finished run that failed,
+        rolled back or stayed unconfirmed and still have an update, toward what the
+        checks offer now. The old run does not change. The new run is a manual run
+        of the administrator who retries, also when the old run was automatic or was
+        started by another administrator. When that includes add-on items, the request
+        needs the administrator''s own browser session with X-LocalAI-Confirm: upgrade-run
+        (409 not_human_surface). Administrators only.'
+      parameters:
+      - description: Run id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The new run
+          schema:
+            $ref: '#/definitions/upgraderun.Run'
+        "404":
+          description: Code not_found
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+        "409":
+          description: Code run_not_finished, nothing_to_retry, run_active, not_human_surface
+            or source_unchecked
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+      summary: Retry an upgrade run
+      tags:
+      - updates
+  /api/updates/runs/preview:
+    post:
+      consumes:
+      - application/json
+      description: Lists the backends, gallery models and add-ons that have an update,
+        in run order (backends, then models, then add-ons), with what each update
+        does and whether it can start. Starts nothing. Send expected_to of each item
+        back in the start request. Administrators only.
+      parameters:
+      - description: Items to preview; empty previews all
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/localai.UpgradeRunPreviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Plan
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunPreview'
+        "400":
+          description: Malformed request
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+        "503":
+          description: Upgrade runs are not available
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+      summary: Preview an upgrade run
+      tags:
+      - updates
   /api/voice-profiles:
     get:
       description: List the saved voice-cloning references the caller may use (their
@@ -31078,6 +33176,11 @@ paths:
           description: Response
           schema:
             $ref: '#/definitions/schema.BackendResponse'
+        "202":
+          description: An upgrade run took the request and did not get the operation
+            accepted in time; it starts it later (code pending)
+          schema:
+            $ref: '#/definitions/localai.SingleUpgradePending'
         "403":
           description: Backend installation is disabled on this server (code backend_install_disabled)
           schema:
@@ -31184,7 +33287,8 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
-          description: the same backend is already being installed
+          description: the same backend is already being installed (also by an upgrade
+            run), or an upgrade run runs (type run_active)
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "503":
@@ -31246,19 +33350,44 @@ paths:
       - backends
   /backends/upgrade/{name}:
     post:
+      description: Refused before anything is queued when the backend is not installed
+        (404, code not_installed), has no pending upgrade (409, code no_update), or
+        when the optional expected_to (the available version or digest, as a query
+        parameter or a JSON field) is no longer the available build (409, code stale).
       parameters:
       - description: Backend name
         in: path
         name: name
         required: true
         type: string
+      - description: The version or digest the caller wants; refused with code stale
+          when it is no longer the available one
+        in: query
+        name: expected_to
+        type: string
       responses:
         "200":
           description: Response
           schema:
             $ref: '#/definitions/schema.BackendResponse'
+        "202":
+          description: An upgrade run took the request and did not get the operation
+            accepted in time; it starts it later (code pending)
+          schema:
+            $ref: '#/definitions/localai.SingleUpgradePending'
         "403":
           description: Backend installation is disabled on this server (code backend_install_disabled)
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: The backend is not installed (code not_installed)
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: The backend has no pending upgrade (code no_update) or the
+            requested build is no longer the available one (code stale)
           schema:
             additionalProperties: true
             type: object

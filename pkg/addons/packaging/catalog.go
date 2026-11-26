@@ -3,6 +3,7 @@ package packaging
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -286,6 +287,7 @@ func cmdCatalog(args []string) error {
 	fromManifest := fs.Bool("from-manifest", false, "development channel only: render from the manifest and the enabled platforms, without a built package")
 	featureLevelInIndex := fs.Bool("feature-level-in-index", false, "write requires.featureLevel for an add-on that needs more than level 1. A host that predates the field refuses the whole index, so leave it off while such hosts are in use")
 	hostOpsInIndex := fs.Bool("host-operations-in-index", false, "write the hostOperations hint of each add-on entry. A host that predates the field refuses the whole index")
+	pinRegistry := fs.Bool("pin-registry", false, "with --merged: pin the platform digests of the index that the registry holds under the immutable tag, not the ones of the layout. A publish with --adopt-existing keeps the published index when a rebuild differs, so only the registry knows what was pushed")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -436,6 +438,26 @@ func cmdCatalog(args []string) error {
 		if err := json.Unmarshal(raw, &im); err != nil {
 			return err
 		}
+		// published maps each platform to the digest the registry holds for it.
+		var published map[string]string
+		if *pinRegistry {
+			if *channel == aliasDevelopment {
+				return errors.New("--pin-registry pins a release: the development channel has no digest")
+			}
+			regTag, err := addonTag(cfg.Addon, *tag)
+			if err != nil {
+				return err
+			}
+			ref := repo.Tag(regTag)
+			_, pim, err := readPublishedIndex(context.Background(), ref, m, cfg)
+			if err != nil {
+				return fmt.Errorf("reading the published index %s: %w", ref, err)
+			}
+			published = map[string]string{}
+			for _, c := range pim.Manifests {
+				published[c.Platform.OS+"/"+c.Platform.Architecture] = c.Digest.String()
+			}
+		}
 		for _, d := range im.Manifests {
 			l, err := loadLegByDescriptor(*dir, d)
 			if err != nil {
@@ -452,7 +474,20 @@ func cmdCatalog(args []string) error {
 			if err != nil {
 				return err
 			}
-			if err := emit(&v.Manifest, m.Version, d.Platform.OS, d.Platform.Architecture, d.Digest.String()); err != nil {
+			digest := d.Digest.String()
+			if published != nil {
+				p, ok := published[platform]
+				if !ok {
+					return fmt.Errorf("the published index of %s has no %s image", cfg.Addon, platform)
+				}
+				if p != digest {
+					// The layout is a rebuild of the same version and commit
+					// whose bytes differ; the registry kept the first push.
+					_, _ = fmt.Fprintf(os.Stderr, "%s %s: pinning the published digest %s, not the digest %s of the local layout\n", cfg.Addon, platform, p, digest)
+				}
+				digest = p
+			}
+			if err := emit(&v.Manifest, m.Version, d.Platform.OS, d.Platform.Architecture, digest); err != nil {
 				return err
 			}
 		}

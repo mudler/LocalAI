@@ -202,9 +202,13 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 		}
 		return nil
 	})
-	var ropts []studioendpoint.HandlerOption
+	ropts := []studioendpoint.HandlerOption{studioendpoint.WithUserLookup(func(_ context.Context, id string) (bool, error) {
+		var n int64
+		err := db.Model(&auth.User{}).Where("id = ?", id).Count(&n).Error
+		return n > 0, err
+	})}
 	if studioRouteOptions != nil {
-		ropts = studioRouteOptions(s)
+		ropts = append(ropts, studioRouteOptions(s)...)
 	}
 	routes.RegisterStudioRoutes(s.e, svc, models, auth.RequireAdmin(), ropts...)
 	routes.RegisterNotificationRoutes(s.e, nsvc, pusher, true)

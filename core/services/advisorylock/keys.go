@@ -56,4 +56,11 @@ const (
 	KeyModelUpdateCheck int64 = 119
 	// 120 is reserved: it was the key of the removed change of carrier. Do not
 	// give it to another lock.
+
+	// KeyUpgradeRuns makes one frontend at a time start an upgrade run, so
+	// two frontends never start two runs at once. It is held for one
+	// admission, or for one removal of the finished runs beyond the
+	// retention (tried, never waited for). Each run is then held by its runner on a key of its own,
+	// KeyFromString("upgrade-run:" + id), for as long as it runs it.
+	KeyUpgradeRuns int64 = 121
 )

@@ -5,7 +5,7 @@
 import { EventEmitter } from 'node:events'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { guard, isTrustedSender, UntrustedSenderError, type FrameInfo, type TrustedShell } from '../src/main/ipcGuard'
-import { partitionForOrigin } from '../src/main/webuiPolicy'
+import { partitionForOrigin } from '../src/main/webuiPartition'
 
 // ---- a fake Electron, just enough for webuiView.ts -----------------------------
 
@@ -229,6 +229,137 @@ describe('hostile navigation through the Electron handlers', () => {
     expect(external).toEqual(['https://evil.example.test/'])
     expect(navigate(wc, 'will-redirect', 'https://evil.example.test/', false)).toBe(true)
     expect(external).toHaveLength(1)
+  })
+
+  it('allows an OIDC sign-in flow initiated from /api/auth/oidc/login and revokes the IdP origin on return', async () => {
+    const { wc, ses, external } = setup()
+    const beforeReq = (url: string, resourceType: string) => {
+      let r: { cancel?: boolean } = {}
+      ses.beforeRequest!({ url, resourceType }, (x) => (r = x))
+      return !!r.cancel
+    }
+
+    // 1. User clicks OIDC sign-in on the server.
+    expect(navigate(wc, 'will-frame-navigate', `${SERVER}/api/auth/oidc/login`)).toBe(false)
+    expect(beforeReq(`${SERVER}/api/auth/oidc/login`, 'mainFrame')).toBe(false)
+
+    // 2. Server sets oauth_state and redirects to the IdP on another origin.
+    const idpAuth = 'https://idp.example.test/oauth2/authorize?client_id=localai&state=abc'
+    expect(navigate(wc, 'will-redirect', idpAuth)).toBe(false)
+    expect(beforeReq(idpAuth, 'mainFrame')).toBe(false)
+    expect(external).toEqual([])
+
+    // 3. IdP internal navigation and login submission stay inside the view.
+    wc.url = 'https://idp.example.test/login'
+    wc.emit('did-finish-load')
+    expect(navigate(wc, 'will-frame-navigate', 'https://idp.example.test/login/submit')).toBe(false)
+    expect(beforeReq('https://idp.example.test/login/submit', 'mainFrame')).toBe(false)
+
+    // 4. Security boundaries remain enforced during sign-in:
+    //    - unrelated external links open in the system browser without leaving sign-in
+    //    - cross-origin subframes (even to the IdP) are denied
+    //    - dangerous schemes and credentials in URLs are denied
+    //    - downloads and permissions on the IdP origin are refused
+    expect(navigate(wc, 'will-frame-navigate', 'https://docs.example.test/privacy')).toBe(true)
+    expect(external).toEqual(['https://docs.example.test/privacy'])
+    expect(navigate(wc, 'will-frame-navigate', 'https://idp.example.test/frame', false)).toBe(true)
+    expect(beforeReq('https://idp.example.test/frame', 'subFrame')).toBe(true)
+    expect(navigate(wc, 'will-redirect', 'javascript:alert(1)')).toBe(true)
+    expect(navigate(wc, 'will-redirect', 'https://user:pw@idp.example.test/')).toBe(true)
+    wc.emit('input-event', {}, { type: 'mouseDown' })
+    const permGranted = await new Promise<boolean>((resolve) =>
+      ses.permissionRequest!(wc, 'media', resolve, { requestingUrl: 'https://idp.example.test/login', isMainFrame: true, mediaTypes: ['audio'] }),
+    )
+    expect(permGranted).toBe(false)
+    const dl = { getFilename: () => 'x.bin', setSaveDialogOptions: vi.fn(), setSavePath: vi.fn(), cancel: vi.fn() }
+    ses.emit('will-download', {}, dl, wc)
+    expect(dl.cancel).toHaveBeenCalled()
+
+    // 5. IdP redirects back to the server callback; sign-in completes in the same session.
+    const callbackUrl = `${SERVER}/api/auth/oidc/callback?code=xyz&state=abc`
+    expect(navigate(wc, 'will-redirect', callbackUrl)).toBe(false)
+    expect(beforeReq(callbackUrl, 'mainFrame')).toBe(false)
+    expect(navigate(wc, 'will-redirect', `${SERVER}/app`)).toBe(false)
+    wc.url = `${SERVER}/app`
+    wc.emit('did-finish-load')
+
+    // 6. After returning to the server, the IdP origin is no longer allowed in the view.
+    expect(navigate(wc, 'will-frame-navigate', 'https://idp.example.test/account')).toBe(true)
+    expect(beforeReq('https://idp.example.test/account', 'mainFrame')).toBe(true)
+    expect(external).toEqual(['https://docs.example.test/privacy', 'https://idp.example.test/account'])
+  })
+
+  it('allows GitHub OAuth sign-in (with invite_code) and federated IdP redirect hops', () => {
+    const { wc, ses, external } = setup()
+    const beforeReq = (url: string, resourceType: string) => {
+      let r: { cancel?: boolean } = {}
+      ses.beforeRequest!({ url, resourceType }, (x) => (r = x))
+      return !!r.cancel
+    }
+
+    // GitHub sign-in with invite_code query parameter.
+    expect(navigate(wc, 'will-frame-navigate', `${SERVER}/api/auth/github/login?invite_code=INV123`)).toBe(false)
+    expect(navigate(wc, 'will-redirect', 'https://github.com/login/oauth/authorize?client_id=x&state=s1')).toBe(false)
+    expect(beforeReq('https://github.com/login/oauth/authorize?client_id=x&state=s1', 'mainFrame')).toBe(false)
+    // Federated SSO redirect hop (e.g. GitHub SAML / Dex -> upstream IdP).
+    expect(navigate(wc, 'will-redirect', 'https://sso.corp.test/saml/login')).toBe(false)
+    expect(beforeReq('https://sso.corp.test/saml/login', 'mainFrame')).toBe(false)
+    expect(navigate(wc, 'will-frame-navigate', 'https://sso.corp.test/saml/verify')).toBe(false)
+    expect(navigate(wc, 'will-redirect', 'https://github.com/login/oauth/authorize?client_id=x&state=s1')).toBe(false)
+    expect(navigate(wc, 'will-redirect', `${SERVER}/api/auth/github/callback?code=c1&state=s1`)).toBe(false)
+    expect(external).toEqual([])
+
+    // Both IdP origins are revoked once back on the server.
+    expect(navigate(wc, 'will-frame-navigate', 'https://github.com/settings')).toBe(true)
+    expect(navigate(wc, 'will-frame-navigate', 'https://sso.corp.test/')).toBe(true)
+    expect(external).toEqual(['https://github.com/settings', 'https://sso.corp.test/'])
+  })
+
+  it('does not allow a subframe or a non-login server redirect to arm an OAuth flow', () => {
+    const { wc, ses, external } = setup()
+    const beforeReq = (url: string, resourceType: string) => {
+      let r: { cancel?: boolean } = {}
+      ses.beforeRequest!({ url, resourceType }, (x) => (r = x))
+      return !!r.cancel
+    }
+
+    // Subframe navigating to /api/auth/oidc/login must not arm OAuth for main frame or subframe.
+    expect(navigate(wc, 'will-frame-navigate', `${SERVER}/api/auth/oidc/login`, false)).toBe(false)
+    expect(navigate(wc, 'will-redirect', 'https://idp.example.test/auth', false)).toBe(true)
+    expect(navigate(wc, 'will-redirect', 'https://idp.example.test/auth', true)).toBe(true)
+    expect(beforeReq('https://idp.example.test/auth', 'mainFrame')).toBe(true)
+    expect(external).toEqual(['https://idp.example.test/auth'])
+
+    // Navigating to a normal server path clears any pending login state before a hostile redirect.
+    expect(navigate(wc, 'will-frame-navigate', `${SERVER}/api/auth/oidc/login`)).toBe(false)
+    expect(navigate(wc, 'will-frame-navigate', `${SERVER}/redirect`)).toBe(false)
+    expect(navigate(wc, 'will-redirect', 'https://evil.example.test/')).toBe(true)
+    expect(external).toEqual(['https://idp.example.test/auth', 'https://evil.example.test/'])
+  })
+
+  it('clears an active OAuth flow when switching servers or reconnecting to the same origin', () => {
+    const { host, wc, ses, external } = setup()
+    const beforeReq = (targetSes: FakeSession, url: string) => {
+      let r: { cancel?: boolean } = {}
+      targetSes.beforeRequest!({ url, resourceType: 'mainFrame' }, (x) => (r = x))
+      return !!r.cancel
+    }
+
+    expect(navigate(wc, 'will-frame-navigate', `${SERVER}/api/auth/oidc/login`)).toBe(false)
+    expect(navigate(wc, 'will-redirect', 'https://idp.example.test/auth')).toBe(false)
+    expect(beforeReq(ses, 'https://idp.example.test/auth')).toBe(false)
+
+    // Switching to another server and then back to the first origin reuses its session partition
+    // but must start with a fresh, idle OAuth state.
+    host.apply([{ kind: 'show', origin: 'https://remote.example.test', url: 'https://remote.example.test/app' }])
+    expect(beforeReq(ses, 'https://idp.example.test/auth')).toBe(true)
+
+    host.apply([{ kind: 'show', origin: SERVER, url: `${SERVER}/app` }])
+    const reopened = FakeView.made.at(-1)!.webContents
+    expect(reopened.session).toBe(ses)
+    expect(navigate(reopened, 'will-frame-navigate', 'https://idp.example.test/auth')).toBe(true)
+    expect(beforeReq(ses, 'https://idp.example.test/auth')).toBe(true)
+    expect(external).toEqual(['https://idp.example.test/auth'])
   })
 
   it('the session refuses documents from another origin even if an event was missed', () => {

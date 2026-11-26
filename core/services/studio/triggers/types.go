@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 	_ "time/tzdata" // zone data in the binary: the image and a plain host may have none
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // Kind is the kind of a trigger.
@@ -19,6 +22,9 @@ type Kind string
 const (
 	KindSchedule Kind = "schedule"
 	KindFile     Kind = "file"
+	// KindEvent is a trigger that a device client starts by sending an event
+	// to the hook of the trigger.
+	KindEvent Kind = "event"
 )
 
 // Status is the state of a run.
@@ -39,7 +45,7 @@ const (
 
 // Final tells whether the status is an end state.
 func (s Status) Final() bool {
-	return s == StatusDone || s == StatusFailed || s == StatusSkipped || s == StatusBlocked
+	return s == StatusDone || s == StatusFailed || s == StatusSkipped || s == StatusBlocked || s == StatusHandled
 }
 
 // Defaults and limits.
@@ -71,6 +77,19 @@ const (
 	MaxPlanPath = 256
 	// MaxEstTokens bounds EstTokens.
 	MaxEstTokens = 10_000_000
+	// MaxPayloadBytes is the longest payload text kept in a run and shown in
+	// its prompt, in bytes.
+	MaxPayloadBytes = 8000
+	// MaxEventSecret is the longest secret of an event trigger, in bytes. The
+	// size tag of the Secret column in gorm.go is the same number.
+	MaxEventSecret = 255
+	// MaxEventBody is the largest request body the hook reads, in bytes: the
+	// payload limit of events.emit too.
+	MaxEventBody = contract.MaxEventPayload
+	// MaxMatches is the most matches an event trigger has.
+	MaxMatches = 8
+	// MaxEventField is the longest Source, EventType or match, in bytes.
+	MaxEventField = 120
 )
 
 // widgetRE is the id of a Home widget, as home.json allows it.
@@ -129,7 +148,7 @@ type Trigger struct {
 	// Since is when the trigger began to watch. Times and changes before it
 	// start no run. Arm sets it.
 	Since time.Time
-	// MinGap is the shortest time between two runs of a file trigger (zero
+	// MinGap is the shortest time between two runs of a file or event trigger (zero
 	// means DefaultFileGap). A file that settles sooner waits for it.
 	MinGap time.Duration
 	// The plan of a run, shown to the person before they confirm and on the
@@ -154,7 +173,34 @@ type Trigger struct {
 	// trigger. A run with none only reads. The host checks them at each tool
 	// call; the package only stores them.
 	Acts []string
+	// Source and EventType say which events an event trigger takes: the name
+	// of the sender (for example "github") and the type of the event (empty:
+	// any type). Matches narrows them: each is "field=value", where field is a
+	// dot path into the JSON payload such as pull_request.base.ref. Secret is
+	// the key that the sender signs with. It is stored as it is, because
+	// verifying a signature needs the key, and it never appears in the output
+	// of String. All four are set only on an event trigger.
+	Source    string
+	EventType string
+	Matches   []string
+	Secret    string
+	// Watch is the reminder rule of an event trigger that is a watch; nil on
+	// every other trigger.
+	Watch *WatchRule
+	// Reminder holds the fields of a reminder (KindReminder); nil on every
+	// other trigger.
+	Reminder *Reminder
 }
+
+// String describes the trigger without its prompt and without its Secret, so
+// that a log line or a %v of a trigger cannot leak the key.
+func (t Trigger) String() string {
+	return fmt.Sprintf("trigger{id=%q owner=%q kind=%q name=%q enabled=%t source=%q type=%q}",
+		t.ID, t.Owner, t.Kind, t.Name, t.Enabled, t.Source, t.EventType)
+}
+
+// GoString is String for %#v.
+func (t Trigger) GoString() string { return t.String() }
 
 // Where the runs of a trigger report. Inbox is the default: the owner's Inbox
 // and the chat the owner chose for notices. Origin is the chat and thread
@@ -363,6 +409,9 @@ const (
 	ChangeDelete = "delete"
 	ChangePause  = "pause"
 	ChangeResume = "resume"
+	// ChangeCreate is a change that adds a reminder to a watch; only a
+	// change record of kind reminder has it.
+	ChangeCreate = "create"
 )
 
 // IsChange says whether t is a change record, not a trigger or a proposal.
@@ -465,6 +514,14 @@ func (t Trigger) Location() (*time.Location, error) {
 	return loc, nil
 }
 
+// LocationOrUTC is Location, or UTC for a zone that is not known.
+func (t Trigger) LocationOrUTC() *time.Location {
+	if loc, err := t.Location(); err == nil {
+		return loc
+	}
+	return time.UTC
+}
+
 // Validate checks the fields of a trigger. The error text is meant for a
 // person: it names the field.
 func (t Trigger) Validate() error {
@@ -536,8 +593,63 @@ func (t Trigger) Validate() error {
 		if t.Quiet < 0 || t.Quiet > MaxQuiet {
 			return fmt.Errorf("quiet period must be 0 to %s", MaxQuiet)
 		}
+	case KindEvent:
+		if t.Reminder != nil {
+			return errors.New("an event trigger is not a reminder")
+		}
+		if t.Watch != nil {
+			if err := t.Watch.Validate(); err != nil {
+				return err
+			}
+		}
+		return t.validateEvent()
+	case KindReminder:
+		if _, err := t.Location(); err != nil {
+			return err
+		}
+		return t.validateReminder()
 	default:
-		return fmt.Errorf("kind must be %q or %q", KindSchedule, KindFile)
+		return fmt.Errorf("kind must be %q, %q, %q or %q", KindSchedule, KindFile, KindEvent, KindReminder)
+	}
+	if t.Watch != nil || t.Reminder != nil {
+		return errors.New("a reminder rule belongs to a watch")
+	}
+	if t.Source != "" || t.EventType != "" || len(t.Matches) > 0 || t.Secret != "" {
+		return errors.New("source, event type, matches and secret belong to an event trigger")
+	}
+	return nil
+}
+
+// validateEvent checks the fields of an event trigger. It asks nothing of
+// Folder, Schedule or Quiet.
+func (t Trigger) validateEvent() error {
+	if t.Source == "" {
+		return errors.New("source is required for an event trigger")
+	}
+	if len(t.Source) > MaxEventField || hasControl(t.Source, false) {
+		return fmt.Errorf("source is one line of at most %d bytes", MaxEventField)
+	}
+	if len(t.EventType) > MaxEventField || hasControl(t.EventType, false) {
+		return fmt.Errorf("event type is one line of at most %d bytes", MaxEventField)
+	}
+	if len(t.Matches) > MaxMatches {
+		return fmt.Errorf("an event trigger has at most %d matches", MaxMatches)
+	}
+	for _, m := range t.Matches {
+		field, _, ok := strings.Cut(m, "=")
+		if !ok || field == "" {
+			return errors.New("a match is field=value, such as action=opened")
+		}
+		segs := strings.Split(field, ".")
+		if slices.Contains(segs, "") || slices.Contains(segs, "__proto__") || slices.Contains(segs, "constructor") || slices.Contains(segs, "prototype") {
+			return errors.New("a match field is a dot path, such as pull_request.state")
+		}
+		if len(m) > MaxEventField || hasControl(m, false) {
+			return fmt.Errorf("a match is one line of at most %d bytes", MaxEventField)
+		}
+	}
+	if len(t.Secret) > MaxEventSecret || hasControl(t.Secret, false) {
+		return fmt.Errorf("secret is one line of at most %d bytes", MaxEventSecret)
 	}
 	return nil
 }
@@ -557,14 +669,15 @@ func hasControl(s string, newline bool) bool {
 }
 
 // Arm returns t with Since set: now when the trigger is new, is switched on,
-// or has another kind, schedule, time zone or folder than old; otherwise the
+// or has another kind, schedule, time zone, folder, source or event type than old; otherwise the
 // Since of old. A host calls it before PutTrigger, so that a changed or newly
 // enabled trigger does not run for the time before the change. The host must
 // store Schedule.Text() (the canonical text) as Trigger.Schedule: Arm compares
 // the texts, so a saved spelling that differs only in form would re-arm.
 func Arm(old *Trigger, t Trigger, now time.Time) Trigger {
 	if old == nil || (!old.Enabled && t.Enabled) || old.Kind != t.Kind ||
-		old.Schedule != t.Schedule || old.TZ != t.TZ || old.Folder != t.Folder {
+		old.Schedule != t.Schedule || old.TZ != t.TZ || old.Folder != t.Folder ||
+		old.Source != t.Source || old.EventType != t.EventType {
 		t.Since = now.UTC()
 		return t
 	}
@@ -593,6 +706,9 @@ type Run struct {
 	// Tokens is what the run's model requests used, prompt and completion,
 	// when the host counted it; 0 is unknown.
 	Tokens int
+	// Payload is the text of the event that started an event run, cut to
+	// MaxPayloadBytes. It is data from outside; empty on other runs.
+	Payload string
 }
 
 // Reasons that the Runner writes, and one that a host writes.
@@ -610,11 +726,7 @@ const (
 // CutReason cuts s to ReasonLen characters.
 func CutReason(s string) string {
 	s = strings.TrimSpace(s)
-	if utf8.RuneCountInString(s) <= ReasonLen {
-		return s
-	}
-	r := []rune(s)
-	return string(r[:ReasonLen])
+	return CutText(s, ReasonLen)
 }
 
 // SkipError is an error from Options.Start that makes the run skipped, not

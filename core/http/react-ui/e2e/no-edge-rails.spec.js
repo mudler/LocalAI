@@ -15,13 +15,15 @@ const ROUTES = [
   '/app/traces', '/app/usage', '/app/nodes', '/app/p2p',
   '/app/account',
 ]
+const THEMES = ['light', 'dark']
 
 test('no element on the main routes carries a left accent rail', async ({ page }) => {
   // Studio and Talk are add-ons; /app/addons/studio/studio and /app/addons/talk/talk open them.
   await installStudioAddons(page)
-  test.setTimeout(ROUTES.length * 8_000)
+  // The budget is per page visit: each route is opened once in each theme.
+  test.setTimeout(THEMES.length * ROUTES.length * 8_000)
   const findings = []
-  for (const theme of ['light', 'dark']) {
+  for (const theme of THEMES) {
     await page.addInitScript((t) => localStorage.setItem('localai-theme', t), theme)
     for (const route of ROUTES) {
       await page.goto(route)

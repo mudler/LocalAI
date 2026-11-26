@@ -21,13 +21,48 @@ import (
 // delivery time, so a channel that waits for a paired sender is not a target
 // for reports.
 func (h *Triggers) checkChannelTarget(ctx context.Context, c builtins.Chat, channel string) (string, error) {
-	return h.checkChannelTargetOf(ctx, c, c.OriginID, channel)
+	return h.checkChannelTargetOf(ctx, chatAsker(c), c.OriginID, channel)
+}
+
+// deliveryAsker is who asks for a delivery: a chat, through its model, or the
+// owner in person on the trigger form. The checks of a destination read only
+// this, so both use the same rules.
+type deliveryAsker struct {
+	// Owner is the principal whose connections are the only ones allowed.
+	Owner string
+	// Agent is the agent that the capability check of a connection names.
+	Agent string
+	// Connector says that the ask comes from a chat in a messaging app.
+	Connector bool
+	// require checks a capability of the sender of the turn; nil holds all,
+	// as the owner on the form does.
+	require func(capability string) error
+}
+
+// Require checks a capability of the sender.
+func (a deliveryAsker) Require(capability string) error {
+	if a.require == nil {
+		return nil
+	}
+	return a.require(capability)
+}
+
+// chatAsker is the asker of a tool call in the chat c.
+func chatAsker(c builtins.Chat) deliveryAsker {
+	return deliveryAsker{Owner: c.Actor.Principal, Agent: c.AgentID, Connector: c.Origin == session.OriginConnector, require: c.Require}
+}
+
+// ownerAsker is the owner who sets the delivery of a trigger of the agent
+// agentID on the trigger form. The owner sees the change before saving it, so
+// no card asks again.
+func ownerAsker(owner, agentID string) deliveryAsker {
+	return deliveryAsker{Owner: owner, Agent: agentID}
 }
 
 // checkChannelTargetOf is checkChannelTarget for the binding bindingID, which
 // is the binding of the chat in a messaging app, or the binding that proposed
-// the trigger when a chat in Studio changes it.
-func (h *Triggers) checkChannelTargetOf(ctx context.Context, c builtins.Chat, bindingID, channel string) (string, error) {
+// the trigger when a chat in Studio or the owner changes it.
+func (h *Triggers) checkChannelTargetOf(ctx context.Context, a deliveryAsker, bindingID, channel string) (string, error) {
 	conns := h.svc.connectors
 	if conns == nil {
 		return "", errors.New("connections to messaging apps are off on this server")
@@ -40,7 +75,7 @@ func (h *Triggers) checkChannelTargetOf(ctx context.Context, c builtins.Chat, bi
 	if err != nil {
 		return "", err
 	}
-	return ch.ID, c.Require(contract.CapTalkbackChannels)
+	return ch.ID, a.Require(contract.CapTalkbackChannels)
 }
 
 // channelLabel is the name the owner gave the channel of a trigger, for the
@@ -173,6 +208,12 @@ func (h *Triggers) DeliveryOf(ctx context.Context, t triggers.Trigger) DeliveryV
 // returns false so that the Inbox gets the notice. fallback runs when a queued
 // message cannot be sent later.
 func (h *Triggers) deliverChannel(ctx context.Context, t triggers.Trigger, body string, fallback func()) bool {
+	return h.deliverChannelWith(ctx, t, body, nil, "", fallback)
+}
+
+// deliverChannelWith is deliverChannel with the buttons of the message, and
+// the hint that replaces them on a connection that shows none.
+func (h *Triggers) deliverChannelWith(ctx context.Context, t triggers.Trigger, body string, actions []contract.MessageAction, hint string, fallback func()) bool {
 	c := h.svc.connectors
 	refuse := func(why string) bool {
 		h.audit(ctx, proposals.ActionDeliver, t, "refused: "+why)
@@ -202,7 +243,7 @@ func (h *Triggers) deliverChannel(ctx context.Context, t triggers.Trigger, body 
 	case !h.svc.allowCap(ctx, CapabilityRequest{Capability: contract.CapTalkbackChannels, Binding: b.ID, Owner: t.Owner, Agent: t.AgentID}):
 		return refuse("capability off")
 	}
-	queued, err := c.Send(ctx, Outgoing{Binding: b.ID, Chat: t.Route.Channel, Text: body, Kind: SendDelivery, Capability: contract.CapTalkbackChannels,
+	queued, err := c.Send(ctx, Outgoing{Binding: b.ID, Chat: t.Route.Channel, Text: body, Actions: actions, Hint: hint, Kind: SendDelivery, Capability: contract.CapTalkbackChannels,
 		OnFail: func(error) {
 			h.audit(context.Background(), proposals.ActionDeliver, t, "failed; sent to the Inbox")
 			fallback()
@@ -257,11 +298,17 @@ func (h *Triggers) updateChannelsNote(ctx context.Context, c builtins.Chat) stri
 // Studio asks: a chat of a messaging app never changes where a Studio trigger
 // reports.
 func (h *Triggers) checkChangedDelivery(ctx context.Context, c builtins.Chat, target triggers.Trigger, kind, mode, channel, connection string) (*DeliveryPatch, error) {
+	return h.checkDeliveryChange(ctx, chatAsker(c), target, kind, mode, channel, connection)
+}
+
+// checkDeliveryChange is checkChangedDelivery for any asker: a chat, or the
+// owner on the trigger form.
+func (h *Triggers) checkDeliveryChange(ctx context.Context, a deliveryAsker, target triggers.Trigger, kind, mode, channel, connection string) (*DeliveryPatch, error) {
 	if !target.Route.FromConnector() {
-		if c.Origin == session.OriginConnector {
+		if a.Connector {
 			return nil, errors.New("delivery is for a trigger that was proposed in a messaging app; the answer of this trigger goes to the Inbox")
 		}
-		return h.checkStudioPatch(ctx, c, target, kind, mode, channel, connection)
+		return h.checkStudioPatch(ctx, a, target, kind, mode, channel, connection)
 	}
 	if connection != "" {
 		return nil, errors.New("delivery.connection is for a trigger that was proposed in Studio; this one reports through the connection that proposed it")
@@ -278,7 +325,7 @@ func (h *Triggers) checkChangedDelivery(ctx context.Context, c builtins.Chat, ta
 		return nil, errors.New("delivery.channel goes with the target channel")
 	}
 	if eff == triggers.TargetChannel && (kind == triggers.TargetChannel || channel != "") {
-		id, err := h.checkChannelTargetOf(ctx, c, target.Route.Binding, channel)
+		id, err := h.checkChannelTargetOf(ctx, a, target.Route.Binding, channel)
 		if err != nil {
 			return nil, err
 		}

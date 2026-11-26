@@ -73,6 +73,13 @@ rows show on every frontend. The download progress in bytes shows only when the
 frontend and the add-on owner are the same process; otherwise the row shows the
 step only.
 
+An upgrade through `POST /api/addons/{id}/upgrade`, and an add-on item of an
+[upgrade run]({{% relref "/models/upgrade-runs#add-on-items" %}}), is an upgrade
+run of one item or part of a larger run: while another run runs it is refused
+(the route answers `409` with type `run_active`), and its answer adds the run. A run
+upgrades an add-on for the administrator who started it, with the same checks
+and the same browser session rule as the explicit upgrade.
+
 An install from a file (see [Install from a file](#install-from-a-file)) does not
 use the queue. It runs at once, and you can close its dialog while it runs: the
 page then shows the install in progress, on the row of the add-on when it is an
@@ -87,6 +94,14 @@ running with its progress, then the result, as for any other upgrade. **Cancel**
 on the row, or in the dialog when you open it again, stops it while it waits and
 while it can still stop. After a cancel the row returns to its state, the
 version that runs keeps running, and the approval is asked again.
+
+If the new version does not start, the previous version keeps running and the
+page shows a generic failure. The server log has the reason in the
+`Addon operation failed` line. It names a stage, for example
+`process_exited_before_handshake`, `readiness_timeout` or
+`executable_missing`, and, when the process ended, its exit status and the last
+line that it wrote (cut to 200 bytes, without credentials). The log is the only
+place with this text; it is not part of the API answer.
 
 The API is `POST /api/addons/host-grants/queue`, which takes the same approval
 as `POST /api/addons/host-grants/install` for each add-on and answers with the
@@ -746,8 +761,10 @@ It ends with the phase `done` and `message` `completed`, or with `error` set and
 the entry arrive this way: an unknown entry, a name installed from another origin (a
 gallery, another library or a manual install; nothing changes), an image over the size
 limit, a library that strict mode refuses. The request itself answers `400` when it does
-not name an entry and `409` when the same backend is already being installed. Installing
-again from the same library is a reinstall.
+not name an entry and `409` when the same backend is already being installed, also when an
+upgrade run installs it, or when an upgrade run runs (type `run_active`; wait for the run or
+cancel it). A job can be cancelled from the Operations page until it writes the metadata,
+and runs for at most one hour. Installing again from the same library is a reinstall.
 
 ### Library backends on the Backends page
 

@@ -655,6 +655,28 @@ var _ = Describe("ModelLoader", func() {
 			Expect(coolErr.BackendMissing).To(BeTrue())
 		})
 
+		It("records the backend that is too old for the model as the cause of the cooldown", func() {
+			modelLoader.SetLoadFailureCooldown(time.Minute, time.Minute)
+			tooOld := func(modelID, modelName, modelFile string) (*model.Model, error) {
+				return nil, &model.BackendOutdatedError{Backend: "llama-cpp", Cause: errors.New("unknown model architecture: 'qwen35'")}
+			}
+			_, err := modelLoader.LoadModel("newarch", "test.model", tooOld)
+			Expect(model.OutdatedBackendOf(err)).To(Equal("llama-cpp"))
+
+			_, err = modelLoader.LoadModel("newarch", "test.model", tooOld)
+			var coolErr *model.ModelLoadCooldownError
+			Expect(errors.As(err, &coolErr)).To(BeTrue())
+			Expect(coolErr.OutdatedBackend).To(Equal("llama-cpp"))
+		})
+
+		DescribeTable("tells a backend that is too old from its error text",
+			func(msg string, want bool) { Expect(model.BackendTooOldText(msg)).To(Equal(want)) },
+			Entry("llama.cpp, unknown architecture", "llama_model_load: error loading model architecture: unknown model architecture: 'qwen35'", true),
+			Entry("upper case", "Unknown Model Architecture: foo", true),
+			Entry("another failure", "could not load model: out of memory", false),
+			Entry("empty", "", false),
+		)
+
 		It("refuses a fresh load within the cooldown window without re-invoking the loader", func() {
 			modelLoader.SetLoadFailureCooldown(60*time.Millisecond, 240*time.Millisecond)
 

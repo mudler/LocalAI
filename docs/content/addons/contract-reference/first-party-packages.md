@@ -132,8 +132,8 @@ place that decides what an event may publish. Its output is what the workflow us
 | Push to `master` | `sha-<12 hex of the commit>` | `development` |
 | Push to another branch | none | none: a branch push never publishes, whatever its name |
 | Push of a `v<semver>` tag | `<semver>` | none: a tag alone never advances `latest` |
-| Published, stable, non-draft release | `<semver>` | `latest`, after complete publication |
-| Published pre-release | `<semver>` | none |
+| Published, stable, non-draft release | `<semver>`, the index of the tag push; nothing is built | `latest`, after complete publication |
+| Published pre-release | `<semver>`, the index of the tag push; nothing is built | none |
 
 The names in this table are the part after the add-on id. The registry tag is `<id>-<name>`,
 for example `tables-sha-4edf30cda051` or `voice-development`.
@@ -159,11 +159,18 @@ The workflow `.github/workflows/addons-package.yml` has these jobs.
 
 | Job | What it does | Credentials |
 |---|---|---|
-| `validate` | One leg for each add-on. Builds the UI of the add-on, and runs the packaging checks (which cover every add-on) on every event, including pushes and releases. A red `validate` stops `package`, `publish` and `promote`. | none |
+| `validate` | One leg for each add-on. Builds the UI of the add-on, and runs the packaging checks (which cover every add-on) on every event except the release event, which builds nothing. A red `validate` stops `package`, `publish` and `promote`. | none |
 | `plan` | Runs `channel.sh` and, for each add-on, checks its platform matrix. It joins the matrices into one list of legs and names the add-ons that have legs. It checks the registry input. | none |
 | `package` | Needs `plan` and `validate`. One native runner for each enabled platform of each add-on: builds the executable and UI, runs `package.sh` and the native runtime check, uploads the layout. | none |
-| `publish` | One leg for each add-on. Needs `plan`, `validate` and every package leg. Joins the legs of the add-on, pushes platform digests and the index by digest to the repository of the add-on, tags the immutable version, signs by digest (keyless, OCI 1.1 referrers, new bundle format) and verifies with the exact identity of this workflow. | registry login and `id-token: write`, in a protected environment |
-| `promote` | One leg for each add-on. Needs `publish`, and through it `validate`. Moves aliases, serialized by add-on and channel. | registry login, in a protected environment |
+| `publish` | One leg for each add-on. Needs `plan`, `validate` and every package leg. Joins the legs of the add-on, pushes platform digests and the index by digest to the repository of the add-on, tags the immutable version, signs by digest (keyless, OCI 1.1 referrers, new bundle format) and verifies with the exact identity of this workflow. | registry login and `id-token: write` |
+| `promote` | One leg for each add-on. Needs `publish`, and through it `validate`. Moves the aliases of a push, serialized by add-on and channel. | registry login |
+| `tag-run` | Release event only. Waits for a successful run of this workflow for the tag push of the same commit. | `actions: read` |
+| `promote-release` | Release event only, one leg for each add-on of the plan. Needs `tag-run`. Reads `<id>-<version>` from the registry, checks with `addonpkg verify-published` that it is a complete index of that add-on, version and commit, signed (index and every platform image) by this workflow at `refs/tags/v<version>`, then moves `latest` to it. | registry login |
+
+A release builds its packages once. The tag push builds, publishes and signs them; the
+release event of the same tag runs no `validate`, `sandbox-image`, `package` or
+`publish` job, so it never pushes an index or a guest image. It promotes and attaches
+what the tag push published, after that run ended green.
 
 An add-on with no enabled platform gets no legs. On a pull request or a branch push this
 fails nothing. On an event that publishes, the plan fails for that add-on and nothing is

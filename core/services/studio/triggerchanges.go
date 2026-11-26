@@ -97,6 +97,9 @@ type ChangeView struct {
 	UndoBlocked string
 	// LastRun is the newest run of the trigger, if any.
 	LastRun *triggers.Run
+	// Reminder is set on a change of a reminder of a watch; Before is then
+	// the watch, and After and Fields are empty.
+	Reminder *ReminderChange
 }
 
 // TriggerRef is the short reference of a trigger that list_triggers gives a
@@ -189,6 +192,7 @@ func withDefinition(dst, src triggers.Trigger) triggers.Trigger {
 	dst.RunLimit = src.RunLimit
 	dst.MinGap, dst.Reads, dst.Writes, dst.Widget, dst.EstTokens = src.MinGap, src.Reads, src.Writes, src.Widget, src.EstTokens
 	dst.Acts = src.Acts
+	dst.Source, dst.EventType, dst.Matches = src.Source, src.EventType, src.Matches
 	if src.Route.FromConnector() || src.Route.Connection != "" || dst.Route.Connection != "" {
 		dst.Route = src.Route
 	}
@@ -206,7 +210,7 @@ func changedFields(a, b triggers.Trigger) []string {
 	}
 	add("name", a.Name != b.Name)
 	add("prompt", a.Prompt != b.Prompt)
-	add("when", a.Kind != b.Kind || a.Schedule != b.Schedule || a.Folder != b.Folder)
+	add("when", a.Kind != b.Kind || a.Schedule != b.Schedule || a.Folder != b.Folder || a.Source != b.Source || a.EventType != b.EventType || !slices.Equal(a.Matches, b.Matches))
 	add("time_zone", a.TZ != b.TZ)
 	add("daily_cap", a.DailyCap != b.DailyCap)
 	add("run_limit", a.RunLimit != b.RunLimit)
@@ -227,7 +231,8 @@ func changedFields(a, b triggers.Trigger) []string {
 func (h *Triggers) inputOf(t triggers.Trigger) TriggerInput {
 	return TriggerInput{Name: t.Name, Prompt: t.Prompt, Kind: t.Kind, Schedule: t.Schedule, TZ: t.TZ, Folder: h.RelFolder(t),
 		Quiet: t.Quiet, DailyCap: t.DailyCap, RunLimit: t.RunLimit, AgentID: t.AgentID, Model: t.Model, SourceChatID: t.SourceChatID, Enabled: t.Enabled,
-		MinGap: t.MinGap, Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens, Acts: t.Acts, Route: t.Route}
+		MinGap: t.MinGap, Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens, Acts: t.Acts, Route: t.Route,
+		Source: t.Source, EventType: t.EventType, Matches: t.Matches}
 }
 
 // TriggerPatch is what a model asks to change in a trigger. A nil field, and
@@ -276,6 +281,9 @@ func (p TriggerPatch) apply(in TriggerInput, oldKind triggers.Kind) TriggerInput
 	set(&in.Reads, p.Reads)
 	set(&in.Writes, p.Writes)
 	set(&in.Widget, p.Widget)
+	if p.Kind != "" {
+		in.Source, in.EventType, in.Matches = "", "", nil // the event fields end with the kind
+	}
 	switch p.Kind {
 	case triggers.KindSchedule:
 		in.Kind, in.Schedule, in.Folder = triggers.KindSchedule, p.Schedule, ""
@@ -303,24 +311,30 @@ func (p TriggerPatch) apply(in TriggerInput, oldKind triggers.Kind) TriggerInput
 			in.Acts = []string{}
 		}
 	}
-	if d := p.Delivery; d != nil {
-		if d.Target != "" {
-			in.Route.Target = d.Target
-			if d.Target != triggers.TargetChannel {
-				in.Route.Channel, in.Route.Connection = "", ""
-			}
-		}
-		if d.Mode != "" {
-			in.Route.Mode = d.Mode
-		}
-		if d.Channel != "" {
-			in.Route.Channel = d.Channel
-		}
-		if d.Connection != "" {
-			in.Route.Connection = d.Connection
-		}
+	if p.Delivery != nil {
+		in.Route = p.Delivery.applyTo(in.Route)
 	}
 	return in
+}
+
+// applyTo gives the route r with the delivery changed as d says.
+func (d DeliveryPatch) applyTo(r triggers.Route) triggers.Route {
+	if d.Target != "" {
+		r.Target = d.Target
+		if d.Target != triggers.TargetChannel {
+			r.Channel, r.Connection = "", ""
+		}
+	}
+	if d.Mode != "" {
+		r.Mode = d.Mode
+	}
+	if d.Channel != "" {
+		r.Channel = d.Channel
+	}
+	if d.Connection != "" {
+		r.Connection = d.Connection
+	}
+	return r
 }
 
 // ProposeChange asks for a change of the trigger target of the user, from the
@@ -410,7 +424,7 @@ func (h *Triggers) keepChange(ctx context.Context, owner string, rec triggers.Tr
 			continue
 		}
 		if m.Change.Op == rec.Change.Op && m.Change.Target == rec.Change.Target && m.Change.Stamp == rec.Change.Stamp &&
-			m.Change.On == rec.Change.On && stamp(m) == stamp(rec) {
+			m.Change.On == rec.Change.On && stamp(m) == stamp(rec) && reminderStamp(m) == reminderStamp(rec) {
 			return m, nil
 		}
 		pending++
@@ -518,6 +532,9 @@ func (h *Triggers) ChangeStatus(ctx context.Context, user, id string) (ChangeVie
 	if err != nil {
 		return ChangeView{}, err
 	}
+	if isReminderChange(rec) {
+		return h.reminderChangeStatus(ctx, user, rec)
+	}
 	v := ChangeView{State: changeStateOf(rec), Op: rec.Change.Op, ID: rec.ID, Target: rec.Change.Target, At: rec.OutcomeAt}
 	live, lerr := h.owned(ctx, user, rec.Change.Target)
 	if lerr != nil && !errors.Is(lerr, triggers.ErrNotFound) {
@@ -613,6 +630,10 @@ func (h *Triggers) ApplyChange(ctx context.Context, user, id string) (triggers.T
 		h.wmu.Unlock()
 		return triggers.Trigger{}, err
 	}
+	if isReminderChange(rec) {
+		h.wmu.Unlock()
+		return h.applyReminderChange(ctx, user, id)
+	}
 	if rec.Outcome != "" {
 		h.wmu.Unlock()
 		return triggers.Trigger{}, ErrProposalAnswered
@@ -641,6 +662,9 @@ func (h *Triggers) ApplyChange(ctx context.Context, user, id string) (triggers.T
 		kept := withDefinition(rec, live)
 		kept.SourceChatID = live.SourceChatID
 		kept.Change.On, kept.Change.Stamp = live.Enabled, stamp(live)
+		// The copy that undoes a delete brings the secret back, so a device
+		// client keeps working; no view of a change shows it.
+		kept.Secret = live.Secret
 		kept.Outcome, kept.OutcomeAt = triggers.OutcomeAccepted, at
 		err := h.o.Store.PutTrigger(ctx, kept)
 		if err != nil {
@@ -685,6 +709,13 @@ func (h *Triggers) ApplyChange(ctx context.Context, user, id string) (triggers.T
 		}
 	}
 	t.ID = live.ID
+	// A change never carries a secret: the one the trigger has now stays, also
+	// when it was rotated after the change was asked for.
+	if t.Kind == triggers.KindEvent {
+		if t.Secret = live.Secret; live.Kind != triggers.KindEvent || t.Secret == "" {
+			t.Secret = newEventSecret() // a trigger that becomes an event trigger needs one
+		}
+	}
 	t.Outcome, t.OutcomeAt, t.Touched = live.Outcome, live.OutcomeAt, live.Touched || live.Outcome != ""
 	t = triggers.Arm(&live, t, h.o.Clock())
 	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
@@ -692,6 +723,11 @@ func (h *Triggers) ApplyChange(ctx context.Context, user, id string) (triggers.T
 		return triggers.Trigger{}, err
 	}
 	kept := withDefinition(rec, live)
+	if live.Kind == triggers.KindEvent && t.Kind != triggers.KindEvent {
+		// An undo makes it an event trigger again, so it needs its secret. The
+		// record holds it only until the change is answered.
+		kept.Secret = live.Secret
+	}
 	kept.Change.On, kept.Change.Stamp = live.Enabled, stamp(t)
 	kept.Outcome, kept.OutcomeAt = triggers.OutcomeAccepted, at
 	if err := h.o.Store.PutTrigger(ctx, kept); err != nil {
@@ -757,6 +793,9 @@ func (h *Triggers) DismissChange(ctx context.Context, user, id string) error {
 // ErrCannotUndo once the time is over or the trigger changed since, and with
 // ErrProposalAnswered when it was undone already, on any frontend.
 func (h *Triggers) UndoChange(ctx context.Context, user, id string) (triggers.Trigger, error) {
+	if rec, err := h.ownedChange(ctx, user, id); err == nil && isReminderChange(rec) {
+		return h.undoReminderChange(ctx, user, id)
+	}
 	h.wmu.Lock()
 	defer h.wmu.Unlock()
 	rec, err := h.ownedChange(ctx, user, id)
@@ -778,11 +817,21 @@ func (h *Triggers) UndoChange(ctx context.Context, user, id string) (triggers.Tr
 	}
 	var t triggers.Trigger
 	if rec.Change.Op == triggers.ChangeDelete {
-		t = triggers.Arm(nil, asTrigger(rec), h.o.Clock())
+		t = asTrigger(rec)
+		t.Secret = rec.Secret
+		t = triggers.Arm(nil, t, h.o.Clock())
 	} else {
 		t = withDefinition(live, rec)
 		t.Enabled = rec.Change.On
+		if t.Kind != triggers.KindEvent {
+			t.Secret = ""
+		} else if live.Kind != triggers.KindEvent {
+			t.Secret = rec.Secret
+		}
 		t = triggers.Arm(&live, t, h.o.Clock())
+	}
+	if t.Kind == triggers.KindEvent && t.Secret == "" {
+		t.Secret = newEventSecret() // a restored event trigger is never without one
 	}
 	if err := t.Validate(); err != nil {
 		return triggers.Trigger{}, bad("%v", err)
@@ -814,6 +863,7 @@ func (h *Triggers) UndoChange(ctx context.Context, user, id string) (triggers.Tr
 		rec = withDefinition(rec, live)
 		rec.Change.On = live.Enabled
 	}
+	rec.Secret = "" // the change is answered: the record no longer holds the key
 	rec.Outcome, rec.OutcomeAt = triggers.OutcomeUndone, at
 	if err := h.o.Store.PutTrigger(ctx, rec); err != nil {
 		h.log.Warn("studio: could not mark a trigger change undone", "change", rec.ID, "error", err)
@@ -824,6 +874,9 @@ func (h *Triggers) UndoChange(ctx context.Context, user, id string) (triggers.Tr
 
 // changeNote is how the model hears of a change it asked for in a chat.
 func changeNote(t triggers.Trigger, name string) string {
+	if isReminderChange(t) {
+		return reminderChangeNote(t)
+	}
 	switch t.Change.Op + "/" + t.Outcome {
 	case triggers.ChangeUpdate + "/" + triggers.OutcomeAccepted:
 		return fmt.Sprintf("the change to %q applied by the user", name)

@@ -171,26 +171,59 @@ func publishIndex(ctx context.Context, dir string, cfg *PlatformsFile, repo name
 // adoptExisting accepts the content that an immutable tag already names when
 // it is a complete package index of the same add-on, version and commit.
 func adoptExisting(ctx context.Context, repo name.Repository, tag name.Tag, m *merged, cfg *PlatformsFile) (v1.Hash, error) {
+	d, _, err := readPublishedIndex(ctx, tag, m, cfg)
+	return d, err
+}
+
+// registryRetryDelay is the pause before the second try of a registry read;
+// the third waits twice as long. Tests shorten it.
+var registryRetryDelay = 2 * time.Second
+
+// getWithRetry reads ref, and tries twice more after an error that is not a
+// "not found" answer: the catalog job reads one index for each add-on
+// anonymously, and one dropped connection must not fail the release.
+func getWithRetry(ctx context.Context, ref name.Reference) (*remote.Descriptor, error) {
+	var err error
+	for try := 0; try < 3; try++ {
+		if try > 0 {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(time.Duration(try) * registryRetryDelay):
+			}
+		}
+		var d *remote.Descriptor
+		if d, err = remote.Get(ref, remoteOptions(ctx)...); err == nil || isNotFound(err) {
+			return d, err
+		}
+	}
+	return nil, err
+}
+
+// readPublishedIndex reads the index that an immutable tag names and checks
+// that it is a complete package index of the same add-on, version and commit
+// as the merged layout m. It returns the digest of the index and the index.
+func readPublishedIndex(ctx context.Context, tag name.Tag, m *merged, cfg *PlatformsFile) (v1.Hash, *v1.IndexManifest, error) {
 	var zero v1.Hash
-	d, err := remote.Get(tag, remoteOptions(ctx)...)
+	d, err := getWithRetry(ctx, tag)
 	if err != nil {
-		return zero, err
+		return zero, nil, err
 	}
 	idx, err := d.ImageIndex()
 	if err != nil {
-		return zero, errors.New("existing tag does not name an image index")
+		return zero, nil, errors.New("existing tag does not name an image index")
 	}
 	im, err := idx.IndexManifest()
 	if err != nil {
-		return zero, err
+		return zero, nil, err
 	}
 	a := im.Annotations
 	if im.ArtifactType != IndexArtifactType || a[AnnotationID] != cfg.Addon || a[AnnotationVersion] != m.Version || a[AnnotationRevision] != m.Revision || m.Revision == "" {
-		return zero, errors.New("existing index was not built from the same add-on, version and commit")
+		return zero, nil, errors.New("existing index was not built from the same add-on, version and commit")
 	}
 	enabled, err := cfg.enabled()
 	if err != nil {
-		return zero, err
+		return zero, nil, err
 	}
 	have := map[string]bool{}
 	for _, c := range im.Manifests {
@@ -199,14 +232,14 @@ func adoptExisting(ctx context.Context, repo name.Repository, tag name.Tag, m *m
 		}
 	}
 	if len(have) != len(enabled) || len(im.Manifests) != len(enabled) {
-		return zero, errors.New("existing index does not match the enabled platforms")
+		return zero, nil, errors.New("existing index does not match the enabled platforms")
 	}
 	for _, e := range enabled {
 		if !have[e.Platform] {
-			return zero, fmt.Errorf("existing index has no %s image", e.Platform)
+			return zero, nil, fmt.Errorf("existing index has no %s image", e.Platform)
 		}
 	}
-	return d.Digest, nil
+	return d.Digest, im, nil
 }
 
 func cmdPublish(args []string) error {

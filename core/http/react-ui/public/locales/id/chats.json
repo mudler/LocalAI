@@ -10,9 +10,7 @@
     "folder": "Folder yang dipantau",
     "saveEdit": "Simpan",
     "cancelEdit": "Batal",
-    "create": "Buat pemicu",
     "edit": "Ubah",
-    "dismiss": "Tolak",
     "receipt": {
       "scheduled": "Dijadwalkan:",
       "watching": "Memantau:",
@@ -67,8 +65,17 @@
       "stop": "Matikan atau hapus di Pemicu",
       "actsLabel": "Izin",
       "limitLabel": "Batas waktu",
-      "limitClamped": "{{limit}}, dibatasi menjadi {{ceiling}} oleh administrator"
-    }
+      "limitClamped": "{{limit}}, dibatasi menjadi {{ceiling}} oleh administrator",
+      "doesLabel": "Melakukan",
+      "tellsYouLabel": "Memberi tahu",
+      "doesWatch": "Menjaga pengingat untuk {{source}}, bawaan {{offset}}.",
+      "tellsWatch": "Hanya bila berguna: perubahan oleh orang lain, ringkasan yang direncanakan, atau jadwal bentrok.",
+      "tellsEvery": "Setelah setiap jalannya.",
+      "tellsOnChange": "Saat jawabannya berbeda dari jalan sebelumnya.",
+      "tellsOnProblem": "Hanya saat jalannya gagal."
+    },
+    "approve": "Setujui",
+    "notNow": "Nanti saja"
   },
   "mcpPage": {
     "title": "Konektor MCP",
@@ -814,6 +821,58 @@
           "body_one": "{{count}} berkas lama dihapus.",
           "body_other": "{{count}} berkas lama dihapus."
         }
+      },
+      "run": {
+        "title_one": "Memperbarui {{count}} item",
+        "title_other": "Memperbarui {{count}} item",
+        "titleAuto_one": "Pembaruan otomatis: {{count}} item",
+        "titleAuto_other": "Pembaruan otomatis: {{count}} item",
+        "updated_one": "{{count}} diperbarui",
+        "updated_other": "{{count}} diperbarui",
+        "running_one": "{{count}} berjalan",
+        "running_other": "{{count}} berjalan",
+        "waiting_one": "{{count}} menunggu",
+        "waiting_other": "{{count}} menunggu",
+        "done": "{{done}} dari {{total}} selesai",
+        "end": {
+          "attention_one": "{{updated}} diperbarui, {{count}} perlu perhatian",
+          "attention_other": "{{updated}} diperbarui, {{count}} perlu perhatian",
+          "done_one": "{{count}} diperbarui",
+          "done_other": "{{count}} diperbarui",
+          "auto": "Otomatis: {{text}}",
+          "first": "{{name}} masih di {{version}}.",
+          "firstWhy": "{{name}} masih di {{version}}: {{reason}}.",
+          "cancelled_one": "Rangkaian dibatalkan: {{count}} diperbarui",
+          "cancelled_other": "Rangkaian dibatalkan: {{count}} diperbarui",
+          "cancelledAttention_one": "Rangkaian dibatalkan: {{updated}} diperbarui, {{count}} perlu perhatian",
+          "cancelledAttention_other": "Rangkaian dibatalkan: {{updated}} diperbarui, {{count}} perlu perhatian",
+          "firstStart": "{{name}} masih di {{version}}: versi baru tidak berjalan: {{reason}}."
+        }
+      },
+      "watch": {
+        "set": "Pengingat untuk \"{{title}}\" dipasang: {{when}}.",
+        "changed": "Pengingat untuk \"{{title}}\" diubah: {{when}}.",
+        "cancelled": "Pengingat untuk \"{{title}}\" dibatalkan.",
+        "snoozed": "Pengingat untuk \"{{title}}\" ditunda ke {{when}}.",
+        "snoozeUndone": "Penundaan pengingat untuk \"{{title}}\" ditarik.",
+        "skipped": "Pengingat untuk \"{{title}}\" dilewati.",
+        "skipUndone": "Lewati pengingat untuk \"{{title}}\" ditarik.",
+        "taskChanged": "Tugas pengingat untuk \"{{title}}\" diubah.",
+        "restored": "Pengingat untuk \"{{title}}\" dikembalikan: {{when}}.",
+        "next": "Pengingat untuk \"{{title}}\" berikutnya dipasang: {{when}}.",
+        "moved": "Pengingat untuk \"{{title}}\" dipindah ke {{when}}.",
+        "movedStarted": "\"{{title}}\" dipindah dan sudah dimulai, jadi tidak ada pengingat.",
+        "removed": "Pengingat untuk \"{{title}}\" dibatalkan: sudah dihapus.",
+        "woken": "\"{{title}}\" berubah. Memeriksa pengingatnya sekarang.",
+        "movedBy": "\"{{title}}\" dipindah. Saya akan mengingatkan Anda pukul {{when}}.",
+        "movedByStarted": "\"{{title}}\" dipindah dan sudah dimulai.",
+        "removedBy": "\"{{title}}\" dihapus, jadi saya membatalkan pengingatnya.",
+        "wokenBy": "\"{{title}}\" berubah. Saya memeriksa apakah pengingatnya masih cocok.",
+        "missed": "Terlewat: {{title}}. Server mati pada waktu pengingat.",
+        "onHold": "Pengingat untuk \"{{title}}\" menunggu selama pantauan ini dijeda.",
+        "dropped": "Pengingat untuk \"{{title}}\" dihapus bersama pantauannya.",
+        "lastKnown": "Pengingat untuk \"{{title}}\" berikutnya dipasang: {{when}}. Ini waktu terakhir yang diketahui; perubahan item memasang yang berikutnya.",
+        "seriesEnded": "Tidak ada waktu berikutnya untuk \"{{title}}\" yang diketahui, jadi sekarang tidak ada pengingat. Perubahan item memasang yang berikutnya."
       }
     },
     "tabs": {
@@ -850,7 +909,15 @@
       }
     },
     "chatsOff": "Chats nonaktif",
-    "emptyBodyNoChats": "Pembaruan dan operasi yang selesai muncul di sini."
+    "emptyBodyNoChats": "Pembaruan dan operasi yang selesai muncul di sini.",
+    "runProgress": "Kemajuan: {{title}}",
+    "runStarted": "Dimulai {{when}}",
+    "viewProgress": "Lihat kemajuan",
+    "seeRun": "Lihat rangkaian",
+    "openUpdates": "Buka Pembaruan",
+    "updatesPending_one": "{{count}} pembaruan tersedia",
+    "updatesPending_other": "{{count}} pembaruan tersedia",
+    "updatesNone": "Semuanya sudah terbaru"
   },
   "change": {
     "loading": "Membaca perubahan pemicu...",
@@ -1517,7 +1584,10 @@
     "mcp": "Server MCP"
   },
   "triggersPage": {
-    "runLimit": "Batas waktu satu proses"
+    "runLimit": "Batas waktu satu proses",
+    "presets": {
+      "event": "Saat ada peristiwa masuk"
+    }
   },
   "sandboxProfile": {
     "label": "Profil sandbox",
@@ -1593,5 +1663,165 @@
       "reason": "Pengaturan chat ini adalah {{window}} token dan chat membutuhkan minimal {{minimum}}.",
       "fix": "Pakai jendela model"
     }
+  },
+  "event": {
+    "listening": "Mendengarkan:",
+    "announceAccepted": "{{name}} dibuat. Salin rahasianya sekarang: hanya ditampilkan sekali.",
+    "sentence": {
+      "typed": "Saat {{source}} mengirim {{type}}",
+      "any": "Saat {{source}} mengirim peristiwa apa pun",
+      "where": " dengan {{matches}}",
+      "and": " dan "
+    },
+    "hook": {
+      "title": "Alamat hook dan rahasia",
+      "urlLabel": "URL hook",
+      "secretLabel": "Rahasia (ditampilkan sekali)",
+      "curlLabel": "Contoh panggilan",
+      "copy": "Salin",
+      "copied": "Tersalin",
+      "copyUrl": "Salin URL hook",
+      "copySecret": "Salin rahasia",
+      "copyCurl": "Salin contoh panggilan",
+      "paste": "Tempel URL dan rahasia ke pengaturan webhook pengirim. Rahasia tidak ditampilkan lagi.",
+      "noSecret": "Rahasia tidak ditampilkan lagi. Putar rahasia untuk mendapatkan yang baru.",
+      "rotate": "Putar rahasia",
+      "rotateTitle": "Putar rahasia {{name}}?",
+      "rotateBody": "Rahasia lama langsung berhenti berfungsi. Pasang yang baru di pengirim sebelum peristiwa berikutnya.",
+      "rotateConfirm": "Putar",
+      "rotated": "Rahasia baru dibuat.",
+      "rotateFailed": "Rahasia tidak dapat diputar: {{message}}"
+    },
+    "form": {
+      "source": "Pengirim",
+      "sourceHint": "Nama pengirim, misalnya github.",
+      "sourceEmpty": "Sebutkan pengirim peristiwa.",
+      "type": "Jenis peristiwa",
+      "typeHint": "Kosongkan untuk menerima semua jenis peristiwa.",
+      "matches": "Hanya jika (satu field=nilai per baris)",
+      "matchesHint": "Hingga 8 baris, misalnya action=opened.",
+      "createdTitle": "{{name}} siap",
+      "done": "Selesai"
+    }
+  },
+  "watch": {
+    "section": "Pantauan",
+    "new": "Pantauan baru",
+    "titleNew": "Pantauan baru",
+    "titleEdit": "Ubah {{name}}",
+    "source": "Pantau",
+    "sourceHelp": "Hanya add-on yang melaporkan perubahannya yang tercantum.",
+    "sourcePick": "Pilih add-on",
+    "types": "Perubahan yang diikuti",
+    "typesHelp": "Biarkan semua kosong untuk mengikuti setiap perubahan.",
+    "offset": "Ingatkan saya",
+    "none": "Tanpa pengingat bawaan",
+    "atTime": "Tepat waktu",
+    "minutesBefore_one": "{{count}} menit sebelumnya",
+    "minutesBefore_other": "{{count}} menit sebelumnya",
+    "hoursBefore_one": "{{count}} jam sebelumnya",
+    "hoursBefore_other": "{{count}} jam sebelumnya",
+    "daysBefore_one": "{{count}} hari sebelumnya",
+    "daysBefore_other": "{{count}} hari sebelumnya",
+    "minutesAfter_one": "{{count}} menit sesudahnya",
+    "minutesAfter_other": "{{count}} menit sesudahnya",
+    "hoursAfter_one": "{{count}} jam sesudahnya",
+    "hoursAfter_other": "{{count}} jam sesudahnya",
+    "daysAfter_one": "{{count}} hari sesudahnya",
+    "daysAfter_other": "{{count}} hari sesudahnya",
+    "allDay": "Hal sepanjang hari",
+    "allDayMorning": "Pagi hari, pukul 08:00",
+    "allDayNone": "Tanpa pengingat",
+    "quiet": "Jam tenang",
+    "quietFrom": "Dari",
+    "quietTo": "Sampai",
+    "quietHelp": "Pengingat yang jatuh di jam ini datang malam sebelumnya.",
+    "tasks": "Tugas bawaan",
+    "tasksHelp": "Dengan kata-kata Anda, misalnya: untuk panggilan dengan orang lain, siapkan ringkasan 30 menit sebelumnya.",
+    "problemSource": "Pilih apa yang dipantau.",
+    "problemQuiet": "Jam tenang perlu awal dan akhir.",
+    "emptyTitle": "Belum ada yang bisa dipantau",
+    "emptyBody": "Tidak ada add-on terpasang yang melaporkan perubahannya. Pasang add-on Kalender untuk mendapat pengingat acara Anda.",
+    "summary": "{{source}}, {{offset}}",
+    "watches": "Memantau",
+    "state": "Status",
+    "on": "Aktif",
+    "paused": "Dijeda",
+    "permissions": "Ubah izin",
+    "reminders": "Pengingat berikutnya",
+    "remindersEmpty": "Belum ada pengingat. Pantauan membuatnya saat sesuatu ditambahkan.",
+    "dueLine": "{{when}}, {{offset}}",
+    "adjQuiet": "malam sebelumnya, di luar jam tenang Anda",
+    "adjAllDay": "pagi hari itu",
+    "skipped": "Dilewati",
+    "snoozed": "Ditunda",
+    "started": "Sudah dimulai",
+    "open": "Buka",
+    "snooze": "Tunda",
+    "skip": "Lewati",
+    "changeTime": "Ubah waktu…",
+    "newTime": "Waktu baru",
+    "saveTime": "Simpan",
+    "save": "Simpan pantauan",
+    "cancel": "Batal",
+    "undo": "Urungkan",
+    "doneSnooze": "Ditunda ke {{when}}.",
+    "doneSkip": "Dilewati. Muncul lagi jika item dipindah.",
+    "doneRetime": "Dipindah ke {{when}}.",
+    "doneUndo": "Diurungkan.",
+    "loadFailed": "Pengingat tidak dapat dibaca: {{message}}",
+    "sourcesFailed": "Add-on yang melaporkan perubahan tidak dapat dibaca: {{message}}",
+    "viewWatch": "Lihat pantauan",
+    "saved": "Pantauan disimpan.",
+    "nameRequired": "Pantauan perlu nama.",
+    "promptRequired": "Tulis apa yang harus dilakukan pantauan.",
+    "promptHint": "Teks ini memulai setiap jalannya pantauan.",
+    "enabledHint": "Pantauan yang mati menyimpan pengingatnya; pengingat menunggu sampai pantauan aktif lagi.",
+    "change": {
+      "title": {
+        "create": "Pasang pengingat untuk {{title}}",
+        "update": "Ubah pengingat untuk {{title}}",
+        "delete": "Batalkan pengingat untuk {{title}}"
+      },
+      "help": "Tidak ada yang berubah sampai Anda menyetujuinya.",
+      "stale": "Pengingat berubah sejak diminta. Minta lagi.",
+      "watch": "Pantauan",
+      "when": "Kapan",
+      "task": "Tugas",
+      "none": "tidak ada",
+      "receipt": {
+        "create": "Pengingat dipasang:",
+        "update": "Pengingat diubah:",
+        "delete": "Pengingat dibatalkan:",
+        "dismissed": "Tidak diubah:",
+        "undone": "Dibatalkan:"
+      },
+      "blocked": {
+        "expired": "Waktu untuk membatalkan sudah lewat; ubah pengingat di halaman pantauan.",
+        "edited": "Pengingat sudah berubah sejak itu; ubah di halaman pantauan.",
+        "removed": "Pengingat atau pantauannya sudah dihapus sejak itu."
+      },
+      "announce": {
+        "applied": "Perubahan pengingat untuk {{title}} disetujui.",
+        "dismissed": "Pengingat untuk {{title}} tetap seperti semula.",
+        "undone": "Perubahan pengingat untuk {{title}} dibatalkan."
+      }
+    }
+  },
+  "incognito": {
+    "label": "Penyamaran",
+    "levelLabel": "Tingkat penyamaran",
+    "levels": {
+      "memory-off": "Tanpa memori",
+      "zero-retention": "Tanpa penyimpanan"
+    },
+    "describe": {
+      "memory-off": "Chat ini tidak membaca atau menyimpan memori. Chat tidak muncul di daftar dan berakhir saat Anda meninggalkannya. Log dan jejak tetap disimpan seperti biasa.",
+      "zero-retention": "Server tidak menyimpan apa pun dari chat ini, hanya hitungan penggunaan. Chat tidak membaca atau menyimpan memori, tidak menerima lampiran, dan berakhir saat Anda meninggalkannya."
+    },
+    "blocked": "Tidak tersedia di chat penyamaran",
+    "discardTitle": "Akhiri chat penyamaran?",
+    "discardMessage": "Chat dihapus dan tidak dapat dibuka lagi.",
+    "discardConfirm": "Akhiri chat"
   }
 }

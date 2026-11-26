@@ -68,6 +68,10 @@ type UsageRecord struct {
 	CorrelationID    string `gorm:"size:64;index"`
 	RouterDecisionID string `gorm:"size:64;index"`
 	PIIEventID       string `gorm:"size:64"`
+
+	// Incognito is true for a request of a zero-retention conversation. Its
+	// row keeps the counters only: Metadata is empty.
+	Incognito bool `gorm:"default:false"`
 }
 
 // RecordUsage inserts a usage record.

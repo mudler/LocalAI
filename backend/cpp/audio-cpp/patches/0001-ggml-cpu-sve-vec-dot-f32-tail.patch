@@ -1,0 +1,54 @@
+From 496998928c3deb782eb101f7c0027ae9c8e7812c Mon Sep 17 00:00:00 2001
+From: Ettore Di Giacinto <mudler@localai.io>
+Date: Wed, 25 Nov 2026 01:10:02 +0000
+Subject: [PATCH] ggml-cpu: keep partial sums in the SVE ggml_vec_dot_f32 tail
+
+The SVE leftover path of ggml_vec_dot_f32 used
+svmad_f32_m(pg, ax1, ay1, sum1). The merging form keeps the first
+operand in inactive lanes, so those lanes of sum1 were replaced by the
+zero-filled load. Every dot product whose length is not a multiple of
+the SVE vector width lost part of its sum.
+
+F32 matrix products with such inner lengths use this path on SVE CPUs.
+On a 128-bit SVE CPU a product of length 37 had a relative error of
+about 0.4. HTDemucs is affected through the 1x1 convolutions in its
+outermost DConv blocks, which reduce over 6 channels. With the CPU
+backend on 128-bit SVE, the "other", "drums" and "bass" stems took 7 to
+14 dB of extra energy, and their correlation with the PyTorch stems fell
+to between 0.005 and 0.36. x86 CPUs and Arm CPUs without SVE use other
+code and are not affected.
+
+Use svmla_f32_m(pg, sum1, ax1, ay1), which keeps sum1 in inactive
+lanes. This is the same change as upstream llama.cpp #24699. After the
+change, HTDemucs on emulated 128-bit SVE gives the same stems as on x86.
+
+This patch carries only the vec.cpp change. Drop it once the vendored
+ggml in audio.cpp has the fix.
+
+Assisted-by: Claude Code:claude-sonnet-5-5
+---
+ external/ggml/src/ggml-cpu/vec.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/external/ggml/src/ggml-cpu/vec.cpp b/external/ggml/src/ggml-cpu/vec.cpp
+index 0d42f4ed..d54f9e14 100644
+--- a/external/ggml/src/ggml-cpu/vec.cpp
++++ b/external/ggml/src/ggml-cpu/vec.cpp
+@@ -75,12 +75,12 @@ void ggml_vec_dot_f32(int n, float * GGML_RESTRICT s, size_t bs, const float * G
+             ay1 = GGML_F32_VEC_LOAD(y + i);
+             sum1 = GGML_F32_VEC_FMA(sum1, ax1, ay1);
+         }
+-        // maximum number of leftover elements will be less that ggml_f32_epr. Apply predicated svmad on available elements only
++        // maximum number of leftover elements will be less that ggml_f32_epr. Apply predicated svmla on available elements only
+         if (np2 < n) {
+             svbool_t pg = svwhilelt_b32(np2, n);
+             ax1 = svld1_f32(pg, x + np2);
+             ay1 = svld1_f32(pg, y + np2);
+-            sum1 = svmad_f32_m(pg, ax1, ay1, sum1);
++            sum1 = svmla_f32_m(pg, sum1, ax1, ay1);
+         }
+         // reduce sum1,sum2 to sum1
+         GGML_F32_VEC_REDUCE(sumf, sum1, sum2, sum3, sum4, sum5, sum6, sum7, sum8);
+-- 
+2.43.0
+

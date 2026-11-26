@@ -10,7 +10,8 @@ import { operateHub, resolveGroups } from '../hub/hubConfig'
 import { useHubAuth } from '../hub/useHubAuth'
 import { useLocation } from 'react-router-dom'
 import { OPEN_PALETTE_EVENT } from './adminEvents'
-import { KINDS, isApplePlatform, pageEntries, personEntries, rank, settingEntries, workerEntries } from './paletteModel'
+import { KINDS, isApplePlatform, pageEntries, personEntries, rank, settingEntries, viewAsEntries, workerEntries } from './paletteModel'
+import { useViewAs } from '../../contexts/ViewAsContext'
 import './admin.css'
 
 // Search for the Administration pages, and for the people, workers and
@@ -25,7 +26,9 @@ export default function CommandPalette() {
   const navigate = useNavigate()
   const location = useLocation()
   const hubAuth = useHubAuth()
-  const { authEnabled, isAdmin } = useAuth()
+  const { authEnabled, isAdmin, user: viewer } = useAuth()
+  const { t: tv } = useTranslation('viewas')
+  const viewAs = useViewAs()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
@@ -44,8 +47,13 @@ export default function CommandPalette() {
     ...pages,
     ...settings,
     ...workerEntries(workers, `${root} / ${t('admin.groups.cluster')}`),
+    ...(viewAs.canViewAs ? viewAsEntries(people, viewer, {
+      kind: tv('palette.kind'),
+      title: (name) => tv('palette.title', { name }),
+      where: (email) => tv('palette.where', { email }),
+    }) : []),
     ...personEntries(people, `${root} / ${t('admin.groups.access')}`),
-  ], [pages, settings, workers, people, root, t])
+  ], [pages, settings, workers, people, root, t, tv, viewAs.canViewAs, viewer])
   const results = useMemo(() => rank(entries, query), [entries, query])
 
   const close = useCallback(() => {
@@ -109,6 +117,8 @@ export default function CommandPalette() {
     setOpen(false)
     setQuery('')
     returnTo.current = null
+    // View as starts here and lands on Projects, the page that follows it.
+    if (entry.viewAs) { viewAs.enter(entry.viewAs); navigate('/app/projects'); return }
     navigate(entry.to)
   }
 
@@ -154,8 +164,8 @@ export default function CommandPalette() {
             const rows = results.filter(r => r.kind === kind)
             if (rows.length === 0) return null
             return (
-              <div key={kind} role="group" aria-label={t(`admin.palette.kinds.${kind}`)}>
-                <p className="palette__kind" aria-hidden="true">{t(`admin.palette.kinds.${kind}`)}</p>
+              <div key={kind} role="group" aria-label={kind === 'viewas' ? tv('palette.kind') : t(`admin.palette.kinds.${kind}`)}>
+                <p className="palette__kind" aria-hidden="true">{kind === 'viewas' ? tv('palette.kind') : t(`admin.palette.kinds.${kind}`)}</p>
                 {rows.map(entry => {
                   index += 1
                   const selected = index === active

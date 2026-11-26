@@ -17,16 +17,11 @@ assert_target() {
   fi
 }
 
-assert_target amd64 cublas turboquant-cpu-all
-assert_target amd64 vulkan turboquant-cpu-all
-assert_target amd64 "" turboquant-cpu-all
-assert_target arm64 cublas turboquant-fallback
-assert_target arm64 "" turboquant-cpu-all
+# One mechanism for every flavor: the CPU variants come from their own gcc stage.
+for arch in amd64 arm64; do
+  for build_type in "" cublas vulkan hipblas sycl_f16 sycl_f32; do
+    assert_target "$arch" "$build_type" turboquant-cpu-all
+  done
+done
 
-# SYCL builds the whole tree with icpx -fsycl, and icpx never finishes
-# ggml-cpu/arch/x86/repack.cpp at -march=sapphirerapids: every sycl job sat on
-# that one translation unit until GitHub killed it at its 6h limit.
-assert_target amd64 sycl_f16 turboquant-fallback
-assert_target amd64 sycl_f32 turboquant-fallback
-
-echo "PASS: turboquant build target preserves CPU variants where supported"
+echo "PASS: every turboquant image flavor selects the CPU variant build"

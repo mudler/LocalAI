@@ -78,7 +78,7 @@ The four compatibility ranges above are integers that every published add-on sta
 without making every published add-on incompatible, so the host also has a **feature
 level**: one integer that counts the additive manifest features it understands.
 
-- The host declares its level (`contract.HostFeatureLevel`). This version has level 10.
+- The host declares its level (`contract.HostFeatureLevel`). This version has level 12.
   A host that predates the levels is level 1.
 - A manifest may set `featureLevel` (a positive integer, default 1). It states the level
   the add-on needs. A manifest that uses a field of a higher level must say so: the
@@ -92,6 +92,8 @@ level**: one integer that counts the additive manifest features it understands.
   route is level 8; a host of level 7 refuses such a manifest with the reason below.
   `capabilities.modelSearch` (a source of the model-search slot) is level 9.
   `osSettings` (see above) is level 10.
+  `deferred` on a tool definition (see [Deferred tools]({{% relref "/addons/contract-reference/owner-forwarding#deferred-tools" %}})) is level 11.
+  `capabilities.events` (see [Events]({{% relref "/addons/contract-reference/host-operations#events" %}})) is level 12.
 - A host with a lower level refuses the add-on with the plain reason **needs a newer
   LocalAI**. The add-on is not installed and not upgraded. A failed install or upgrade has
   the cause `needs_newer_host`, and an update check shows the add-on as incompatible with

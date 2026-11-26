@@ -37,6 +37,9 @@ var officialRequests = map[string]contract.HostOperations{
 	"slack":    {Optional: strings.Fields("connector.file.get connector.file.put")},
 	"discord":  {Optional: strings.Fields("connector.file.get connector.file.put")},
 	"telegram": {Optional: strings.Fields("connector.file.get connector.file.put")},
+	// The calendar reports its changes to the owner's watches; without the
+	// grant it works as before and reports nothing.
+	"calendar": {Optional: []string{"events.emit"}},
 }
 
 // connectorRoot holds the file transfer code that the connector add-ons share. It

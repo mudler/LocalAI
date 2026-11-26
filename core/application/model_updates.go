@@ -147,7 +147,7 @@ type modelUpgradeNotifier struct{ em *updatenotify.Emitter }
 
 func (n modelUpgradeNotifier) ModelUpgradeResult(ctx context.Context, r modelupdates.UpgradeResult) error {
 	return n.em.ModelUpgradeResult(ctx, updatenotify.ModelUpgrade{
-		OpID: r.OpID, Name: r.Name, Failed: r.Failed, RolledBack: r.RolledBack, From: r.From, To: r.To, Err: r.Err,
+		OpID: r.OpID, Name: r.Name, Failed: r.Failed, RolledBack: r.RolledBack, From: r.From, To: r.To, Err: r.Err, InRun: r.InRun,
 	})
 }
 
@@ -160,7 +160,7 @@ type modelUpgraderOp struct{ u *modelupdates.Upgrader }
 
 func (m modelUpgraderOp) UpgradeModel(ctx context.Context, opID, name string, opts galleryop.ModelUpgradeOptions, progress func(*galleryop.OpStatus)) error {
 	return m.u.Upgrade(ctx, modelupdates.Request{
-		OpID: opID, Name: name, ConfigOnly: opts.ConfigOnly, Choices: opts.Choices, Retry: opts.Retry,
+		OpID: opID, Name: name, ConfigOnly: opts.ConfigOnly, Choices: opts.Choices, Retry: opts.Retry, InRun: opts.InRun,
 		Progress: func(p modelupdates.Progress) {
 			progress(&galleryop.OpStatus{
 				Phase: p.Phase, Message: p.Message, FileName: p.FileName, Progress: p.Percent,

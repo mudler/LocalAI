@@ -143,7 +143,7 @@ type ClassifierDeps struct {
 	// classifier's token-trim path. Optional; nil falls back to the
 	// backend's n_ctx guard. Plain func type so core/application supplies
 	// it as a method value without importing this package.
-	TokenCounter func(modelName string) func(text string) (int, error)
+	TokenCounter func(modelName string) router.Tokenizer
 }
 
 // NewClassifierDeps assembles the full classifier dependency set from
@@ -774,7 +774,7 @@ func wrapWithEmbeddingCache(cfg *config.ModelConfig, inner router.Classifier, de
 // values — not the raw config fields — means trimming still works when
 // context_size and batch are unset; otherwise a non-trivial prompt overflows
 // the default window and every classification fails.
-func modelTokenTrim(modelName string, deps ClassifierDeps) (func(string) (int, error), int) {
+func modelTokenTrim(modelName string, deps ClassifierDeps) (router.Tokenizer, int) {
 	if deps.TokenCounter == nil || deps.ModelLookup == nil {
 		return nil, 0
 	}

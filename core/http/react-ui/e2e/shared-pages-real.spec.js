@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { holdHomeFiles } from './home-files-lock.js'
 
 // Pages of shared folders against the real test server started with
 // --shared-pages-fixture: /shared/team (read-only for the viewer, written by
@@ -9,6 +10,10 @@ import { test, expect } from './coverage-fixtures.js'
 // administrator's switch stop it.
 
 test.describe.configure({ mode: 'serial', timeout: 90_000 })
+
+// A spec writes and deletes the ui.json of the test user: hold the lock that
+// the other specs of the Home files hold.
+holdHomeFiles(test)
 
 const api = (request, path) => request.get(path).then(r => r.json())
 // Screenshots wait for the entry animations, so a sheet is drawn as it stays.

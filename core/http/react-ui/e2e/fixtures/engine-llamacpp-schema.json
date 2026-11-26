@@ -1,0 +1,526 @@
+{
+  "id": "llama-cpp",
+  "name": "llama.cpp",
+  "binary": "llama-server",
+  "backends": {
+    "names": [
+      "llama",
+      "go-llama"
+    ],
+    "families": [
+      "llama-cpp"
+    ],
+    "excluded": [
+      "ik-llama-cpp"
+    ],
+    "empty": true
+  },
+  "capabilities": [
+    "command-line",
+    "tensor-placement"
+  ],
+  "example": "llama-server -m model.gguf --ctx-size 8192 -ngl 99 -fa on",
+  "flags": [
+    {
+      "key": "context_size",
+      "target": "config",
+      "path": "context_size",
+      "cli": [
+        "--ctx-size",
+        "-c"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "sized from the model and the free memory",
+      "doc": "Context window in tokens. 0 uses the size stored in the model file.",
+      "group": "memory"
+    },
+    {
+      "key": "gpu_layers",
+      "target": "config",
+      "path": "gpu_layers",
+      "cli": [
+        "-ngl",
+        "--gpu-layers",
+        "--n-gpu-layers"
+      ],
+      "type": "int",
+      "min": -1,
+      "default": "all layers",
+      "doc": "Number of layers to offload to the GPU. A large value such as 99 offloads every layer.",
+      "group": "memory"
+    },
+    {
+      "key": "threads",
+      "target": "config",
+      "path": "threads",
+      "cli": [
+        "-t",
+        "--threads"
+      ],
+      "type": "int",
+      "min": -1,
+      "default": "backend default",
+      "doc": "CPU threads used while generating tokens.",
+      "group": "speed"
+    },
+    {
+      "key": "batch",
+      "target": "config",
+      "path": "parameters.batch",
+      "cli": [
+        "-b",
+        "--batch-size"
+      ],
+      "type": "int",
+      "min": 1,
+      "default": "backend default",
+      "doc": "Logical batch size: the most prompt tokens processed in one step.",
+      "group": "speed"
+    },
+    {
+      "key": "flash_attention",
+      "target": "config",
+      "path": "flash_attention",
+      "cli": [
+        "-fa",
+        "--flash-attn"
+      ],
+      "type": "enum",
+      "enum": [
+        "on",
+        "off",
+        "auto"
+      ],
+      "default": "auto",
+      "doc": "Flash attention. A bare flag means on.",
+      "group": "speed"
+    },
+    {
+      "key": "cache_type_k",
+      "target": "config",
+      "path": "cache_type_k",
+      "cli": [
+        "-ctk",
+        "--cache-type-k"
+      ],
+      "type": "enum",
+      "enum": [
+        "f32",
+        "f16",
+        "bf16",
+        "q8_0",
+        "q4_0",
+        "q4_1",
+        "iq4_nl",
+        "q5_0",
+        "q5_1"
+      ],
+      "default": "f16",
+      "doc": "Data type of the K half of the KV cache. Smaller types save memory at some cost in quality.",
+      "group": "memory"
+    },
+    {
+      "key": "cache_type_v",
+      "target": "config",
+      "path": "cache_type_v",
+      "cli": [
+        "-ctv",
+        "--cache-type-v"
+      ],
+      "type": "enum",
+      "enum": [
+        "f32",
+        "f16",
+        "bf16",
+        "q8_0",
+        "q4_0",
+        "q4_1",
+        "iq4_nl",
+        "q5_0",
+        "q5_1"
+      ],
+      "default": "f16",
+      "doc": "Data type of the V half of the KV cache. A quantized V cache needs flash attention.",
+      "group": "memory"
+    },
+    {
+      "key": "mmap",
+      "target": "config",
+      "path": "mmap",
+      "cli": [
+        "--mmap"
+      ],
+      "cli_negated": [
+        "--no-mmap"
+      ],
+      "type": "bool",
+      "default": "false",
+      "doc": "Map the model file into memory instead of reading it. With mmap off and no mlock, the load mode is none.",
+      "group": "memory"
+    },
+    {
+      "key": "mmlock",
+      "target": "config",
+      "path": "mmlock",
+      "cli": [
+        "--mlock"
+      ],
+      "cli_negated": [
+        "--no-mlock"
+      ],
+      "type": "bool",
+      "default": "false",
+      "doc": "Lock the model in RAM so the system cannot swap it out.",
+      "group": "memory"
+    },
+    {
+      "key": "use_jinja",
+      "target": "option",
+      "path": "options",
+      "option": "use_jinja",
+      "option_aliases": [
+        "jinja"
+      ],
+      "cli": [
+        "--jinja"
+      ],
+      "cli_negated": [
+        "--no-jinja"
+      ],
+      "type": "bool",
+      "default": "backend default",
+      "doc": "Render the chat template with the Jinja engine of llama.cpp.",
+      "group": "template"
+    },
+    {
+      "key": "parallel",
+      "target": "option",
+      "path": "options",
+      "option": "parallel",
+      "option_aliases": [
+        "n_parallel"
+      ],
+      "cli": [
+        "-np",
+        "--parallel"
+      ],
+      "type": "int",
+      "min": -1,
+      "default": "1",
+      "doc": "Number of requests served at the same time (server slots). The context is shared between the slots.",
+      "group": "speed"
+    },
+    {
+      "key": "ubatch",
+      "target": "option",
+      "path": "options",
+      "option": "ubatch",
+      "option_aliases": [
+        "n_ubatch"
+      ],
+      "cli": [
+        "-ub",
+        "--ubatch-size"
+      ],
+      "type": "int",
+      "min": 1,
+      "default": "same as the batch size",
+      "doc": "Physical batch size: the most tokens one compute step handles. Smaller values use less memory.",
+      "group": "speed"
+    },
+    {
+      "key": "threads_batch",
+      "target": "option",
+      "path": "options",
+      "option": "threads_batch",
+      "option_aliases": [
+        "n_threads_batch"
+      ],
+      "cli": [
+        "-tb",
+        "--threads-batch"
+      ],
+      "type": "int",
+      "min": -1,
+      "default": "same as threads",
+      "doc": "CPU threads used while processing the prompt.",
+      "group": "speed"
+    },
+    {
+      "key": "fit",
+      "target": "option",
+      "path": "options",
+      "option": "fit",
+      "option_aliases": [
+        "fit_params"
+      ],
+      "cli": [
+        "-fit",
+        "--fit"
+      ],
+      "type": "enum",
+      "enum": [
+        "on",
+        "off"
+      ],
+      "default": "on",
+      "doc": "Let llama.cpp lower the context size and the offload so the model fits in device memory.",
+      "group": "memory"
+    },
+    {
+      "key": "no_op_offload",
+      "target": "option",
+      "path": "options",
+      "option": "no_op_offload",
+      "cli": [
+        "--no-op-offload"
+      ],
+      "cli_negated": [
+        "--op-offload"
+      ],
+      "type": "bool",
+      "default": "false",
+      "doc": "Do not offload host tensor operations to the GPU.",
+      "group": "speed"
+    },
+    {
+      "key": "direct_io",
+      "target": "option",
+      "path": "options",
+      "option": "direct_io",
+      "option_aliases": [
+        "use_direct_io"
+      ],
+      "cli": [
+        "-dio",
+        "--direct-io"
+      ],
+      "cli_negated": [
+        "--no-direct-io"
+      ],
+      "type": "bool",
+      "default": "false",
+      "doc": "Read the model file with direct I/O, bypassing the page cache. Takes priority over mmap and mlock.",
+      "group": "memory"
+    },
+    {
+      "key": "temperature",
+      "target": "config",
+      "path": "parameters.temperature",
+      "cli": [
+        "--temp",
+        "--temperature"
+      ],
+      "type": "float",
+      "min": 0,
+      "default": "request value, then model default",
+      "doc": "Sampling temperature. Requests that set their own value override it.",
+      "group": "sampling"
+    },
+    {
+      "key": "top_p",
+      "target": "config",
+      "path": "parameters.top_p",
+      "cli": [
+        "--top-p"
+      ],
+      "type": "float",
+      "min": 0,
+      "max": 1,
+      "default": "request value, then model default",
+      "doc": "Nucleus sampling: keep the smallest set of tokens whose probability adds up to this value.",
+      "group": "sampling"
+    },
+    {
+      "key": "top_k",
+      "target": "config",
+      "path": "parameters.top_k",
+      "cli": [
+        "--top-k"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "request value, then model default",
+      "doc": "Keep only the K most likely tokens. 0 turns the filter off.",
+      "group": "sampling"
+    },
+    {
+      "key": "min_p",
+      "target": "config",
+      "path": "parameters.min_p",
+      "cli": [
+        "--min-p"
+      ],
+      "type": "float",
+      "min": 0,
+      "max": 1,
+      "default": "request value, then model default",
+      "doc": "Drop tokens whose probability is below this fraction of the top token. 0 turns the filter off.",
+      "group": "sampling"
+    },
+    {
+      "key": "override_tensor",
+      "target": "option",
+      "path": "options",
+      "option": "-ot",
+      "option_aliases": [
+        "--override-tensor",
+        "override_tensor",
+        "tensor_buft_overrides"
+      ],
+      "cli": [
+        "-ot",
+        "--override-tensor"
+      ],
+      "type": "string",
+      "default": "no override",
+      "doc": "Place the tensors that match a regular expression on a given device, as pattern=buffer. Opt-in: nothing is placed this way unless you set it. Use the placement helper to keep MoE expert tensors on the CPU.",
+      "group": "placement",
+      "repeatable": true
+    }
+  ],
+  "groups": [
+    "memory",
+    "speed",
+    "placement",
+    "sampling",
+    "template"
+  ],
+  "combined": [
+    {
+      "id": "load_mode",
+      "flag": "--load-mode",
+      "group": "memory",
+      "doc": "How the model file is read. Writes mmap, mmlock and the direct_io option.",
+      "keys": [
+        "mmap",
+        "mmlock",
+        "direct_io"
+      ],
+      "unset": {
+        "direct_io": false,
+        "mmap": true,
+        "mmlock": false
+      },
+      "choices": [
+        {
+          "value": "default",
+          "label": "Default (memory-mapped)",
+          "set": {
+            "direct_io": null,
+            "mmap": null,
+            "mmlock": null
+          }
+        },
+        {
+          "value": "none",
+          "label": "None (read into memory)",
+          "set": {
+            "direct_io": null,
+            "mmap": false,
+            "mmlock": null
+          }
+        },
+        {
+          "value": "mmap",
+          "label": "mmap",
+          "set": {
+            "direct_io": null,
+            "mmap": true,
+            "mmlock": null
+          }
+        },
+        {
+          "value": "mlock",
+          "label": "mlock",
+          "set": {
+            "direct_io": null,
+            "mmap": false,
+            "mmlock": true
+          }
+        },
+        {
+          "value": "mmap_mlock",
+          "label": "mmap + mlock",
+          "set": {
+            "direct_io": null,
+            "mmap": true,
+            "mmlock": true
+          }
+        },
+        {
+          "value": "direct_io",
+          "label": "Direct I/O",
+          "set": {
+            "direct_io": true,
+            "mmap": null,
+            "mmlock": null
+          }
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "id": "bigMoe",
+      "name": "Big MoE on a small GPU",
+      "description": "All layers on the GPU, experts on the CPU, 8-bit KV cache.",
+      "settings": {
+        "cache_type_k": "q8_0",
+        "cache_type_v": "q8_0",
+        "flash_attention": "on",
+        "gpu_layers": 999,
+        "no_op_offload": true,
+        "parallel": 1
+      },
+      "placement": {
+        "mode": "experts_cpu_all"
+      }
+    },
+    {
+      "id": "maxContext",
+      "name": "Max context",
+      "description": "128K context, flash attention and an 8-bit KV cache.",
+      "settings": {
+        "cache_type_k": "q8_0",
+        "cache_type_v": "q8_0",
+        "context_size": 131072,
+        "flash_attention": "on",
+        "parallel": 1
+      }
+    },
+    {
+      "id": "lowVram",
+      "name": "Low VRAM",
+      "description": "4K context, a 4-bit KV cache and a small micro-batch.",
+      "settings": {
+        "cache_type_k": "q4_0",
+        "cache_type_v": "q4_0",
+        "context_size": 4096,
+        "flash_attention": "on",
+        "parallel": 1,
+        "ubatch": 128
+      }
+    }
+  ],
+  "reserved_options": [
+    "cpu_moe",
+    "n_cpu_moe",
+    "moe_cache_mib"
+  ],
+  "placement": {
+    "option": "-ot",
+    "aliases": [
+      "--override-tensor",
+      "override_tensor",
+      "tensor_buft_overrides"
+    ],
+    "group": "placement",
+    "modes": [
+      "experts_cpu_all",
+      "experts_cpu_layers",
+      "first_layers_gpu"
+    ]
+  }
+}

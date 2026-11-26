@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { WebuiModel, type WebuiInputs } from '../src/main/webuiState'
+import { WebuiModel, type WebuiInputs } from '../src/core/webuiState'
 
 const LOCAL = 'http://127.0.0.1:8080'
 const REMOTE = 'https://remote.example.test'
@@ -288,5 +288,23 @@ describe('WebuiModel: bar and dot', () => {
     expect(m.state()).toMatchObject({ overlay: true, shellAbove: true })
     m.dispatch({ type: 'overlay', open: false })
     expect(m.state().shellAbove).toBe(false)
+  })
+})
+
+describe('WebuiModel: no local server (a client-only app)', () => {
+  const client = () => new WebuiModel(inputs({ server: 'not-installed', localOrigin: '' }))
+
+  it('back to local closes the remote view and opens nothing', () => {
+    const m = client()
+    expect(m.dispatch({ type: 'connect', origin: REMOTE, host: 'remote.example.test' })).toEqual([{ kind: 'show', origin: REMOTE, url: `${REMOTE}/app` }])
+    expect(m.dispatch({ type: 'back-to-local' })).toEqual([{ kind: 'close' }])
+    expect(m.state()).toMatchObject({ layout: 'shell-only', home: 'shell-only' })
+  })
+
+  it('"open in browser" with no remote has nothing to open', () => {
+    const m = client()
+    expect(m.dispatch({ type: 'open-in-browser' })).toEqual([])
+    m.dispatch({ type: 'connect', origin: REMOTE, host: 'remote.example.test' })
+    expect(m.dispatch({ type: 'open-in-browser' })).toEqual([{ kind: 'open-browser', url: `${REMOTE}/app` }])
   })
 })

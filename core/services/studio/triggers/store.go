@@ -9,6 +9,15 @@ import (
 // ErrNotFound is returned by a Store for a trigger or run that does not exist.
 var ErrNotFound = errors.New("triggers: not found")
 
+// ErrDuplicate is returned by PutTrigger for a reminder whose watch already
+// has another reminder for the same thing.
+var ErrDuplicate = errors.New("triggers: the watch has a reminder for this thing")
+
+// ErrConflict is returned by PutTrigger for a reminder that changed in the
+// store since the caller read it (its Reminder.Rev is not the stored one).
+// The caller reads it again and applies its change on top.
+var ErrConflict = errors.New("triggers: the reminder changed since it was read")
+
 // Retention says which finished runs Store.PruneRuns removes. A run that is
 // queued or running is never removed.
 type Retention struct {
@@ -56,12 +65,23 @@ type Store interface {
 	// AllTriggers returns every trigger of every owner, sorted by owner, name
 	// and ID. It is for the administrator's view and for migrations.
 	AllTriggers(ctx context.Context) ([]Trigger, error)
+	// ReminderByKey returns the reminder of a watch for a thing, or
+	// ErrNotFound. PutTrigger refuses a second reminder of the same watch and
+	// key with ErrDuplicate, and a reminder whose Reminder.Rev is not the
+	// stored one with ErrConflict; it stores the reminder with the next Rev.
+	ReminderByKey(ctx context.Context, parentID, key string) (Trigger, error)
+	// Reminders returns the reminders of a watch, sorted by ID.
+	Reminders(ctx context.Context, parentID string) ([]Trigger, error)
 
 	// Claim stores a new run. It returns false, and stores nothing, when a run
 	// with the same TriggerID and DueKey exists, whatever its ID. It returns an
 	// error, and stores nothing, when only the ID is taken.
 	// Two concurrent calls with the same key return true once.
 	Claim(ctx context.Context, r Run) (bool, error)
+	// AppendRunPayload merges payload into the Payload of the run with the ID,
+	// as MergePayload does with keep. It does so only while the run is queued
+	// and returns ErrNotFound for an unknown run or one that is not queued.
+	AppendRunPayload(ctx context.Context, runID, payload string, keep int) error
 	// GetRun returns ErrNotFound for an unknown ID.
 	GetRun(ctx context.Context, id string) (Run, error)
 	// SetRunStatus replaces Status, Reason, ChatID, Started and Ended of the
@@ -79,11 +99,20 @@ type Store interface {
 	RunningRuns(ctx context.Context) ([]Run, error)
 	// QueuedRuns returns every run with the status queued, oldest claim first.
 	QueuedRuns(ctx context.Context) ([]Run, error)
+	// RunByKey returns the run of a trigger that holds the DueKey, or
+	// ErrNotFound.
+	RunByKey(ctx context.Context, triggerID, dueKey string) (Run, error)
 	// RunByChat returns the run that started the chat, or ErrNotFound.
 	RunByChat(ctx context.Context, chatID string) (Run, error)
+	// LastStarted returns the newest Started time of the runs of a trigger, or
+	// the zero time when none started.
+	LastStarted(ctx context.Context, triggerID string) (time.Time, error)
 	// CountRunsSince counts the runs of a trigger whose Due is not before since
-	// and whose status is not skipped.
+	// and whose status is not skipped or handled.
 	CountRunsSince(ctx context.Context, triggerID string, since time.Time) (int, error)
+	// CountHandledSince counts the rows of a trigger with status handled (the
+	// reminder changes of a watch) whose Due is not before since.
+	CountHandledSince(ctx context.Context, triggerID string, since time.Time) (int, error)
 
 	// Cursor returns the revision of the workspace change feed that the Runner
 	// has handled, and false when none was saved.

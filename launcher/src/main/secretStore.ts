@@ -26,6 +26,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { ENV_NAME, MAX_ENV_NAME, MAX_ENV_VALUE } from '../shared/envVars'
 import type { SecretBackend, SecretStorageView } from '../shared/types'
+import { CRED_ID } from '../core/configTypes'
 
 /** The part of Electron's safeStorage the store uses. */
 export interface SafeStorageLike {
@@ -47,8 +48,7 @@ export const ENV_PREFIX = 'env:'
 export const envSecret = (name: string) => `${ENV_PREFIX}${name}`
 export const CRED_PREFIX = 'cred:'
 export const credSecret = (id: string) => `${CRED_PREFIX}${id}`
-/** The id of a registry credential rule: short, no separators that could escape a name. */
-export const CRED_ID = /^[A-Za-z0-9_-]{1,64}$/
+export { CRED_ID }
 
 export function isSecretName(name: string): boolean {
   if (name === API_KEY_SECRET || name === WORKER_TOKEN_SECRET) return true

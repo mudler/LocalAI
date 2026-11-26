@@ -242,7 +242,8 @@
       "everyMinutes": "Every few minutes",
       "once": "Once",
       "cron": "Advanced (cron)",
-      "file": "When a file arrives"
+      "file": "When a file arrives",
+      "event": "When an event arrives"
     },
     "day": {
       "mon": "Mon",
@@ -389,6 +390,58 @@
           "body_one": "{{count}} old file deleted.",
           "body_other": "{{count}} old files deleted."
         }
+      },
+      "run": {
+        "title_one": "Updating {{count}} item",
+        "title_other": "Updating {{count}} items",
+        "titleAuto_one": "Automatic update: {{count}} item",
+        "titleAuto_other": "Automatic update: {{count}} items",
+        "updated_one": "{{count}} updated",
+        "updated_other": "{{count}} updated",
+        "running_one": "{{count}} running",
+        "running_other": "{{count}} running",
+        "waiting_one": "{{count}} waiting",
+        "waiting_other": "{{count}} waiting",
+        "done": "{{done}} of {{total}} done",
+        "end": {
+          "attention_one": "{{updated}} updated, {{count}} needs attention",
+          "attention_other": "{{updated}} updated, {{count}} need attention",
+          "done_one": "{{count}} updated",
+          "done_other": "{{count}} updated",
+          "auto": "Automatic: {{text}}",
+          "first": "{{name}} is still on {{version}}.",
+          "firstWhy": "{{name}} is still on {{version}}: {{reason}}.",
+          "cancelled_one": "Update run cancelled: {{count}} updated",
+          "cancelled_other": "Update run cancelled: {{count}} updated",
+          "cancelledAttention_one": "Update run cancelled: {{updated}} updated, {{count}} needs attention",
+          "cancelledAttention_other": "Update run cancelled: {{updated}} updated, {{count}} need attention",
+          "firstStart": "{{name}} is still on {{version}}: the new version did not start: {{reason}}."
+        }
+      },
+      "watch": {
+        "set": "Set the reminder for \"{{title}}\": {{when}}.",
+        "changed": "Changed the reminder for \"{{title}}\": {{when}}.",
+        "cancelled": "Cancelled the reminder for \"{{title}}\".",
+        "snoozed": "Snoozed the reminder for \"{{title}}\" to {{when}}.",
+        "snoozeUndone": "Took back the snooze of the reminder for \"{{title}}\".",
+        "skipped": "Skipped the reminder for \"{{title}}\".",
+        "skipUndone": "Took back the skip of the reminder for \"{{title}}\".",
+        "taskChanged": "Changed the task of the reminder for \"{{title}}\".",
+        "restored": "Put back the reminder for \"{{title}}\": {{when}}.",
+        "next": "Set the reminder for the next \"{{title}}\": {{when}}.",
+        "moved": "Moved the reminder for \"{{title}}\" to {{when}}.",
+        "movedStarted": "\"{{title}}\" moved; it has already started, so there is no reminder.",
+        "removed": "Cancelled the reminder for \"{{title}}\": it was removed.",
+        "woken": "\"{{title}}\" changed. Checking its reminder now.",
+        "movedBy": "\"{{title}}\" was moved. I'll remind you at {{when}}.",
+        "movedByStarted": "\"{{title}}\" was moved and has already started.",
+        "removedBy": "\"{{title}}\" was removed, so I cancelled its reminder.",
+        "wokenBy": "\"{{title}}\" changed. I'm checking whether its reminder still fits.",
+        "missed": "Missed: {{title}}. The server was down at the reminder time.",
+        "onHold": "The reminder for \"{{title}}\" is on hold while this watch is paused.",
+        "dropped": "The reminder for \"{{title}}\" was removed with its watch.",
+        "lastKnown": "Set the reminder for the next \"{{title}}\": {{when}}. It is the last time known; a change of the item sets the ones after it.",
+        "seriesEnded": "No later time of \"{{title}}\" is known, so it has no reminder now. A change of the item sets the next one."
       }
     },
     "tabs": {
@@ -425,7 +478,15 @@
       }
     },
     "chatsOff": "Chats are off",
-    "emptyBodyNoChats": "Updates and finished operations appear here."
+    "emptyBodyNoChats": "Updates and finished operations appear here.",
+    "runProgress": "Progress: {{title}}",
+    "runStarted": "Started {{when}}",
+    "viewProgress": "View progress",
+    "seeRun": "See the run",
+    "openUpdates": "Open Updates",
+    "updatesPending_one": "{{count}} update available",
+    "updatesPending_other": "{{count}} updates available",
+    "updatesNone": "Everything is up to date"
   },
   "connectorsPage": {
     "title": "Connections",
@@ -1027,9 +1088,7 @@
     "folder": "Folder to watch",
     "saveEdit": "Save",
     "cancelEdit": "Cancel",
-    "create": "Create trigger",
     "edit": "Edit",
-    "dismiss": "Dismiss",
     "receipt": {
       "scheduled": "Scheduled:",
       "watching": "Watching:",
@@ -1084,8 +1143,17 @@
       "stop": "Switch it off or delete it in Triggers",
       "actsLabel": "Permissions",
       "limitLabel": "Time limit",
-      "limitClamped": "{{limit}}, cut to {{ceiling}} by the administrator"
-    }
+      "limitClamped": "{{limit}}, cut to {{ceiling}} by the administrator",
+      "doesLabel": "Does",
+      "tellsYouLabel": "Tells you",
+      "doesWatch": "Keeps reminders for {{source}}, {{offset}} by default.",
+      "tellsWatch": "Only when it adds something: a change someone else made, a planned brief or a clash.",
+      "tellsEvery": "After every run.",
+      "tellsOnChange": "When the answer differs from the run before.",
+      "tellsOnProblem": "Only when a run fails."
+    },
+    "approve": "Approve",
+    "notNow": "Not now"
   },
   "subAgents": {
     "label": "Sub-agents",
@@ -1910,5 +1978,165 @@
       "reason": "The setting of this chat is {{window}} tokens and the chat needs at least {{minimum}}.",
       "fix": "Use the window of the model"
     }
+  },
+  "event": {
+    "listening": "Listening:",
+    "announceAccepted": "Created {{name}}. Copy its secret now: it is shown once.",
+    "sentence": {
+      "typed": "When {{source}} sends {{type}}",
+      "any": "When {{source}} sends any event",
+      "where": " where {{matches}}",
+      "and": " and "
+    },
+    "hook": {
+      "title": "Hook address and secret",
+      "urlLabel": "Hook URL",
+      "secretLabel": "Secret (shown once)",
+      "curlLabel": "Example call",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copyUrl": "Copy the hook URL",
+      "copySecret": "Copy the secret",
+      "copyCurl": "Copy the example call",
+      "paste": "Paste the URL and the secret into the sender's webhook settings. The secret is not shown again.",
+      "noSecret": "The secret is not shown again. Rotate it to get a new one.",
+      "rotate": "Rotate secret",
+      "rotateTitle": "Rotate the secret of {{name}}?",
+      "rotateBody": "The old secret stops working at once. Put the new one into the sender before its next event.",
+      "rotateConfirm": "Rotate",
+      "rotated": "New secret made.",
+      "rotateFailed": "The secret could not be rotated: {{message}}"
+    },
+    "form": {
+      "source": "Sender",
+      "sourceHint": "The name of the sender, for example github.",
+      "sourceEmpty": "Name the sender of the events.",
+      "type": "Event type",
+      "typeHint": "Leave empty to take any type of event.",
+      "matches": "Only when (one field=value per line)",
+      "matchesHint": "Up to 8 lines, for example action=opened.",
+      "createdTitle": "{{name}} is ready",
+      "done": "Done"
+    }
+  },
+  "watch": {
+    "section": "Watch",
+    "new": "New watch",
+    "titleNew": "New watch",
+    "titleEdit": "Edit {{name}}",
+    "source": "Watch",
+    "sourceHelp": "Only add-ons that report their changes are listed.",
+    "sourcePick": "Choose an add-on",
+    "types": "Changes to take",
+    "typesHelp": "Leave all unticked to take every change.",
+    "offset": "Remind me",
+    "none": "No default reminder",
+    "atTime": "At the time",
+    "minutesBefore_one": "{{count}} min before",
+    "minutesBefore_other": "{{count}} min before",
+    "hoursBefore_one": "{{count}} hour before",
+    "hoursBefore_other": "{{count}} hours before",
+    "daysBefore_one": "{{count}} day before",
+    "daysBefore_other": "{{count}} days before",
+    "minutesAfter_one": "{{count}} min after",
+    "minutesAfter_other": "{{count}} min after",
+    "hoursAfter_one": "{{count}} hour after",
+    "hoursAfter_other": "{{count}} hours after",
+    "daysAfter_one": "{{count}} day after",
+    "daysAfter_other": "{{count}} days after",
+    "allDay": "Things that last all day",
+    "allDayMorning": "In the morning, at 08:00",
+    "allDayNone": "No reminder",
+    "quiet": "Quiet hours",
+    "quietFrom": "From",
+    "quietTo": "To",
+    "quietHelp": "A reminder that falls in them comes the evening before.",
+    "tasks": "Task defaults",
+    "tasksHelp": "In your own words, for example: for calls with other people, prepare a brief 30 min ahead.",
+    "problemSource": "Choose what to watch.",
+    "problemQuiet": "Quiet hours need a start and an end.",
+    "emptyTitle": "Nothing to watch yet",
+    "emptyBody": "No installed add-on reports its changes. Install the Calendar add-on to get reminders for your events.",
+    "summary": "{{source}}, {{offset}}",
+    "watches": "Watches",
+    "state": "State",
+    "on": "On",
+    "paused": "Paused",
+    "permissions": "Edit permissions",
+    "reminders": "Upcoming reminders",
+    "remindersEmpty": "No reminders yet. The watch sets one when something is added.",
+    "dueLine": "{{when}}, {{offset}}",
+    "adjQuiet": "the evening before, outside your quiet hours",
+    "adjAllDay": "in the morning of the day",
+    "skipped": "Skipped",
+    "snoozed": "Snoozed",
+    "started": "Already started",
+    "open": "Open",
+    "snooze": "Snooze",
+    "skip": "Skip",
+    "changeTime": "Change time…",
+    "newTime": "New time",
+    "saveTime": "Save",
+    "save": "Save watch",
+    "cancel": "Cancel",
+    "undo": "Undo",
+    "doneSnooze": "Snoozed to {{when}}.",
+    "doneSkip": "Skipped. It comes back if the item moves.",
+    "doneRetime": "Moved to {{when}}.",
+    "doneUndo": "Undone.",
+    "loadFailed": "The reminders could not be read: {{message}}",
+    "sourcesFailed": "The add-ons that report changes could not be read: {{message}}",
+    "viewWatch": "View watch",
+    "saved": "Watch saved.",
+    "nameRequired": "A watch needs a name.",
+    "promptRequired": "Write what the watch should do.",
+    "promptHint": "This text starts each run of the watch.",
+    "enabledHint": "A watch that is off keeps its reminders; they wait until it is back on.",
+    "change": {
+      "title": {
+        "create": "Set a reminder for {{title}}",
+        "update": "Change the reminder for {{title}}",
+        "delete": "Cancel the reminder for {{title}}"
+      },
+      "help": "Nothing changes until you approve.",
+      "stale": "The reminder changed since this was asked for. Ask again.",
+      "watch": "Watch",
+      "when": "When",
+      "task": "Task",
+      "none": "none",
+      "receipt": {
+        "create": "Reminder set:",
+        "update": "Reminder changed:",
+        "delete": "Reminder cancelled:",
+        "dismissed": "Not changed:",
+        "undone": "Undone:"
+      },
+      "blocked": {
+        "expired": "The time to undo it is over; change the reminder on the watch's page.",
+        "edited": "The reminder changed since; change it on the watch's page.",
+        "removed": "The reminder or its watch was removed since."
+      },
+      "announce": {
+        "applied": "Approved the reminder change for {{title}}.",
+        "dismissed": "Left the reminder for {{title}} as it was.",
+        "undone": "Undid the reminder change for {{title}}."
+      }
+    }
+  },
+  "incognito": {
+    "label": "Incognito",
+    "levelLabel": "Incognito level",
+    "levels": {
+      "memory-off": "Memory off",
+      "zero-retention": "Zero retention"
+    },
+    "describe": {
+      "memory-off": "This chat does not read or save memory. It is not listed and ends when you leave it. Logs and traces are kept as usual.",
+      "zero-retention": "Nothing of this chat is kept on the server, only usage counts. It reads and saves no memory, takes no attachments, and ends when you leave it."
+    },
+    "blocked": "Not available in an incognito chat",
+    "discardTitle": "End the incognito chat?",
+    "discardMessage": "The chat is deleted and cannot be opened again.",
+    "discardConfirm": "End chat"
   }
 }

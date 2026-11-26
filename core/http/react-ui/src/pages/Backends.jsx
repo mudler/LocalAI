@@ -11,7 +11,7 @@ import { useDebouncedCallback } from '../hooks/useDebounce'
 import { useOperations } from '../hooks/useOperations'
 import { useDistributedMode } from '../hooks/useDistributedMode'
 import { useUpdates } from '../contexts/UpdatesContext'
-import { galleryUpdateMap } from '../utils/updates'
+import { galleryUpdateMap, withMetaUpdates } from '../utils/updates'
 import { isClusterRow } from '../utils/nodeUpdates'
 import { CANCEL_UNDO_MS, useUndoableCancel } from '../hooks/useUndoableCancel'
 import { backendState, libraryOrigin, opForBackend, shortDigest, sortInstalled, versionLabel } from '../utils/backendRows'
@@ -297,7 +297,7 @@ export default function Backends() {
   // one reader of that fact. Updating is done on the Updates page.
   const updates = useUpdates()
   const updateRows = updates && updates.rows
-  const upgrades = useMemo(() => galleryUpdateMap(updateRows), [updateRows])
+  const upgrades = useMemo(() => withMetaUpdates(galleryUpdateMap(updateRows), installed), [updateRows, installed])
   const updateNames = Object.keys(upgrades)
   const installedCount = installed.length
   const recommended = activeView === 'catalog' && !search && !catalogFilter && installedOnce.current && installedCount === 0
@@ -1070,6 +1070,9 @@ export default function Backends() {
   const shownCount = activeView === 'installed' ? installedVisible.length : catalogList.length
   const totalCount = activeView === 'installed' ? installed.length : allBackends.length
   const showUpdates = installEnabled && updateNames.length > 0
+  // A failed read of the updates must not look like "no updates": say so, and
+  // let the person read again.
+  const updatesUnreadable = installEnabled && updateNames.length === 0 && Boolean(updates && updates.loadError)
 
   // The way out of a filtered list that shows nothing, in both views. Every
   // filter goes, the library one too: it is what the empty state names when
@@ -1154,7 +1157,7 @@ export default function Backends() {
           </span>
         </div>
 
-        {(showCount || activeFilters.length > 0 || showUpdates) && (
+        {(showCount || activeFilters.length > 0 || showUpdates || updatesUnreadable) && (
           <div className="bk-status">
             {showCount && (
               <span className="bk-count" aria-live="polite" data-testid="backends-count">
@@ -1179,6 +1182,12 @@ export default function Backends() {
                   </li>
                 ))}
               </ul>
+            )}
+            {updatesUnreadable && (
+              <span className="bk-updates" role="status" data-testid="backends-updates-unreadable">
+                <span className="bk-updates__text"><Icon name="alert-circle" /> {tu('loadError.title')}</span>
+                <Button variant="ghost" size="sm" onClick={() => updates.refresh()}>{tu('row.retry')}</Button>
+              </span>
             )}
             {showUpdates && (
               <span className="bk-updates" data-testid="backends-updates">

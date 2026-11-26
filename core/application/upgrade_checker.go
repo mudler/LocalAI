@@ -5,7 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/updatenotify"
+	"github.com/mudler/LocalAI/core/services/upgraderun"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
@@ -107,6 +109,9 @@ type UpgradeChecker struct {
 	// ended with a failed check. It lives in this process: a new leader starts
 	// again at zero, which only delays the notice.
 	failStreak map[string]int
+	// autoRuns starts the upgrade run of the automatic pass. nil, or without
+	// a run service: the pass installs inline.
+	autoRuns *autoRunner
 }
 
 // checkFailedAfter is how many automatic passes in a row must fail the check of
@@ -125,6 +130,10 @@ type updateAnnouncer interface {
 // SetAnnouncer sets the writer of the inbox items. The pass that installs
 // updates calls it at its end.
 func (uc *UpgradeChecker) SetAnnouncer(a updateAnnouncer) { uc.announcer = a }
+
+// SetAutoRuns makes the automatic pass start an upgrade run with the source
+// "auto" for the backends it finds, instead of installing them inside the pass.
+func (uc *UpgradeChecker) SetAutoRuns(r *autoRunner) { uc.autoRuns = r }
 
 // NewUpgradeChecker creates a new UpgradeChecker service.
 // Pass db=nil for standalone mode, or a *gorm.DB for distributed mode
@@ -278,6 +287,13 @@ func (uc *UpgradeChecker) upgradeLibraryBackends(ctx context.Context, pass *upgr
 	updates, err := lib.Updates(ctx)
 	if err != nil {
 		xlog.Debug("Library backend upgrade check failed", "error", err)
+		return
+	}
+	if uc.autoRuns.available() {
+		// The run installs them; this pass only lists them.
+		for _, u := range updates {
+			pass.runItems = append(pass.runItems, upgraderun.StartItem{Kind: upgraderun.KindLibrary, Name: u.SourceID + "/" + u.Name})
+		}
 		return
 	}
 	for _, u := range updates {
@@ -437,7 +453,13 @@ func (uc *UpgradeChecker) snapshotWith(ctx context.Context, throttled, withModel
 			xlog.Debug("Could not list the loaded models for the update view", "error", err)
 		}
 	}
-	return backendupdates.Build(in)
+	snap := backendupdates.Build(in)
+	// The automatic update leaves out a release that did not start before;
+	// the Updates page says so on its row.
+	if in.AutoBackends && len(snap.Items) > 0 {
+		upgraderun.MarkHeldBack(&snap, uc.autoRuns.heldBack(ctx))
+	}
+	return snap
 }
 
 // CheckNow runs a check and waits for it: the gallery backends, and the
@@ -553,6 +575,8 @@ func (uc *UpgradeChecker) runCheck(ctx context.Context, autoUpgrade bool) *upgra
 	if autoUpgrade {
 		defer func() {
 			uc.upgradeLibraryBackends(ctx, pass)
+			// One run for the gallery and the library backends of this pass.
+			uc.startPassRun(ctx, pass)
 			// The pass may have installed library updates.
 			uc.detectLibrary(ctx, false)
 		}()
@@ -587,6 +611,14 @@ func (uc *UpgradeChecker) runCheck(ctx context.Context, autoUpgrade bool) *upgra
 	// gallery.UpgradeBackend directly would look up the backend on the
 	// frontend filesystem, which is empty in distributed mode and produces
 	// "backend not found" while the cluster still reports an upgrade.
+	if autoUpgrade && uc.appConfig.AutoUpgradeBackends && uc.autoRuns.available() {
+		// The upgrade run installs them (see startPassRun), where the Updates
+		// page and Operations show them; the pass only lists what is pending.
+		for _, name := range slices.Sorted(maps.Keys(upgrades)) {
+			pass.runItems = append(pass.runItems, upgraderun.StartItem{Kind: upgraderun.KindGallery, Name: name})
+		}
+		return pass
+	}
 	if autoUpgrade && uc.appConfig.AutoUpgradeBackends {
 		var bm galleryop.BackendManager
 		if uc.backendManagerFn != nil {
@@ -641,6 +673,19 @@ func (uc *UpgradeChecker) runCheck(ctx context.Context, autoUpgrade bool) *upgra
 // upgradePass is what one automatic pass did, for the inbox.
 type upgradePass struct {
 	outcomes []updatenotify.Outcome
+	// runItems are the backends the pass hands to an upgrade run instead of
+	// installing them.
+	runItems []upgraderun.StartItem
+}
+
+// startPassRun starts the one upgrade run of a pass with the source "auto".
+// While another run is running it waits and retries (autoRunner); the items
+// are listed again by the next pass in any case.
+func (uc *UpgradeChecker) startPassRun(ctx context.Context, pass *upgradePass) {
+	if len(pass.runItems) == 0 || ctx.Err() != nil {
+		return
+	}
+	uc.autoRuns.begin(ctx, "backends", pass.runItems)
 }
 
 // announce writes the inbox items at the end of a pass that may install: the
@@ -690,6 +735,6 @@ func (uc *UpgradeChecker) failingSources(snap backendupdates.Snapshot) []string 
 			out = append(out, name)
 		}
 	}
-	sort.Strings(out)
+	slices.Sort(out)
 	return out
 }

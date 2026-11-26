@@ -178,9 +178,6 @@ type NodeControl interface {
 	InstallTimeout() time.Duration
 	// DeleteModelFiles asks every node that holds the model to delete its files.
 	DeleteModelFiles(modelName string) error
-	// InstallBackendForce is the rolling-update fallback for UpgradeBackend on
-	// a worker that does not serve backend upgrades: an install with Force set.
-	InstallBackendForce(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error)
 }
 
 // ConcurrencyConflictResolver returns the names of configured models that

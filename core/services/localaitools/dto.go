@@ -938,3 +938,47 @@ type ModelHoldResult struct {
 	Name string `json:"name"`
 	Hold bool   `json:"hold"`
 }
+
+// UpgradeRunItemRef is one item of upgrade_run_start: a backend of a gallery
+// (gallery), of a library (library, name "<source>/<backend>") or a gallery
+// model (model). Add-ons are not assistant items.
+type UpgradeRunItemRef struct {
+	Kind       string `json:"kind"                  jsonschema:"gallery, library or model."`
+	Name       string `json:"name"                  jsonschema:"Backend or model name (library: <source>/<backend>), from backend_updates or model_updates."`
+	ExpectedTo string `json:"expected_to,omitempty" jsonschema:"The version or digest the update was shown to move to; the start is refused when it moved since."`
+}
+
+// UpgradeRunStartRequest is the input of upgrade_run_start.
+type UpgradeRunStartRequest struct {
+	Items []UpgradeRunItemRef `json:"items" jsonschema:"The items to update in one run."`
+}
+
+// UpgradeRunItem is one item of an upgrade run (REST upgraderun.Item).
+type UpgradeRunItem struct {
+	Key          string `json:"key"`
+	Kind         string `json:"kind"`
+	Name         string `json:"name"`
+	Title        string `json:"title,omitempty"`
+	From         string `json:"from,omitempty"`
+	To           string `json:"to,omitempty"`
+	Phase        string `json:"phase"`
+	Progress     int    `json:"progress"`
+	Message      string `json:"message,omitempty"`
+	ErrorKey     string `json:"error_key,omitempty"`
+	Error        string `json:"error,omitempty"`
+	JobID        string `json:"job_id,omitempty"`
+	QueuedReason string `json:"queued_reason,omitempty"`
+	Cancellable  bool   `json:"cancellable"`
+	Retryable    bool   `json:"retryable"`
+}
+
+// UpgradeRun is an upgrade run (REST upgraderun.Run).
+type UpgradeRun struct {
+	ID              string           `json:"id"`
+	Source          string           `json:"source"`
+	State           string           `json:"state"`
+	CreatedAt       string           `json:"created_at,omitempty"`
+	FinishedAt      string           `json:"finished_at,omitempty"`
+	CancelRequested bool             `json:"cancel_requested,omitempty"`
+	Items           []UpgradeRunItem `json:"items"`
+}

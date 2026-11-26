@@ -27,6 +27,7 @@ import type {
   WebuiViewState,
 } from '../../shared/types'
 import type {
+  ApkUpdateView,
   Bridge,
   BridgeExtras,
   InstallDetailsView,
@@ -75,6 +76,12 @@ export interface FakeState {
   testResult?: TestResultView
   /** What the folder picker returns: a folder (saved as the main process would), a refusal, or cancel (default). */
   pickedFolder?: string | { refused: FolderRefusal }
+  /** What a QR scan reads. Undefined: the scan was cancelled. */
+  scan?: string
+  /** What the APK update sheet reads. Default: no offer, installs allowed. */
+  apkUpdate?: ApkUpdateView
+  /** "Keep P2P connection in the background" as the native side has it. Default: off. */
+  p2pKeep?: boolean
 }
 
 export const ENDPOINT = 'http://127.0.0.1:8080'
@@ -191,6 +198,12 @@ export interface FakeBridge extends Bridge {
   emitServers(v: ServersView): void
   /** The menu accelerator was pressed. */
   emitOpenSwitcher(): void
+  /** A link or shared text reached the app. */
+  emitInviteLink(text: string): void
+  /** The updater state changed. */
+  emitUpdater(s: UpdaterStatus): void
+  /** The native side changed "Keep P2P connection in the background" (the notification's Disconnect). */
+  emitP2PKeep(on: boolean): void
 }
 
 type Listener<T> = Set<(v: T) => void>
@@ -215,6 +228,8 @@ export function fakeBridge(state: FakeState, opts: { extras?: boolean | Optional
     webui: new Set() as Listener<WebuiViewState>,
     servers: new Set() as Listener<ServersView>,
     switcher: new Set() as Listener<void>,
+    invite: new Set() as Listener<string>,
+    p2pKeep: new Set() as Listener<boolean>,
   }
   const rec = <T>(name: string, value: T, ...args: unknown[]): Promise<T> => {
     calls.push({ name, args })
@@ -464,6 +479,19 @@ export function fakeBridge(state: FakeState, opts: { extras?: boolean | Optional
     testWorker: (c) => rec('testWorker', { ...(s.worker as WorkerView), status: 'reachable' as const }, c),
     startWorker: (c) => rec('startWorker', { ...(s.worker as WorkerView), running: true, status: 'connected' as const }, c),
     stopWorker: () => rec('stopWorker', { ...(s.worker as WorkerView), running: false, status: 'idle' as const }),
+    scanInvite: () => rec('scanInvite', s.scan),
+    onInviteLink: (cb) => sub(ls.invite, cb),
+    getApkUpdate: () => rec('getApkUpdate', s.apkUpdate ?? { canInstall: true }),
+    openInstallSettings: () => rec('openInstallSettings', undefined),
+    getDevApp: () => rec('getDevApp', undefined),
+    getP2PKeepInBackground: () => rec('getP2PKeepInBackground', s.p2pKeep ?? false),
+    setP2PKeepInBackground: (on) => {
+      s.p2pKeep = on
+      ls.p2pKeep.forEach((cb) => cb(on))
+      return rec('setP2PKeepInBackground', on, on)
+    },
+    onP2PKeepInBackground: (cb) => sub(ls.p2pKeep, cb),
+    openCertificateHelp: () => rec('openCertificateHelp', undefined),
   }
 
   const pick = opts.extras ?? true
@@ -491,6 +519,15 @@ export function fakeBridge(state: FakeState, opts: { extras?: boolean | Optional
       pushServers()
     },
     emitOpenSwitcher: () => ls.switcher.forEach((cb) => cb()),
+    emitInviteLink: (text: string) => ls.invite.forEach((cb) => cb(text)),
+    emitUpdater: (v: UpdaterStatus) => {
+      s.updater = v
+      ls.updater.forEach((cb) => cb(v))
+    },
+    emitP2PKeep: (on: boolean) => {
+      s.p2pKeep = on
+      ls.p2pKeep.forEach((cb) => cb(on))
+    },
   }) as FakeBridge
 }
 

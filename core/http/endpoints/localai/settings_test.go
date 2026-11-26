@@ -181,6 +181,34 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(cfg.EffectiveChatsToolSearch()).To(Equal("auto"))
 	})
 
+	It("takes the incognito policy and its highest level and rejects other values", func() {
+		cfg := app.ApplicationConfig()
+		get := func() map[string]any {
+			req := httptest.NewRequest(http.MethodGet, "/api/settings", nil)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			var settings map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &settings)).To(Succeed())
+			return settings
+		}
+		Expect(get()).To(HaveKeyWithValue("incognito", "allow"))
+		Expect(get()).To(HaveKeyWithValue("incognito_max_level", "zero-retention"))
+		rec := post(`{"incognito":"forbid","incognito_max_level":"memory-off"}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(string(cfg.IncognitoPolicy())).To(Equal("forbid"))
+		Expect(cfg.IncognitoMaxLevel().String()).To(Equal("memory-off"))
+		rec = post(`{"incognito":"force"}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(rec.Body.String()).To(ContainSubstring("Invalid incognito"))
+		rec = post(`{"incognito_max_level":"normal"}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(string(cfg.IncognitoPolicy())).To(Equal("forbid"), "the bad value changed nothing")
+		rec = post(`{"incognito":"allow","incognito_max_level":"zero-retention"}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(string(cfg.IncognitoPolicy())).To(Equal("allow"))
+	})
+
 	It("rejects a host-commands mode and pins the chats do not understand", func() {
 		rec := post(`{"chats_host_exec":"always"}`)
 		Expect(rec.Code).To(Equal(http.StatusBadRequest))

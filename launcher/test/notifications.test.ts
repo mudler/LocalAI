@@ -16,7 +16,7 @@ import {
   type InboxItem,
   type NotifierDeps,
   type NotifyTarget,
-} from '../src/main/notifications'
+} from '../src/core/notifications'
 import { unreadTooltip } from '../src/main/trayPolicy'
 import { applySettings, toSettings } from '../src/main/settings'
 import { desktopNotifications, withDesktopNotifications } from '../src/main/configStore'

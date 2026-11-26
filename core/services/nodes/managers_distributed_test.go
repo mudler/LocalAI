@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"runtime"
 	"sync"
 	"time"
@@ -30,7 +31,6 @@ type scriptedMessagingClient struct {
 	replies                    map[string][]byte
 	errs                       map[string]error
 	calls                      []requestCall
-	matchedReplies             map[string][]matchedReply
 	scheduledProgressPublishes []scheduledProgressPublish
 	subscribes                 []string
 }
@@ -43,17 +43,6 @@ type scriptedMessagingClient struct {
 type scheduledProgressPublish struct {
 	subject string
 	events  []workerctl.BackendInstallProgressEvent
-}
-
-// matchedReply lets a test script a canned reply that only fires when the
-// inbound request matches a predicate. Used by scriptReplyMatching to
-// distinguish "install Force=true" (the fallback) from "install Force=false"
-// on the same subject.
-type matchedReply struct {
-	pred        func(workerctl.BackendInstallRequest) bool
-	reply       []byte
-	fallback    []byte
-	fallbackErr error
 }
 
 func newScriptedMessagingClient() *scriptedMessagingClient {
@@ -87,58 +76,10 @@ func (s *scriptedMessagingClient) scriptNoResponders(subject string) {
 	s.errs[subject] = nats.ErrNoResponders
 }
 
-// scriptReplyMatching is like scriptReply but the canned reply only fires
-// when the inbound request payload matches `pred(req)`. Lets tests
-// differentiate "install with Force=true" from "install Force=false" on
-// the same subject — useful for asserting the rolling-update fallback
-// path actually sets Force=true on its retry.
-//
-// If `pred` returns false (or the unmarshal of the payload into the
-// predicate's expected type fails), the subject falls through to whatever
-// was scripted before (or to the unscripted default ErrNoResponders).
-func (s *scriptedMessagingClient) scriptReplyMatching(subject string, pred func(workerctl.BackendInstallRequest) bool, reply workerctl.BackendInstallReply) {
-	raw, err := json.Marshal(reply)
-	Expect(err).ToNot(HaveOccurred())
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	prev := s.replies[subject] // may be nil — that's fine
-	prevErr := s.errs[subject] // may be nil — that's fine
-	if s.matchedReplies == nil {
-		s.matchedReplies = map[string][]matchedReply{}
-	}
-	s.matchedReplies[subject] = append(s.matchedReplies[subject], matchedReply{
-		pred:        pred,
-		reply:       raw,
-		fallback:    prev,
-		fallbackErr: prevErr,
-	})
-}
-
 func (s *scriptedMessagingClient) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.calls = append(s.calls, requestCall{Subject: subject, Data: data, Timeout: timeout})
-
-	// Predicate-matched replies take precedence over flat scriptReply.
-	if matchers, ok := s.matchedReplies[subject]; ok {
-		var req workerctl.BackendInstallRequest
-		_ = json.Unmarshal(data, &req)
-		for _, m := range matchers {
-			if m.pred(req) {
-				return m.reply, nil
-			}
-		}
-		// No predicate matched — fall through to the recorded fallback
-		// (whatever was scripted before scriptReplyMatching took over).
-		if matchers[0].fallback != nil {
-			return matchers[0].fallback, nil
-		}
-		if matchers[0].fallbackErr != nil {
-			return nil, matchers[0].fallbackErr
-		}
-		// No fallback either — default to ErrNoResponders.
-		return nil, nats.ErrNoResponders
-	}
 
 	if err, ok := s.errs[subject]; ok && err != nil {
 		return nil, err
@@ -880,27 +821,181 @@ var _ = Describe("DistributedBackendManager", func() {
 			})
 		})
 
-		// Rolling-update fallback: pre-2026-05-08 workers don't subscribe to
-		// backend.upgrade, so the adapter reports ErrNoRoute and the manager
-		// re-fires the legacy backend.install Force=true on the same node.
-		// Drop these specs once the fallback path itself is removed (see
-		// managers_distributed.go UpgradeBackend godoc for the deprecation).
-		Context("rolling-update fallback", func() {
-			It("falls back to backend.install Force=true when upgrade returns ErrNoRoute", func() {
+		Context("a worker that is older than backend.upgrade", func() {
+			It("fails the upgrade on that worker without marking it unhealthy or counting a failed attempt", func() {
+				n := registerHealthyBackend("worker-old", "10.0.0.1:50051")
+				scriptInstalled("vllm-development", n.ID)
+				mc.scriptErr(messaging.SubjectNodeBackendUpgrade(n.ID), fmt.Errorf("control request: %w", workerctl.ErrVerbNotServed))
+
+				err := mgr.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, ErrWorkerTooOld)).To(BeTrue(), "%v", err)
+				Expect(errors.Is(err, ErrNoRoute)).To(BeFalse(), "the worker answered: it is present")
+
+				fetched, getErr := registry.Get(ctx, n.ID)
+				Expect(getErr).ToNot(HaveOccurred())
+				Expect(fetched.Status).To(Equal(StatusHealthy), "the worker's own answer is not a routing fact")
+
+				rows, listErr := registry.ListPendingBackendOps(ctx)
+				Expect(listErr).ToNot(HaveOccurred())
+				for _, row := range rows {
+					Expect(row.Attempts).To(BeZero(), "an old worker does not burn the retries of the intent")
+				}
+			})
+		})
+
+		Context("a worker whose new build does not start", func() {
+			rolledBack := workerctl.BackendUpgradeReply{
+				Success: false, Error: "the new build did not start; the previous build was restored",
+				Code: "start", RolledBack: true, Cause: "fatal: libcuda.so.1: cannot open shared object file",
+			}
+
+			It("keeps the outcome of each node with its code and drops the rolled back intent", func() {
+				n1 := registerHealthyBackend("worker-a", "10.0.0.1:50051")
+				n2 := registerHealthyBackend("worker-b", "10.0.0.2:50051")
+				scriptInstalled("vllm-development", n1.ID, n2.ID)
+				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n1.ID), rolledBack)
+				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n2.ID), workerctl.BackendUpgradeReply{Success: true, Verified: true})
+
+				err := mgr.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, gallery.ErrUpgradeStart)).To(BeTrue())
+				Expect(gallery.UpgradeCodeOf(err)).To(Equal(gallery.UpgradeFailureStart))
+				Expect(gallery.UpgradeRolledBack(err)).To(BeTrue())
+				Expect(err.Error()).To(ContainSubstring("worker-a"))
+				Expect(err.Error()).To(ContainSubstring("libcuda.so.1"), "the cause of the failed start reaches the frontend")
+
+				var nodesErr *gallery.UpgradeNodesError
+				Expect(errors.As(err, &nodesErr)).To(BeTrue())
+				Expect(nodesErr.Nodes).To(HaveLen(2))
+				byID := map[string]gallery.UpgradeNodeResult{}
+				for _, n := range nodesErr.Nodes {
+					byID[n.NodeID] = n
+				}
+				Expect(byID[n1.ID].Phase).To(Equal(gallery.UpgradeNodeRolledBack))
+				Expect(byID[n1.ID].Code).To(Equal(gallery.UpgradeFailureStart))
+				Expect(byID[n1.ID].NodeName).To(Equal("worker-a"))
+				Expect(byID[n2.ID].Phase).To(Equal(gallery.UpgradeNodeUpdated))
+				Expect(byID[n2.ID].Code).To(BeEmpty())
+
+				rows, listErr := registry.ListPendingBackendOps(ctx)
+				Expect(listErr).ToNot(HaveOccurred())
+				Expect(rows).To(BeEmpty(), "a rolled back upgrade is settled: retrying would fail the same way")
+			})
+
+			It("is not rolled back as a whole when another node failed without a restore", func() {
+				n1 := registerHealthyBackend("worker-a", "10.0.0.1:50051")
+				n2 := registerHealthyBackend("worker-b", "10.0.0.2:50051")
+				scriptInstalled("vllm-development", n1.ID, n2.ID)
+				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n1.ID), rolledBack)
+				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n2.ID), workerctl.BackendUpgradeReply{Success: false, Error: "checksum mismatch", Code: "verify"})
+
+				err := mgr.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)
+				Expect(gallery.UpgradeRolledBack(err)).To(BeFalse())
+				Expect(errors.Is(err, gallery.ErrUpgradeStart)).To(BeTrue())
+				Expect(errors.Is(err, gallery.ErrUpgradeVerify)).To(BeTrue())
+				var nodesErr *gallery.UpgradeNodesError
+				Expect(errors.As(err, &nodesErr)).To(BeTrue())
+				phases := map[string]gallery.UpgradeNodePhase{}
+				codes := map[string]gallery.UpgradeFailureCode{}
+				for _, n := range nodesErr.Nodes {
+					phases[n.NodeID], codes[n.NodeID] = n.Phase, n.Code
+				}
+				Expect(phases).To(Equal(map[string]gallery.UpgradeNodePhase{n1.ID: gallery.UpgradeNodeRolledBack, n2.ID: gallery.UpgradeNodeFailed}))
+				Expect(codes[n2.ID]).To(Equal(gallery.UpgradeFailureVerify))
+
+				rows, _ := registry.ListPendingBackendOps(ctx)
+				Expect(rows).To(HaveLen(1), "the failed node keeps its intent for the reconciler")
+				Expect(rows[0].NodeID).To(Equal(n2.ID))
+			})
+
+			It("reads a code it does not know as unknown", func() {
+				n := registerHealthyBackend("worker-a", "10.0.0.1:50051")
+				scriptInstalled("vllm-development", n.ID)
+				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n.ID), workerctl.BackendUpgradeReply{Success: false, Error: "odd", Code: "from_the_future"})
+
+				err := mgr.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)
+				Expect(gallery.UpgradeCodeOf(err)).To(Equal(gallery.UpgradeFailureUnknown))
+			})
+
+			It("reports a node whose reply was lost as unconfirmed, never as failed or updated", func() {
+				n1 := registerHealthyBackend("worker-a", "10.0.0.1:50051")
+				n2 := registerHealthyBackend("worker-b", "10.0.0.2:50051")
+				scriptInstalled("vllm-development", n1.ID, n2.ID)
+				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n1.ID), workerctl.BackendUpgradeReply{Success: true, Verified: true})
+				mc.scriptErr(messaging.SubjectNodeBackendUpgrade(n2.ID), nats.ErrTimeout)
+
+				err := mgr.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)
+				Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue(), "only unconfirmed: the soft outcome")
+				Expect(gallery.UpgradeCodeOf(err)).To(BeEmpty())
+				Expect(err.Error()).To(ContainSubstring("worker-b"))
+
+				rows, _ := registry.ListPendingBackendOps(ctx)
+				Expect(rows).To(HaveLen(1), "the intent stays until a check confirms the outcome")
+			})
+
+			It("writes the per-node outcome of an upgrade with its code to the operation", func() {
+				sink := &recordingProgressSink{}
+				mgr.progressSink = sink
+				n1 := registerHealthyBackend("worker-a", "10.0.0.1:50051")
+				n2 := registerHealthyBackend("worker-b", "10.0.0.2:50051")
+				scriptInstalled("vllm-development", n1.ID, n2.ID)
+				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n1.ID), rolledBack)
+				mc.scriptErr(messaging.SubjectNodeBackendUpgrade(n2.ID), nats.ErrTimeout)
+
+				op := upgradeOp("vllm-development")
+				op.ID = "op-upgrade-nodes"
+				_ = mgr.UpgradeBackend(ctx, op, nil)
+
+				a := sink.callsFor(op.ID, n1.ID)
+				Expect(a).ToNot(BeEmpty())
+				Expect(a[len(a)-1].Status).To(Equal(galleryop.NodeStatusRolledBack))
+				Expect(a[len(a)-1].ErrorKey).To(Equal("start"))
+				b := sink.callsFor(op.ID, n2.ID)
+				Expect(b).ToNot(BeEmpty())
+				Expect(b[len(b)-1].Status).To(Equal(galleryop.NodeStatusUnconfirmed))
+				Expect(b[len(b)-1].ErrorKey).To(BeEmpty())
+			})
+
+			It("lists an unconfirmed node next to a rolled back one", func() {
+				n1 := registerHealthyBackend("worker-a", "10.0.0.1:50051")
+				n2 := registerHealthyBackend("worker-b", "10.0.0.2:50051")
+				scriptInstalled("vllm-development", n1.ID, n2.ID)
+				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n1.ID), rolledBack)
+				mc.scriptErr(messaging.SubjectNodeBackendUpgrade(n2.ID), nats.ErrTimeout)
+
+				err := mgr.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)
+				var nodesErr *gallery.UpgradeNodesError
+				Expect(errors.As(err, &nodesErr)).To(BeTrue())
+				phases := map[string]gallery.UpgradeNodePhase{}
+				for _, n := range nodesErr.Nodes {
+					phases[n.NodeID] = n.Phase
+				}
+				Expect(phases).To(Equal(map[string]gallery.UpgradeNodePhase{n1.ID: gallery.UpgradeNodeRolledBack, n2.ID: gallery.UpgradeNodeUnconfirmed}))
+				Expect(gallery.UpgradeRolledBack(err)).To(BeTrue(), "the unconfirmed node did not fail")
+			})
+		})
+
+		Context("a worker that does not serve backend.upgrade", func() {
+			It("fails the upgrade and never sends a forced install", func() {
 				n := registerHealthyBackend("worker-old", "10.0.0.1:50051")
 				scriptInstalled("vllm-development", n.ID)
 
 				// Old worker: no subscriber on backend.upgrade.
 				mc.scriptNoResponders(messaging.SubjectNodeBackendUpgrade(n.ID))
-				// Fallback re-fires legacy backend.install with Force=true.
-				mc.scriptReplyMatching(messaging.SubjectNodeBackendInstall(n.ID),
-					func(req workerctl.BackendInstallRequest) bool { return req.Force },
-					workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
 
-				Expect(mgr.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)).To(Succeed())
+				err := mgr.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("no route"), "the no-route stays visible")
+
+				mc.mu.Lock()
+				defer mc.mu.Unlock()
+				for _, call := range mc.calls {
+					Expect(call.Subject).ToNot(Equal(messaging.SubjectNodeBackendInstall(n.ID)), "no legacy install is sent")
+				}
 			})
 
-			It("returns the upgrade error when it is not ErrNoRoute", func() {
+			It("returns the error of the worker when it refuses the upgrade", func() {
 				n := registerHealthyBackend("worker-bad", "10.0.0.1:50051")
 				scriptInstalled("vllm-development", n.ID)
 

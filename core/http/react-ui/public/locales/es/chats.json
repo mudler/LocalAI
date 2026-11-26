@@ -10,9 +10,7 @@
     "folder": "Carpeta a vigilar",
     "saveEdit": "Guardar",
     "cancelEdit": "Cancelar",
-    "create": "Crear disparador",
     "edit": "Editar",
-    "dismiss": "Rechazar",
     "receipt": {
       "scheduled": "Programado:",
       "watching": "Vigilando:",
@@ -67,8 +65,17 @@
       "stop": "Apágalo o elimínalo en Disparadores",
       "actsLabel": "Permisos",
       "limitLabel": "Límite de tiempo",
-      "limitClamped": "{{limit}}, reducido a {{ceiling}} por el administrador"
-    }
+      "limitClamped": "{{limit}}, reducido a {{ceiling}} por el administrador",
+      "doesLabel": "Hace",
+      "tellsYouLabel": "Te avisa",
+      "doesWatch": "Mantiene recordatorios de {{source}}, {{offset}} por defecto.",
+      "tellsWatch": "Solo cuando aporta algo: un cambio hecho por otra persona, un resumen planificado o un choque.",
+      "tellsEvery": "Después de cada ejecución.",
+      "tellsOnChange": "Cuando la respuesta cambia respecto a la ejecución anterior.",
+      "tellsOnProblem": "Solo cuando una ejecución falla."
+    },
+    "approve": "Aprobar",
+    "notNow": "Ahora no"
   },
   "mcpPage": {
     "title": "Conectores MCP",
@@ -814,6 +821,58 @@
           "body_one": "Se borró {{count}} archivo anterior.",
           "body_other": "Se borraron {{count}} archivos anteriores."
         }
+      },
+      "run": {
+        "title_one": "Actualizando {{count}} elemento",
+        "title_other": "Actualizando {{count}} elementos",
+        "titleAuto_one": "Actualización automática: {{count}} elemento",
+        "titleAuto_other": "Actualización automática: {{count}} elementos",
+        "updated_one": "{{count}} actualizado",
+        "updated_other": "{{count}} actualizados",
+        "running_one": "{{count}} en curso",
+        "running_other": "{{count}} en curso",
+        "waiting_one": "{{count}} en espera",
+        "waiting_other": "{{count}} en espera",
+        "done": "{{done}} de {{total}} hechas",
+        "end": {
+          "attention_one": "{{updated}} actualizados, {{count}} necesita atención",
+          "attention_other": "{{updated}} actualizados, {{count}} necesitan atención",
+          "done_one": "{{count}} actualizado",
+          "done_other": "{{count}} actualizados",
+          "auto": "Automática: {{text}}",
+          "first": "{{name}} sigue en {{version}}.",
+          "firstWhy": "{{name}} sigue en {{version}}: {{reason}}.",
+          "cancelled_one": "Tanda cancelada: {{count}} actualizados",
+          "cancelled_other": "Tanda cancelada: {{count}} actualizados",
+          "cancelledAttention_one": "Tanda cancelada: {{updated}} actualizados, {{count}} necesita atención",
+          "cancelledAttention_other": "Tanda cancelada: {{updated}} actualizados, {{count}} necesitan atención",
+          "firstStart": "{{name}} sigue en {{version}}: la nueva versión no arrancó: {{reason}}."
+        }
+      },
+      "watch": {
+        "set": "Recordatorio de \"{{title}}\" puesto: {{when}}.",
+        "changed": "Recordatorio de \"{{title}}\" cambiado: {{when}}.",
+        "cancelled": "Recordatorio de \"{{title}}\" cancelado.",
+        "snoozed": "Recordatorio de \"{{title}}\" pospuesto a {{when}}.",
+        "snoozeUndone": "Se retiró el aplazamiento del recordatorio de \"{{title}}\".",
+        "skipped": "Recordatorio de \"{{title}}\" omitido.",
+        "skipUndone": "Se retiró la omisión del recordatorio de \"{{title}}\".",
+        "taskChanged": "Tarea del recordatorio de \"{{title}}\" cambiada.",
+        "restored": "Recordatorio de \"{{title}}\" restaurado: {{when}}.",
+        "next": "Recordatorio del próximo \"{{title}}\" puesto: {{when}}.",
+        "moved": "Recordatorio de \"{{title}}\" movido a {{when}}.",
+        "movedStarted": "\"{{title}}\" se movió y ya empezó, así que no hay recordatorio.",
+        "removed": "Recordatorio de \"{{title}}\" cancelado: se eliminó.",
+        "woken": "\"{{title}}\" cambió. Reviso ahora su recordatorio.",
+        "movedBy": "\"{{title}}\" se movió. Te lo recordaré a las {{when}}.",
+        "movedByStarted": "\"{{title}}\" se movió y ya empezó.",
+        "removedBy": "\"{{title}}\" se eliminó, así que cancelé su recordatorio.",
+        "wokenBy": "\"{{title}}\" cambió. Reviso si su recordatorio todavía encaja.",
+        "missed": "Perdido: {{title}}. El servidor estaba apagado a la hora del recordatorio.",
+        "onHold": "El recordatorio de \"{{title}}\" espera mientras esta vigilancia está en pausa.",
+        "dropped": "El recordatorio de \"{{title}}\" se eliminó con su vigilancia.",
+        "lastKnown": "Recordatorio del próximo \"{{title}}\" puesto: {{when}}. Es la última fecha conocida; un cambio del elemento pone las siguientes.",
+        "seriesEnded": "No se conoce una fecha posterior de \"{{title}}\", así que ahora no tiene recordatorio. Un cambio del elemento pone el siguiente."
       }
     },
     "tabs": {
@@ -850,7 +909,15 @@
       }
     },
     "chatsOff": "Los chats están desactivados",
-    "emptyBodyNoChats": "Aquí aparecen las actualizaciones y las operaciones terminadas."
+    "emptyBodyNoChats": "Aquí aparecen las actualizaciones y las operaciones terminadas.",
+    "runProgress": "Progreso: {{title}}",
+    "runStarted": "Iniciada {{when}}",
+    "viewProgress": "Ver el progreso",
+    "seeRun": "Ver la tanda",
+    "openUpdates": "Abrir Actualizaciones",
+    "updatesPending_one": "{{count}} actualización disponible",
+    "updatesPending_other": "{{count}} actualizaciones disponibles",
+    "updatesNone": "Todo está al día"
   },
   "change": {
     "loading": "Leyendo el cambio del disparador...",
@@ -1517,7 +1584,10 @@
     "mcp": "Servidores MCP"
   },
   "triggersPage": {
-    "runLimit": "Límite de tiempo de una ejecución"
+    "runLimit": "Límite de tiempo de una ejecución",
+    "presets": {
+      "event": "Cuando llega un evento"
+    }
   },
   "sandboxProfile": {
     "label": "Perfil de sandbox",
@@ -1593,5 +1663,165 @@
       "reason": "El ajuste de este chat es de {{window}} tokens y el chat necesita al menos {{minimum}}.",
       "fix": "Usar la ventana del modelo"
     }
+  },
+  "event": {
+    "listening": "A la escucha:",
+    "announceAccepted": "Creado {{name}}. Copia ahora su secreto: se muestra una sola vez.",
+    "sentence": {
+      "typed": "Cuando {{source}} envía {{type}}",
+      "any": "Cuando {{source}} envía cualquier evento",
+      "where": " donde {{matches}}",
+      "and": " y "
+    },
+    "hook": {
+      "title": "Dirección del hook y secreto",
+      "urlLabel": "URL del hook",
+      "secretLabel": "Secreto (se muestra una vez)",
+      "curlLabel": "Llamada de ejemplo",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "copyUrl": "Copiar la URL del hook",
+      "copySecret": "Copiar el secreto",
+      "copyCurl": "Copiar la llamada de ejemplo",
+      "paste": "Pega la URL y el secreto en la configuración de webhook del remitente. El secreto no se vuelve a mostrar.",
+      "noSecret": "El secreto no se vuelve a mostrar. Rótalo para obtener uno nuevo.",
+      "rotate": "Rotar secreto",
+      "rotateTitle": "¿Rotar el secreto de {{name}}?",
+      "rotateBody": "El secreto anterior deja de funcionar de inmediato. Pon el nuevo en el remitente antes de su próximo evento.",
+      "rotateConfirm": "Rotar",
+      "rotated": "Secreto nuevo creado.",
+      "rotateFailed": "No se pudo rotar el secreto: {{message}}"
+    },
+    "form": {
+      "source": "Remitente",
+      "sourceHint": "El nombre del remitente, por ejemplo github.",
+      "sourceEmpty": "Indica el remitente de los eventos.",
+      "type": "Tipo de evento",
+      "typeHint": "Déjalo vacío para aceptar cualquier tipo de evento.",
+      "matches": "Solo cuando (un campo=valor por línea)",
+      "matchesHint": "Hasta 8 líneas, por ejemplo action=opened.",
+      "createdTitle": "{{name}} está listo",
+      "done": "Hecho"
+    }
+  },
+  "watch": {
+    "section": "Vigilancia",
+    "new": "Nueva vigilancia",
+    "titleNew": "Nueva vigilancia",
+    "titleEdit": "Editar {{name}}",
+    "source": "Vigilar",
+    "sourceHelp": "Solo aparecen los complementos que informan de sus cambios.",
+    "sourcePick": "Elige un complemento",
+    "types": "Cambios a seguir",
+    "typesHelp": "Deja todo sin marcar para seguir cada cambio.",
+    "offset": "Avísame",
+    "none": "Sin recordatorio predeterminado",
+    "atTime": "A la hora",
+    "minutesBefore_one": "{{count}} min antes",
+    "minutesBefore_other": "{{count}} min antes",
+    "hoursBefore_one": "{{count}} hora antes",
+    "hoursBefore_other": "{{count}} horas antes",
+    "daysBefore_one": "{{count}} día antes",
+    "daysBefore_other": "{{count}} días antes",
+    "minutesAfter_one": "{{count}} min después",
+    "minutesAfter_other": "{{count}} min después",
+    "hoursAfter_one": "{{count}} hora después",
+    "hoursAfter_other": "{{count}} horas después",
+    "daysAfter_one": "{{count}} día después",
+    "daysAfter_other": "{{count}} días después",
+    "allDay": "Cosas que duran todo el día",
+    "allDayMorning": "Por la mañana, a las 08:00",
+    "allDayNone": "Sin recordatorio",
+    "quiet": "Horas de silencio",
+    "quietFrom": "Desde",
+    "quietTo": "Hasta",
+    "quietHelp": "Un recordatorio que cae en ellas llega la tarde anterior.",
+    "tasks": "Tareas predeterminadas",
+    "tasksHelp": "Con tus palabras, por ejemplo: para llamadas con otras personas, prepara un resumen 30 min antes.",
+    "problemSource": "Elige qué vigilar.",
+    "problemQuiet": "Las horas de silencio necesitan un inicio y un fin.",
+    "emptyTitle": "Aún no hay nada que vigilar",
+    "emptyBody": "Ningún complemento instalado informa de sus cambios. Instala el Calendario para recibir recordatorios de tus eventos.",
+    "summary": "{{source}}, {{offset}}",
+    "watches": "Vigila",
+    "state": "Estado",
+    "on": "Activa",
+    "paused": "En pausa",
+    "permissions": "Editar permisos",
+    "reminders": "Próximos recordatorios",
+    "remindersEmpty": "Aún no hay recordatorios. La vigilancia crea uno cuando se añade algo.",
+    "dueLine": "{{when}}, {{offset}}",
+    "adjQuiet": "la tarde anterior, fuera de tus horas de silencio",
+    "adjAllDay": "por la mañana de ese día",
+    "skipped": "Omitido",
+    "snoozed": "Pospuesto",
+    "started": "Ya empezó",
+    "open": "Abrir",
+    "snooze": "Posponer",
+    "skip": "Omitir",
+    "changeTime": "Cambiar hora…",
+    "newTime": "Nueva hora",
+    "saveTime": "Guardar",
+    "save": "Guardar vigilancia",
+    "cancel": "Cancelar",
+    "undo": "Deshacer",
+    "doneSnooze": "Pospuesto a {{when}}.",
+    "doneSkip": "Omitido. Vuelve si el elemento se mueve.",
+    "doneRetime": "Movido a {{when}}.",
+    "doneUndo": "Deshecho.",
+    "loadFailed": "No se pudieron leer los recordatorios: {{message}}",
+    "sourcesFailed": "No se pudieron leer los complementos que informan de cambios: {{message}}",
+    "viewWatch": "Ver la vigilancia",
+    "saved": "Vigilancia guardada.",
+    "nameRequired": "Una vigilancia necesita un nombre.",
+    "promptRequired": "Escribe qué debe hacer la vigilancia.",
+    "promptHint": "Este texto inicia cada ejecución de la vigilancia.",
+    "enabledHint": "Una vigilancia apagada conserva sus recordatorios; esperan hasta que vuelva a estar activa.",
+    "change": {
+      "title": {
+        "create": "Poner un recordatorio para {{title}}",
+        "update": "Cambiar el recordatorio de {{title}}",
+        "delete": "Cancelar el recordatorio de {{title}}"
+      },
+      "help": "No cambia nada hasta que lo apruebes.",
+      "stale": "El recordatorio cambió desde que se pidió. Pídelo de nuevo.",
+      "watch": "Vigilancia",
+      "when": "Cuándo",
+      "task": "Tarea",
+      "none": "ninguno",
+      "receipt": {
+        "create": "Recordatorio puesto:",
+        "update": "Recordatorio cambiado:",
+        "delete": "Recordatorio cancelado:",
+        "dismissed": "Sin cambios:",
+        "undone": "Deshecho:"
+      },
+      "blocked": {
+        "expired": "Ya no se puede deshacer; cambia el recordatorio en la página de la vigilancia.",
+        "edited": "El recordatorio cambió desde entonces; cámbialo en la página de la vigilancia.",
+        "removed": "El recordatorio o su vigilancia se eliminaron desde entonces."
+      },
+      "announce": {
+        "applied": "Aprobado el cambio del recordatorio de {{title}}.",
+        "dismissed": "El recordatorio de {{title}} queda como estaba.",
+        "undone": "Deshecho el cambio del recordatorio de {{title}}."
+      }
+    }
+  },
+  "incognito": {
+    "label": "Incógnito",
+    "levelLabel": "Nivel de incógnito",
+    "levels": {
+      "memory-off": "Sin memoria",
+      "zero-retention": "Sin retención"
+    },
+    "describe": {
+      "memory-off": "Este chat no lee ni guarda memoria. No aparece en la lista y termina cuando lo dejas. Los registros y las trazas se guardan como siempre.",
+      "zero-retention": "El servidor no guarda nada de este chat, solo los contadores de uso. No lee ni guarda memoria, no acepta adjuntos y termina cuando lo dejas."
+    },
+    "blocked": "No disponible en un chat de incógnito",
+    "discardTitle": "¿Terminar el chat de incógnito?",
+    "discardMessage": "El chat se elimina y no se puede volver a abrir.",
+    "discardConfirm": "Terminar chat"
   }
 }

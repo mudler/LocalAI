@@ -135,7 +135,11 @@ func (r VersionRange) isHostAPI() bool {
 // Level 9: capabilities.modelSearch (a source of the model-search slot).
 // Level 10: osSettings (OS-specific runtime settings; osSettings.windows.execution
 // "wsl2" runs a Linux executable in WSL 2 on Windows).
-const HostFeatureLevel uint64 = 10
+// Level 11: capabilities.toolDefinitions[].deferred (a chat offers the tool
+// through the tool search).
+// Level 12: capabilities.events (event types an add-on reports to watches) and
+// capabilities.connector.kinds[].actions (buttons on a message).
+const HostFeatureLevel uint64 = 12
 
 // BaseFeatureLevel is the level of a manifest that sets no featureLevel.
 const BaseFeatureLevel uint64 = 1
@@ -174,6 +178,14 @@ func (m Manifest) RequiredFeatureLevel() uint64 {
 // usedFeatureLevel is the lowest level that holds every optional field the
 // manifest uses.
 func (m Manifest) usedFeatureLevel() uint64 {
+	if len(m.Capabilities.Events) > 0 || m.usesConnectorActions() {
+		return 12
+	}
+	for _, d := range m.Capabilities.ToolDefinitions {
+		if d.Deferred {
+			return 11
+		}
+	}
 	if m.OSSettings != nil {
 		return 10
 	}
@@ -348,6 +360,10 @@ type Capabilities struct {
 	// Client declares the routes that a paired client may call (see
 	// client.go). It needs the service capability and feature level 7.
 	Client *ClientCapability `json:"client,omitempty"`
+
+	// Events declare the event types the add-on reports with the
+	// events.emit host operation (see events.go). Feature level 12.
+	Events []EventDeclaration `json:"events,omitempty"`
 }
 
 // ResourceTools maps the host's UI-only resource management operations to
@@ -640,6 +656,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		return e
 	}
 	if e := validateContextFiles(m); e != nil {
+		return e
+	}
+	if e := validateEvents(m.ID, c); e != nil {
 		return e
 	}
 	if e := validateUserSettings(c.UserSettings); e != nil {

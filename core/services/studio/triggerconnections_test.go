@@ -499,4 +499,228 @@ var _ = Describe("a trigger from a chat in Studio that reports to a connection",
 			})
 		})
 	})
+
+	Describe("the trigger form of the owner", func() {
+		form := func(d *studio.DeliveryPatch) studio.TriggerInput {
+			return studio.TriggerInput{Name: "Digest", Prompt: "RUN go", Kind: triggers.KindSchedule, Schedule: "daily 08:00", TZ: "UTC",
+				Model: "m", Enabled: true, Delivery: d}
+		}
+		channel := func(conn, ch string) *studio.DeliveryPatch {
+			return &studio.DeliveryPatch{Target: triggers.TargetChannel, Connection: conn, Channel: ch}
+		}
+
+		It("creates a trigger that reports in an approved channel, with the channel as an ID, and no card", func() {
+			setup()
+			d := channel(chatB.ID, "General")
+			d.Mode = triggers.ModeOnChange
+			t, err := r.host.CreateTrigger(ctx, alice, form(d))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(t.Proposed).To(BeFalse(), "the owner's form saves at once")
+			Expect(t.Route).To(Equal(triggers.Route{Target: triggers.TargetChannel, Connection: chatB.ID, Channel: "G1", Mode: triggers.ModeOnChange}))
+			Expect(waiting()).To(BeEmpty())
+		})
+
+		It("creates a trigger that reports to the Inbox when the delivery is left out", func() {
+			setup()
+			t, err := r.host.CreateTrigger(ctx, alice, form(nil))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(t.Route).To(Equal(triggers.Route{}))
+		})
+
+		It("refuses on create a foreign connection, a channel not approved, a service, a connection that is off, and the origin", func() {
+			setup()
+			for _, d := range []*studio.DeliveryPatch{
+				channel(other.ID, "B1"),
+				channel(chatB.ID, "G2"),
+				channel(chatB.ID, "Ops"),
+				channel(svcB.ID, "G1"),
+				channel("", "G1"),
+				{Target: triggers.TargetOrigin},
+				{Target: "elsewhere"},
+				{Mode: "sometimes"},
+			} {
+				_, err := r.host.CreateTrigger(ctx, alice, form(d))
+				Expect(err).To(MatchError(studio.ErrBadTrigger), "%+v", d)
+				Expect(err.Error()).NotTo(ContainSubstring("Bob"))
+			}
+			gate.set(contract.CapTalkbackChannels, false)
+			_, err := r.host.CreateTrigger(ctx, alice, form(channel(chatB.ID, "G1")))
+			Expect(err).To(MatchError(ContainSubstring("write in channels")))
+			gate.set(contract.CapTalkbackChannels, true)
+			edit := func(b *connectors.Binding) { b.Enabled = false }
+			b, err := r.store.GetBinding(ctx, chatB.ID)
+			Expect(err).NotTo(HaveOccurred())
+			edit(&b)
+			Expect(r.store.PutBinding(ctx, b)).To(Succeed())
+			_, err = r.host.CreateTrigger(ctx, alice, form(channel(chatB.ID, "G1")))
+			Expect(err).To(MatchError(ContainSubstring("switched off")))
+			list, err := r.host.ListTriggers(ctx, alice)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(list).To(BeEmpty(), "a refused delivery makes nothing")
+		})
+
+		Context("an edit", func() {
+			var tid string
+			BeforeEach(func() {
+				setup()
+				t, err := r.host.CreateTrigger(ctx, alice, form(nil))
+				Expect(err).NotTo(HaveOccurred())
+				tid = t.ID
+			})
+			get := func() triggers.Trigger {
+				t, err := r.host.GetTrigger(ctx, alice, tid)
+				Expect(err).NotTo(HaveOccurred())
+				return t
+			}
+
+			It("moves the reports to a channel, then back to the Inbox", func() {
+				t, err := r.host.UpdateTrigger(ctx, alice, tid, form(channel(chatB.ID, "G1")))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(t.Route).To(Equal(triggers.Route{Target: triggers.TargetChannel, Connection: chatB.ID, Channel: "G1"}))
+				Expect(get().Route).To(Equal(t.Route))
+				t, err = r.host.UpdateTrigger(ctx, alice, tid, form(&studio.DeliveryPatch{Target: triggers.TargetInbox}))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(t.Route.TargetOrDefault()).To(Equal(triggers.TargetInbox))
+				Expect(t.Route.Connection).To(BeEmpty(), "clearing the target drops the connection")
+				Expect(t.Route.Channel).To(BeEmpty())
+			})
+
+			It("keeps the delivery when the field is left out", func() {
+				_, err := r.host.UpdateTrigger(ctx, alice, tid, form(channel(chatB.ID, "G1")))
+				Expect(err).NotTo(HaveOccurred())
+				in := form(nil)
+				in.Name = "Renamed"
+				t, err := r.host.UpdateTrigger(ctx, alice, tid, in)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(t.Name).To(Equal("Renamed"))
+				Expect(t.Route).To(Equal(triggers.Route{Target: triggers.TargetChannel, Connection: chatB.ID, Channel: "G1"}))
+			})
+
+			It("refuses a foreign or unapproved place and leaves the trigger as it was", func() {
+				for _, d := range []*studio.DeliveryPatch{channel(other.ID, "B1"), channel(chatB.ID, "G2"), channel(svcB.ID, "x"), {Target: triggers.TargetOrigin}} {
+					_, err := r.host.UpdateTrigger(ctx, alice, tid, form(d))
+					Expect(err).To(MatchError(studio.ErrBadTrigger), "%+v", d)
+				}
+				Expect(get().Route).To(Equal(triggers.Route{}))
+			})
+
+			It("checks the place only when it moves: the same channel saves while its connection is off, and so does a new mode", func() {
+				_, err := r.host.UpdateTrigger(ctx, alice, tid, form(channel(chatB.ID, "G1")))
+				Expect(err).NotTo(HaveOccurred())
+				b, err := r.store.GetBinding(ctx, chatB.ID)
+				Expect(err).NotTo(HaveOccurred())
+				b.Enabled = false
+				Expect(r.store.PutBinding(ctx, b)).To(Succeed())
+				in := form(channel(chatB.ID, "G1"))
+				in.Name = "Renamed"
+				_, err = r.host.UpdateTrigger(ctx, alice, tid, in)
+				Expect(err).NotTo(HaveOccurred(), "the form sends back the place it was shown")
+				d := channel(chatB.ID, "G1")
+				d.Mode = triggers.ModeOnProblem
+				t, err := r.host.UpdateTrigger(ctx, alice, tid, form(d))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(t.Route.Mode).To(Equal(triggers.ModeOnProblem))
+				Expect(t.Route.Connection).To(Equal(chatB.ID))
+			})
+
+			It("refuses a delivery on a proposal", func() {
+				Expect(propose(fmt.Sprintf(`{"target":"channel","connection":%q,"channel":"G1"}`, chatB.ID)).Err).To(BeNil())
+				p := waiting()[0]
+				_, err := r.host.EditProposal(ctx, alice, p.ID, form(&studio.DeliveryPatch{Target: triggers.TargetInbox}))
+				Expect(err).To(MatchError(studio.ErrBadTrigger))
+			})
+		})
+
+		Context("a trigger that a chat of a messaging app proposed", func() {
+			var tid string
+			BeforeEach(func() {
+				setup()
+				t, err := r.host.CreateTrigger(ctx, alice, studio.TriggerInput{Name: "Digest", Prompt: "RUN go", Kind: triggers.KindSchedule, Schedule: "daily 08:00",
+					TZ: "UTC", Model: "m", Enabled: true, Route: triggers.Route{Binding: chatB.ID, Chat: "11", Target: triggers.TargetOrigin}})
+				Expect(err).NotTo(HaveOccurred())
+				tid = t.ID
+			})
+
+			It("moves to a channel of its own connection and back to its chat, but never to another connection", func() {
+				t, err := r.host.UpdateTrigger(ctx, alice, tid, form(&studio.DeliveryPatch{Target: triggers.TargetChannel, Channel: "G1"}))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(t.Route.Target).To(Equal(triggers.TargetChannel))
+				Expect(t.Route.Channel).To(Equal("G1"))
+				Expect(t.Route.Binding).To(Equal(chatB.ID))
+				_, err = r.host.UpdateTrigger(ctx, alice, tid, form(channel(chatB.ID, "G1")))
+				Expect(err).To(MatchError(ContainSubstring("reports through the connection that proposed it")))
+				t, err = r.host.UpdateTrigger(ctx, alice, tid, form(&studio.DeliveryPatch{Target: triggers.TargetOrigin}))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(t.Route.Target).To(Equal(triggers.TargetOrigin))
+				Expect(t.Route.Chat).To(Equal("11"))
+			})
+
+			It("lists only its own connection, as from a chat", func() {
+				d, err := r.host.Destinations(ctx, alice, "", tid)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(d.FromChat).To(BeTrue())
+				Expect(d.Connections).To(HaveLen(1))
+				Expect(d.Connections[0].ID).To(Equal(chatB.ID))
+			})
+		})
+
+		Describe("the list of destinations", func() {
+			It("lists the owner's connections with the approved channels, marks the current one, and nothing of another owner", func() {
+				setup()
+				t, err := r.host.CreateTrigger(ctx, alice, form(channel(chatB.ID, "G1")))
+				Expect(err).NotTo(HaveOccurred())
+				d, err := r.host.Destinations(ctx, alice, "", t.ID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(d.FromChat).To(BeFalse())
+				Expect(d.Connections).To(HaveLen(2))
+				for _, x := range d.Connections {
+					Expect(x.ID).NotTo(Equal(other.ID))
+					switch x.ID {
+					case chatB.ID:
+						Expect(x.Addon).To(Equal("chat-addon"))
+						Expect(x.Reason).To(BeEmpty())
+						Expect(x.Channels).To(Equal([]studio.TriggerDestinationChannel{{ID: "G1", Label: "General", Current: true}}))
+					case svcB.ID:
+						Expect(x.Reason).To(Equal(studio.DestinationToolOnly))
+						Expect(x.Channels).To(BeEmpty())
+					}
+				}
+				fresh, err := r.host.Destinations(ctx, alice, "", "")
+				Expect(err).NotTo(HaveOccurred())
+				for _, x := range fresh.Connections {
+					for _, ch := range x.Channels {
+						Expect(ch.Current).To(BeFalse())
+					}
+				}
+				_, err = r.host.Destinations(ctx, bob, "", t.ID)
+				Expect(err).To(MatchError(triggers.ErrNotFound), "another owner's trigger is missing")
+			})
+
+			It("says why a connection offers no channel", func() {
+				setup()
+				gate.set(contract.CapTalkbackChannels, false)
+				d, err := r.host.Destinations(ctx, alice, "", "")
+				Expect(err).NotTo(HaveOccurred())
+				for _, x := range d.Connections {
+					if x.ID == chatB.ID {
+						Expect(x.Reason).To(Equal(studio.DestinationTalkbackOff))
+						Expect(x.Channels).To(BeEmpty())
+					}
+				}
+				gate.set(contract.CapTalkbackChannels, true)
+				b, err := r.store.GetBinding(ctx, chatB.ID)
+				Expect(err).NotTo(HaveOccurred())
+				b.Enabled = false
+				Expect(r.store.PutBinding(ctx, b)).To(Succeed())
+				d, err = r.host.Destinations(ctx, alice, "", "")
+				Expect(err).NotTo(HaveOccurred())
+				for _, x := range d.Connections {
+					if x.ID == chatB.ID {
+						Expect(x.Reason).To(Equal(studio.DestinationOff))
+						Expect(x.Channels).To(BeEmpty())
+					}
+				}
+			})
+		})
+	})
 })

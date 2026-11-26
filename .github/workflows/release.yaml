@@ -83,3 +83,22 @@ jobs:
       MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
       WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
       WINDOWS_CERTIFICATE_PWD: ${{ secrets.WINDOWS_CERTIFICATE_PWD }}
+  # The Android client app (android/) and its update feed. Off until the
+  # repository variables ANDROID_PUBLISH and ANDROID_SIGNING are both 'true':
+  # the signing keys, secrets and certificate digest variables must exist
+  # first (see android/README.md). ANDROID_PUBLISH alone publishes only the
+  # debug-key dev APK of android-client.yaml; a stable APK is always signed.
+  # Only stable vX.Y.Z tags get an APK; the called workflow skips other tags.
+  android-client:
+    needs: goreleaser
+    if: vars.ANDROID_PUBLISH == 'true' && vars.ANDROID_SIGNING == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/android-client-release.yaml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets:
+      ANDROID_RELEASE_KEYSTORE: ${{ secrets.ANDROID_RELEASE_KEYSTORE }}
+      ANDROID_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
+      ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+      ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}

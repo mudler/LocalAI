@@ -300,7 +300,8 @@
         "none": "Aucun",
         "color": "Couleur",
         "gradient": "Dégradé",
-        "image": "Image"
+        "image": "Image",
+        "video": "Vidéo"
       },
       "color": "Couleur d'arrière-plan",
       "from": "De",
@@ -309,6 +310,11 @@
       "imagePath": "Chemin de l'image dans vos fichiers",
       "choose": "Choisir une image",
       "imageBad": "Utilisez le chemin d'un fichier png, jpg, webp, gif ou avif de vos fichiers, sans barre oblique au début et sans ..",
+      "videoPath": "Chemin de la vidéo dans vos fichiers",
+      "chooseVideo": "Choisir une vidéo",
+      "videoBad": "Utilisez le chemin d'un fichier mp4, webm ou mov de vos fichiers, sans barre oblique initiale et sans ..",
+      "posterPath": "Chemin d'une image fixe affichée avant la lecture de la vidéo (facultatif)",
+      "posterHint": "Pictures/poster.jpg (image fixe facultative)",
       "fit": "Ajustement",
       "fits": {
         "cover": "Remplir la page",
@@ -320,6 +326,7 @@
       "clear": "Retirer l'arrière-plan",
       "pickFailed": "Le dossier n'a pas pu être lu.",
       "pickEmpty": "Aucune image ni aucun dossier ici.",
+      "pickEmptyVideo": "Aucune vidéo ni aucun dossier ici.",
       "pickClose": "Fermer"
     },
     "nav": {

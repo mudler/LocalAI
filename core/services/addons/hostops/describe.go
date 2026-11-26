@@ -44,6 +44,7 @@ var descriptions = map[string]description{
 	"client.workspace.list":  {"List a client's folders", "List the text files in the folders of your files that you gave to a paired client.", RiskRead},
 	"client.workspace.read":  {"Read a client's folders", "Read text files from the folders of your files that you gave to a paired client.", RiskRead},
 	"client.workspace.write": {"Write to a client's folder", "Save text files in the one folder of your files that you gave to a paired client to write.", RiskChangesData},
+	"events.emit":            {"Report changes", "Tell your watches when something in the add-on is added, changed or removed.", RiskRead},
 	"client.list":            {"List paired clients", "List the names of the paired clients that may use this add-on.", RiskRead},
 }
 

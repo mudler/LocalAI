@@ -1463,8 +1463,65 @@ var _ = Describe("Gallery Backends", func() {
 			systemState, err := system.GetSystemState(system.WithBackendPath(tempDir))
 			Expect(err).NotTo(HaveOccurred())
 
+			// The listing hides the orphan, but the delete still finds it.
+			listed, err := ListSystemBackends(systemState)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(listed.Exists(metaName)).To(BeFalse())
+
 			Expect(DeleteBackendFromSystem(systemState, metaName)).To(Succeed())
 			Expect(metaPath).NotTo(BeADirectory())
+		})
+
+		Context("when a concrete backend is deleted by its directory name", func() {
+			// writeBackend creates a backend directory with its metadata, and
+			// a run.sh when the backend is concrete.
+			writeBackend := func(dir string, meta BackendMetadata, concrete bool) string {
+				GinkgoHelper()
+				p := filepath.Join(tempDir, dir)
+				Expect(os.MkdirAll(p, 0750)).To(Succeed())
+				Expect(writeBackendMetadata(p, &meta)).To(Succeed())
+				if concrete {
+					Expect(os.WriteFile(filepath.Join(p, "run.sh"), nil, 0755)).To(Succeed())
+				}
+				return p
+			}
+
+			It("also removes the meta backend that points at it", func() {
+				metaPath := writeBackend("llama-cpp", BackendMetadata{Name: "llama-cpp", MetaBackendFor: "cpu-llama-cpp"}, false)
+				concretePath := writeBackend("cpu-llama-cpp", BackendMetadata{Name: "cpu-llama-cpp", Alias: "llama-cpp"}, true)
+
+				systemState, err := system.GetSystemState(system.WithBackendPath(tempDir))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(DeleteBackendFromSystem(systemState, "cpu-llama-cpp")).To(Succeed())
+
+				Expect(concretePath).NotTo(BeADirectory())
+				Expect(metaPath).NotTo(BeADirectory())
+				backends, err := ListSystemBackends(systemState)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(backends.Exists("llama-cpp")).To(BeFalse())
+			})
+
+			It("keeps a development backend that shares the alias, and its meta", func() {
+				metaPath := writeBackend("llama-cpp", BackendMetadata{Name: "llama-cpp", MetaBackendFor: "cpu-llama-cpp"}, false)
+				concretePath := writeBackend("cpu-llama-cpp", BackendMetadata{Name: "cpu-llama-cpp", Alias: "llama-cpp"}, true)
+				devMetaPath := writeBackend("llama-cpp-development", BackendMetadata{Name: "llama-cpp-development", MetaBackendFor: "rocm-llama-cpp-development"}, false)
+				devPath := writeBackend("rocm-llama-cpp-development", BackendMetadata{Name: "rocm-llama-cpp-development", Alias: "llama-cpp"}, true)
+
+				systemState, err := system.GetSystemState(system.WithBackendPath(tempDir))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(DeleteBackendFromSystem(systemState, "cpu-llama-cpp")).To(Succeed())
+
+				Expect(concretePath).NotTo(BeADirectory())
+				Expect(metaPath).NotTo(BeADirectory())
+				Expect(devPath).To(BeADirectory())
+				Expect(devMetaPath).To(BeADirectory())
+				backends, err := ListSystemBackends(systemState)
+				Expect(err).NotTo(HaveOccurred())
+				dev, ok := backends.Get("llama-cpp-development")
+				Expect(ok).To(BeTrue())
+				Expect(dev.IsMeta).To(BeTrue())
+				Expect(dev.RunFile).To(Equal(filepath.Join(devPath, "run.sh")))
+			})
 		})
 	})
 
@@ -1488,11 +1545,13 @@ var _ = Describe("Gallery Backends", func() {
 			systemState, err := system.GetSystemState(system.WithBackendPath(tempDir))
 			Expect(err).NotTo(HaveOccurred())
 
+			// The listing leaves out a meta whose concrete is gone, so
+			// neither Exists nor Get reports it and the install runs again.
 			listed, err := ListSystemBackends(systemState)
 			Expect(err).NotTo(HaveOccurred())
-			b, ok := listed.Get(metaName)
-			Expect(ok).To(BeTrue())
-			Expect(isBackendRunnable(b)).To(BeFalse()) // concrete run.sh absent
+			Expect(listed.Exists(metaName)).To(BeFalse())
+			_, ok := listed.Get(metaName)
+			Expect(ok).To(BeFalse())
 		})
 	})
 

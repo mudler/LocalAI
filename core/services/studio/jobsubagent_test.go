@@ -81,6 +81,11 @@ func newSubRig(mode string, tweak ...func(*studio.Deps)) *subRig {
 		return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"` + task + `","wait":false` + extra + `}`}, {Say: "spawned"}}
 	}
 	script := func(_ workspace.Actor, text string) []studiotest.ToolStep {
+		// A sub-agent that ends reports to the parent as a message
+		// ("[Sub-agent finished: ...]"). When the spec sends its message at the
+		// same moment, the service joins the two into one turn, report first.
+		// The script reads the last line to find the message.
+		text = text[strings.LastIndex(text, "\n")+1:]
 		switch {
 		case strings.HasPrefix(text, "spawn only job "):
 			return spawn(strings.TrimPrefix(text, "spawn only job "), `,"tools":["job"]`)
@@ -189,9 +194,13 @@ func (g *subRig) parentSay(text string) string {
 	before := len(g.r.h.ResultsFor("job")) + len(g.r.h.ResultsFor("wait_for"))
 	sent(g.r.svc, alice, g.parent, text)
 	idle(g.r.svc, alice, g.parent)
-	rs := append(g.r.h.ResultsFor("job"), g.r.h.ResultsFor("wait_for")...)
-	Expect(len(rs)).To(BeNumerically(">", before))
-	rs = g.r.h.Results()
+	// The turn that ends first can be one that a sub-agent report started, with
+	// the message queued for the next one, so wait for the result itself.
+	until("the tool result of "+text, func() bool {
+		return len(g.r.h.ResultsFor("job"))+len(g.r.h.ResultsFor("wait_for")) > before
+	})
+	idle(g.r.svc, alice, g.parent)
+	rs := g.r.h.Results()
 	for i := len(rs) - 1; i >= 0; i-- {
 		if rs[i].Chat == g.parent && (rs[i].Tool == "job" || rs[i].Tool == "wait_for") {
 			if rs[i].Err != nil {
@@ -335,15 +344,25 @@ var _ = Describe("background jobs of sub-agents", func() {
 			child := g.spawn("hold")
 			until("the job", func() bool { return len(g.infos()) == 1 })
 			id := g.infos()[0].ID
+			// The delete ends the jobs the chat record lists, and the stub is
+			// written after the job shows in the registry.
+			until("the stub", func() bool {
+				rec, _ := g.r.svc.Get(ctx, alice, child)
+				return len(rec.Jobs) == 1
+			})
 			Expect(g.r.svc.Delete(ctx, alice, child)).To(Succeed())
 			finished(g, id, bgjob.EndAgentEnded)
 		})
 
 		It("ends the jobs when the parent chat is deleted", func() {
 			g := newSubRig("on")
-			g.spawn("hold")
+			child := g.spawn("hold")
 			until("the job", func() bool { return len(g.infos()) == 1 })
 			id := g.infos()[0].ID
+			until("the stub", func() bool {
+				rec, _ := g.r.svc.Get(ctx, alice, child)
+				return len(rec.Jobs) == 1
+			})
 			Expect(g.r.svc.Delete(ctx, alice, g.parent)).To(Succeed())
 			finished(g, id, bgjob.EndAgentEnded)
 		})

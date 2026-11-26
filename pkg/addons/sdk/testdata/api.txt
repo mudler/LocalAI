@@ -89,6 +89,8 @@ contract: field Capabilities.Provides []contract.ProviderDeclaration "json:\"pro
 contract: field Capabilities.ModelSearch *contract.ModelSearch "json:\"modelSearch,omitempty\""
 contract: field Capabilities.Credentials []contract.CredentialSlot "json:\"credentials,omitempty\""
 contract: field Capabilities.Client *contract.ClientCapability "json:\"client,omitempty\""
+contract: field Capabilities.Events []contract.EventDeclaration "json:\"events,omitempty\""
+contract: method (Capabilities) FindEvent(typ string) (contract.EventDeclaration, bool)
 contract: method (Capabilities) ProvidedSlots() []string
 contract: method (Capabilities) ProvidesSlot(slot string) bool
 contract: method (*Capabilities) UnmarshalJSON(b []byte) error
@@ -168,6 +170,14 @@ contract: field CredentialSlot.ResourceArgument string "json:\"resourceArgument,
 contract: field CredentialSlot.ResourceLabel string "json:\"resourceLabel,omitempty\""
 contract: field CredentialSlot.ResourceOptional bool "json:\"resourceOptional,omitempty\""
 contract: method (CredentialSlot) CredentialResource(d contract.ToolDefinition, arguments json.RawMessage) (key string, found bool, err error)
+contract: type EventDeclaration struct
+contract: field EventDeclaration.Type string "json:\"type\""
+contract: field EventDeclaration.Lifecycle string "json:\"lifecycle\""
+contract: field EventDeclaration.Key string "json:\"key\""
+contract: field EventDeclaration.Anchor *contract.EventAnchor "json:\"anchor,omitempty\""
+contract: field EventDeclaration.Title string "json:\"title\""
+contract: field EventDeclaration.Link string "json:\"link,omitempty\""
+contract: field EventDeclaration.Label contract.Localized "json:\"label\""
 contract: type ExecutionProvider struct
 contract: field ExecutionProvider.Tools []string "json:\"tools\""
 contract: field ExecutionProvider.StatusTool string "json:\"statusTool\""
@@ -228,6 +238,7 @@ contract: field ToolDefinition.InputSchema json.RawMessage "json:\"inputSchema\"
 contract: field ToolDefinition.Approval string "json:\"approval,omitempty\""
 contract: field ToolDefinition.ApprovalOverridable bool "json:\"approvalOverridable,omitempty\""
 contract: field ToolDefinition.UIOnly bool "json:\"uiOnly,omitempty\""
+contract: field ToolDefinition.Deferred bool "json:\"deferred,omitempty\""
 contract: field ToolDefinition.Enumerates bool "json:\"enumerates,omitempty\""
 contract: field ToolDefinition.Shadows string "json:\"shadows,omitempty\""
 contract: field ToolDefinition.Execution *contract.ExecutionDescriptor "json:\"execution,omitempty\""
@@ -300,6 +311,7 @@ contract: field ConnectorKind.TokenGuards []contract.TokenGuard "json:\"tokenGua
 contract: field ConnectorKind.Files *contract.ConnectorFiles "json:\"files,omitempty\""
 contract: field ConnectorKind.Roles []contract.ConnectorRole "json:\"roles,omitempty\""
 contract: field ConnectorKind.Permissions []string "json:\"permissions,omitempty\""
+contract: field ConnectorKind.Actions bool "json:\"actions,omitempty\""
 contract: method (ConnectorKind) FilterRoles(ids []string) []string
 contract: method (ConnectorKind) Grantable(capability string) bool
 contract: method (ConnectorKind) HistoryLimit(want int) int
@@ -308,6 +320,12 @@ contract: method (ConnectorKind) Option(id string) (contract.ConnectorOption, bo
 contract: method (ConnectorKind) ResolveOptions(chosen map[string]string) (map[string]string, error)
 contract: method (ConnectorKind) Role(id string) (contract.ConnectorRole, bool)
 contract: method (ConnectorKind) ServesThreadHistory() bool
+contract: type EventAnchor struct
+contract: field EventAnchor.Time string "json:\"time\""
+contract: field EventAnchor.Zone string "json:\"zone,omitempty\""
+contract: field EventAnchor.AllDay string "json:\"allDay,omitempty\""
+contract: field EventAnchor.Moves []string "json:\"moves,omitempty\""
+contract: field EventAnchor.Following string "json:\"following,omitempty\""
 contract: type ExecutionDescriptor struct
 contract: field ExecutionDescriptor.Class string "json:\"class\""
 contract: field ExecutionDescriptor.Title string "json:\"title,omitempty\""

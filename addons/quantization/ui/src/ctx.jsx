@@ -46,7 +46,7 @@ export function createContext(sdk) {
     if (typeof document === 'undefined') return ''
     const el = document.querySelector('base[href]')
     if (!el) return ''
-    try { return new URL(el.getAttribute('href')).pathname.replace(/\/+$/, '') } catch { return '' }
+    try { return new URL(el.getAttribute('href'), globalThis.location?.href).pathname.replace(/\/+$/, '') } catch { return '' }
   })()
 
   // A JSON call of a core route. A failure keeps the server's message.

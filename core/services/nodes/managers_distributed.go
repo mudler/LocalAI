@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
@@ -93,6 +94,12 @@ type NodeOpStatus struct {
 	NodeName string `json:"node_name"`
 	Status   string `json:"status"`
 	Error    string `json:"error,omitempty"`
+	// ErrorKey is the gallery.UpgradeFailureCode of a failed backend upgrade
+	// on the node. Empty for every other operation and outcome.
+	ErrorKey string `json:"error_key,omitempty"`
+	// err is the error of the node as the operation returned it, so a
+	// cluster upgrade keeps its code through the aggregation.
+	err error
 }
 
 // BackendOpResult aggregates per-node outcomes.
@@ -117,6 +124,43 @@ func (r BackendOpResult) Err() error {
 		return nil
 	}
 	return errors.New(strings.Join(failures, "; "))
+}
+
+// UpgradeErr is Err for a backend upgrade. When a node failed or rolled
+// back, it returns a *gallery.UpgradeNodesError that keeps the outcome of
+// every node (updated, failed, rolled back, unconfirmed or queued) with its
+// code, so a reader shows each node instead of one joined string, and
+// errors.Is and gallery.UpgradeCodeOf still see the codes. It is nil when no
+// node failed.
+func (r BackendOpResult) UpgradeErr() error {
+	failed := false
+	nodes := make([]gallery.UpgradeNodeResult, 0, len(r.Nodes))
+	for _, n := range r.Nodes {
+		res := gallery.UpgradeNodeResult{NodeID: n.NodeID, NodeName: n.NodeName, Message: n.Error, Code: gallery.UpgradeFailureCode(n.ErrorKey)}
+		switch n.Status {
+		case galleryop.NodeStatusSuccess:
+			res.Phase = gallery.UpgradeNodeUpdated
+		case galleryop.NodeStatusRolledBack:
+			res.Phase, res.Err, failed = gallery.UpgradeNodeRolledBack, n.err, true
+		case galleryop.NodeStatusError:
+			res.Phase, res.Err, failed = gallery.UpgradeNodeFailed, n.err, true
+			if res.Err == nil {
+				res.Err = gallery.WithUpgradeCode(gallery.UpgradeFailureUnknown, errors.New(n.Error))
+			}
+			if res.Code == "" {
+				res.Code = gallery.UpgradeCodeOf(res.Err)
+			}
+		case galleryop.NodeStatusUnconfirmed, galleryop.NodeStatusRunningOnWorker:
+			res.Phase = gallery.UpgradeNodeUnconfirmed
+		default:
+			res.Phase = gallery.UpgradeNodeQueued
+		}
+		nodes = append(nodes, res)
+	}
+	if !failed {
+		return nil
+	}
+	return &gallery.UpgradeNodesError{Nodes: nodes}
 }
 
 // enqueueAndDrainBackendOp is the shared scaffolding for
@@ -152,15 +196,16 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 	// and opID is known). Keeping it inline avoids drift between the
 	// BackendOpResult view and the sink view - they're written from the same
 	// code path on the same terminal statuses.
-	emitNodeProgress := func(node BackendNode, status, errMsg string) {
+	emitNodeProgress := func(node BackendNode, status NodeOpStatus) {
 		if d.progressSink == nil || opID == "" {
 			return
 		}
 		d.progressSink.UpdateNodeProgress(opID, node.ID, galleryop.NodeProgress{
 			NodeID:   node.ID,
 			NodeName: node.Name,
-			Status:   status,
-			Error:    errMsg,
+			Status:   status.Status,
+			Error:    status.Error,
+			ErrorKey: status.ErrorKey,
 		})
 	}
 
@@ -221,10 +266,14 @@ func (d *DistributedBackendManager) fanOutLimit() int {
 // sends the operation and settles the pending row. It holds the (node,
 // backend) lock for the whole time so the reconciler does not send the same
 // operation in parallel.
-func (d *DistributedBackendManager) applyToNode(ctx context.Context, node BackendNode, backend, op string, galleriesJSON []byte, apply func(node BackendNode) error, emitNodeProgress func(node BackendNode, status, errMsg string)) NodeOpStatus {
+func (d *DistributedBackendManager) applyToNode(ctx context.Context, node BackendNode, backend, op string, galleriesJSON []byte, apply func(node BackendNode) error, emitNodeProgress func(node BackendNode, status NodeOpStatus)) NodeOpStatus {
+	finish := func(st NodeOpStatus) NodeOpStatus {
+		st.NodeID, st.NodeName = node.ID, node.Name
+		emitNodeProgress(node, st)
+		return st
+	}
 	fail := func(status, errMsg string) NodeOpStatus {
-		emitNodeProgress(node, status, errMsg)
-		return NodeOpStatus{NodeID: node.ID, NodeName: node.Name, Status: status, Error: errMsg}
+		return finish(NodeOpStatus{Status: status, Error: errMsg})
 	}
 
 	unlock, lockErr := d.registry.backendOpLocks.lock(ctx, node.ID, backend)
@@ -267,7 +316,38 @@ func (d *DistributedBackendManager) applyToNode(ctx context.Context, node Backen
 		if id, err := d.findPendingRow(ctx, node.ID, backend, op); err == nil {
 			_ = d.registry.RecordPendingBackendOpInFlight(ctx, id, errMsg, d.adapter.InstallTimeout())
 		}
+		if op == OpBackendUpgrade {
+			// No reply means no outcome: an upgrade is never read as failed
+			// or updated without the answer of the worker.
+			return fail(galleryop.NodeStatusUnconfirmed, errMsg)
+		}
 		return fail(galleryop.NodeStatusRunningOnWorker, errMsg)
+	}
+
+	if op == OpBackendUpgrade && gallery.UpgradeRolledBack(applyErr) {
+		// The worker answered: the new build did not start and the previous
+		// one runs again. Retrying would download the same build and fail the
+		// same way, so the intent is settled, not queued.
+		if err := d.deletePendingRow(ctx, node.ID, backend, op); err != nil {
+			xlog.Debug("Failed to clear pending backend op after a rolled back upgrade", "error", err)
+		}
+		return finish(NodeOpStatus{Status: galleryop.NodeStatusRolledBack, Error: errMsg, ErrorKey: string(gallery.UpgradeCodeOf(applyErr)), err: applyErr})
+	}
+
+	if errors.Is(applyErr, ErrWorkerTooOld) {
+		// The worker answered that it does not serve the verb: it is present,
+		// so the node stays healthy, and a retry cannot help until the worker
+		// is upgraded, so the intent waits without counting an attempt.
+		xlog.Warn("The worker is older than backend.upgrade; upgrade the worker", "node", node.Name, "nodeID", node.ID)
+		if id, err := d.findPendingRow(ctx, node.ID, backend, op); err == nil {
+			_ = d.registry.RecordPendingBackendOpInFlight(ctx, id, errMsg, workerTooOldRetry)
+		}
+		st := NodeOpStatus{Status: galleryop.NodeStatusError, Error: errMsg, err: applyErr}
+		if op == OpBackendUpgrade {
+			st.ErrorKey = string(gallery.UpgradeFailureUnknown)
+			st.err = gallery.WithUpgradeCode(gallery.UpgradeFailureUnknown, applyErr)
+		}
+		return finish(st)
 	}
 
 	if errors.Is(applyErr, ErrNoRoute) {
@@ -279,8 +359,22 @@ func (d *DistributedBackendManager) applyToNode(ctx context.Context, node Backen
 	if id, err := d.findPendingRow(ctx, node.ID, backend, op); err == nil {
 		_ = d.registry.RecordPendingBackendOpFailure(ctx, id, errMsg)
 	}
-	return fail(galleryop.NodeStatusError, errMsg)
+	st := NodeOpStatus{Status: galleryop.NodeStatusError, Error: errMsg, err: applyErr}
+	if op == OpBackendUpgrade {
+		code := gallery.UpgradeCodeOf(applyErr)
+		if code == "" {
+			code = gallery.UpgradeFailureUnknown
+			st.err = gallery.WithUpgradeCode(code, applyErr)
+		}
+		st.ErrorKey = string(code)
+	}
+	return finish(st)
 }
+
+// workerTooOldRetry is how long a pending upgrade on a worker that is older
+// than backend.upgrade waits before the reconciler asks again. It is the cap
+// of the backoff: the worker has to be upgraded first.
+const workerTooOldRetry = 15 * time.Minute
 
 // findPendingRow looks up the ID of a pending_backend_ops row by its
 // composite key. Used to hand off to RecordPendingBackendOpFailure /
@@ -577,10 +671,10 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 // worker has no platform variant for a linux-only backend) and leaves a
 // forever-retrying pending_backend_ops row.
 //
-// Rolling-update fallback: when a worker returns ErrNoRoute on
-// backend.upgrade, we try the legacy backend.install Force=true path so a
-// new master + old worker still converges. Drop the fallback once every
-// worker in the fleet is on 2026-05-08 or newer.
+// A worker that does not serve backend.upgrade answers ErrNoRoute, and that
+// is an error of the upgrade: there is no fallback to a forced install. A
+// worker that old has to be upgraded with the frontend (see the rolling
+// upgrade notes of distributed mode).
 func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *galleryop.ManagementOp[gallery.GalleryBackend, any], progressCb galleryop.ProgressCallback) error {
 	if d.systemState.DisableBackendInstall {
 		return fmt.Errorf("%w: %s", gallery.ErrBackendInstallDisabled, op.GalleryElementName)
@@ -595,7 +689,7 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *gall
 	}
 	entry, ok := installed[name]
 	if !ok || len(entry.Nodes) == 0 {
-		return fmt.Errorf("backend %q is not installed on any node", name)
+		return gallery.WithUpgradeCode(gallery.UpgradeFailureNotInstalled, fmt.Errorf("backend %q is not installed on any node", name))
 	}
 	targetNodeIDs := make(map[string]bool, len(entry.Nodes))
 	for _, n := range entry.Nodes {
@@ -607,7 +701,7 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *gall
 	// and leaves a forever-retrying pending_backend_ops row.
 	if op.TargetNodeID != "" {
 		if !targetNodeIDs[op.TargetNodeID] {
-			return fmt.Errorf("backend %q is not installed on node %s", name, op.TargetNodeID)
+			return gallery.WithUpgradeCode(gallery.UpgradeFailureNotInstalled, fmt.Errorf("backend %q is not installed on node %s", name, op.TargetNodeID))
 		}
 		targetNodeIDs = map[string]bool{op.TargetNodeID: true}
 	}
@@ -641,40 +735,62 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *gall
 		}
 		reply, err := d.adapter.UpgradeBackend(node.ID, name, string(galleriesJSON), "", "", "", 0, opID, onProgressArg)
 		if err != nil {
-			// Rolling-update fallback: an older worker doesn't know
-			// backend.upgrade. Try the legacy install-with-force path.
-			if errors.Is(err, ErrNoRoute) {
-				instReply, instErr := d.adapter.InstallBackendForce(node.ID, name, string(galleriesJSON), "", "", "", 0, opID, onProgressArg)
-				if instErr != nil {
-					return instErr
-				}
-				if !instReply.Success {
-					return fmt.Errorf("upgrade (legacy fallback) failed: %s", instReply.Error)
-				}
-				return nil
-			}
 			return err
 		}
-		if !reply.Success {
-			return fmt.Errorf("upgrade failed: %s", reply.Error)
-		}
-		return nil
+		return UpgradeReplyError(reply)
 	})
 	if err != nil {
 		return err
 	}
-	if hardErr := result.Err(); hardErr != nil {
+	if hardErr := result.UpgradeErr(); hardErr != nil {
 		return hardErr
 	}
-	// Same in-progress surfacing as InstallBackend: a long-running worker
-	// upgrade that timed out the NATS round-trip must not be reported as
-	// green success.
+	// A node whose reply never arrived has no known outcome. Report it as
+	// in progress, never as success: the reconciler and the next check of the
+	// node settle it.
 	for _, n := range result.Nodes {
-		if n.Status == galleryop.NodeStatusRunningOnWorker {
+		if n.Status == galleryop.NodeStatusUnconfirmed {
 			return fmt.Errorf("%w: %s", galleryop.ErrWorkerStillInstalling, summarizeRunningOnWorker(result.Nodes))
 		}
 	}
 	return nil
+}
+
+// UpgradeReplyError turns the answer of a worker to backend.upgrade into the
+// error of the upgrade on that node: nil on success, else an
+// *gallery.UpgradeError with the code the worker sent, whether it rolled
+// back, and the cause of a failed start in the text. A code this frontend
+// does not know is read as unknown.
+func UpgradeReplyError(reply *workerctl.BackendUpgradeReply) error {
+	if reply == nil {
+		return gallery.WithUpgradeCode(gallery.UpgradeFailureUnknown, errors.New("upgrade failed: empty reply"))
+	}
+	if reply.Success {
+		return nil
+	}
+	// The reply may come from an adapter that did not clean it on receipt.
+	clean := *reply
+	clean.Sanitize()
+	reply = &clean
+	code := gallery.UpgradeFailureCode(reply.Code)
+	if !knownUpgradeCode(code) {
+		code = gallery.UpgradeFailureUnknown
+	}
+	msg := "upgrade failed: " + reply.Error
+	if reply.Cause != "" && !strings.Contains(reply.Error, reply.Cause) {
+		msg += " (cause: " + reply.Cause + ")"
+	}
+	return &gallery.UpgradeError{Code: code, RolledBack: reply.RolledBack, Err: errors.New(msg)}
+}
+
+func knownUpgradeCode(code gallery.UpgradeFailureCode) bool {
+	switch code {
+	case gallery.UpgradeFailureDownload, gallery.UpgradeFailureVerify, gallery.UpgradeFailureSwap,
+		gallery.UpgradeFailureStart, gallery.UpgradeFailureNotInstalled, gallery.UpgradeFailureNoUpdate,
+		gallery.UpgradeFailureStale, gallery.UpgradeFailureUnknown:
+		return true
+	}
+	return false
 }
 
 // IsDistributed reports that installs from this manager fan out across the
@@ -715,7 +831,7 @@ func (d *DistributedBackendManager) CheckUpgrades(ctx context.Context) (map[stri
 func summarizeRunningOnWorker(nodes []NodeOpStatus) string {
 	var names []string
 	for _, n := range nodes {
-		if n.Status == galleryop.NodeStatusRunningOnWorker {
+		if n.Status == galleryop.NodeStatusRunningOnWorker || n.Status == galleryop.NodeStatusUnconfirmed {
 			names = append(names, n.NodeName)
 		}
 	}

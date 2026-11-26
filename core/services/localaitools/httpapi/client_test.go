@@ -14,6 +14,8 @@ import (
 
 	"github.com/mudler/LocalAI/core/schema"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
+	"github.com/mudler/LocalAI/core/services/upgraderun"
+	"github.com/mudler/LocalAI/pkg/enginesettings"
 )
 
 // fakeLocalAI is a minimal HTTP server that mimics the relevant LocalAI
@@ -164,6 +166,56 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 		})
 	})
 
+	Describe("a single upgrade that an upgrade run did not start in time", func() {
+		It("answers with the run, never a job, for a backend and a model", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusAccepted)
+				_, _ = w.Write([]byte(`{"code":"pending","message":"waits","run_id":"run-7","run":{"id":"run-7"}}`))
+			}))
+			defer srv.Close()
+			cl := New(srv.URL, "")
+			job, err := cl.UpgradeBackend(ctx, "kokoro")
+			Expect(job).To(BeEmpty())
+			var pending *upgraderun.PendingError
+			Expect(errors.As(err, &pending)).To(BeTrue(), "%v", err)
+			Expect(pending.RunID).To(Equal("run-7"))
+			job, err = cl.UpgradeModel(ctx, "tiny", false, nil)
+			Expect(job).To(BeEmpty())
+			Expect(errors.As(err, &pending)).To(BeTrue(), "%v", err)
+		})
+	})
+
+	Describe("engine settings", func() {
+		It("posts the command and decodes the parse result", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.URL.Path).To(Equal("/api/engines/llama-cpp/parse-command"))
+				var body map[string]string
+				Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+				Expect(body["command"]).To(Equal("llama-server -c 4096"))
+				_, _ = w.Write([]byte(`{"fields":{"context_size":4096},"options":[],"unmapped":[],"warnings":[],"placements":[]}`))
+			}))
+			defer srv.Close()
+			out, err := New(srv.URL, "").ParseEngineCommand(ctx, "llama-cpp", "llama-server -c 4096")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.Fields["context_size"]).To(BeEquivalentTo(4096))
+		})
+
+		It("posts the config and decodes the command", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.URL.Path).To(Equal("/api/engines/llama-cpp/command-preview"))
+				var body map[string]map[string]any
+				Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+				Expect(body["config"]["context_size"]).To(BeEquivalentTo(4096))
+				_, _ = w.Write([]byte(`{"command":"llama-server -c 4096","warnings":[]}`))
+			}))
+			defer srv.Close()
+			out, err := New(srv.URL, "").PreviewEngineCommand(ctx, "llama-cpp", enginesettings.Config{"context_size": 4096})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.Command).To(Equal("llama-server -c 4096"))
+		})
+	})
+
 	Describe("SearchModels", func() {
 		It("sends the query and parses the response", func() {
 			var got url.Values
@@ -236,6 +288,56 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 				{Route: "nats", State: "down", Reason: "connecting"},
 				{Route: "tunnel", Transport: "websocket", State: "live"},
 			}))
+		})
+	})
+
+	Describe("upgrade runs", func() {
+		It("starts, reads and cancels runs on the run routes", func() {
+			var seen []string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				seen = append(seen, r.Method+" "+r.URL.EscapedPath())
+				switch {
+				case r.Method == http.MethodPost && r.URL.Path == "/api/updates/runs":
+					var body map[string]any
+					Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+					Expect(body).To(HaveKeyWithValue("source", "manual"))
+					w.WriteHeader(http.StatusAccepted)
+					_, _ = w.Write([]byte(`{"id":"r1","source":"manual","state":"running","created_at":"2026-11-23T10:00:00Z","items":[{"key":"gallery:kokoro","kind":"gallery","name":"kokoro","phase":"queued","progress":0,"retryable":false,"cancellable":false}]}`))
+				case r.Method == http.MethodGet && r.URL.Path == "/api/updates/runs":
+					_, _ = w.Write([]byte(`{"runs":[{"id":"r1","state":"running","items":[]}]}`))
+				default:
+					_, _ = w.Write([]byte(`{"id":"r1","state":"cancelled","items":[]}`))
+				}
+			}))
+			defer srv.Close()
+			c := New(srv.URL, "")
+			run, err := c.StartUpgradeRun(ctx, localaitools.UpgradeRunStartRequest{Items: []localaitools.UpgradeRunItemRef{{Kind: "gallery", Name: "kokoro"}}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(run.ID).To(Equal("r1"))
+			Expect(run.CreatedAt).To(Equal("2026-11-23T10:00:00Z"))
+			Expect(run.Items[0].Key).To(Equal("gallery:kokoro"))
+			runs, err := c.UpgradeRuns(ctx, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(runs).To(HaveLen(1))
+			_, err = c.UpgradeRuns(ctx, "r1")
+			Expect(err).ToNot(HaveOccurred())
+			_, err = c.CancelUpgradeRun(ctx, "r1", "")
+			Expect(err).ToNot(HaveOccurred())
+			_, err = c.CancelUpgradeRun(ctx, "r1", "model:a/b")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(seen).To(Equal([]string{
+				"POST /api/updates/runs",
+				"GET /api/updates/runs",
+				"GET /api/updates/runs/r1",
+				"POST /api/updates/runs/r1/cancel",
+				"POST /api/updates/runs/r1/items/model:a%2Fb/cancel",
+			}))
+		})
+
+		It("refuses an add-on item before it calls the server", func() {
+			c := New("http://127.0.0.1:1", "")
+			_, err := c.StartUpgradeRun(ctx, localaitools.UpgradeRunStartRequest{Items: []localaitools.UpgradeRunItemRef{{Kind: "addon", Name: "notes"}}})
+			Expect(err).To(MatchError(ContainSubstring("add-ons are not updated by the assistant")))
 		})
 	})
 

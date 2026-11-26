@@ -26,25 +26,19 @@ sh /LocalAI/.docker/apt-mirror.sh apt-get update -qq && sh /LocalAI/.docker/apt-
 cd /LocalAI/backend/cpp/llama-cpp
 BUILD_TARGET=$(/LocalAI/.docker/llama-cpp-build-target.sh "${TARGETARCH}" "${BUILD_TYPE:-}")
 if [ "$BUILD_TARGET" = "llama-cpp-cpu-all" ]; then
-  # One build with ggml CPU_ALL_VARIANTS replaces the per-microarch binaries (x86:
-  # avx/avx2/avx512/fallback; arm64: armv8.x/armv9.x). BUILD_TYPE remains in the
-  # environment, so GPU builds retain their accelerator backend while ggml dlopens the
-  # best CPU library when work is offloaded to the host.
-  #
-  # arm64: the CPU_ALL_VARIANTS table includes armv9.2 SME variants whose -march=...+sme is
-  # rejected by the Ubuntu 24.04 default gcc-13. gcc-14 accepts it, so build the arm64
-  # variants with it (the host never *selects* SME unless it has it, but every variant must
-  # still compile).
-  if [ "${TARGETARCH}" = "arm64" ]; then
-    # The prebuilt base inherits default ports.ubuntu.com sources; honor the
-    # APT_*_MIRROR build args here like the from-source path does, so this
-    # apt step survives a mirror outage.
-    sh /LocalAI/.docker/apt-mirror.sh || true
-    sh /LocalAI/.docker/apt-mirror.sh apt-get update -qq && sh /LocalAI/.docker/apt-mirror.sh apt-get install -y -qq gcc-14 g++-14
-    export CC=gcc-14 CXX=g++-14
-  fi
+  # One build replaces the per-microarch binaries: the loader plus the GPU backend
+  # (when there is one) are built here with the CPU backend switched off, and ggml
+  # dlopens the best libggml-cpu-*.so at run time for the work that stays on the
+  # host. Those variants come from the cpu-variants stage of the Dockerfile, built
+  # once per architecture with plain gcc, so no compiler of the GPU toolchain (icpx,
+  # hipcc) compiles them and no builder needs gcc-14 for the arm64 ones.
+  CPU_VARIANTS_DIR=/LocalAI/backend/cpp/llama-cpp/cpu-variants
+  ls "$CPU_VARIANTS_DIR"/libggml-cpu-*.so > /dev/null
+  set -- "CPU_VARIANTS_DIR=$CPU_VARIANTS_DIR"
+else
+  set --
 fi
-make "$BUILD_TARGET"
+make "$BUILD_TARGET" "$@"
 make llama-cpp-grpc
 make llama-cpp-rpc-server
 

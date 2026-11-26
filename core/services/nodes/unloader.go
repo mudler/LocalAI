@@ -23,13 +23,12 @@ import (
 //
 // UpgradeBackend is the destructive force-reinstall path: the worker stops
 // every live process for the backend, re-pulls the gallery artifact, and
-// replies. Caller (DistributedBackendManager.UpgradeBackend) handles
-// rolling-update fallback to the legacy install Force=true path.
+// replies. There is no fallback for a worker that does not serve it.
 //
 // PingNode returns ErrNoRoute when nothing answers for the node, which is the
 // only condition callers may read as "this node cannot be given work".
 // UpgradeBackend returns ErrNoRoute on an old worker that does not serve
-// backend.upgrade, and the caller falls back to the legacy install.
+// backend.upgrade, and that is an error of the upgrade.
 type NodeCommandSender interface {
 	InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent), env ...map[string]string) (*workerctl.BackendInstallReply, error)
 	UpgradeBackend(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendUpgradeReply, error)
@@ -362,9 +361,11 @@ func (a *nodeControl) installBackend(nodeID string, req workerctl.BackendInstall
 
 // UpgradeBackend sends a backend.upgrade request-reply to a worker node.
 // The worker stops every live process for this backend, force-reinstalls
-// from the gallery (overwriting the on-disk artifact), and replies. The
-// next routine InstallBackend call spawns a fresh process with the new
-// binary - upgrade itself does not start a process.
+// from the gallery, keeps the previous build until the new one passes a
+// candidate start (and puts it back when it does not), starts the stopped
+// processes again with no model loaded, and replies. The reply says what
+// happened (Code, RolledBack, Verified, Cause); UpgradeReplyError reads it.
+// A wait that runs out is ErrWorkerStillInstalling: the outcome is unknown.
 //
 // When opID is non-empty and onProgress is set, the master subscribes to the
 // per-op progress subject before firing the request so a long force-reinstall
@@ -390,45 +391,18 @@ func (a *nodeControl) UpgradeBackend(nodeID, backendType, galleriesJSON, uri, na
 
 	if err != nil && errors.Is(err, errVerbNotServed) {
 		// A worker that answers, and has no such verb, is older than the verb.
-		// The caller falls back to the install it does understand, which is what
-		// ErrNoRoute has always meant for this verb.
-		return nil, fmt.Errorf("%w: %v", ErrNoRoute, err)
+		// Its answer is not a routing fact: the node is present and stays
+		// healthy. There is no fallback to a forced install: the upgrade fails
+		// on that worker, and the worker must be upgraded first.
+		return nil, fmt.Errorf("%w (%s): %w", ErrWorkerTooOld, target, err)
 	}
 	if err != nil && a.link.waitExpired(err) {
 		return nil, fmt.Errorf("%w (%s nodeID=%s backend=%s): %v",
 			galleryop.ErrWorkerStillInstalling, target, nodeID, backendType, err)
 	}
 	if err == nil {
+		reply.Sanitize()
 		a.dropStoppedReplicaRows(nodeID, "backend.upgrade", backendType, reply.StoppedProcessKeys, reply.ReportsStoppedProcesses)
-	}
-	return reply, err
-}
-
-// InstallBackendForce is the rolling-update fallback used by
-// DistributedBackendManager.UpgradeBackend when backend.upgrade returns
-// ErrNoRoute (the worker is on a pre-2026-05-08 build that
-// doesn't subscribe to the new subject). It re-fires the legacy
-// backend.install with Force=true. Drop this once every worker is on
-// 2026-05-08 or newer.
-func (a *nodeControl) InstallBackendForce(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
-	target := a.link.describe(nodeID, workerctl.VerbBackendInstall)
-	xlog.Warn("Falling back to legacy backend.install Force=true (old worker)", "nodeID", nodeID, "backend", backendType)
-
-	reply, err := callVerbWithProgress[workerctl.BackendInstallRequest, workerctl.BackendInstallReply](
-		context.Background(), a.link, nodeID, workerctl.VerbBackendInstall, opID, workerctl.BackendInstallRequest{
-			Backend:          backendType,
-			BackendGalleries: galleriesJSON,
-			URI:              uri,
-			Name:             name,
-			Alias:            alias,
-			ReplicaIndex:     replicaIndex32(replicaIndex),
-			Force:            true,
-			OpID:             opID,
-		}, a.upgradeTimeout, onProgress)
-
-	if err != nil && a.link.waitExpired(err) {
-		return nil, fmt.Errorf("%w (%s nodeID=%s backend=%s): %v",
-			galleryop.ErrWorkerStillInstalling, target, nodeID, backendType, err)
 	}
 	return reply, err
 }
@@ -691,6 +665,12 @@ func (a *nodeControl) DeleteModelFilesScoped(modelName string, include func(node
 	}
 	return nil
 }
+
+// ErrWorkerTooOld is a worker that answered and does not serve backend.upgrade:
+// it is older than the verb. It is the worker's own answer, never a routing
+// fact (ErrNoRoute): the node is not marked unhealthy, and a pending upgrade
+// on it waits without counting a failed attempt until the worker is upgraded.
+var ErrWorkerTooOld = errors.New("the worker is older than backend.upgrade; upgrade the worker first")
 
 // errVerbNotServed means that the worker answered and does not serve the verb.
 // It is a fact about the version of the worker. It is not a routing fact and

@@ -62,6 +62,19 @@ var _ = Describe("Link", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	It("round trips private addresses next to public ones, up to four", func() {
+		l := fullLink()
+		for _, s := range []string{"/ip4/192.168.1.20/tcp/4001", "/ip6/fd00::20/tcp/4001"} {
+			a, err := ma.NewMultiaddr(s)
+			Expect(err).NotTo(HaveOccurred())
+			l.Addrs = append(l.Addrs, a)
+		}
+		got, err := p2ppair.ParseLink(l.String())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.AddrStrings()).To(Equal(l.AddrStrings()))
+		Expect(len(l.String())).To(BeNumerically("<", 1024), "a link with four addresses must stay small for a QR code")
+	})
+
 	It("ignores unknown keys", func() {
 		got, err := p2ppair.ParseLink(fullLink().String() + "&zz=1&future=abc")
 		Expect(err).NotTo(HaveOccurred())
@@ -91,8 +104,8 @@ var _ = Describe("Link", func() {
 		Entry("a lower case code", func(s string) string { return strings.Replace(s, "ABCDE23456", "abcde23456", 1) }),
 		Entry("a bad expiry", func(s string) string { return strings.Replace(s, "e=1893456000", "e=-5", 1) }),
 		Entry("a repeated key", func(s string) string { return s + "&k=device" }),
-		Entry("three direct addresses", func(s string) string {
-			return s + "&a=%2Fip4%2F1.2.3.4%2Ftcp%2F1"
+		Entry("five direct addresses", func(s string) string {
+			return s + "&a=%2Fip4%2F1.2.3.4%2Ftcp%2F1&a=%2Fip4%2F1.2.3.4%2Ftcp%2F2&a=%2Fip4%2F1.2.3.4%2Ftcp%2F3"
 		}),
 		Entry("an open index out of range", func(s string) string { return strings.Replace(s, "o=1", "o=2", 1) }),
 		Entry("a relay with no peer ID", func(s string) string { return s + "&r=%2Fip4%2F1.2.3.4%2Ftcp%2F1" }),

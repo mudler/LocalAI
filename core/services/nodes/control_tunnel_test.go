@@ -213,9 +213,10 @@ var _ = Describe("The tunnel carrier of the control verbs", func() {
 	})
 
 	Describe("a worker that is too old", func() {
-		It("turns the 404 of an upgrade into ErrNoRoute, so that the caller falls back to the install it understands", func() {
+		It("turns the 404 of an upgrade into ErrWorkerTooOld, never into a routing fact", func() {
 			_, err := control.UpgradeBackend(node, "b", "", "", "", "", 0, "", nil)
-			Expect(errors.Is(err, ErrNoRoute)).To(BeTrue(), "%v", err)
+			Expect(errors.Is(err, ErrWorkerTooOld)).To(BeTrue(), "%v", err)
+			Expect(errors.Is(err, ErrNoRoute)).To(BeFalse(), "the worker answered; it is present")
 		})
 
 		It("does not turn the 404 of another verb into ErrNoRoute", func() {
@@ -371,7 +372,7 @@ var _ = Describe("The tunnel carrier of the control verbs", func() {
 			Expect(errors.Is(err, ErrNoRoute)).To(BeFalse())
 		})
 
-		It("says the same of an upgrade and of the legacy install with Force", func() {
+		It("says the same of an upgrade and of an install", func() {
 			broken := func(w http.ResponseWriter, _ *http.Request) {
 				_, _ = io.WriteString(w, `{"progress":{"op_id":"x"}}`+"\n")
 			}
@@ -380,7 +381,7 @@ var _ = Describe("The tunnel carrier of the control verbs", func() {
 			Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue(), "%v", err)
 
 			worker.on(workerctl.VerbBackendInstall, broken)
-			_, err = control.InstallBackendForce(node, "b", "", "", "", "", 0, "op", nil)
+			_, err = control.InstallBackend(node, "b", "m", "", "", "", "", 0, "op", nil)
 			Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue(), "%v", err)
 		})
 
@@ -400,19 +401,6 @@ var _ = Describe("The tunnel carrier of the control verbs", func() {
 			reply, err := control.InstallBackend(node, "b", "m", "", "", "", "", 0, "", nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(reply.Error).To(Equal("no space left"))
-		})
-	})
-
-	Describe("an upgrade of a backend on an older worker, after the fallback", func() {
-		It("sends the legacy install with Force set", func() {
-			var got workerctl.BackendInstallRequest
-			worker.on(workerctl.VerbBackendInstall, func(w http.ResponseWriter, r *http.Request) {
-				_ = json.NewDecoder(r.Body).Decode(&got)
-				_, _ = io.WriteString(w, `{"reply":{"success":true}}`+"\n")
-			})
-			_, err := control.InstallBackendForce(node, "b", "", "", "", "", 0, "op", nil)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(got.Force).To(BeTrue())
 		})
 	})
 

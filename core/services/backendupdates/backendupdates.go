@@ -97,6 +97,11 @@ type Item struct {
 	// DriftNodes is the subset that differs from the majority.
 	Nodes      []Node `json:"nodes,omitempty"`
 	DriftNodes int    `json:"driftNodes,omitempty"`
+	// HeldBack is true when the automatic update does not take this
+	// release: the same release already rolled back, or failed because it
+	// does not work here, in a recent upgrade run. A manual update still
+	// can. It goes away when the gallery lists another release.
+	HeldBack bool `json:"heldBack,omitempty"`
 }
 
 // Node is one node that has the backend.

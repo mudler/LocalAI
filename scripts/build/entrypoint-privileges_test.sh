@@ -9,13 +9,15 @@
 #      the device files and never group 0.
 #   3. LOCALAI_RUN_AS_ROOT=true keeps root: setpriv is not called.
 #   4. A process that is not root is left alone: setpriv is not called.
+#   5. The home folder goes to a LOCALAI_UID that is not 10001, so LocalAI can
+#      keep its caches there (the Sigstore trust of signed add-ons).
 set -euo pipefail
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 REPO_ROOT=$(dirname "$(dirname "$(dirname "$(realpath "$0")")")")
 
-mkdir -p "$WORK/bin" "$WORK/owned" "$WORK/foreign" "$WORK/dev"
+mkdir -p "$WORK/bin" "$WORK/owned" "$WORK/foreign" "$WORK/dev" "$WORK/home"
 touch "$WORK/dev/kvm" "$WORK/dev/render" "$WORK/dev/rootdev"
 
 cat >"$WORK/bin/id" <<'SH'
@@ -31,6 +33,7 @@ case "$3" in
 */dev/kvm) echo 108 ;;
 */dev/render) echo 108 ;;
 */dev/rootdev) echo 0 ;;
+*/home) echo 10001 ;;
 *) echo 0 ;;
 esac
 SH
@@ -53,7 +56,7 @@ run() { # run <uid> [env...]
 	: >"$WORK/log"
 	# setpriv is faked and exits, so the script never reaches ./local-ai.
 	env "$@" FAKE_UID="$uid" FAKE_LOG="$WORK/log" PATH="$WORK/bin:$PATH" \
-		LOCALAI_DATA_DIRS="$WORK/owned $WORK/foreign" \
+		LOCALAI_DATA_DIRS="$WORK/owned $WORK/foreign" LOCALAI_HOME_DIR="$WORK/home" \
 		LOCALAI_DEVICE_PATHS="$WORK/dev/kvm $WORK/dev/render $WORK/dev/rootdev $WORK/dev/missing" \
 		bash "$REPO_ROOT/entrypoint.sh" run >"$WORK/out" 2>&1 || true
 }
@@ -62,9 +65,11 @@ run 0
 grep -q "chown -R 10001:10001 $WORK/foreign" "$WORK/log" || fail "a root-owned folder was not handed over"
 grep -q "chown .*$WORK/owned" "$WORK/log" && fail "a folder the user owns was changed"
 grep -q -- "setpriv --reuid=10001 --regid=10001 --groups=108 -- " "$WORK/log" || fail "setpriv did not get the device group once, without group 0"
+grep -q "chown .*$WORK/home" "$WORK/log" && fail "the home of the default user was changed"
 
 run 0 LOCALAI_UID=2000 LOCALAI_GID=3000
 grep -q -- "setpriv --reuid=2000 --regid=3000" "$WORK/log" || fail "LOCALAI_UID and LOCALAI_GID were ignored"
+grep -q "chown -R 2000:3000 $WORK/home" "$WORK/log" || fail "the home folder was not handed to LOCALAI_UID"
 
 run 0 LOCALAI_RUN_AS_ROOT=true
 grep -q setpriv "$WORK/log" && fail "LOCALAI_RUN_AS_ROOT=true still dropped root"

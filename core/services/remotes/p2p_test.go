@@ -244,4 +244,72 @@ var _ = Describe("Remotes over P2P", func() {
 		Expect(t.Peer).To(Equal(serverPeer))
 		Expect(t.Relays).To(Equal([]string{"/ip4/192.0.2.1/tcp/4001/p2p/12D3KooWRelay"}))
 	})
+
+	It("keeps the newest address that worked, first and without repeats", func() {
+		res, err := e.svc.Create(ctx, remotes.CreateRequest{Invite: invite})
+		Expect(err).NotTo(HaveOccurred())
+		id := res.Remote.ID
+		stored := func() []string {
+			rec, err := store.Get(ctx, id)
+			Expect(err).NotTo(HaveOccurred())
+			return rec.P2P.Addrs
+		}
+		Expect(stored()).To(BeEmpty())
+
+		got, changed, err := remotes.LearnAddrs(ctx, e.svc, id, []string{"/ip4/192.0.2.10/tcp/4001"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(changed).To(BeTrue())
+		Expect(got).To(Equal([]string{"/ip4/192.0.2.10/tcp/4001"}))
+
+		// The address of a new IP goes first; the old one stays behind it.
+		got, changed, err = remotes.LearnAddrs(ctx, e.svc, id, []string{"/ip4/192.0.2.20/tcp/4001"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(changed).To(BeTrue())
+		Expect(got).To(Equal([]string{"/ip4/192.0.2.20/tcp/4001", "/ip4/192.0.2.10/tcp/4001"}))
+		Expect(stored()).To(Equal(got))
+
+		// Several at once keep their order, in front of the older ones, up to the limit.
+		got, changed, err = remotes.LearnAddrs(ctx, e.svc, id, []string{"/ip4/192.0.2.30/tcp/4001", "/ip4/192.0.2.30/udp/4001/quic-v1", "/ip4/192.0.2.31/tcp/4001"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(changed).To(BeTrue())
+		Expect(got).To(Equal([]string{"/ip4/192.0.2.30/tcp/4001", "/ip4/192.0.2.30/udp/4001/quic-v1", "/ip4/192.0.2.31/tcp/4001", "/ip4/192.0.2.20/tcp/4001"}))
+		got, changed, err = remotes.LearnAddrs(ctx, e.svc, id, []string{"/ip4/192.0.2.20/tcp/4001"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(changed).To(BeTrue())
+		Expect(got[0]).To(Equal("/ip4/192.0.2.20/tcp/4001"))
+
+		// The same address again writes nothing.
+		got, changed, err = remotes.LearnAddrs(ctx, e.svc, id, []string{"/ip4/192.0.2.20/tcp/4001"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(changed).To(BeFalse())
+		Expect(got).To(Equal(stored()))
+
+		// A circuit address is never stored.
+		_, changed, err = remotes.LearnAddrs(ctx, e.svc, id, []string{"/ip4/192.0.2.1/tcp/4001/p2p/12D3KooWRelay/p2p-circuit"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(changed).To(BeFalse())
+
+		// The next start of the tunnel uses the stored address.
+		fresh := newFakeTunnels(remote)
+		remotes.StartTunnels(ctx, newSvc(fresh))
+		Expect(fresh.opened[id].Addrs).To(Equal(stored()))
+		Expect(fresh.opened[id].Relays).To(Equal([]string{"/ip4/192.0.2.1/tcp/4001/p2p/12D3KooWRelay"}))
+	})
+
+	It("does not learn an address for a remote that is not over P2P or is gone", func() {
+		_, _, err := remotes.LearnAddrs(ctx, e.svc, "missing", []string{"/ip4/192.0.2.10/tcp/4001"})
+		Expect(errors.Is(err, remotes.ErrNotFound)).To(BeTrue())
+	})
+
+	DescribeTable("merges an address into the stored ones",
+		func(stored []string, addr string, max int, want []string) {
+			Expect(remotes.MergeAddr(stored, addr, max)).To(Equal(want))
+		},
+		Entry("into nothing", nil, "a", 4, []string{"a"}),
+		Entry("in front", []string{"a", "b"}, "c", 4, []string{"c", "a", "b"}),
+		Entry("moves a known one to the front", []string{"a", "b", "c"}, "c", 4, []string{"c", "a", "b"}),
+		Entry("drops the oldest at the limit", []string{"a", "b", "c", "d"}, "e", 4, []string{"e", "a", "b", "c"}),
+		Entry("refuses a circuit address", []string{"a"}, "/ip4/192.0.2.1/tcp/1/p2p/X/p2p-circuit", 4, []string{"a"}),
+		Entry("refuses an empty address", []string{"a"}, "", 4, []string{"a"}),
+	)
 })

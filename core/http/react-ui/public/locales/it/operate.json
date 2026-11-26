@@ -33,6 +33,15 @@
     "diskChip": "Disco quasi pieno"
   },
   "activity": {
+    "node": {
+      "done": "Fatto",
+      "failed": "Non riuscito",
+      "queued": "In coda",
+      "workerBusy": "Worker occupato",
+      "downloading": "Download in corso",
+      "rolledBack": "Ripristinato",
+      "unconfirmed": "Non confermato"
+    },
     "kind": {
       "addon": "add-on"
     },

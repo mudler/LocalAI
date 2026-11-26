@@ -42,7 +42,7 @@ func VoiceEmbed(
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
-		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceVoiceEmbed, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: "voice embedding"})
+		traceID = trace.BeginBackendTraceFor(ctx, trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceVoiceEmbed, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: "voice embedding"})
 	}
 	defer trace.CancelBackendTrace(traceID)
 
@@ -56,7 +56,7 @@ func VoiceEmbed(
 		if err != nil {
 			errStr = err.Error()
 		}
-		trace.RecordBackendTrace(trace.BackendTrace{
+		trace.RecordBackendTraceFor(ctx, trace.BackendTrace{
 			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),

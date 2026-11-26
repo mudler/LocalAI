@@ -164,6 +164,25 @@ All routes are under `/api/chats`, need the `chats` feature, and answer
 
 A new chat can start in a project with `project_id` in `POST /api/chats`.
 
+#### Act for another user
+
+An administrator can add `?user_id=<user id>` to any of these routes, and to the
+lists of agents, connections, triggers and loops of a project, to act on the
+projects of that user instead of their own. This is the same parameter the
+other per-user routes use. Every project in an answer has an `owner` field with
+the id of its owner.
+
+- A user who is not an administrator gets `403` when `user_id` names someone
+  else. Their own id is accepted. The other per-user routes ignore a `user_id`
+  from a user who is not an administrator and use their own account. The
+  project routes refuse it, so a client that creates projects for a user never
+  creates them under the wrong account without notice.
+- `user_id` must be a user id: letters, digits, `-` and `_`, at most 36
+  characters. Anything else gives `400`.
+- An id that names no user of the server gives `404`.
+- Each request that acts for another user writes one `User impersonation` log
+  line with the caller, the target user and the route. The body is not logged.
+
 ### Project memory
 
 The memory of a project is the folder `memory/`. `index.md` is the index, and
@@ -517,8 +536,9 @@ needs `chats` only, because a loop is part of a chat.
   that are bound to an agent of the project: id, kind, name, the agent and
   whether the connection is on. A token or a list of senders never appears.
 - `GET /api/chats/projects/{id}/triggers` lists your triggers that run an agent
-  of the project: name, kind, schedule or folder (a path in your files, such as
-  `/Projects/acme/files/inbox`), the agent, whether it is on, and `next`, the
+  of the project: name, kind (`schedule`, `file` or `event`), schedule or folder (a path in your files, such as
+  `/Projects/acme/files/inbox`; an event trigger has neither, and its sender, type and matches are
+  not in this list), the agent, whether it is on, and `next`, the
   next run of an enabled schedule trigger. The list shows your
   triggers of the agents of the project; `proposed` is always false for now.
 - `GET /api/chats/projects/{id}/loops` lists your loops in chats that use an
@@ -547,7 +567,7 @@ The project page has a **Connections** tab and an **Automations** tab.
   asks which one answers. A project with no agent shows **New agent** instead,
   because a project agent must answer the messages. An archived project cannot
   add connections: **Connect** is off until you restore it.
-- **Automations** lists the triggers (schedule or folder, the agent, the next
+- **Automations** lists the triggers (schedule, folder or **Event** for an event trigger, the agent, the next
   run) and the loops of the project. Each trigger opens its own page and each
   loop opens its chat. **New trigger** opens the trigger form with the first
   agent of the project that can work already chosen, and, for a file trigger,

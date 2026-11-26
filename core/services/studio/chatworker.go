@@ -39,7 +39,8 @@ var ErrWorkerFull = errors.New("studio: the chat worker runs as many turns as it
 // here. A message with files is sent here too: the files are saved before the
 // turn starts, and they would have to cross the bus.
 func (s *Service) SendBackground(ctx context.Context, user, conv, text string, up []session.Upload) (SendResult, error) {
-	if s.d.Workers == nil || len(up) > 0 {
+	// An incognito chat lives in the memory of this process: no worker has it.
+	if s.d.Workers == nil || len(up) > 0 || s.incognito.Level(conv).Incognito() {
 		return s.SendWithFiles(ctx, user, conv, text, up)
 	}
 	req := workerctl.ChatStartRequest{Principal: principal(user), ChatID: conv, Text: text}

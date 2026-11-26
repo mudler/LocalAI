@@ -7,14 +7,17 @@ import { renderMarkdown } from '../../utils/markdown'
 import { escapeHtml } from './chatText'
 import { messageParts } from '../../utils/chatAttachments'
 import { chatFileTarget, spaceSafeLinks } from '../../utils/chatMedia'
-import { filesApi } from '../../utils/api'
+import { backendsApi, filesApi } from '../../utils/api'
+import { useUpdates } from '../../contexts/UpdatesContext'
+import { updateForBackend } from '../../utils/updates'
 import { iconHtml } from '../../utils/iconHtml'
 // eslint-disable-next-line no-unused-vars
 import { InvokedChip } from './CommandCards'
 // eslint-disable-next-line no-unused-vars
 import MessageAttachments from './Attachments'
 // eslint-disable-next-line no-unused-vars
-import { ActivityGroup, ActivityProposals, StreamingActivity } from './ActivityFold'
+import { ActivityGroup, ActivityProposals, StreamingFlow } from './ActivityFold'
+import { liveSteps } from '../../utils/chatLive'
 import Icon from '../Icon'
 // eslint-disable-next-line no-unused-vars
 import { SenderLine } from './ConnectorChat'
@@ -115,6 +118,38 @@ function Prose({ html, className = '', files, onOpenFile }) {
 // that the turn failed and offers the Retry. For a turn a restart interrupted,
 // auto says what the page does by itself (see utils/turnResume.js): wait, then
 // resume; the person can stop it or give up and retry.
+// The update of the backend that was too old for the model. It shows for an
+// administrator when the server knows a newer build of that backend; it starts
+// the same upgrade as the Updates page and leaves the retry to the person, since
+// the upgrade runs for a while and the Operate badge follows it.
+function OutdatedBackendAction({ backend }) {
+  const { t } = useTranslation('chat')
+  const updates = useUpdates()
+  const row = updateForBackend(updates && updates.rows, backend)
+  const [phase, setPhase] = useState('idle')
+  if (!row) return null
+  const start = async () => {
+    setPhase('busy')
+    try {
+      await backendsApi.upgrade(row.name)
+      setPhase('started')
+      if (updates.refresh) updates.refresh()
+    } catch {
+      setPhase('failed')
+    }
+  }
+  return (
+    <>
+      <button type="button" className="cx-btn cx-btn--primary" onClick={start} disabled={phase === 'busy' || phase === 'started'} data-testid="chat-error-update-backend">
+        {phase === 'busy' || phase === 'started' ? t('error.updateBackendBusy') : t('error.updateBackend', { backend: row.name })}
+      </button>
+      <Link to="/app/updates?filter=ready" className="cx-btn" data-testid="chat-error-updates">{t('error.openUpdates')}</Link>
+      {phase === 'started' && <span className="text-note" role="status" data-testid="chat-error-update-started">{t('error.updateBackendStarted', { backend: row.name })}</span>}
+      {phase === 'failed' && <span className="text-note" role="alert" data-testid="chat-error-update-failed">{t('error.updateBackendFailed')}</span>}
+    </>
+  )
+}
+
 export function ErrorCard({ failure, isAdmin, kept, onRetry, canRetry, auto, onStopTrying }) {
   const { t } = useTranslation('chat')
   const view = failureView(t, failure, { isAdmin })
@@ -142,6 +177,7 @@ export function ErrorCard({ failure, isAdmin, kept, onRetry, canRetry, auto, onS
               {t('error.resume.stop')}
             </button>
           )}
+          {view.outdatedBackend && isAdmin && <OutdatedBackendAction backend={view.outdatedBackend} />}
           {view.backendsLink && (
             <Link to="/app/backends" className="cx-btn" data-testid="chat-error-backends">
               {t('error.openBackends')}
@@ -232,7 +268,7 @@ function ChatMessage({
     } else if (e.key === 'e' && isUser && !busy) {
       e.preventDefault()
       setDraft(text)
-    } else if (e.key === 'b' && !busy) {
+    } else if (e.key === 'b' && !busy && !actions.forkBlocked) {
       e.preventDefault()
       actions.fork(index)
     } else if (e.key === 'r' && canRegenerate) {
@@ -250,6 +286,7 @@ function ChatMessage({
       data-index={index}
       data-last={isLast || undefined}
       data-handoff={msg.handoff || undefined}
+      data-settled={msg.settled || undefined}
       data-sending={msg.sending || undefined}
       data-failed={msg.failed || undefined}
       tabIndex={0}
@@ -257,7 +294,7 @@ function ChatMessage({
       aria-label={isUser ? t('message.you') : (identity?.name || model || t('message.assistant'))}
     >
       {isAssistant && <Who model={model} warm={warm} identity={identity} />}
-      {activityItems && <ActivityGroup items={activityItems} id={`cx-act-${index}`} withProposals={false} />}
+      {activityItems && <ActivityGroup items={activityItems} id={`cx-act-${index}`} withProposals={false} failedHint={msg.failedCalls} />}
 
       {isUser && draft !== null ? (
         <div className="cx-bubble cx-bubble--edit" data-testid="message-edit">
@@ -317,7 +354,7 @@ function ChatMessage({
           </button>
         )}
         {!busy && (
-          <button type="button" className="cx-icobtn" onClick={() => actions.fork(index)} title={t('actions.branch')} aria-label={t('actions.branch')}>
+          <button type="button" className="cx-icobtn" onClick={() => actions.fork(index)} disabled={Boolean(actions.forkBlocked)} title={actions.forkBlocked || t('actions.branch')} aria-label={t('actions.branch')}>
             <Icon name="git-branch" />
           </button>
         )}
@@ -348,17 +385,29 @@ export function ProposalsRow({ items, proposalTick }) {
   )
 }
 
-// The reply while it is still coming: the activity line, the prose so far with a
-// caret at its end, and, before anything has arrived, whatever the page says
+// A piece of the live turn's prose. Before a tool call follows it, it is the
+// answer; once one does, it is a note, and the same element changes its style.
+// eslint-disable-next-line no-unused-vars
+function LiveText({ text, note, files, onOpenFile }) {
+  const html = useMemo(() => renderMarkdown(spaceSafeLinks(text)), [text])
+  return (
+    <li className={`cx-note${note ? '' : ' cx-note--answer'}`} data-testid={note ? 'chat-note' : 'chat-answer'}>
+      <Prose html={html} className={note ? '' : 'cx-prose--live'} files={files} onOpenFile={onOpenFile} />
+    </li>
+  )
+}
+
+// The reply while it is still coming, in the order it happened (see
+// StreamingFlow): thoughts, the notes the model said before its calls, the
+// calls, and the answer. Before anything has arrived, whatever the page says
 // the model is waiting for (a load card, or quiet dots).
-export function StreamingTurn({ model, warm, content, reasoning, toolCalls, waiting, identity, files, onOpenFile }) {
-  const html = useMemo(() => (content ? renderMarkdown(spaceSafeLinks(content)) : ''), [content])
-  const idle = !content && !reasoning && toolCalls.length === 0
+export function StreamingTurn({ model, warm, live, waiting, identity, files, onOpenFile }) {
+  const idle = liveSteps(live).steps.length === 0 && !live.text
+  const renderText = ({ key, text, note }) => <LiveText key={key} text={text} note={note} files={files} onOpenFile={onOpenFile} />
   return (
     <article className="cx-msg cx-msg--model" data-testid="chat-streaming" aria-busy="true">
       <Who model={model} warm={warm} identity={identity} />
-      <StreamingActivity reasoning={reasoning} toolCalls={toolCalls} hasResponse={!!content} />
-      {content && <Prose html={html} className="cx-prose--live" files={files} onOpenFile={onOpenFile} />}
+      <StreamingFlow live={live} renderText={renderText} />
       {idle && waiting}
     </article>
   )

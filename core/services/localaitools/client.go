@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/core/services/modelupdates"
+	"github.com/mudler/LocalAI/pkg/enginesettings"
 	"github.com/mudler/LocalAI/pkg/vram"
 )
 
@@ -88,6 +89,17 @@ type LocalAIClient interface {
 	InstallLibraryBackend(ctx context.Context, req InstallLibraryBackendRequest) (*InstallLibraryBackendResult, error)
 	UpgradeBackend(ctx context.Context, name string) (jobID string, err error)
 
+	// ---- Upgrade runs ----
+	// StartUpgradeRun starts one server-owned run of backend and model
+	// updates. Add-on items are refused: their upgrade needs the
+	// administrator's own browser session.
+	StartUpgradeRun(ctx context.Context, req UpgradeRunStartRequest) (*UpgradeRun, error)
+	// UpgradeRuns returns one run by id, or the running run and the recent
+	// ones when id is empty.
+	UpgradeRuns(ctx context.Context, id string) ([]UpgradeRun, error)
+	// CancelUpgradeRun cancels a run, or one item of it when key is set.
+	CancelUpgradeRun(ctx context.Context, id, key string) (*UpgradeRun, error)
+
 	// ---- Model updates ----
 	// ModelUpdates returns the installed gallery models with their update
 	// state, as of the last check. It contacts no gallery.
@@ -122,6 +134,13 @@ type LocalAIClient interface {
 	// in distributed mode; single-process clients report it as unavailable.
 	SetNodeVRAMBudget(ctx context.Context, nodeID, budget string) error
 	VRAMEstimate(ctx context.Context, req VRAMEstimateRequest) (*vram.EstimateResult, error)
+	// ParseEngineCommand reads a pasted command line of an engine (for
+	// example llama-cpp) into model config keys. It only tokenises the text;
+	// nothing is run.
+	ParseEngineCommand(ctx context.Context, engine, command string) (*enginesettings.ParseResult, error)
+	// PreviewEngineCommand writes the command line of an engine for a
+	// partial model config. The text is for display only.
+	PreviewEngineCommand(ctx context.Context, engine string, config enginesettings.Config) (*enginesettings.BuildResult, error)
 
 	// ---- State ----
 	// ToggleModelState accepts modeladmin.ActionEnable / ActionDisable.

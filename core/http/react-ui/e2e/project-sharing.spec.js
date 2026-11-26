@@ -341,7 +341,7 @@ test.describe('Proposal from another person', () => {
     await expect(card).toContainText('Proposed by')
     await expect(card.getByRole('button', { name: 'Confirm', exact: true })).toBeVisible()
     await expect(card.getByRole('button', { name: 'Edit then confirm' })).toBeVisible()
-    await expect(card.getByRole('button', { name: 'Dismiss' })).toBeVisible()
+    await expect(card.getByRole('button', { name: 'Not now' })).toBeVisible()
     await shot(page, 'proposal-card')
   })
 

@@ -38,6 +38,21 @@ export interface LauncherInfo {
   sandboxed: boolean
   /** Set when launcher.json could not be used at start and defaults were loaded. Never holds file content. */
   configNotice?: { status: 'recovered'; reason: string }
+  /** The application ID of an app that has one (the Android app). The desktop sends none. */
+  applicationId?: string
+  /** What this app can do. Missing (an older main process) means the desktop set. */
+  capabilities?: Capabilities
+}
+
+export interface Capabilities {
+  /** The app runs and manages a LocalAI server on this device. */
+  localServer: boolean
+  /** Servers can be added with an invite link. */
+  p2p: boolean
+  /** How the app updates itself. */
+  selfUpdate: 'electron' | 'apk' | 'none'
+  /** The platform can scan a QR code. */
+  qrScan: boolean
 }
 
 // ---- server install -------------------------------------------------------
@@ -474,7 +489,7 @@ export interface WebuiViewState {
   remote: RemoteStatusView | null
 }
 
-/** The remote server of the window does not answer (see main/remoteMonitor.ts). */
+/** The remote server of the window does not answer (see core/remoteMonitor.ts). */
 export interface RemoteStatusView {
   kind: 'unreachable'
   /** A short plain reason: "timed out", "refused", "name not found", "network", "not LocalAI", "certificate". */

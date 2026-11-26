@@ -33,6 +33,15 @@
     "diskChip": "디스크 거의 가득 참"
   },
   "activity": {
+    "node": {
+      "done": "완료",
+      "failed": "실패",
+      "queued": "대기 중",
+      "workerBusy": "워커 사용 중",
+      "downloading": "다운로드 중",
+      "rolledBack": "되돌림",
+      "unconfirmed": "확인되지 않음"
+    },
     "kind": {
       "addon": "애드온"
     },

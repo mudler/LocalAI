@@ -12,7 +12,8 @@ name: 'add-on packages'
 #   push to master        publish the development channel
 #   push to other branch  publish nothing
 #   push of a v<semver> tag  prepare the immutable version, move no alias
-#   release published     promote latest, for a stable non-draft release only
+#   release published     build nothing; promote latest to what the tag push
+#                         published, for a stable non-draft release only
 #
 # Every add-on has its own platform file (addons/<id>/package/platforms.yaml)
 # and its own package legs. All add-ons publish to one OCI repository, the
@@ -46,15 +47,31 @@ name: 'add-on packages'
 # half-way through pushing images or moving an alias, and a newer queued run
 # replaces an older queued one (GitHub keeps one pending run per group). A pull
 # request groups by its number and cancels its own older runs. A tag push and a
-# release event group by SHA, so they never share the master group and are never
-# replaced.
+# release event group by SHA and event name, so they never share the master
+# group and are never replaced. The release event waits for the tag push run of
+# its commit, so the two must not share one group either: the tag push (or a
+# re-run of it) would queue behind that wait.
 #
-# Sandbox guest image. The sandbox-image job (sandbox-images.yml) builds and
-# signs the guest image and exposes its reference by digest as the output
-# "image" (<repository>@sha256:<digest>). The package job passes it to the
-# Sandbox package as SANDBOX_GUEST_IMAGE; a publishing event fails without it.
-# An event that publishes nothing pushes no image, so its Sandbox leg is a
-# local-check build.
+# Sandbox guest image. The sandbox-image job (sandbox-images.yml) builds the
+# guest images and exposes their references by digest as the outputs "image",
+# "image_media" and "image_office" (<repository>@sha256:<digest>). The package
+# job passes them to the Sandbox package as SANDBOX_GUEST_IMAGE and
+# SANDBOX_GUEST_IMAGE_MEDIA/_OFFICE; a publishing event fails without the base
+# one. An event that publishes nothing pushes no image, so its Sandbox leg is a
+# local-check build. The executable keeps these digests for good, so no tag
+# that names them may move: sandbox-images.yml reuses a tag that exists, and a
+# v<semver> tag push gives the images release tags of their own.
+#
+# Two runs of a release, one build. The tag push builds, publishes and signs
+# every package and renders the release catalog. The release event of the same
+# tag builds and publishes nothing: validate, sandbox-image, package and
+# publish are skipped on it. Its tag-run job waits for a successful tag push run
+# of the same commit. Then promote-release reads <id>-<version> from the
+# registry for each add-on of the plan, checks that it is the index of that
+# add-on, version and commit, signed by this workflow at refs/tags/v<version>
+# (addonpkg verify-published), and moves the aliases to it; release-index
+# attaches the catalog of that tag push run. A release published long after its
+# tag finds the tag push run finished and goes on at once.
 #
 # Sandbox on macOS. The darwin/arm64 leg runs on a macOS runner, so the build,
 # the ad hoc signing with the virtualization entitlement (codesign, by
@@ -120,6 +137,9 @@ permissions:
 jobs:
   validate:
     name: validate package rules
+    # The release event builds nothing; the tag push run of its commit, which
+    # it waits for, validated the packages it promotes.
+    if: github.event_name != 'release'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -179,6 +199,8 @@ jobs:
     # Builds the guest image of the Sandbox add-on. The reusable workflow
     # decides from the event whether it pushes and signs, as this workflow
     # does, and exposes the reference of the image by digest as "digest".
+    # The release event stamps no package, so it needs no guest image.
+    if: github.event_name != 'release'
     uses: ./.github/workflows/sandbox-images.yml
     secrets: inherit
     permissions:
@@ -326,7 +348,7 @@ jobs:
   package:
     name: package ${{ matrix.addon }} ${{ matrix.platform }}
     needs: [plan, validate, sandbox-image]
-    if: needs.plan.outputs.has_platforms == 'true'
+    if: needs.plan.outputs.has_platforms == 'true' && github.event_name != 'release'
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     permissions:
@@ -433,8 +455,10 @@ jobs:
 
   publish:
     name: publish and sign ${{ matrix.addon }}
+    # The release event publishes nothing: promote-release promotes the
+    # index that the tag push run published.
     needs: [plan, validate, package]
-    if: needs.plan.outputs.publish == 'true'
+    if: needs.plan.outputs.publish == 'true' && github.event_name != 'release'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     concurrency:
@@ -485,7 +509,10 @@ jobs:
           IMMUTABLE: ${{ needs.plan.outputs.immutable }}
         run: |
           set -eu
-          go run ./scripts/addons/cmd/addonpkg target --repository "$ADDON_OCI_REPOSITORY" --addon "$ADDON" --tag "$IMMUTABLE"
+          target=$(go run ./scripts/addons/cmd/addonpkg target --repository "$ADDON_OCI_REPOSITORY" --addon "$ADDON" --tag "$IMMUTABLE" | sed -n 's/^target=//p')
+          echo "target=$target"
+          # A re-run of a run that already pushed <id>-<version> rebuilds bytes
+          # that differ; it keeps the published index (--adopt-existing).
           go run ./scripts/addons/cmd/addonpkg publish --config "addons/$ADDON/package/platforms.yaml" \
             --layout merged --repository "$ADDON_OCI_REPOSITORY" --tag "$IMMUTABLE" --adopt-existing | tee push.txt
           echo "digest=$(sed -n 's/^digest=//p' push.txt)" >> "$GITHUB_OUTPUT"
@@ -541,8 +568,10 @@ jobs:
 
   promote:
     name: promote channel aliases ${{ matrix.addon }}
+    # The aliases of a push (development). A release event has no publish
+    # job of its own; promote-release moves its aliases.
     needs: [plan, validate, publish]
-    if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''
+    if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != '' && github.event_name != 'release'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     # One promotion at a time per channel, and a queued run never cancels a
@@ -598,12 +627,145 @@ jobs:
               --ref "$REF" --event "$EVENT" --git-dir .git
           done
 
+  tag-run:
+    name: wait for the tag push run
+    # The release event builds nothing. It goes on only with a tag push run of
+    # the same commit that ended green: that run validated, published, signed
+    # and verified every package and rendered the catalog.
+    needs: [plan]
+    if: github.event_name == 'release' && !github.event.release.draft
+    runs-on: ubuntu-24.04
+    # The tag push run takes hours, mostly in the queue, so wait as long as the
+    # job limit of a hosted runner allows. If it still times out, re-run the
+    # failed jobs of this run after the tag push run has finished.
+    timeout-minutes: 355
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      run: ${{ steps.find.outputs.run }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Find a successful tag push run of this commit
+        id: find
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          # This run can start before the tag push run ends, and the tag push
+          # run can be re-run after a failure, so wait for it instead of
+          # failing at once.
+          deadline=$(( $(date +%s) + 340 * 60 ))
+          grace=900
+          failed_at=
+          while :; do
+            runs=$(gh run list --workflow addons-package.yml --event push --branch "$TAG" --limit 50 \
+              --json databaseId,headSha,status,conclusion --jq "[.[] | select(.headSha == \"$SHA\")]")
+            run=$(echo "$runs" | jq -r '[.[] | select(.status == "completed" and .conclusion == "success")][0].databaseId // empty')
+            [ -z "$run" ] || break
+            if [ "$(echo "$runs" | jq '[.[] | select(.status != "completed")] | length')" -gt 0 ]; then
+              failed_at=
+              echo "the add-on package run for $TAG at $SHA is still running; waiting"
+            elif [ "$(echo "$runs" | jq 'length')" -gt 0 ]; then
+              # Ended without success. Allow a short time for a re-run to start.
+              [ -n "$failed_at" ] || failed_at=$(date +%s)
+              if [ $(( $(date +%s) - failed_at )) -ge "$grace" ]; then
+                echo "the add-on package run for $TAG at $SHA did not succeed: $(echo "$runs" | jq -c '[.[] | {databaseId, conclusion}]')" >&2
+                exit 1
+              fi
+              echo "the add-on package run ended without success; waiting for a re-run"
+            else
+              echo "no add-on package run for $TAG at $SHA yet; waiting"
+            fi
+            [ "$(date +%s)" -lt "$deadline" ] || { echo "timed out waiting for a successful add-on package run for $TAG at $SHA" >&2; exit 1; }
+            sleep 60
+          done
+          echo "tag push run: $run"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
+  promote-release:
+    name: promote release aliases ${{ matrix.addon }}
+    # A stable release moves latest to the <id>-<version> index that the tag
+    # push run published, after that run ended green. The add-ons are the ones
+    # of the plan: the same platform files at the same commit, so the same set
+    # the tag push published. Nothing is taken from an artifact of this run.
+    needs: [plan, tag-run]
+    if: github.event_name == 'release' && needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # The same group as promote: one promotion at a time per add-on and channel.
+    concurrency:
+      group: addons-promote-${{ matrix.addon }}-${{ needs.plan.outputs.channel }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        addon: ${{ fromJSON(needs.plan.outputs.addons) }}
+    env:
+      ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}
+      ADDON: ${{ matrix.addon }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Verify the index of the tag push
+        # Anonymously, as a host does: the index must be a complete package
+        # index of this add-on, version and commit, and it and every platform
+        # image must be signed by this workflow at refs/tags/v<version>.
+        id: published
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          SHA: ${{ github.sha }}
+          OWNER_REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          go run ./scripts/addons/cmd/addonpkg verify-published --config "addons/$ADDON/package/platforms.yaml" \
+            --repository "$ADDON_OCI_REPOSITORY" --version "$VERSION" --revision "$SHA" \
+            --owner-repo "$OWNER_REPO" | tee published.txt
+          echo "digest=$(sed -n 's/^digest=//p' published.txt)" >> "$GITHUB_OUTPUT"
+      - name: Registry login
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ needs.plan.outputs.registry }}
+          username: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+          password: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+      - name: Move the aliases
+        env:
+          ALIASES: ${{ needs.plan.outputs.aliases }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          SHA: ${{ github.sha }}
+          REF: ${{ github.ref }}
+          EVENT: ${{ github.event_name }}
+          DIGEST: ${{ steps.published.outputs.digest }}
+        run: |
+          set -eu
+          case "$DIGEST" in
+            sha256:????????????????????????????????????????????????????????????????) ;;
+            *) echo "the digest of $ADDON is missing or malformed" >&2; exit 1 ;;
+          esac
+          for alias in $(echo "$ALIASES" | tr ',' ' '); do
+            go run ./scripts/addons/cmd/addonpkg promote \
+              --repository "$ADDON_OCI_REPOSITORY" --addon "$ADDON" --alias "$alias" \
+              --digest "$DIGEST" --version "$VERSION" --revision "$SHA" \
+              --ref "$REF" --event "$EVENT" --git-dir .git
+          done
+
   catalog:
     name: render the release catalog
     # Only the push of a v<semver> tag: the entries are pinned to the version
-    # that run published and signed. A release event rebuilds the packages and
-    # adopts the published ones, so its own layout is not the pinned content.
-    needs: [plan, publish]
+    # that run published and signed. The entries take the manifests from the
+    # merged layouts and the digests from the registry (catalog.sh
+    # --pin-registry): a re-run whose rebuild was adopted did not push the
+    # digests of its own layout.
+    needs: [plan, publish, sandbox-image]
     if: needs.plan.outputs.publish == 'true' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -637,10 +799,27 @@ jobs:
             --version "$VERSION" --signer-ref "$REF" --owner-repo "$OWNER_REPO" \
             --merged-root roots --out addons-index.yaml
           grep -c '^- id:' addons-index.yaml
+      - name: List the guest images of the Sandbox package
+        # The references that package.sh stamped into the Sandbox executable.
+        # The release-index job checks that the registry still serves them.
+        env:
+          IMAGE: ${{ needs.sandbox-image.outputs.image }}
+          IMAGE_MEDIA: ${{ needs.sandbox-image.outputs.image_media }}
+          IMAGE_OFFICE: ${{ needs.sandbox-image.outputs.image_office }}
+        run: |
+          set -eu
+          : > sandbox-guest-images.txt
+          for ref in "$IMAGE" "$IMAGE_MEDIA" "$IMAGE_OFFICE"; do
+            [ -z "$ref" ] || echo "$ref" >> sandbox-guest-images.txt
+          done
+          cat sandbox-guest-images.txt
+          grep -qE '@sha256:[0-9a-f]{64}$' sandbox-guest-images.txt
       - uses: actions/upload-artifact@v7
         with:
           name: addons-release-index
-          path: addons-index.yaml
+          path: |
+            addons-index.yaml
+            sandbox-guest-images.txt
           if-no-files-found: error
           # The longest the service keeps an artifact. The release must be
           # published within this time of the tag.
@@ -649,11 +828,14 @@ jobs:
   release-index:
     name: attach the catalog to the release
     # The release is public from here on, so the asset can be attached whether
-    # or not the release was a draft when the tag was pushed.
-    needs: [plan]
-    if: github.event_name == 'release' && !github.event.release.draft
+    # or not the release was a draft when the tag was pushed. The catalog is
+    # attached only after every promote-release leg verified its index. A
+    # pre-release skips promote-release, so a skipped job does not stop this
+    # one; a failed or cancelled one does.
+    needs: [plan, tag-run, promote-release]
+    if: ${{ !cancelled() && !failure() && github.event_name == 'release' && !github.event.release.draft && needs.tag-run.result == 'success' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 240
+    timeout-minutes: 20
     permissions:
       contents: write
       actions: read
@@ -661,40 +843,60 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
-      - name: Find the tag run and attach its release index
+      - name: Download the release index of the tag push run
         env:
-          TAG: ${{ github.event.release.tag_name }}
-          SHA: ${{ github.sha }}
+          RUN: ${{ needs.tag-run.outputs.run }}
         run: |
           set -eu
-          # The tag-push run builds and signs the packages. This run can start
-          # before it ends, and the push run can be re-run after a failure, so
-          # wait for it instead of failing at once.
-          deadline=$(( $(date +%s) + 220 * 60 ))
-          grace=900
-          failed_at=
-          while :; do
-            runs=$(gh run list --workflow addons-package.yml --event push --branch "$TAG" --limit 50 \
-              --json databaseId,headSha,status,conclusion --jq "[.[] | select(.headSha == \"$SHA\")]")
-            run=$(echo "$runs" | jq -r '[.[] | select(.status == "completed" and .conclusion == "success")][0].databaseId // empty')
-            [ -z "$run" ] || break
-            if [ "$(echo "$runs" | jq '[.[] | select(.status != "completed")] | length')" -gt 0 ]; then
-              failed_at=
-              echo "the add-on package run for $TAG at $SHA is still running; waiting"
-            elif [ "$(echo "$runs" | jq 'length')" -gt 0 ]; then
-              # Ended without success. Allow a short time for a re-run to start.
-              [ -n "$failed_at" ] || failed_at=$(date +%s)
-              if [ $(( $(date +%s) - failed_at )) -ge "$grace" ]; then
-                echo "the add-on package run for $TAG at $SHA did not succeed: $(echo "$runs" | jq -c '[.[] | {databaseId, conclusion}]')" >&2
-                exit 1
-              fi
-              echo "the add-on package run ended without success; waiting for a re-run"
-            else
-              echo "no add-on package run for $TAG at $SHA yet; waiting"
-            fi
-            [ "$(date +%s)" -lt "$deadline" ] || { echo "timed out waiting for a successful add-on package run for $TAG at $SHA" >&2; exit 1; }
-            sleep 60
-          done
-          gh run download "$run" --name addons-release-index --dir index
+          gh run download "$RUN" --name addons-release-index --dir index
           test -s index/addons-index.yaml
-          gh release upload "$TAG" index/addons-index.yaml --clobber
+      - name: Check that the registry serves every pinned digest
+        # A host installs a package by the digest of the catalog and pulls the
+        # guest images by the digests stamped in the Sandbox executable, both
+        # without credentials. A registry serves a digest only while a tag
+        # names it, so check each one anonymously before the catalog is public.
+        run: |
+          set -eu
+          refs=$(awk '
+            /^  artifact: "oci:\/\// { a = $2; gsub(/"/, "", a); sub(/^oci:\/\//, "", a); sub(/:[^:\/]*$/, "", a) }
+            /^  digest: "sha256:/ { d = $2; gsub(/"/, "", d); print a "@" d }
+          ' index/addons-index.yaml)
+          entries=$(grep -c '^- id:' index/addons-index.yaml)
+          [ "$(printf '%s\n' "$refs" | grep -c '@sha256:')" -eq "$entries" ] || {
+            echo "the catalog has $entries entries but not as many pinned digests" >&2
+            exit 1
+          }
+          # An index from a tag run before this check has no list of guest images.
+          if [ -f index/sandbox-guest-images.txt ]; then
+            refs="$refs
+          $(cat index/sandbox-guest-images.txt)"
+          fi
+          # check returns 0 when the registry serves ref, 1 when it answers
+          # that ref is unknown, and 2 when three tries end in another error.
+          check() {
+            for try in 1 2 3; do
+              if docker buildx imagetools inspect --raw "$1" > /dev/null 2> inspect.err; then
+                return 0
+              fi
+              if grep -qiE 'not found|manifest unknown' inspect.err; then
+                return 1
+              fi
+              [ "$try" -eq 3 ] || sleep 5
+            done
+            return 2
+          }
+          missing=0
+          for ref in $refs; do
+            rc=0
+            check "$ref" || rc=$?
+            case "$rc" in
+            0) echo "ok $ref" ;;
+            1) echo "the registry does not serve $ref: $(cat inspect.err)" >&2; missing=1 ;;
+            *) echo "cannot check $ref: $(cat inspect.err)" >&2; missing=1 ;;
+            esac
+          done
+          [ "$missing" -eq 0 ]
+      - name: Attach the catalog
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" index/addons-index.yaml --clobber

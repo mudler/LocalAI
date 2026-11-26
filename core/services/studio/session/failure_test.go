@@ -30,6 +30,10 @@ var _ = ginkgo.Describe("the cause of a failed turn", func() {
 			CodeBackendMissing, "test", 8, `The model "test"`, "backend is not installed"),
 		ginkgo.Entry("backend missing, first failure", errors.New(`the model failed 4 times in a row (last: HTTP 500 failed to load model with internal loader: backend not found: default)`),
 			CodeBackendMissing, "", 0, "backend is not installed"),
+		ginkgo.Entry("backend too old, from the cooldown", errors.New(`the model could not be loaded `+MarkBackendOutdated+` backend "metal-llama-cpp": model "qwen" load is in cooldown after a recent failure; retry after 8s`),
+			CodeBackendOutdated, "qwen", 8, "backend may be too old", "Update the backend"),
+		ginkgo.Entry("backend too old, from the load error", errors.New(`the model failed 4 times in a row (last: HTTP 500 llama_model_load: error loading model architecture: unknown model architecture: 'qwen35')`),
+			CodeBackendOutdated, "", 0, "backend may be too old"),
 		ginkgo.Entry("cooling down", errors.New(cooldownText),
 			CodeCooldown, "test", 8, `"test"`, "8 seconds"),
 		ginkgo.Entry("cooling down for minutes", errors.New(`the model could not be loaded: model "big" load is in cooldown after a recent failure; retry after 1m30s`),
@@ -53,6 +57,17 @@ var _ = ginkgo.Describe("the cause of a failed turn", func() {
 		ginkgo.Entry("context", errors.New("prompt is too long for the context"), CodeContext, "", 0, "context window"),
 		ginkgo.Entry("unknown", errors.New("connection reset"), CodeAgent, "", 0, "stopped because of an error"),
 	)
+
+	ginkgo.It("names the backend that is too old", func() {
+		f := Classify(errors.New(`the model could not be loaded ` + MarkBackendOutdated + ` backend "metal-llama-cpp": model "qwen" load is in cooldown after a recent failure; retry after 8s`))
+		Expect(f.Backend).To(Equal("metal-llama-cpp"))
+		Expect(Classify(errors.New("unknown model architecture: 'x'")).Backend).To(BeEmpty())
+	})
+
+	ginkgo.It("keeps the backend through the transcript line", func() {
+		got := ParseFailure(FailureEntry(1, Failure{Code: CodeBackendOutdated, Reason: "r", Backend: "llama-cpp"}))
+		Expect(got.Backend).To(Equal("llama-cpp"))
+	})
 
 	ginkgo.It("tells the size of the window when the tools do not fit", func() {
 		f := Classify(errors.New(`tool schemas use 4k of the 4k context window — session-tools 3k (18 tools): disable MCP servers or filter their tools, or increase the backend's context size.`))

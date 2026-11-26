@@ -1,0 +1,48 @@
+{
+  "bar": {
+    "region": "Ansicht als",
+    "readonlyTag": "Nur Lesen",
+    "actingTag": "Aktiv",
+    "readonlyLead": "Ansicht als {{name}}.",
+    "readonlyRest": "Nur Lesen.",
+    "actingLead": "Handeln als {{name}}.",
+    "actingRest": "Änderungen erfolgen im Konto von {{name}} und werden protokolliert.",
+    "allow": "Änderungen erlauben",
+    "exit": "Beenden",
+    "exitLabel": "Ansicht als {{name}} beenden"
+  },
+  "confirm": {
+    "title": "Änderungen im Konto von {{name}} erlauben?",
+    "intro": "Sie handeln gleich als {{name}}. Das gilt sofort für jede Seite, die der Ansicht als folgt.",
+    "can": "Sie können die Projekte von {{name}} anlegen, bearbeiten und löschen.",
+    "logged": "Jede Änderung wird protokolliert, mit Ihnen als Ausführendem und {{name}} als Konto.",
+    "back": "Sie können jederzeit in der Leiste zurück zu Nur Lesen wechseln.",
+    "stay": "Bei Nur Lesen bleiben",
+    "allow": "Änderungen erlauben",
+    "close": "Schließen"
+  },
+  "scope": {
+    "chip": "Daten von {{name}}",
+    "navMark": "Zeigt die Daten von {{name}}",
+    "legend": "Seiten mit dieser Markierung zeigen die Daten von {{name}}. Die anderen zeigen Ihre eigenen.",
+    "notice": "Diese Seite zeigt Ihre eigenen Daten, nicht die von {{name}}."
+  },
+  "write": {
+    "hint": "Änderungen erlauben, um zu bearbeiten",
+    "blocked": "Nur Lesen. Schalten Sie in der Leiste Änderungen erlauben ein, um die Daten von {{name}} zu bearbeiten."
+  },
+  "notice": {
+    "idle": "Änderungen wurden nach {{minutes}} Minuten ohne Aktivität ausgeschaltet. Zurück zu Nur Lesen.",
+    "ended": "{{name}} ist nicht mehr verfügbar, deshalb wurde Ansicht als beendet."
+  },
+  "users": {
+    "action": "Ansicht als",
+    "actionFor": "Ansicht als {{name}}",
+    "hint": "Sehen, was {{name}} sieht. Zuerst nur lesend."
+  },
+  "palette": {
+    "kind": "Ansicht als",
+    "title": "Ansicht als {{name}}",
+    "where": "{{email}} · zuerst nur lesend"
+  }
+}

@@ -238,7 +238,7 @@ var _ = Describe("the sentences the host writes to a chat", func() {
 		"AnswerByPhrase", "answerBare", "answerProposal", "cancelAuto", "proposalText", "autoText", "costText", "whenTextIn",
 		"summaryIn", "scheduleWords", "actsText", "actWords", "actLabel", "TextIn", "autoVerdict", "actsVerdict",
 		"resultsGo", "gapTextIn", "formatFileSizeIn", "whyIn", "sentenceIn", "kindWords", "scopeWords", "view", "observe",
-		"reportFailure", "sweepTimers",
+		"reportFailure", "sweepTimers", "report", "sayOnChannel", "plainReminder",
 	}
 	quiet := []string{"Info", "Warn", "Error", "Debug", "audit", "New", "Errorf", "bad", "connectorBad", "Is", "Wrap"}
 

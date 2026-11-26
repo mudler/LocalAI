@@ -71,3 +71,6 @@ tests
 
 # Installed via npm inside the build stage; no need to ship the host copy.
 **/node_modules
+
+# The Android client app builds in its own workflow, never in the image.
+android/

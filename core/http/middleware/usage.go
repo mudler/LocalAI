@@ -8,6 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/services/routing/billing"
 	"github.com/mudler/xlog"
 )
@@ -129,8 +130,15 @@ func UsageMiddleware(recorder *billing.Recorder, fallbackUser *auth.User) echo.M
 				CorrelationID:          correlationIDFromContext(c),
 			}
 
-			if data, ok := c.Get(responseMetadataKey).(string); ok {
-				record.Metadata = data
+			// A zero-retention request keeps the counters only, so quotas and
+			// usage reports go on working; the metadata the backend returned
+			// stays out.
+			if privacy.Allows(c.Request().Context(), privacy.StoreContent) {
+				if data, ok := c.Get(responseMetadataKey).(string); ok {
+					record.Metadata = data
+				}
+			} else {
+				record.Incognito = true
 			}
 
 			if key := auth.GetAPIKey(c); key != nil {

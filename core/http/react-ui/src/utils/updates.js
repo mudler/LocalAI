@@ -16,6 +16,7 @@
 import { versionLabel, shortDigest, opForBackend } from './backendRows.js'
 import { updateView, upgradeAvailability } from '../components/addons/updateState.js'
 import { MODEL_OTHER_STATES } from './modelUpdates.js'
+import { countsAsAttention } from './upgradeRun.js'
 
 export const GROUPS = ['needs', 'updating', 'ready', 'current', 'other']
 export const FILTERS = ['all', 'ready', 'needs-you', 'updating', 'current']
@@ -69,33 +70,22 @@ export function backendRows(snapshot, { operations = [], auto = false } = {}) {
       old: Boolean(source && source.stale),
       startable: true,
       state: 'ready',
+      // The automatic update does not take this release: it did not start
+      // before. A person can still update it.
+      heldBack: Boolean(it.heldBack),
     }
     const op = opForBackend(operations, it.name)
     if (op && !op.error && !op.isDeletion) {
       return { ...row, state: 'updating', progress: op.isQueued ? 0 : (op.progress > 0 ? Math.min(100, Math.round(op.progress)) : 0), queued: Boolean(op.isQueued), phase: op.isQueued ? 'queued' : (op.message || op.phase || ''), jobID: op.jobID, cancellable: Boolean(op.cancellable) }
     }
-    if (op && op.error) return { ...row, state: 'failed', error: String(op.error), jobID: op.jobID, startable: false }
+    if (op && op.error) {
+      // A new build that did not start and was replaced by the previous one
+      // reads "Rolled back", as the item of the run that ran it does. The
+      // error of the operation is then the bare cause.
+      const rolledBack = Boolean(op.rolledBack) && (!op.errorKey || op.errorKey === 'start')
+      return { ...row, state: 'failed', error: String(op.error), jobID: op.jobID, startable: false, rolledBack }
+    }
     if (snapshot.installsDisabled) return { ...row, state: 'blocked', blocked: 'installsDisabled', startable: false }
-    return row
-  })
-}
-
-// What this page knows about an update it started that the lists do not show
-// (yet): { [id]: { phase: 'running'|'failed', message, progress } }. A running
-// update that the operations list does not show yet is Updating, not Ready. A
-// failed one (the operation ended and the item is still listed, or no source
-// could confirm it) is Failed: the lists alone would call it Ready again.
-export function applyLocal(rows, local) {
-  if (!local) return rows
-  return rows.map((row) => {
-    const mine = local[row.id]
-    if (!mine || row.state === 'updating') return row
-    if (mine.phase === 'running' && (row.state === 'ready' || row.state === 'failed')) {
-      return { ...row, state: 'updating', progress: mine.progress || 0, phase: mine.message || '', jobID: mine.jobID || row.jobID, cancellable: Boolean(mine.jobID), startable: false }
-    }
-    if (mine.phase === 'failed' && row.state === 'ready') {
-      return { ...row, state: 'failed', error: mine.message || '', startable: false }
-    }
     return row
   })
 }
@@ -214,6 +204,43 @@ export function filterCounts(rows) {
   return { all: rows.length, ready: g.ready.length, 'needs-you': g.needs.length, updating: g.updating.length, current: g.current.length }
 }
 
+// The group of an item of the shown update run, in the groups of the filter.
+// While the run runs, an item that waits, runs or is being checked is
+// updating; an item that needs attention (failed, rolled back, unconfirmed
+// once the run ended, skipped for a reason) needs you; an updated one is up
+// to date. Anything else (cancelled, skipped with no reason) is in no group.
+export function runItemGroup(item, active) {
+  if (!item) return ''
+  if (active && (item.phase === 'queued' || item.phase === 'running' || item.phase === 'unconfirmed')) return 'updating'
+  if (countsAsAttention(item)) return 'needs'
+  if (item.phase === 'updated') return 'current'
+  return ''
+}
+
+const FILTER_GROUP = { ready: 'ready', 'needs-you': 'needs', updating: 'updating', current: 'current' }
+
+// The items of the run that a filter shows: all of them, or those of its group.
+export function filterRunItems(items, filter, active) {
+  if (!Array.isArray(items)) return []
+  const group = FILTER_GROUP[filter]
+  return group ? items.filter(i => runItemGroup(i, active) === group) : items
+}
+
+// The counts of the filter with the items of the shown run. The page lists an
+// item of the run once, in the run group, so it is counted there: a running
+// backend counts as updating, a rolled-back one as needing you.
+export function filterCountsWithRun(rows, items, active) {
+  const out = filterCounts(rows)
+  for (const item of Array.isArray(items) ? items : []) {
+    out.all += 1
+    const group = runItemGroup(item, active)
+    if (group === 'needs') out['needs-you'] += 1
+    else if (group === 'updating') out.updating += 1
+    else if (group === 'current') out.current += 1
+  }
+  return out
+}
+
 export function normalizeFilter(value) {
   return FILTERS.includes(value) ? value : 'all'
 }
@@ -222,6 +249,15 @@ export function normalizeFilter(value) {
 // Backends page, the Operate overview and the Nodes page read: the versions and
 // the nodes that differ from the others. One place, so a page never keeps a
 // poll of the same fact.
+// The update row of the backend a failed load names, or null. The loader names
+// the backend it ran ("llama-cpp"), the gallery names the installed build
+// ("metal-llama-cpp"), so a build whose name ends in the backend name matches.
+export function updateForBackend(rows, backend) {
+  if (!backend) return null
+  const ready = (rows || []).filter(r => r.kind === 'gallery' && (r.state === 'ready' || r.state === 'blocked'))
+  return ready.find(r => r.name === backend) || ready.find(r => r.name.endsWith(`-${backend}`)) || null
+}
+
 export function galleryUpdateMap(rows) {
   return Object.fromEntries((rows || [])
     .filter(r => r.kind === 'gallery' && (r.state === 'ready' || r.state === 'blocked'))
@@ -231,6 +267,20 @@ export function galleryUpdateMap(rows) {
       available_version: r.availableVersion || r.to,
       node_drift: (r.nodes || []).filter(n => n.drift).map(n => ({ node_id: n.nodeId, node_name: n.nodeName, version: n.version })),
     }]))
+}
+
+// The update of a meta backend is the update of the build it points at. The
+// updates are keyed by the installed build ("metal-llama-cpp"), while the
+// Backends list hides the builds of a meta backend and shows the meta backend
+// itself ("llama-cpp"), so without this the visible row of an outdated backend
+// shows no update. `installed` is the list of the installed backends.
+export function withMetaUpdates(upgrades, installed) {
+  const out = { ...upgrades }
+  for (const b of installed || []) {
+    const target = b && b.Metadata && b.Metadata.meta_backend_for
+    if (target && !out[b.Name] && upgrades[target]) out[b.Name] = upgrades[target]
+  }
+  return out
 }
 
 // The number on the tab and on the Operate item: what needs a person. A ready
@@ -335,21 +385,7 @@ export function breakdownOf(rows) {
   return { ready: g.ready.length, updating: g.updating.length, needs: g.needs.length }
 }
 
-// ---- Bulk and completion ----------------------------------------------------
-
-// The candidates of "Update all ready" in the shape of useBulkUpgrade. Only the
-// ready ones that can start take part; held and blocked rows never run.
-export function bulkItemsOf(rows) {
-  return sortRows(rows).filter(r => r.state === 'ready' && r.kind !== 'model').map(r => ({
-    id: r.id,
-    name: r.name,
-    from: r.from,
-    to: r.to,
-    startable: Boolean(r.startable),
-    reason: r.needsCheck || '',
-    row: r,
-  }))
-}
+// ---- Completion of a node update ---------------------------------------------
 
 // How an operation of /api/operations moves a followed job to its end. `track`
 // is { seen, since }, kept by the caller between calls. The list never says
@@ -363,25 +399,6 @@ export function trackJob(track, operations, jobID, now, graceMs = 4000) {
   if (track.seen) return { track, verdict: 'ended' }
   if (now - track.since >= graceMs) return { track, verdict: 'ended' }
   return { track, verdict: 'wait' }
-}
-
-// The end of an update, from the check that ran after the operation ended. Done
-// means the operation ended without error and the fresh check no longer lists
-// the item. A throttled answer is seconds old and may predate the update, so
-// it is asked again while tries remain. A source that failed cannot confirm.
-export function verdictOf({ listed, throttled = false, sourceFailed = false, tries = 0, maxTries = 4 }) {
-  if (sourceFailed) return 'unconfirmed'
-  if (!listed) return 'done'
-  if (throttled && tries < maxTries) return 'retry'
-  return 'unchanged'
-}
-
-// Whether an add-on record still carries the update the row showed.
-export function addonStillListed(record, row) {
-  if (!record) return false
-  const view = updateView(record.update)
-  if (view.state !== 'update-available') return false
-  return versionLabel(view.version) === row.to || !row.to
 }
 
 // How long ago a time was, as a whole number of the largest fitting unit, for

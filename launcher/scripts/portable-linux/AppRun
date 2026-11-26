@@ -79,9 +79,10 @@ die() {
 
 command -v bash >/dev/null 2>&1 || die "bash is required and was not found in PATH."
 
-# A directory of the user that no one else can write to.
+# A directory of the user that no one else can write to. %F is translated
+# ("Verzeichnis" in German), so stat runs in the C locale to print "directory".
 check_dir() {
-  st=$(stat -c '%u:%a:%F' -- "$1" 2>/dev/null) || return 1
+  st=$(LC_ALL=C stat -c '%u:%a:%F' -- "$1" 2>/dev/null) || return 1
   case $st in
     "$uid":7[0145][0145]:directory) return 0 ;;
   esac

@@ -89,8 +89,6 @@
     "ready": "可更新",
     "current_one": "{{count}} 项已是最新",
     "current_other": "{{count}} 项已是最新",
-    "selectAll": "选择全部就绪项",
-    "selectNone": "全不选",
     "show": "显示",
     "hide": "隐藏",
     "other": "其他模型"
@@ -116,7 +114,6 @@
     "drift_one": "{{count}} 个不同",
     "drift_other": "{{count}} 个不同",
     "old": "来自较早的检查",
-    "select": "选择 {{name}}",
     "update": "更新",
     "updateNamed": "更新 {{name}}",
     "check": "检查",
@@ -143,19 +140,16 @@
     "updatingPhase": "更新中:{{phase}}",
     "updatingPlain": "更新中",
     "queued": "已排队,等待空闲名额",
-    "addonConfirm": "需要你在此浏览器中确认",
     "nodesAction": "节点",
     "nodesNamed": "显示 {{name}} 的节点",
-    "needsConfirm": "{{name}} 运行在节点上，需要先经过你的确认。请使用该行的更新。"
+    "heldBack": "已暂缓:此版本未能启动。在新版本发布前,自动更新会跳过它。可在此处更新以重试。"
   },
   "bulk": {
     "start": "更新 {{count}} 项就绪",
     "running": "正在更新第 {{current}} 项,共 {{total}} 项",
     "summary": "已更新 {{done}} 项,失败 {{failed}} 项,跳过 {{skipped}} 项",
-    "details": "详情",
-    "cancelAll": "全部取消",
     "retryFailed": "重试失败项({{count}})",
-    "dismiss": "关闭"
+    "review": "查看更新"
   },
   "check": {
     "result_one": "检查完成:{{count}} 项更新。",
@@ -164,10 +158,6 @@
     "failedSources_other": "{{count}} 个来源失败。",
     "throttled": "刚才已运行过一次检查。这是它的结果。"
   },
-  "live": {
-    "updated": "{{name}} 已更新。",
-    "failed": "{{name}} 未能更新。"
-  },
   "empty": {
     "title": "暂时没有可更新的内容",
     "body": "安装后端或插件后,它们的更新会显示在这里。",
@@ -175,26 +165,7 @@
     "addons": "打开应用"
   },
   "dialog": {
-    "title": "更新就绪项",
-    "intro": "选择要更新的内容。每一项单独依次更新,只有新的检查不再列出它时才算完成。一项失败不会影响其他项。",
-    "selection": "选择要更新的内容",
-    "selectAll": "全选",
-    "selectNone": "全不选",
-    "item": "更新 {{name}}",
-    "versions": "{{from}} 到 {{to}}",
-    "blocked": "无法开始",
-    "start": "更新所选",
-    "starting": "更新中...",
-    "retry": "重试失败项({{count}})",
-    "again": "重新选择",
-    "close": "关闭",
-    "closeRunning": "关闭(继续运行)",
-    "runningNote": "关闭此窗口不会停止更新。",
-    "progress": "正在更新第 {{current}} 项,共 {{total}} 项",
-    "summary": "已更新 {{done}} 项,失败 {{failed}} 项,跳过 {{skipped}} 项",
-    "empty": "没有可更新的内容。",
-    "selectedCount_one": "已选 {{count}} 项",
-    "selectedCount_other": "已选 {{count}} 项"
+    "close": "关闭"
   },
   "item": {
     "queued": "排队中",
@@ -407,5 +378,124 @@
       "after": "LocalAI 会记录该条目并检查其更新。你的配置不会改变。",
       "failed": "无法采用：{{message}}"
     }
+  },
+  "review": {
+    "title_one": "查看 {{count}} 项更新",
+    "title_other": "查看 {{count}} 项更新",
+    "loadingTitle": "查看更新",
+    "intro": "开始之前不会有任何更改。",
+    "loading": "正在读取计划",
+    "loadError": "无法读取更新计划。",
+    "selectAll": "全选",
+    "selectNone": "全不选",
+    "selected_one": "已选择 {{count}}/{{total}} 项",
+    "selected_other": "已选择 {{count}}/{{total}} 项",
+    "order": "先更新后端,然后是模型,最后逐个更新插件。每项更新都会保留旧版本,直到新版本运行。开始后,您可以关闭此窗口并离开页面。",
+    "group": {
+      "backends": "后端 ({{count}})",
+      "addons": "插件 ({{count}})",
+      "models": "模型 ({{count}})"
+    },
+    "item": "更新 {{name}}",
+    "backsUp": "会备份您的数据",
+    "modelNote": "默认不选:更新模型会重新加载它。在您确认之前,旧文件会保留。",
+    "blocked": "无法开始:{{reason}}",
+    "empty": "没有需要更新的内容。",
+    "start_one": "更新 {{count}} 项",
+    "start_other": "更新 {{count}} 项",
+    "startOne": "更新",
+    "cancel": "取消",
+    "singleTitle": "更新 {{name}}?",
+    "singleLoading": "更新",
+    "singleNote": "在新版本运行之前,旧版本会保留。",
+    "risk": {
+      "stopsModels_one": "切换期间会停止 {{count}} 个已加载的模型",
+      "stopsModels_other": "切换期间会停止 {{count}} 个已加载的模型",
+      "stopsModelsNodes_one": "切换期间会停止 {{nodes}} 个节点上的 {{count}} 个已加载模型",
+      "stopsModelsNodes_other": "切换期间会停止 {{nodes}} 个节点上的 {{count}} 个已加载模型",
+      "migratesData": "您的数据会被迁移。迁移前会先做一次经过验证的备份。",
+      "editedKeys_one": "您修改了此模型的 {{count}} 项设置。请在其所在行使用\"{{action}}\"来选择要保留的内容。",
+      "editedKeys_other": "您修改了此模型的 {{count}} 项设置。请在其所在行使用\"{{action}}\"来选择要保留的内容。",
+      "held": "此版本正在等待您的批准。",
+      "cluster_one": "在 {{count}} 个节点上更新",
+      "cluster_other": "在 {{count}} 个节点上更新",
+      "drift_one": "目前有 {{count}} 个节点运行着不同的构建。此次更新会把每个节点都换成新构建。",
+      "drift_other": "目前有 {{count}} 个节点运行着不同的构建。此次更新会把每个节点都换成新构建。",
+      "configOnly": "只更改模型的设置，不下载任何内容。"
+    },
+    "follow": "查看本次更新"
+  },
+  "run": {
+    "group": "本次更新",
+    "title_one": "正在更新 {{count}} 项",
+    "title_other": "正在更新 {{count}} 项",
+    "count": {
+      "updated_one": "{{count}} 项已更新",
+      "updated_other": "{{count}} 项已更新",
+      "running_one": "{{count}} 项进行中",
+      "running_other": "{{count}} 项进行中",
+      "waiting_one": "{{count}} 项等待中",
+      "waiting_other": "{{count}} 项等待中",
+      "attention_one": "{{count}} 项需要处理",
+      "attention_other": "{{count}} 项需要处理"
+    },
+    "started": "开始于{{when}}",
+    "finished": "完成于{{when}}",
+    "result": {
+      "attention_one": "{{updated}} 项已更新,{{count}} 项需要处理",
+      "attention_other": "{{updated}} 项已更新,{{count}} 项需要处理",
+      "done_one": "{{count}} 项已更新",
+      "done_other": "{{count}} 项已更新",
+      "cancelled_one": "本次更新已取消,{{count}} 项已更新",
+      "cancelled_other": "本次更新已取消,{{count}} 项已更新",
+      "clean": "没有任何项目停留在更新到一半的状态",
+      "unknown_one": "有 {{count}} 项结果尚未确认",
+      "unknown_other": "有 {{count}} 项结果尚未确认"
+    },
+    "progress": "本次更新的进度",
+    "cancelRemaining": "取消剩余项",
+    "retryFailed": "重试失败项",
+    "dismiss": "关闭",
+    "actionFailed": "请求失败:{{message}}",
+    "phase": {
+      "queued": "排队中",
+      "running": "更新中",
+      "updated": "已更新",
+      "failed": "失败",
+      "rolled_back": "已回滚",
+      "cancelled": "已取消",
+      "skipped": "已跳过",
+      "unconfirmed": "未确认"
+    },
+    "queued": {
+      "afterBackends": "正在等待后端。",
+      "oneAddon": "插件逐个更新。",
+      "waitingFor": "正在等待 {{name}}。",
+      "plain": "等待开始。",
+      "afterModels": "正在等待模型。",
+      "backendLimit": "正在等待空闲的后端名额。",
+      "sameBackend": "正在等待此后端的另一项操作。",
+      "oneModel": "模型逐个更新。"
+    },
+    "detail": {
+      "updating": "正在更新",
+      "node": "节点 {{index}}/{{count}}:{{message}}",
+      "failed": "{{reason}}。{{name}} 仍是 {{version}},您的数据没有变化。",
+      "rolledBack": "新版本未能启动:{{reason}}。{{name}} 仍是 {{version}},您的数据没有变化。",
+      "unconfirmed": "无法确认。请再次检查 {{name}} 当前的版本。",
+      "cancelled": "已取消。{{name}} 仍是 {{version}}。",
+      "skipped": "已跳过。",
+      "skippedWhy": "已跳过:{{reason}}。",
+      "checking": "正在检查更新是否已生效。"
+    },
+    "details": {
+      "toggle": "详情",
+      "code": "代码:{{code}}",
+      "node": "{{name}}:{{phase}}",
+      "none": "服务器没有提供更多详情。"
+    },
+    "busy": "有一次更新正在进行。",
+    "unavailable": "此服务器不支持批量更新。",
+    "auto": "自动更新"
   }
 }

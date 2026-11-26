@@ -1,0 +1,143 @@
+package triggers
+
+import (
+	"strings"
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+var _ = Describe("Event matching", func() {
+	prBody := []byte(`{"action":"opened","number":42,"draft":false,"pull_request":{"user":{"login":"octo"}},"commits":[{"id":"abc"}]}`)
+	ev := func(src, typ string, body []byte) Event { return Event{Source: src, Type: typ, Payload: body} }
+
+	It("matches the source, type and fields", func() {
+		tr := goodEvent()
+		Expect(tr.MatchesEvent(ev("github", "pull_request", prBody))).To(BeTrue())
+		Expect(tr.MatchesEvent(ev("GitHub", "Pull_Request", prBody))).To(BeTrue(), "case-insensitive")
+		Expect(tr.MatchesEvent(ev("github", "pull_request", []byte(`{"action":"closed"}`)))).To(BeFalse())
+		Expect(tr.MatchesEvent(ev("gitlab", "pull_request", prBody))).To(BeFalse())
+		Expect(tr.MatchesEvent(ev("github", "push", prBody))).To(BeFalse())
+	})
+
+	It("compares numbers as written", func() {
+		tr := goodEvent()
+		tr.EventType = ""
+		tr.Matches = []string{"id=9007199254740993"}
+		Expect(tr.MatchesEvent(ev("github", "x", []byte(`{"id":9007199254740993}`)))).To(BeTrue(), "an id above 2^53")
+		Expect(tr.MatchesEvent(ev("github", "x", []byte(`{"id":9007199254740992}`)))).To(BeFalse(), "the neighbour of a large id")
+		tr.Matches = []string{"n=1"}
+		Expect(tr.MatchesEvent(ev("github", "x", []byte(`{"n":1}`)))).To(BeTrue())
+		Expect(tr.MatchesEvent(ev("github", "x", []byte(`{"n":1.0}`)))).To(BeFalse(), "1.0 is not 1")
+	})
+
+	It("matches any type when the trigger has none", func() {
+		tr := goodEvent()
+		tr.EventType = ""
+		Expect(tr.MatchesEvent(ev("github", "push", prBody))).To(BeTrue())
+	})
+
+	It("reads nested paths, array indexes, numbers and booleans", func() {
+		tr := goodEvent()
+		tr.Matches = []string{"pull_request.user.login=octo", "commits.0.id=abc", "number=42", "draft=false"}
+		Expect(tr.MatchesEvent(ev("github", "pull_request", prBody))).To(BeTrue())
+		for _, m := range []string{"commits.1.id=abc", "pull_request.user=octo", "missing.x=1", "action.x=opened", "commits.-1.id=abc"} {
+			tr.Matches = []string{m}
+			Expect(tr.MatchesEvent(ev("github", "pull_request", prBody))).To(BeFalse(), m)
+		}
+		tr.Matches = []string{"action=opened", "number=43"}
+		Expect(tr.MatchesEvent(ev("github", "pull_request", prBody))).To(BeFalse(), "all must hold")
+	})
+
+	It("does not match matches against a payload that is not JSON", func() {
+		tr := goodEvent()
+		Expect(tr.MatchesEvent(ev("github", "pull_request", []byte("hello")))).To(BeFalse())
+		tr.Matches = nil
+		Expect(tr.MatchesEvent(ev("github", "pull_request", []byte("hello")))).To(BeTrue())
+	})
+})
+
+var _ = Describe("TrimPayload", func() {
+	It("compacts and cuts valid JSON", func() {
+		big := `{"a":"` + strings.Repeat("x", 20000) + `"}`
+		got := TrimPayload([]byte(big), 8000)
+		Expect(got).To(HavePrefix(`{"a":"xxx`))
+		Expect(got).To(HaveSuffix("…[cut]"))
+		Expect(len(got)).To(BeNumerically("<=", 8000+len("…[cut]")))
+		Expect(TrimPayload([]byte("{ \"a\" : 1 }"), 100)).To(Equal(`{"a":1}`))
+	})
+
+	It("keeps text, strips control characters and cuts on a rune boundary", func() {
+		Expect(TrimPayload([]byte("hello"), 100)).To(Equal("hello"))
+		Expect(TrimPayload([]byte("he\x00l\x1blo\tx\ny"), 100)).To(Equal("hello\tx\ny"))
+		got := TrimPayload([]byte("ééé"), 3)
+		Expect(got).To(Equal("é…[cut]"))
+	})
+})
+
+var _ = Describe("Signatures", func() {
+	body := []byte(`{"a":1}`)
+	now := time.Unix(1_800_000_000, 0)
+
+	It("verifies a fresh signature and refuses a changed body", func() {
+		sig := Sign("s3cret", now, body)
+		Expect(sig).To(HavePrefix("sha256="))
+		Expect(Verify("s3cret", sig, now, body, now.Add(time.Minute), 5*time.Minute)).To(BeTrue())
+		Expect(Verify("s3cret", sig, now, []byte(`{"a":2}`), now, 5*time.Minute)).To(BeFalse())
+		Expect(Verify("other", sig, now, body, now, 5*time.Minute)).To(BeFalse())
+		Expect(Verify("s3cret", "", now, body, now, 5*time.Minute)).To(BeFalse())
+	})
+
+	It("refuses a timestamp outside the window", func() {
+		sig := Sign("s3cret", now, body)
+		Expect(Verify("s3cret", sig, now, body, now.Add(6*time.Minute), 5*time.Minute)).To(BeFalse())
+		Expect(Verify("s3cret", sig, now, body, now.Add(-6*time.Minute), 5*time.Minute)).To(BeFalse())
+	})
+
+	It("verifies the GitHub documentation vector", func() {
+		sig := "sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17"
+		Expect(VerifyGitHub("It's a Secret to Everybody", sig, []byte("Hello, World!"))).To(BeTrue())
+		Expect(VerifyGitHub("It's a Secret to Everybody", sig, []byte("Hello, World?"))).To(BeFalse())
+		Expect(VerifyGitHub("It's a Secret to Everybody", "", []byte("Hello, World!"))).To(BeFalse())
+	})
+})
+
+var _ = Describe("TrimPayload limits", func() {
+	It("treats a negative limit as zero", func() {
+		Expect(func() { TrimPayload([]byte("hello"), -1) }).NotTo(Panic())
+		Expect(TrimPayload([]byte("hello"), -1)).To(Equal(TrimPayload([]byte("hello"), 0)))
+	})
+})
+
+var _ = Describe("the paths of a payload", func() {
+	doc := func() any {
+		d, err := DecodePayload([]byte(`{"items":[{"start":"2026-11-26T09:00:00Z","next":["2026-11-27T09:00:00Z","bad","2026-11-28T09:00:00Z"]},{"start":"x"}],"title":"T"}`))
+		Expect(err).NotTo(HaveOccurred())
+		return d
+	}
+
+	It("reads a list of times through an array, as a scalar path does", func() {
+		got := LookupTimes(doc(), "items.0.next", 5)
+		Expect(got).To(Equal([]time.Time{time.Date(2026, 11, 27, 9, 0, 0, 0, time.UTC), time.Date(2026, 11, 28, 9, 0, 0, 0, time.UTC)}))
+		v, ok := LookupPath(doc(), "items.0.start")
+		Expect(ok).To(BeTrue())
+		Expect(v).To(Equal("2026-11-26T09:00:00Z"))
+		Expect(LookupTimes(doc(), "items.5.next", 5)).To(BeEmpty())
+	})
+
+	It("drops a value through an array and keeps the other elements in place", func() {
+		d := doc()
+		DropPath(d, "items.0.start")
+		DropPath(d, "items.1")
+		DropPath(d, "missing.path")
+		_, ok := LookupPath(d, "items.0.start")
+		Expect(ok).To(BeFalse())
+		Expect(LookupTimes(d, "items.0.next", 5)).To(HaveLen(2))
+		list, _ := d.(map[string]any)["items"].([]any)
+		Expect(list).To(HaveLen(2))
+		Expect(list[1]).To(BeNil())
+		title, _ := LookupPath(d, "title")
+		Expect(title).To(Equal("T"))
+	})
+})

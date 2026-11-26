@@ -13,6 +13,9 @@
 #   COVERAGE_E2E_ROOTS  Space-separated non-recursive e2e roots.
 #   COVERAGE_E2E_LABELS Ginkgo --label-filter for e2e roots.
 #   COVERAGE_EXCLUDE_RE Regex for coverprofile lines to drop on merge.
+#   COVERAGE_TIMEOUT    Ginkgo --timeout for each root (default 2h). Ginkgo
+#                       counts it across all the suites of a root, and its
+#                       own default (1h) is too short for ./core.
 #
 # Each ginkgo invocation's combined stdout+stderr is captured to a per-root
 # log file (OUTPUT_DIR/<root>.log).  On failure the last 80 lines are
@@ -70,7 +73,7 @@ run_ginkgo() {
 	# we convert newlines to spaces for the eval string.  Each flag is
 	# already in the form --key=value, and the value never contains shell
 	# metacharacters (tags are alphanum, coverpkg is a Go pattern).
-	_cmd="go run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $flakes -v $_rflag"
+	_cmd="go run github.com/onsi/ginkgo/v2/ginkgo --timeout=${COVERAGE_TIMEOUT:-2h} --flake-attempts $flakes -v $_rflag"
 	# Append build flags (one per line -> one per arg)
 	if [ -n "$build_flags_list" ]; then
 		_bf=$(printf '%s' "$build_flags_list" | while IFS= read -r _line; do

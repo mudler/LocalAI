@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	. "github.com/onsi/ginkgo/v2"
@@ -21,6 +22,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modelupdates"
+	"github.com/mudler/LocalAI/core/services/upgraderun"
+	"github.com/mudler/LocalAI/core/services/upgraderun/upgraderuntest"
 	"github.com/mudler/LocalAI/pkg/system"
 )
 
@@ -141,6 +144,95 @@ var _ = Describe("Model update routes", func() {
 		Expect(do(http.MethodPost, "/api/models/failed/upgrade/retry", "").Code).To(Equal(http.StatusOK))
 		Eventually(rec.done).Should(Receive(Equal("failed")))
 		Expect(rec.opts[0].Retry).To(BeTrue())
+	})
+
+	Context("with upgrade runs", func() {
+		var h *upgraderuntest.Harness
+
+		BeforeEach(func() {
+			var err error
+			h, err = upgraderuntest.NewHarness(GinkgoT().TempDir(), upgraderuntest.Options{})
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(h.Service.Close)
+			deps.Runs = UpgradeRunDeps{Runs: func() *upgraderun.Service { return h.Service }}
+			e = echo.New()
+			e.POST("/api/models/upgrade/:name", UpgradeModelEndpoint(deps))
+			installed("tiny", nil)
+			h.Models.Add(upgraderun.Candidate{Kind: upgraderun.KindModel, Name: "tiny", From: "d1", To: "d2"})
+		})
+
+		It("starts a run of one item and keeps the fields of the answer", func() {
+			w := do(http.MethodPost, "/api/models/upgrade/tiny", "")
+			Expect(w.Code).To(Equal(http.StatusOK), w.Body.String())
+			var resp ModelUpgradeRunResponse
+			Expect(json.Unmarshal(w.Body.Bytes(), &resp)).To(Succeed())
+			Expect(resp.JobID).To(Equal(h.Starter.Job("model:tiny")))
+			Expect(resp.ID).To(Equal(resp.JobID))
+			Expect(resp.StatusURL).To(HaveSuffix("models/jobs/" + resp.ID))
+			Expect(resp.Message).To(Equal("Upgrade started"))
+			Expect(resp.Run).NotTo(BeNil())
+			Expect(resp.Run.Items).To(HaveLen(1))
+			Consistently(rec.done, 100*time.Millisecond).ShouldNot(Receive(), "the run's starter queued it, not the route")
+		})
+
+		It("answers 202 with the run, and no job, when the operation is not accepted within the wait", func() {
+			gate := make(chan struct{})
+			DeferCleanup(func() { close(gate) })
+			h.Starter.Block(gate)
+			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+			defer cancel()
+			req := httptest.NewRequest(http.MethodPost, "/api/models/upgrade/tiny", nil).WithContext(ctx)
+			w := httptest.NewRecorder()
+			e.ServeHTTP(w, req)
+			Expect(w.Code).To(Equal(http.StatusAccepted), w.Body.String())
+			var body SingleUpgradePending
+			Expect(json.Unmarshal(w.Body.Bytes(), &body)).To(Succeed())
+			Expect(body.Code).To(Equal("pending"))
+			Expect(body.RunID).NotTo(BeEmpty())
+			Expect(w.Body.String()).NotTo(ContainSubstring("Upgrade started"))
+			Expect(w.Body.String()).NotTo(ContainSubstring(`"jobID"`))
+		})
+
+		It("answers 409 run_active while another run runs", func() {
+			Expect(do(http.MethodPost, "/api/models/upgrade/tiny", "").Code).To(Equal(http.StatusOK))
+			w := do(http.MethodPost, "/api/models/upgrade/tiny", "")
+			Expect(w.Code).To(Equal(http.StatusConflict))
+			var resp schema.ModelUpgradeError
+			Expect(json.Unmarshal(w.Body.Bytes(), &resp)).To(Succeed())
+			Expect(resp.Code).To(Equal(upgraderun.CodeRunActive))
+		})
+
+		It("refuses every direct upgrade with 409 run_active while a run runs", func() {
+			e.POST("/api/models/:name/upgrade/retry", RetryModelUpgradeEndpoint(deps))
+			installed("failed", &gallery.Journal{Kind: gallery.JournalUpgrade, Phase: gallery.PhaseRolledBack, Error: "load failed"})
+			Expect(do(http.MethodPost, "/api/models/upgrade/tiny", "").Code).To(Equal(http.StatusOK))
+			for _, req := range []struct{ path, body string }{
+				{"/api/models/upgrade/tiny", `{"config_only":true}`},
+				{"/api/models/upgrade/tiny", `{"choices":{"context_size":"mine"}}`},
+				{"/api/models/failed/upgrade/retry", ""},
+			} {
+				w := do(http.MethodPost, req.path, req.body)
+				Expect(w.Code).To(Equal(http.StatusConflict), req.path+" "+req.body+": "+w.Body.String())
+				var resp schema.ModelUpgradeError
+				Expect(json.Unmarshal(w.Body.Bytes(), &resp)).To(Succeed())
+				Expect(resp.Code).To(Equal(upgraderun.CodeRunActive), req.path+" "+req.body)
+			}
+			Consistently(rec.done, 100*time.Millisecond).ShouldNot(Receive(), "nothing was queued beside the run")
+		})
+
+		It("keeps an upgrade with options direct", func() {
+			w := do(http.MethodPost, "/api/models/upgrade/tiny", `{"config_only":true}`)
+			Expect(w.Code).To(Equal(http.StatusOK), w.Body.String())
+			Eventually(rec.done).Should(Receive(Equal("tiny")))
+			Expect(h.Starter.Job("model:tiny")).To(BeEmpty())
+		})
+
+		It("queues directly when the run's check does not list the model", func() {
+			h.Models.Remove("model:tiny")
+			w := do(http.MethodPost, "/api/models/upgrade/tiny", "")
+			Expect(w.Code).To(Equal(http.StatusOK), w.Body.String())
+			Eventually(rec.done).Should(Receive(Equal("tiny")))
+		})
 	})
 
 	It("answers 503 when no model gallery is configured", func() {

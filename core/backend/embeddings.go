@@ -188,7 +188,7 @@ func ModelEmbedding(ctx context.Context, s string, tokens []int, loader *model.M
 		originalFn := wrappedFn
 		wrappedFn = func() ([]float32, error) {
 			startTime := time.Now()
-			traceID := trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceEmbedding, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: summary})
+			traceID := trace.BeginBackendTraceFor(ctx, trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceEmbedding, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: summary})
 			defer trace.CancelBackendTrace(traceID)
 			result, err := originalFn()
 			duration := time.Since(startTime)
@@ -200,7 +200,7 @@ func ModelEmbedding(ctx context.Context, s string, tokens []int, loader *model.M
 				errStr = err.Error()
 			}
 
-			trace.RecordBackendTrace(trace.BackendTrace{
+			trace.RecordBackendTraceFor(ctx, trace.BackendTrace{
 				ID:        traceID,
 				Timestamp: startTime,
 				Duration:  duration,

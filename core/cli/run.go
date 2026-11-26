@@ -49,7 +49,7 @@ type RunCMD struct {
 	AddonsOwnerAddress           string `name:"addons-owner-address" env:"LOCALAI_ADDONS_OWNER_ADDRESS" help:"Address of the add-on owner carrier, as https://host:port with no path. Use a stable service name, never a pod address. Required for the owner and frontend roles" group:"addons"`
 	AddonsOwnerListen            string `name:"addons-owner-listen" env:"LOCALAI_ADDONS_OWNER_LISTEN" help:"Owner role only: the address the carrier listens on. Empty listens on all interfaces, on the port of --addons-owner-address" group:"addons"`
 	AddonsCarrierDir             string `name:"addons-carrier-dir" env:"LOCALAI_ADDONS_CARRIER_DIR" type:"path" help:"Directory with the carrier key set made by 'local-ai util addons-carrier-keys'. Required for the owner and frontend roles" group:"addons"`
-	TrustedProxies               string `name:"trusted-proxies" env:"LOCALAI_TRUSTED_PROXIES" default:"" help:"Comma-separated IPs and CIDRs of reverse proxies in front of LocalAI. Only when the TCP peer is in this list is the client address taken from X-Forwarded-For (right-most untrusted entry). Used by the access log, login rate limits and traces. Empty trusts nobody" group:"api"`
+	TrustedProxies               string `name:"trusted-proxies" env:"LOCALAI_TRUSTED_PROXIES" default:"" help:"Comma-separated IPs and CIDRs of reverse proxies in front of LocalAI. Only when the TCP peer is in this list is the client address taken from X-Forwarded-For (right-most untrusted entry). Used by the access log, login rate limits and traces. The scheme, host and prefix headers (X-Forwarded-Proto, X-Forwarded-Host, X-Forwarded-Prefix, Forwarded) are also believed only from these peers; they set the links, redirects and the Web UI base path. Empty trusts nobody" group:"api"`
 	LogClient                    bool   `name:"log-client" env:"LOCALAI_LOG_CLIENT" default:"false" help:"Add the duration, client address, user agent and request id to the HTTP access log. Off by default. The address is the TCP peer unless it is a trusted proxy (see --trusted-proxies). Turn it on with --log-client" group:"logging"`
 	AutoUpgradeAddons            bool   `name:"auto-upgrade-addons" env:"LOCALAI_AUTO_UPGRADE_ADDONS" default:"false" help:"Upgrade installed add-ons on their own when a newer version appears in their library. Off by default; upgrades then stay manual" group:"addons"`
 	AddonsOfficialLibrary        bool   `name:"addons-official-library" env:"LOCALAI_ADDONS_OFFICIAL_LIBRARY" default:"true" help:"Register the official add-on library on the first start, when the add-on owner has no sources.json yet. A library the admin removes later stays removed. Turn it off with --addons-official-library=false" group:"addons"`
@@ -102,6 +102,8 @@ type RunCMD struct {
 	BackendImagesBranchTag    string   `env:"LOCALAI_BACKEND_IMAGES_BRANCH_TAG,BACKEND_IMAGES_BRANCH_TAG" help:"Fallback branch tag for backend images" group:"backends" default:"master"`
 	BackendDevSuffix          string   `env:"LOCALAI_BACKEND_DEV_SUFFIX,BACKEND_DEV_SUFFIX" help:"Development suffix for backend images" group:"backends" default:"development"`
 	AutoUpgradeBackends       bool     `env:"LOCALAI_AUTO_UPGRADE_BACKENDS,AUTO_UPGRADE_BACKENDS" help:"Automatically upgrade backends when new versions are detected" group:"backends" default:"false"`
+	UpgradeRunKeep            int      `env:"LOCALAI_UPGRADE_RUN_KEEP" help:"Most finished upgrade runs kept; the oldest beyond it are removed (-1 keeps any number)" group:"backends" default:"200"`
+	UpgradeRunRetention       int      `name:"upgrade-run-retention-days" env:"LOCALAI_UPGRADE_RUN_RETENTION_DAYS" help:"Days to keep finished upgrade runs (-1 keeps them forever)" group:"backends" default:"30"`
 	PreferDevelopmentBackends bool     `env:"LOCALAI_PREFER_DEV_BACKENDS,PREFER_DEV_BACKENDS" help:"Prefer compatible installed development backends for generic aliases and development downloads (requires restart)" group:"backends" default:"false"`
 	PreloadModels             string   `env:"LOCALAI_PRELOAD_MODELS,PRELOAD_MODELS" help:"A List of models to apply in JSON at start" group:"models"`
 	Models                    []string `env:"LOCALAI_MODELS,MODELS" help:"A List of model configuration URLs to load" group:"models"`
@@ -174,6 +176,8 @@ type RunCMD struct {
 	DisablePageArea       bool   `env:"LOCALAI_DISABLE_PAGE_AREA" default:"false" help:"Turn off the page area of Home for all users (it can be switched on again in the runtime settings)" group:"assistant"`
 	ChatsHostExec         string `env:"LOCALAI_CHATS_HOST_EXEC" default:"" enum:",off,ask,on" help:"Who gets the chats' built-in bash, which runs commands on this machine with no isolation and with its network: off, ask (administrators, who allow each command) or on. Empty: off with accounts, ask without. An add-on that runs commands in isolation replaces it" group:"assistant"`
 	ChatsAutoResume       bool   `env:"LOCALAI_CHATS_AUTO_RESUME" default:"false" help:"Go on by itself with a chat turn that a restart interrupted: up to 3 tries, after 15 seconds, 1 minute and 5 minutes, and only within 30 minutes of the interruption. Off: a person, or the page, resumes it" group:"assistant"`
+	Incognito             string `env:"LOCALAI_INCOGNITO" default:"" enum:",allow,forbid" help:"Whether web UI sessions may start incognito conversations: allow or forbid. Empty: allow. It can be changed in the runtime settings" group:"assistant"`
+	IncognitoMaxLevel     string `env:"LOCALAI_INCOGNITO_MAX_LEVEL" default:"" enum:",memory-off,zero-retention" help:"The highest incognito level the server honours: memory-off (no long-term memory, logs and traces stay) or zero-retention (no persisted content, usage counters only). Empty: zero-retention" group:"assistant"`
 
 	// Removed agent, job and skill options: accepted and ignored.
 	RemovedAgentOptions `embed:""`
@@ -738,6 +742,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 	opts = append(opts, config.WithAgentJobRetentionDays(r.AgentJobRetentionDays), config.WithMCPCIJobTimeout(r.MCPCIJobTimeout))
 	opts = append(opts, config.WithTriggerRunRetention(r.TriggerRunKeep, r.TriggerRunRetention))
+	opts = append(opts, config.WithUpgradeRunRetention(r.UpgradeRunKeep, r.UpgradeRunRetention))
 
 	// Collections
 	if r.DisableCollections {
@@ -766,6 +771,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 	if r.ChatsHostExec != "" {
 		opts = append(opts, config.WithChatsHostExec(r.ChatsHostExec))
+	}
+	if r.Incognito != "" {
+		opts = append(opts, config.WithIncognito(r.Incognito))
+	}
+	if r.IncognitoMaxLevel != "" {
+		opts = append(opts, config.WithIncognitoMaxLevel(r.IncognitoMaxLevel))
 	}
 	if r.ChatsAutoResume {
 		opts = append(opts, config.WithChatsAutoResume(true))

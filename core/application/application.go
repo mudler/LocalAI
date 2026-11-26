@@ -21,7 +21,9 @@ import (
 
 	corebackend "github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
+	addonendpoints "github.com/mudler/LocalAI/core/http/endpoints/addons"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/library"
 	"github.com/mudler/LocalAI/core/services/addons"
@@ -39,6 +41,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/uploads"
 	"github.com/mudler/LocalAI/core/services/addons/usersettings"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
 	"github.com/mudler/LocalAI/core/services/failover"
@@ -72,6 +75,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/textindex"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
+	"github.com/mudler/LocalAI/core/services/upgraderun"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
@@ -128,8 +132,13 @@ type Application struct {
 	addonAdminCheck func(context.Context, contract.Actor) error
 	librarySnap     librarySnapshot
 	backendLibrary  *backendlib.Installer
-	addonManager    *addons.Manager
-	addonHostOps    *addonruntime.HostOps
+	// libraryJobs runs every library install of this node under one guard;
+	// see LibraryJobs.
+	libraryJobsMu  sync.Mutex
+	libraryJobs    *backendlib.JobRunner
+	libraryJobsFor *backendlib.Installer
+	addonManager   *addons.Manager
+	addonHostOps   *addonruntime.HostOps
 	// hostAuthority answers what each add-on may call; see addonAuthority.
 	hostAuthority      hostops.Authority
 	addonAuthorityOnce sync.Once
@@ -277,6 +286,24 @@ type Application struct {
 	modelUpdates *modelupdates.Service
 	// modelUpgrader runs model upgrades; nil without model galleries.
 	modelUpgrader *modelupdates.Upgrader
+
+	// upgradeRuns owns the server-owned upgrade runs; nil when they could not
+	// start. upgradeRunsStop stops its sweep and runners and closes a
+	// database opened for it. See upgrade_runs.go.
+	upgradeRuns      atomic.Pointer[upgraderun.Service]
+	upgradeRunsStop  func()
+	addonRunUpgrader *addonendpoints.QueuedUpgrader
+	// upgradeRunTweak changes the options of the service before it starts;
+	// tests set it to hand in fake checks and job paths.
+	upgradeRunTweak func(*upgraderun.Options)
+
+	// autoRuns starts the upgrade runs of the automatic update passes; made
+	// on first use (autoRunner).
+	autoRuns       *autoRunner
+	autoRunnerOnce sync.Once
+	// opCache is the cache of /api/operations the HTTP layer built; see
+	// SetOperationCache.
+	opCache atomic.Pointer[galleryop.OpCache]
 
 	// LocalAI Assistant in-process MCP server. nil until initialised in start() after galleryService, and
 	// when that initialisation fails.
@@ -842,6 +869,7 @@ func (a *Application) Shutdown() error {
 		// Before distributed shutdown: the sync's subscriptions live on the
 		// NATS connection that closes there.
 		a.stopFailoverDistributed()
+		a.stopUpgradeRuns()
 		a.distributed.Shutdown()
 		if a.modelLoader != nil {
 			err = errors.Join(err, a.modelLoader.StopAllGRPC())
@@ -964,7 +992,7 @@ func (a *Application) start() (startErr error) {
 		return a.studioVisionModel("")
 	}
 	if a.backendLibrary != nil {
-		assistantClient.BackendLibrary = libraryInstallNoProgress{a.backendLibrary}
+		assistantClient.BackendLibrary = libraryInstallNoProgress{in: a.backendLibrary, jobs: a.LibraryJobs}
 	}
 	assistantClient.UpdatesChecker = func() localaiInproc.BackendUpdatesSource {
 		if a.upgradeChecker == nil {
@@ -974,6 +1002,24 @@ func (a *Application) start() (startErr error) {
 	}
 	assistantClient.ModelUpdatesService = a.ModelUpdates
 	assistantClient.ModelUpgrader = a.ModelUpgrader
+	assistantClient.UpgradeRunService = a.UpgradeRuns
+	// The same early refusal as the backend upgrade routes.
+	assistantClient.BackendUpgradeGuard = func() *backendupdates.UpgradeGuard {
+		if a.galleryService == nil {
+			return nil
+		}
+		var src backendupdates.UpgradeInfoSource
+		if a.upgradeChecker != nil {
+			src = a.upgradeChecker
+		}
+		return backendupdates.NewUpgradeGuard(func() (gallery.SystemBackends, error) {
+			manager := a.galleryService.BackendManager()
+			if manager == nil {
+				return nil, backendupdates.ErrNoBackendManager
+			}
+			return manager.ListBackends()
+		}, src)
+	}
 	if a.distributed != nil && a.distributed.Unloader != nil {
 		assistantClient.LoadStopper = a.distributed.Unloader
 	}
@@ -1061,6 +1107,23 @@ func (a *Application) AddonManager() *addons.Manager { return a.addonManager }
 // BackendLibrary installs backends from the library entries of kind backend.
 // It is nil unless this instance owns the add-on libraries.
 func (a *Application) BackendLibrary() *backendlib.Installer { return a.backendLibrary }
+
+// LibraryJobs runs the library installs of this node: the install route, the
+// library items of upgrade runs and the Assistant's install all go through it,
+// so one install of a backend name runs at a time. nil without a backend
+// library.
+func (a *Application) LibraryJobs() *backendlib.JobRunner {
+	lib := a.BackendLibrary()
+	if lib == nil {
+		return nil
+	}
+	a.libraryJobsMu.Lock()
+	defer a.libraryJobsMu.Unlock()
+	if a.libraryJobs == nil || a.libraryJobsFor != lib {
+		a.libraryJobs, a.libraryJobsFor = &backendlib.JobRunner{Install: lib.Install}, lib
+	}
+	return a.libraryJobs
+}
 
 // AddonSources exposes owner-only source administration and explicit live refresh.
 // Forwarders never load source configuration or perform catalog I/O.
@@ -1280,10 +1343,14 @@ func startLibraryRefresh(ctx context.Context, refresh func(context.Context) erro
 
 // libraryInstallNoProgress adapts the library installer to the assistant's
 // installer interface, which does not report progress.
-type libraryInstallNoProgress struct{ in *backendlib.Installer }
+// The install runs under the guard of every library install of this node.
+type libraryInstallNoProgress struct {
+	in   *backendlib.Installer
+	jobs func() *backendlib.JobRunner
+}
 
 func (l libraryInstallNoProgress) Install(ctx context.Context, sourceID, backend, version string) error {
-	return l.in.Install(ctx, sourceID, backend, version, backendlib.Progress{})
+	return l.jobs().Run(ctx, backendlib.Job{SourceID: sourceID, Backend: backend, Version: version})
 }
 
 func (l libraryInstallNoProgress) Updates(ctx context.Context) ([]localaitools.BackendLibraryUpdate, error) {

@@ -1071,7 +1071,7 @@ func (s *studioAddons) ToolsScoped(ctx context.Context, user string, excluded fu
 			continue
 		}
 		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind != contract.ToolKindRead,
-			Shadows: d.Shadows, Execution: d.Execution, InstalledAt: d.InstalledAt, Permission: d.Permission, Credentialed: d.Credentialed, OwnerData: d.OwnerData, ApprovalOverridable: d.ApprovalOverridable, Tool: d.Tool, ResourceScoped: d.ResourceScoped})
+			Shadows: d.Shadows, Execution: d.Execution, InstalledAt: d.InstalledAt, Permission: d.Permission, Credentialed: d.Credentialed, OwnerData: d.OwnerData, ApprovalOverridable: d.ApprovalOverridable, Tool: d.Tool, ResourceScoped: d.ResourceScoped, Deferred: d.Deferred})
 	}
 	out = filterByFeature(out, s.hostOps, s.has, actor)
 	if !report.Truncated() {

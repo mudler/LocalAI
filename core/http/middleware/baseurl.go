@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -120,6 +121,34 @@ func BaseURL(c echo.Context) string {
 	}
 
 	return scheme + "://" + host + BasePathPrefix(c)
+}
+
+// BaseHrefPath returns the path of BaseURL, for the SPA <base href>. It always
+// starts and ends with "/".
+//
+// The base is path-only on purpose. Behind a TLS reverse proxy that is not in
+// --trusted-proxies, BaseURL reports an http:// origin while the browser is on
+// https://. The CSP directive base-uri 'self' then makes the browser ignore a
+// full-URL base, and the relative asset URLs of a deep link such as
+// /invite/<code> resolve against the page path and return 404. A path-only
+// base is always same-origin, so the browser keeps it.
+//
+// It takes the path of BaseURL and not BasePathPrefix alone, so the path of an
+// explicit external base URL (e.g. https://host/sub) is kept when the proxy
+// strips that path before it forwards the request.
+func BaseHrefPath(c echo.Context) string {
+	u, err := url.Parse(BaseURL(c))
+	if err != nil {
+		return BasePathPrefix(c)
+	}
+	p := u.EscapedPath()
+	// A path that starts with "//" is a protocol-relative URL that names
+	// another host. Keep exactly one leading slash.
+	p = "/" + strings.TrimLeft(p, "/")
+	if !strings.HasSuffix(p, "/") {
+		p += "/"
+	}
+	return p
 }
 
 // firstToken returns the first comma-separated token of v, trimmed of spaces.

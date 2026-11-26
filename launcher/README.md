@@ -21,15 +21,39 @@ removed from the repository. It uses the same data folder (`~/.localai`) and the
   `serverVersion.ts`, `serverLaunch.ts`, `settings.ts`, the `sandbox*.ts`
   modules, `ipcGuard.ts` (sender check), `ipcValidate.ts` (input checks),
   `ipcHandlers.ts` (one handler per channel), `menuModel.ts`, `core.ts`
-  (start order and actions), `webuiPolicy.ts` (the WebUI view's security
-  decisions), `webuiState.ts` (the WebUI view's lifecycle) and
-  `windowLayout.ts` (view bounds and stacking), `hostTools.ts` (free port,
-  what listens on a port, hardware summary), `loginItem.ts` (Launch at
-  login), `secretStore.ts` (secrets.json over an injected safeStorage),
-  `apiKey.ts`, `network.ts` (bind address and LAN addresses),
-  `webuiCredential.ts` (the WebUI sign-in cookie), `notifications.ts` (the
-  notification streams, event parser, reconnect, link check, suppression rule).
+  (start order and actions), `windowLayout.ts` (view bounds and stacking),
+  `webuiPartition.ts` (the session partition of each origin), `hostTools.ts`
+  (free port, what listens on a port, hardware summary), `loginItem.ts`
+  (Launch at login), `secretStore.ts` (secrets.json over an injected
+  safeStorage), `apiKey.ts`, `network.ts` (bind address and LAN addresses),
+  `webuiCredential.ts` (the WebUI sign-in cookie), `p2pRemote.ts` (the
+  `local-ai p2p` commands and the forwarder supervisor), `testConnection.ts`
+  (the Node HTTP transport of the connection test) and `devFeed.ts` (the
+  file names and the feed URL of the development build). `checksum.ts`,
+  `config.ts`, `configStore.ts`, `network.ts`, `testConnection.ts` and
+  `devFeed.ts` add the Node side to a module of `src/core` and re-export its
+  names, so existing imports keep working.
   Electron-facing: `index.ts`, `menu.ts`, `tray.ts`, `selfUpdate.ts`, `webuiView.ts`, `dimView.ts`, `notifyGlue.ts` (desktop notifications, badge).
+- `src/core`: pure modules that the main process shares with other clients.
+  They import no Node module and no Electron, and use no `Buffer` or
+  `process`; what needs the platform (random bytes, file I/O, the HTTP
+  request, child processes) comes in from the caller.
+  `test/coreBoundary.test.ts` checks the imports of `src/core` and
+  `src/shared`, `tsconfig.core.json` type-checks both folders without Node
+  types (part of `npm run typecheck`), and `test/coreBrowser.test.ts` runs
+  them under jsdom. The modules: `address.ts` (address normalisation,
+  loopback check), `webuiPolicy.ts` (the WebUI view's security decisions),
+  `webuiState.ts` (the WebUI view's lifecycle), `notifications.ts` (the
+  notification streams, event parser, reconnect, link check, suppression
+  rule), `remoteMonitor.ts` (the watch on a remote default), `configTypes.ts`
+  and `configStore.ts` (the launcher.json model and its one writer, over an
+  injected `ConfigIO`), `p2pInvite.ts` (invite links, pairing answers,
+  forwarder status lines), `serversConfig.ts` (the saved servers in
+  launcher.json), `testClassify.ts` (what a server address answers, over an
+  injected HTTP request), `checksums.ts` (the checksum list parser),
+  `devFeed.ts` (the development release tag and build identity) and
+  `remoteServers.ts` (the saved servers, switching, the watch and the P2P
+  forwarders, with every dependency injected).
 - `src/shared/ipc.ts`: the IPC contract. Every channel, its direction
   (invoke, event, send) and its payload types. `test/preload.test.ts` fails
   when the preload or the main handler table disagrees with it.
@@ -38,7 +62,10 @@ removed from the repository. It uses the same data folder (`~/.localai`) and the
   uses the `@localai/ui-kit` package and the WebUI's theme CSS (aliases in
   `vite.config.mts`). `bridge.ts` lists the bridge methods the shell can do
   without; a control whose method is missing is hidden. `dev/` holds a fake
-  bridge and named fixtures for the component tests.
+  bridge, a fake client-only bridge (`fakeClientBridge.ts`) and named
+  fixtures for the component tests.
+- `src/shared/apiGroups.ts`: the bridge methods in three groups. See
+  "Capabilities" below.
 - `test`: vitest. `test/fixtures/fake-server.cjs` stands in for the server and
   starts a grandchild so group signals are exercised.
 - `scripts/smoke-packaged.sh`: runs a packaged AppImage under `xvfb-run`, a
@@ -88,6 +115,30 @@ arguments, so the launcher treats a start at login as a hidden start. The
 setting is saved only when the change took effect. On Windows it is
 Electron's login item (a `Run` entry of the current user) with `--hidden`.
 
+## Capabilities
+
+`info().capabilities` tells the shell what the app can do: `localServer`
+(the app runs and manages a LocalAI server on this device), `p2p` (servers
+can be added with an invite link), `selfUpdate` (`electron`, `apk` or
+`none`) and `qrScan`. `src/shared/apiGroups.ts` puts the bridge methods in
+three groups: `CoreApi` (every bridge), `ServersApi` (a bridge that talks to
+servers) and `LocalServerApi` (only a bridge that runs a local server). A
+compile-time check fails when a `LauncherApi` method is in no group. A
+client-only bridge has `localServer: false` and leaves out the
+`LocalServerApi` methods; the shell then hides the local server's controls,
+and with no saved server it shows the first-connect screen. A missing
+`capabilities` value (an older main process) means the desktop set
+(`DESKTOP_CAPABILITIES`), never client-only. The desktop launcher always
+reports the desktop set.
+
+The Android client app (`android/`) reuses `src/renderer`, `src/shared` and
+`src/core` through import aliases, with a client-only bridge
+(`localServer: false`, `selfUpdate: 'apk'`). A change in these folders
+therefore also changes the Android app, and its CI runs on them. The WebUI
+policy fixture `test/fixtures/webui-policy.json` has a Kotlin consumer too:
+the parity test of the Android app's port of `webuiPolicy.ts`. See
+`android/README.md`.
+
 ## Config
 
 The launcher reads and writes `~/.localai/launcher.json` (on Windows
@@ -113,7 +164,7 @@ emptied. An older launcher then starts the server without them.
 
 ## Servers, the default target and the update channel
 
-`launcher.json` keeps these keys (`src/main/serversConfig.ts`; Go keys and
+`launcher.json` keeps these keys (`src/core/serversConfig.ts`; Go keys and
 unknown keys are kept; writes go through the one config queue):
 
 | Key | Meaning |
@@ -132,16 +183,19 @@ started stops after the new page has loaded. With `keep_local_running` on,
 the local server keeps its own rules in the background. Picking a server in
 the bar switcher makes it the default. Switching to This computer starts it
 (the Install screens come first when it is missing). A remote is saved and
-opened only after a passing test (`src/main/testConnection.ts`: no
+opened only after a passing test (`src/core/testClassify.ts` decides,
+`src/main/testConnection.ts` sends the request: no
 credentials, certificate errors never skipped, no redirect off the origin,
 8 s timeout; a server that asks for a sign-in counts as reachable);
 "Save without testing" exists only in Settings. While the remote default
 does not answer, the shell shows the recovery screen and the launcher retries
-every 30 s (`remoteMonitor.ts`); it never starts the local server by itself.
+every 30 s (`src/core/remoteMonitor.ts`); it never starts the local server by itself.
 Plain http to any host is accepted, with a warning in the form and an amber
 "Remote, not encrypted" chip in the bar.
 
-A server over P2P (`src/main/p2pRemote.ts`) is added with an invite link.
+A server over P2P is added with an invite link (`src/core/p2pInvite.ts`
+reads the link and the command output, `src/main/p2pRemote.ts` runs the
+commands).
 The launcher runs `local-ai p2p pair --invite <link> --identity <file> --json`
 once, with the identity file `~/.localai/launcher-p2p/identity.key`, picks a
 free loopback port, saves the server at `http://127.0.0.1:<port>` and keeps
@@ -159,14 +213,16 @@ while the WebUI has the focus (`menuModel.ts` lists what was checked).
 ### Update channel
 
 Settings, Updates. `stable` is the default and uses the latest release.
-`rc` also offers release candidates (this is the old pre-release switch, and
-the only channel the launcher's own updater follows). `dev` follows the
-rolling development build:
+`rc` also offers release candidates (this is the old pre-release switch; the
+launcher's own updater follows it too). `dev` follows the rolling development
+build, for the server and for the launcher itself:
 
 - Where it comes from: the `dev-master` pre-release of the LocalAI
   repository, with `local-ai-master-<os>-<arch>` and a `.sha256` file for each
-  platform. All names are in `src/main/devFeed.ts`; the fake release server in
-  `scripts/fake-release-server.mjs` serves the same names for tests.
+  platform. The file names and the feed URL are in `src/main/devFeed.ts`.
+  The release tag and the build id parser are in `src/core/devFeed.ts`. The
+  fake release server in `scripts/fake-release-server.mjs` serves the same
+  names for tests.
 - The same fail-closed checksum check and atomic swap as a release. "Newer"
   means a different build id (the short commit sha from the release text),
   not a higher version. The previous binary stays as `local-ai.previous`,
@@ -174,6 +230,19 @@ rolling development build:
   rollback copy.
 - The server starts with `LOCALAI_PREFER_DEV_BACKENDS=true` (`serverLaunch.ts`);
   backends that are already installed are not touched.
+- The launcher updates itself from the same release. The `dev-master`
+  pre-release also carries the update feed files (`latest-linux.yml`,
+  `latest-linux-arm64.yml`, `latest-mac.yml`, `latest.yml`) and the macOS
+  zip, and electron-updater reads them through its generic provider
+  (`devLauncherFeedUrl` in `devFeed.ts`, `selfUpdateGate` and `launcherFeed`
+  in `updaterStatus.ts`). The feed files hold the SHA-512 of each package, so
+  a file that does not match is never installed (fail closed). On Linux the
+  atomic swap below applies. The channel is read at start and when it
+  changes, with no new prompt: the confirmation of the first change to
+  Development covers it. A development build (`x.y.z-dev.N`) updates itself
+  on this channel only. On Stable or Release candidates it stays off and
+  never reads the release feed. Going back to Stable or Release candidates
+  returns a release launcher to the release feed.
 - The first change to Development needs a confirmation (the checkbox dialog).
   The bar and About show a Development chip while the window shows This
   computer. With a remote default the channel applies to This computer only.
@@ -278,9 +347,12 @@ interpreter is `/lib64/ld-linux-x86-64.so.2`.
 `scripts/version.mjs` gives the version: `tag v4.2.1` gives `4.2.1`,
 `tag v4.2.1-rc.1` (or `-rc1`) gives `4.2.1-rc.1`, `-beta.N` and `-alpha.N` are
 accepted, and any other tag shape fails. `dev <run>` reads tags on stdin and
-gives `<newest vX.Y.Z, patch + 1>-dev.<run>`; other tag shapes are skipped. A
-`-dev.N` build never updates itself (`selfUpdateAllowed` in
-`src/main/updaterStatus.ts`).
+gives `<newest vX.Y.Z, patch + 1>-dev.<run>`; other tag shapes are skipped.
+The run number rises with each build, so each development build is a higher
+version than the last one (semver compares the number as a number), and the
+normal "newer version" rule of electron-updater finds it with no downgrade.
+A `-dev.N` build updates itself on the Development channel only
+(`selfUpdateGate` in `src/main/updaterStatus.ts`).
 
 ### Workflows
 
@@ -288,7 +360,7 @@ gives `<newest vX.Y.Z, patch + 1>-dev.<run>`; other tag shapes are skipped. A
 |---|---|---|---|
 | `launcher-electron-build.yaml` | `workflow_call` | `contents: read` | npm ci, type check, unit tests, build with `--publish never`, `.sha256` files, packaged smoke (AppImage under Xvfb with `--appimage-extract-and-run`; on macOS the DMG is signed, notarized and stapled, then checked with `codesign`, `spctl` and `stapler`, and the app from the mounted DMG is checked the same way before the smoke), then workflow artifacts. amd64 also checks the portable layout and runs the smoke again inside Alpine (musl); amd64 on `ubuntu-22.04`, arm64 on `ubuntu-24.04-arm`, macOS on `macos-latest`, Windows on `windows-latest` (type check, `test/windows.test.ts`, `test/windowsHost.test.ts` and the builder config test; the rest of the unit suite is POSIX-specific and runs in the other jobs; then a silent per-user install of the NSIS installer and the smoke on the installed app). |
 | `launcher-electron-release.yaml` | `workflow_call` from `release.yaml`, every `v*` tag, after GoReleaser | build: read; upload: `contents: write`; check: read | Version from the tag, build with required macOS signing (Windows signing when its secrets exist), feed files, upload to the existing release (no checkout, files first, feed files last, `--clobber`), then a check of the attached feed. |
-| `launcher-electron-dev.yaml` | push to `master` and pull requests (path filter), manual run | build: read; publish: `contents: write` | Development builds as artifacts `localai-launcher-dev-linux-amd64`, `-linux-arm64`, `-macos-arm64`, `-windows-amd64` (14 days; pull requests: amd64 AppImage only, no secrets, 7 days). Master builds are not cancelled by a newer push (a waiting run is replaced). After they pass, the `publish` job (master pushes only, never pull requests or manual runs) attaches the AppImages, the DMG, the Windows installer and zip, and their `.sha256` files to the `dev-master` pre-release with `--clobber`, next to the server binaries. It waits for that release (made by `master-dev-binary.yml`) and never creates it. Manual run: build and smoke only. |
+| `launcher-electron-dev.yaml` | push to `master` and pull requests (path filter), manual run | build: read; publish: `contents: write` | Development builds as artifacts `localai-launcher-dev-linux-amd64`, `-linux-arm64`, `-macos-arm64`, `-windows-amd64` (14 days; pull requests: amd64 AppImage only, no secrets, 7 days). Master builds are not cancelled by a newer push (a waiting run is replaced). After they pass, the `publish` job (master pushes only, never pull requests or manual runs) checks the feed files against the packages (names, sizes, SHA-512), then attaches the AppImages, the DMG, the macOS zip, the Windows installer and zip, and their `.sha256` files to the `dev-master` pre-release with `--clobber`, next to the server binaries. The feed files (`latest*.yml`) go last, and a feed file or package that this build did not make is removed. Blockmaps are not published. It waits for that release (made by `master-dev-binary.yml`) and never creates it. Manual run: build and smoke only. |
 
 Signing uses the repository secrets `MACOS_CERTIFICATE` and
 `MACOS_CERTIFICATE_PWD` (as `CSC_LINK` and `CSC_KEY_PASSWORD`) and
@@ -443,18 +515,24 @@ No worker mode.
 
 ## Launcher updates
 
-electron-updater checks and downloads; it runs only in a packaged release
-build. A run from source and a development build (`x.y.z-dev.N`) do not
-update themselves (a development build checks only a test feed set with
-`LOCALAI_LAUNCHER_FEED_URL`). Downgrades are never offered. Pre-releases
+electron-updater checks and downloads; it runs only in a packaged build. A
+run from source does not update itself. A development build (`x.y.z-dev.N`)
+updates itself on the Development channel only, from the `dev-master` feed;
+on Stable or Release candidates it does not update itself (it checks only a
+test feed set with `LOCALAI_LAUNCHER_FEED_URL`, which wins on every channel).
+On the Development channel the launcher reads the feed of the `dev-master`
+pre-release (generic provider) and turns differential download off, because
+the files keep one name from build to build. The portable Windows zip never
+updates itself. Downgrades are never offered, on any channel. Pre-releases
 are offered only on the Release candidates channel (Settings, Updates;
-config `update_channel`; the Development channel does not change the
-launcher's own updates); a launcher on a release-candidate version takes
+config `update_channel`); a launcher on a release-candidate version takes
 stable updates only, because `updaterSettings` always sets electron-updater's
 `allowPrerelease`, which it would otherwise turn on for such a version. The
 same setting makes the server check use the newest release including
-pre-releases. `selfUpdateGate` and `updaterSettings` (`updaterStatus.ts`) are
-the only gate; `test/selfUpdateGate.test.ts` covers every combination.
+pre-releases. `selfUpdateGate`, `launcherFeed` and `launcherUpdaterSettings`
+(`updaterStatus.ts`) are the only gate; `test/selfUpdateGate.test.ts` and
+`test/devLauncherUpdate.test.ts` cover the combinations. `selfUpdate.ts`
+applies them at start and on every channel change (`setLauncherChannel`).
 
 "Restart to update" on Linux does not call electron-updater's install
 (`quitAndInstall`), which deletes the AppImage before it moves the new one
@@ -634,7 +712,7 @@ The window is a `BaseWindow` with up to four `WebContentsView`s, from bottom
 to top: the shell (the launcher's React page, the only view with the preload
 bridge), the WebUI view, the dim layer (only while the server is stopped),
 and the corner dot. `windowLayout.ts` computes their
-bounds and order from the state of `webuiState.ts` on every state change and
+bounds and order from the state of `src/core/webuiState.ts` on every state change and
 resize. The window has a minimum size of 720 by 480.
 
 | Layout | When | Views |
@@ -729,7 +807,7 @@ channel (`src/shared/ipc.ts` has the full list):
 
 The view renders server pages, model output and MCP app frames, so it gets
 the strictest settings (`webuiView.ts`; the decisions are in
-`webuiPolicy.ts`):
+`src/core/webuiPolicy.ts`):
 
 - No preload. `nodeIntegration` off (also in subframes and workers);
   `contextIsolation`, `sandbox` and `webSecurity` on; no insecure content; no
@@ -747,6 +825,18 @@ the strictest settings (`webuiView.ts`; the decisions are in
   and the server's own `blob:` URLs, nothing else, and they never open the
   browser. The session also cancels every document request to another origin,
   also after a redirect.
+- OAuth and OIDC sign-in is the one exception (`OAuthSignInFlow` in
+  `src/core/webuiPolicy.ts`). A main-frame navigation to
+  `/api/auth/oidc/login` or `/api/auth/github/login` on the server origin
+  waits 30 seconds for a redirect. The first redirect of the main frame to
+  another `http` or `https` origin then lets that origin load in the main
+  frame, so the `oauth_state` cookie and the session cookie stay in the
+  view's partition. More redirects can add origins, at most 5 in all; a link
+  that a provider page follows adds none. The exception ends on a return to
+  the server origin, after 10 minutes (the life of the `oauth_state`
+  cookie), when the launcher navigates the view, and when the view closes or
+  shows another server. Subframes, windows, permissions, downloads, other
+  schemes and URLs with user info keep the rules above.
 - `window.open` and `target=_blank` never create a window. `/app` pages of
   the server open in the view; other server pages and other origins open in
   the browser.
@@ -769,11 +859,16 @@ box): the form warns, and the bar keeps an amber "Remote, not encrypted" chip
 for as long as that server is shown. Credentials in an address and other
 schemes are refused. Each origin keeps its own session partition.
 
-Known limits: a sign-in that redirects to another origin (an identity
-provider) opens in the system browser, so it cannot complete inside the view;
-use Open in browser for it. This is by decision: the view never shows a page
-of an origin the user did not choose. A `javascript:` link runs inside the page itself
-(same origin, no new rights), as in any browser.
+Known limits: an identity provider page is a page of an origin the user did
+not choose. It loads in the view only for the sign-in that the server's login
+route started, in the main frame only, and with no permissions. A provider
+that moves to another origin by script (not by a redirect) opens that origin
+in the system browser, and the sign-in does not complete in the view; use
+Open in browser for it. A provider page gets no permission (camera,
+notifications and the like), and its passkey or security-key prompt may not
+work in the view; choose another sign-in method of the provider then. A
+`javascript:` link runs inside the page itself (same origin, no new rights),
+as in any browser.
 
 ### Desktop notifications
 
@@ -811,7 +906,21 @@ serves the inbox endpoints and two test hooks (`POST /__emit`, `GET /__stats`).
 `test/webuiPolicy.test.ts`, `test/webuiState.test.ts`,
 `test/windowLayout.test.ts` and `test/webuiSecurity.test.ts` (the Electron
 wiring against a fake Electron, and the real trust check against WebUI
-frames) run with `npm test`. `scripts/webui-security.sh` runs the built app:
+frames) run with `npm test`.
+
+`test/fixtures/webui-policy.json` holds the decisions of
+`src/core/webuiPolicy.ts` (navigation, window open, permission, file name)
+for the cases in `test/webuiPolicyCases.ts`, so a port of the policy to
+another client can run the same cases and compare its answers.
+`test/webuiPolicyFixture.test.ts` fails when the file and the code do not
+agree. After a deliberate policy change, write the file again and review the
+diff:
+
+```sh
+UPDATE_WEBUI_POLICY_FIXTURE=1 npx vitest run test/webuiPolicyFixture.test.ts
+```
+
+`scripts/webui-security.sh` runs the built app:
 
 ```sh
 npm run build

@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modelupdates"
+	"github.com/mudler/LocalAI/core/services/upgraderun"
 	"github.com/mudler/xlog"
 )
 
@@ -72,17 +73,28 @@ type ModelUpgradeDeps struct {
 	Gallery  *galleryop.GalleryService
 	Upgrader func() *modelupdates.Upgrader
 	Updates  func() *modelupdates.Service
+	// Runs makes an upgrade with no options start an upgrade run of one
+	// item; nil (or no service) queues it directly.
+	Runs UpgradeRunDeps
+}
+
+// ModelUpgradeRunResponse is the answer of an upgrade that an upgrade run of
+// one item started: the fields of schema.ModelUpgradeResponse and the run.
+type ModelUpgradeRunResponse struct {
+	schema.ModelUpgradeResponse
+	Run *upgraderun.Run `json:"run,omitempty"`
 }
 
 // UpgradeModelEndpoint queues the upgrade of an installed gallery model.
 // @Summary Upgrade a model to what its gallery entry installs now
-// @Description Queues an upgrade and returns its operation; follow it on status_url or /api/operations. The upgrade checks the backend, the free disk and the files other models share, downloads the changed files beside the old ones and verifies their sha256, stops the model, switches the files and the config, and loads the new version as a check. A failed load puts the old version back (state failed, with the error and a retry). The old files are kept until removed with POST /api/models/{name}/remove-old. Keys a person edited are kept; an edited key the update also changes needs a choice in choices, or the request is refused with 409 and the keys. A held model is refused with 409; release the hold first. Nothing upgrades without this request.
+// @Description Queues an upgrade and returns its operation; follow it on status_url or /api/operations. Without config_only and choices the upgrade runs as an upgrade run of one item (see /api/updates/runs) and the answer adds the run; with them it is queued directly. While an upgrade run runs, every request is refused with 409 and code run_active. The upgrade checks the backend, the free disk and the files other models share, downloads the changed files beside the old ones and verifies their sha256, stops the model, switches the files and the config, and loads the new version as a check. A failed load puts the old version back (state failed, with the error and a retry). The old files are kept until removed with POST /api/models/{name}/remove-old. Keys a person edited are kept; an edited key the update also changes needs a choice in choices, or the request is refused with 409 and the keys. A held model is refused with 409; release the hold first. Nothing upgrades without this request.
 // @Tags models
 // @Param name path string true "Installed model name"
 // @Param request body schema.ModelUpgradeRequest false "Options"
-// @Success 200 {object} schema.ModelUpgradeResponse "Operation"
+// @Success 200 {object} ModelUpgradeRunResponse "Operation, and the run when one started it"
+// @Success 202 {object} SingleUpgradePending "The run did not get the operation accepted in time; it starts it later (code pending)"
 // @Failure 404 {object} schema.ModelUpgradeError "Not installed"
-// @Failure 409 {object} schema.ModelUpgradeError "Running, held, or edited keys need a choice"
+// @Failure 409 {object} schema.ModelUpgradeError "Running, held, edited keys need a choice, or another upgrade run runs (code run_active)"
 // @Failure 422 {object} schema.ModelUpgradeError "Not installed from a gallery with a recorded origin"
 // @Router /api/models/upgrade/{name} [post]
 func UpgradeModelEndpoint(d ModelUpgradeDeps) echo.HandlerFunc {
@@ -91,12 +103,12 @@ func UpgradeModelEndpoint(d ModelUpgradeDeps) echo.HandlerFunc {
 
 // RetryModelUpgradeEndpoint queues a failed upgrade again.
 // @Summary Retry a failed model upgrade
-// @Description Runs the last upgrade of the model again, with its options and choices, toward what the gallery entry installs now. Refused with 409 when the last upgrade did not fail or the model is held.
+// @Description Runs the last upgrade of the model again, with its options and choices, toward what the gallery entry installs now. Refused with 409 when the last upgrade did not fail or the model is held, and with 409 and code run_active while an upgrade run runs.
 // @Tags models
 // @Param name path string true "Installed model name"
 // @Success 200 {object} schema.ModelUpgradeResponse "Operation"
 // @Failure 404 {object} schema.ModelUpgradeError "Not installed"
-// @Failure 409 {object} schema.ModelUpgradeError "Nothing to retry, held, or an upgrade runs"
+// @Failure 409 {object} schema.ModelUpgradeError "Nothing to retry, held, an upgrade runs, or an upgrade run runs (code run_active)"
 // @Router /api/models/{name}/upgrade/retry [post]
 func RetryModelUpgradeEndpoint(d ModelUpgradeDeps) echo.HandlerFunc {
 	return func(c echo.Context) error { return queueModelUpgrade(c, d, true) }
@@ -150,12 +162,68 @@ func queueModelUpgrade(c echo.Context, d ModelUpgradeDeps, retry bool) error {
 		}
 		return modelUpgradeError(c, err)
 	}
+	// An upgrade with options (config only, choices for edited keys) and a
+	// retry stay direct upgrades: a run makes no such choice. Like every
+	// direct upgrade, they never run beside a run.
+	if svc := d.Runs.service(); svc != nil {
+		if !retry && !req.ConfigOnly && len(req.Choices) == 0 {
+			handled, err := upgradeModelViaRun(c, d, svc, name)
+			if handled || err != nil {
+				return err
+			}
+		}
+		if err := svc.RefuseIfActive(); err != nil {
+			if code := upgraderun.CodeOf(err); code == upgraderun.CodeRunActive {
+				return c.JSON(http.StatusConflict, schema.ModelUpgradeError{Error: runActiveMessage, Code: code})
+			}
+			return err
+		}
+	}
 	uid, err := d.Gallery.EnqueueModelUpgrade(name, galleryop.ModelUpgradeOptions{ConfigOnly: req.ConfigOnly, Choices: req.Choices, Retry: retry})
 	if err != nil {
 		return err
 	}
 	return c.JSON(http.StatusOK, schema.ModelUpgradeResponse{
 		ID: uid, JobID: uid, StatusURL: fmt.Sprintf("%smodels/jobs/%s", middleware.BaseURL(c), uid), Message: "Upgrade started",
+	})
+}
+
+// runActiveMessage is the refusal of a single upgrade while a run runs.
+const runActiveMessage = "another upgrade run is running; wait for it to end or cancel it, then upgrade again"
+
+// upgradeModelViaRun starts the upgrade as a run of one item. It answers the
+// request unless the run's check does not list the model (not checked yet,
+// or the listing is older than the check the route just made): the caller
+// then queues the upgrade directly, as before.
+func upgradeModelViaRun(c echo.Context, d ModelUpgradeDeps, svc *upgraderun.Service, name string) (bool, error) {
+	run, item, err := svc.StartOne(c.Request().Context(), d.Runs.principal(c),
+		upgraderun.StartItem{Kind: upgraderun.KindModel, Name: name}, upgraderun.SourceManual, 0)
+	switch code := upgraderun.CodeOf(err); code {
+	case "":
+	case upgraderun.CodeRunActive:
+		return true, c.JSON(http.StatusConflict, schema.ModelUpgradeError{Error: runActiveMessage, Code: code})
+	case upgraderun.CodeNoUpdate, upgraderun.CodeSourceUnchecked, upgraderun.CodeStale:
+		return false, nil
+	default:
+		var e *upgraderun.Error
+		if errors.As(err, &e) {
+			return true, c.JSON(runStatus(e.Code), schema.ModelUpgradeError{Error: e.Message, Code: e.Code})
+		}
+		return true, modelUpgradeError(c, err)
+	}
+	out := upgraderun.SingleOutcome(run, item)
+	switch out.State {
+	case upgraderun.SingleRefused:
+		return true, c.JSON(http.StatusConflict, schema.ModelUpgradeError{Error: out.Error, Code: out.ErrorKey})
+	case upgraderun.SinglePending:
+		return true, singlePending(c, out)
+	}
+	run = publicRun(run)
+	return true, c.JSON(http.StatusOK, ModelUpgradeRunResponse{
+		ModelUpgradeResponse: schema.ModelUpgradeResponse{
+			ID: item.JobID, JobID: item.JobID, StatusURL: fmt.Sprintf("%smodels/jobs/%s", middleware.BaseURL(c), item.JobID), Message: "Upgrade started",
+		},
+		Run: &run,
 	})
 }
 

@@ -113,6 +113,11 @@ var (
 	CppStreamFeedJSON     func(s uintptr, pcm []float32, nSamples int32) uintptr
 	CppStreamFinalizeJSON func(s uintptr) uintptr
 
+	// CppStreamCaps reports what a stream of the context can do
+	// (parakeet_capi_stream_caps, ABI v11): bit streamCapEouEvents is set for
+	// a model that raises <EOU>/<EOB>. nil on an older libparakeet.so.
+	CppStreamCaps func(ctx uintptr) int32
+
 	// CppModelKind reports which kind of model a loaded context holds
 	// (parakeet_capi_model_kind, ABI v8): see the modelKind* constants in
 	// roles.go. nil on an older libparakeet.so; Load then treats the primary
@@ -202,6 +207,9 @@ type cSceneOpts struct {
 // cache-aware encoder chunk is available, so this only bounds how often we
 // poll for newly-finalized text, not the model's actual chunk size.
 const streamChunkSamples = 16000
+
+// streamCapEouEvents is PARAKEET_STREAM_CAP_EOU_EVENTS of parakeet_capi.h.
+const streamCapEouEvents = 1
 
 // transcriptJSON mirrors the document returned by
 // parakeet_capi_transcribe_path_json (see parakeet_capi.h):
@@ -532,6 +540,19 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 		return pb.TranscriptResult{}, errors.New("parakeet-cpp: TranscriptRequest.dst (audio path) is required")
 	}
 
+	// A model that ends utterances with <EOU> is decoded through a streaming
+	// session, which transcribes every utterance of the clip (see raisesEou).
+	// The VAD-segmented and word-filter options keep their offline route.
+	if !p.vad && p.guardOptions == "" && p.raisesEou() {
+		pcm, _, err := decodeWavMono16k(opts.Dst)
+		if err != nil {
+			return pb.TranscriptResult{}, err
+		}
+		if r, err := p.decodeAcrossUtterances(ctx, opts, pcm); err != nil || r != nil {
+			return transcriptResultValue(r), err
+		}
+	}
+
 	// Fallback when the batched C-API is unavailable: transcribe from a file
 	// path (original behavior, no batching). The C library's audio loader only
 	// understands 16 kHz mono WAV/PCM, so convert the input first - otherwise
@@ -603,6 +624,55 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 		speakers = assignSpeakers(doc.Words, segs)
 	}
 	return transcriptResultWithSpeakers(doc, opts, p.segmentGapFrames, speakers), nil
+}
+
+// raisesEou reports whether the loaded ASR model ends each utterance with an
+// <EOU> token (the realtime EOU model). The offline decode of such a model
+// does not reset the RNN-T decoder after that token, as the streaming decode
+// does, so it emits nothing for the rest of the audio: a clip with two
+// sentences and a pause between them came back as the first sentence only,
+// and one that opened with a short sound the model closed as an utterance
+// came back empty.
+func (p *ParakeetCpp) raisesEou() bool {
+	if CppStreamCaps == nil {
+		return false
+	}
+	p.engineMu.Lock()
+	defer p.engineMu.Unlock()
+	return p.ctxPtr != 0 && CppStreamCaps(p.ctxPtr)&streamCapEouEvents != 0
+}
+
+// decodeAcrossUtterances decodes pcm through a cache-aware streaming session,
+// which resets the decoder after every <EOU>, so every utterance of the clip
+// is transcribed. It returns nil when the loaded model cannot stream; the
+// caller then keeps its offline result.
+func (p *ParakeetCpp) decodeAcrossUtterances(ctx context.Context, opts *pb.TranscriptRequest, pcm []float32) (*pb.TranscriptResult, error) {
+	stream, err := p.streamBegin(opts.GetLanguage())
+	if err != nil || stream == 0 {
+		return nil, err
+	}
+	defer p.streamFree(stream)
+	r, err := p.streamDecodePCM(ctx, stream, pcm, float32(len(pcm))/liveSampleRate, opts, nil)
+	if err != nil {
+		return nil, err
+	}
+	r.Text = strings.TrimSpace(r.Text)
+	return r, nil
+}
+
+// transcriptResultValue returns r as a value for the unary RPC. It is built
+// field by field because the proto message embeds a mutex and must not be
+// copied; nil gives the zero result.
+func transcriptResultValue(r *pb.TranscriptResult) pb.TranscriptResult {
+	if r == nil {
+		return pb.TranscriptResult{}
+	}
+	return pb.TranscriptResult{
+		Text:     r.Text,
+		Segments: r.Segments,
+		Duration: r.Duration,
+		Eou:      r.Eou,
+	}
 }
 
 // transcribePathDoc transcribes a 16 kHz mono WAV at path through the file-path
@@ -1038,6 +1108,20 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 		return err
 	}
 
+	final, err := p.streamDecodePCM(ctx, stream, data, duration, opts, func(delta string) {
+		results <- &pb.TranscriptStreamResponse{Delta: delta}
+	})
+	if err != nil {
+		return err
+	}
+	results <- &pb.TranscriptStreamResponse{FinalResult: final}
+	return nil
+}
+
+// streamDecodePCM runs a whole clip through an open cache-aware streaming
+// session and assembles the closing result. onDelta, when not nil, receives
+// each newly-finalized text run as it is decoded.
+func (p *ParakeetCpp) streamDecodePCM(ctx context.Context, stream uintptr, data []float32, duration float32, opts *pb.TranscriptRequest, onDelta func(string)) (*pb.TranscriptResult, error) {
 	// Fold the shared decode driver's per-feed increments into the streamed
 	// deltas and the closing batch result: words/text accumulate into
 	// per-utterance segments (streamSegmenter), and the utterance-boundary
@@ -1051,7 +1135,9 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 	emit := func(r streamFeedResult) error {
 		if r.Delta != "" {
 			full.WriteString(r.Delta)
-			results <- &pb.TranscriptStreamResponse{Delta: r.Delta}
+			if onDelta != nil {
+				onDelta(r.Delta)
+			}
 		}
 		seg.add(r)
 		boundary = boundary.observe(r)
@@ -1059,10 +1145,10 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 	}
 
 	if err := p.feedSlices(ctx, stream, data, emit); err != nil {
-		return err
+		return nil, err
 	}
 	if err := p.flushTail(stream, emit); err != nil {
-		return err
+		return nil, err
 	}
 	seg.flush() // close a trailing utterance that never saw an <EOU>
 
@@ -1085,7 +1171,7 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 		if len(all) > 0 {
 			segs, err := p.diarizeSegmentsPCM(data)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			speakers := assignSpeakers(all, segs)
 			k := 0
@@ -1098,15 +1184,12 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 	if trimmed := strings.TrimSpace(fullText); len(segments) == 0 && trimmed != "" {
 		segments = append(segments, &pb.TranscriptSegment{Id: 0, Text: trimmed})
 	}
-	results <- &pb.TranscriptStreamResponse{
-		FinalResult: &pb.TranscriptResult{
-			Text:     fullText,
-			Segments: segments,
-			Duration: duration,
-			Eou:      boundary.ended(),
-		},
-	}
-	return nil
+	return &pb.TranscriptResult{
+		Text:     fullText,
+		Segments: segments,
+		Duration: duration,
+		Eou:      boundary.ended(),
+	}, nil
 }
 
 // convertToWavMono16k converts an arbitrary audio file to a 16 kHz mono WAV in

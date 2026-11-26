@@ -60,6 +60,8 @@
 .us-state[data-state="muted"] { color: var(--dk-muted); }
 .us-state[data-state="info"] { color: var(--dk-muted); }
 .us-acts { display: inline-flex; align-items: center; justify-content: flex-end; gap: var(--dk-space-1); }
+/* View as: on a phone it is only in the row menu. */
+@media (max-width: 640px) { .dk-btn.us-viewas { display: none; } }
 .us .dk-table td.dk-num, .iv .dk-table td.dk-num { white-space: nowrap; }
 
 .us-never { color: var(--dk-muted); }

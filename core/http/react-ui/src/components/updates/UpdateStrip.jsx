@@ -1,9 +1,11 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Button, Callout } from '../ui'
+import { Button, Callout, Tag } from '../ui'
 import Icon from '../Icon'
 import { useWhen } from '../../hooks/useWhen'
+import { cssVars } from '../../utils/modelLedger'
+import { attentionOf, busyCount, countsOf, isBusy, isRunning, retryableKeys, runProgress } from '../../utils/upgradeRun'
 
 const SOURCE_KEYS = { gallery: 'gallery', library: 'library', addons: 'addons', models: 'models' }
 
@@ -59,6 +61,92 @@ export default function UpdateStrip({ headline, breakdown, lastChecked, checking
           {cooling && !checking ? t('strip.checkedJustNow') : t('strip.checkNow')}
         </Button>
         {primary}
+      </div>
+    </section>
+  )
+}
+
+// The strip while an update run is shown: how many items, where they are, an
+// overall bar, and what can be done (Cancel remaining while it runs; Retry
+// failed and Dismiss once it ended). The run is the server's: closing the
+// page does not stop it.
+export function RunStrip({ run, busy, result, onCheck, checking, cooling, onCancel, onRetry, onDismiss }) {
+  const { t } = useTranslation('updates')
+  const when = useWhen()
+  const counts = countsOf(run)
+  const running = isRunning(run)
+  // The same count as the end notification of the run.
+  const attention = attentionOf(run)
+  const progress = runProgress(run)
+  const retryable = retryableKeys(run).length
+  let title
+  let kind
+  if (running) {
+    title = t('run.title', { count: counts.total })
+    kind = 'updates'
+  } else if (attention > 0) {
+    title = t('run.result.attention', { updated: counts.updated, count: attention })
+    kind = 'attention'
+  } else if (run.state === 'cancelled') {
+    title = t('run.result.cancelled', { count: counts.updated })
+    kind = 'cancelled'
+  } else {
+    title = t('run.result.done', { count: counts.updated })
+    kind = 'current'
+  }
+  const parts = []
+  if (running) {
+    if (counts.updated) parts.push(t('run.count.updated', { count: counts.updated }))
+    // A busy item runs, or the server checks it; an unconfirmed item that
+    // no check could answer needs a look.
+    const busy = busyCount(run)
+    if (busy) parts.push(t('run.count.running', { count: busy }))
+    if (counts.queued) parts.push(t('run.count.waiting', { count: counts.queued }))
+    const settled = (run.items || []).filter(i => i.phase === 'unconfirmed' && !isBusy(i)).length
+    const failed = counts.failed + counts.rolled_back + settled
+    if (failed) parts.push(t('run.count.attention', { count: failed }))
+  } else {
+    parts.push(counts.unconfirmed > 0 ? t('run.result.unknown', { count: counts.unconfirmed }) : t('run.result.clean'))
+  }
+  const at = running ? run.created_at : (run.finished_at || run.created_at)
+  const ago = at ? when(at, Date.now()) : ''
+  const sub = [parts.join(', '), ago ? t(running ? 'run.started' : 'run.finished', { when: ago }) : ''].filter(Boolean).join('. ').replace(/\.\./g, '.')
+  const icon = kind === 'current' ? 'check' : kind === 'attention' ? 'alert-circle' : kind === 'cancelled' ? 'close' : 'arrow-up'
+  return (
+    <section className="uc-strip" aria-label={t('strip.label')} data-testid="updates-strip" data-kind={`run-${kind}`} data-run={run.id}>
+      <span className="uc-strip__tile" data-kind={kind}><Icon name={icon} /></span>
+      <div className="uc-strip__text">
+        {run.source === 'auto' && <Tag icon="clock" className="uc-strip__source" testId="updates-run-auto">{t('run.auto')}</Tag>}
+        <p className="uc-strip__title" data-testid="updates-headline">{title}</p>
+        <p className="uc-strip__sub" data-testid="updates-breakdown">{sub}</p>
+        <span
+          className="dk-progress uc-strip__bar"
+          role="progressbar"
+          aria-label={t('run.progress')}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progress}
+          data-testid="updates-run-progress"
+        >
+          <span className="dk-progress-bar" style={cssVars({ '--dk-value': `${progress}%` })} />
+        </span>
+        <p className="uc-strip__result" role="status" data-testid="updates-check-result">{result}</p>
+      </div>
+      <div className="uc-strip__acts">
+        {running && (
+          <>
+            <Button icon="refresh" busy={checking} disabled={checking || cooling} onClick={onCheck} data-testid="updates-check-now">
+              {cooling && !checking ? t('strip.checkedJustNow') : t('strip.checkNow')}
+            </Button>
+            <Button icon="close" busy={busy === 'cancel'} disabled={Boolean(busy)} onClick={onCancel} data-testid="updates-cancel-run">{t('run.cancelRemaining')}</Button>
+          </>
+        )}
+        {!running && retryable > 0 && (
+          <Button variant="primary" icon="refresh" busy={busy === 'retry'} disabled={Boolean(busy)} onClick={onRetry} data-testid="updates-retry-failed">{t('run.retryFailed')}</Button>
+        )}
+        {!running && (
+          <Button variant="ghost" busy={busy === 'dismiss'} disabled={Boolean(busy)} onClick={onDismiss} data-testid="updates-dismiss-run">{t('run.dismiss')}</Button>
+        )}
       </div>
     </section>
   )

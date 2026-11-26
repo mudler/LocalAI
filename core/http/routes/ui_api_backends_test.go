@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/routes"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/model/backendtest"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -183,17 +184,19 @@ var _ = Describe("Backend API Routes", func() {
 			galleryFile       string
 			upgradeApp        *echo.Echo
 			upgradeGallerySvc *galleryop.GalleryService
+			pidDir            string
 		)
 
 		BeforeEach(func() {
 			// Place gallery file inside backends dir so it passes trusted root checks
 			galleryFile = filepath.Join(systemState.Backend.BackendsPath, "test-gallery.yaml")
 
-			// Create a fake "v1" backend on disk (simulates a previously installed backend)
+			// Create a "v1" backend on disk (simulates a previously installed
+			// backend). An upgrade starts the new build once before it keeps
+			// it, so both builds are test backends that answer health checks.
+			pidDir = GinkgoT().TempDir()
 			backendDir := filepath.Join(systemState.Backend.BackendsPath, "test-upgrade-backend")
-			err := os.MkdirAll(backendDir, 0750)
-			Expect(err).NotTo(HaveOccurred())
-			err = os.WriteFile(filepath.Join(backendDir, "run.sh"), []byte("#!/bin/sh\necho v1"), 0755)
+			err := backendtest.WriteBuild(backendDir, backendtest.Serve, "v1", pidDir)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Write metadata.json for the installed backend (v1)
@@ -210,9 +213,7 @@ var _ = Describe("Backend API Routes", func() {
 			// Create a "v2" source directory (the upgrade target)
 			// Must be inside backends path to pass trusted root checks
 			v2SrcDir := filepath.Join(systemState.Backend.BackendsPath, "v2-backend-src")
-			err = os.MkdirAll(v2SrcDir, 0750)
-			Expect(err).NotTo(HaveOccurred())
-			err = os.WriteFile(filepath.Join(v2SrcDir, "run.sh"), []byte("#!/bin/sh\necho v2"), 0755)
+			err = backendtest.WriteBuild(v2SrcDir, backendtest.Serve, "v2", pidDir)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Write gallery YAML pointing to v2
@@ -280,6 +281,18 @@ var _ = Describe("Backend API Routes", func() {
 				Expect(response["statusUrl"]).NotTo(BeEmpty())
 			})
 
+			It("refuses a backend that is not installed before queuing anything", func() {
+				req := httptest.NewRequest(http.MethodPost, "/api/backends/upgrade/no-such-backend", nil)
+				rec := httptest.NewRecorder()
+
+				upgradeApp.ServeHTTP(rec, req)
+
+				Expect(rec.Code).To(Equal(http.StatusNotFound))
+				var response map[string]any
+				Expect(json.Unmarshal(rec.Body.Bytes(), &response)).To(Succeed())
+				Expect(response["code"]).To(Equal("not_installed"))
+			})
+
 			It("should upgrade the backend and update metadata", func() {
 				req := httptest.NewRequest(http.MethodPost, "/api/backends/upgrade/test-upgrade-backend", nil)
 				req.Header.Set("Content-Type", "application/json")
@@ -304,13 +317,15 @@ var _ = Describe("Backend API Routes", func() {
 
 					processed, _ := jobResp["processed"].(bool)
 					return processed
-				}, "10s", "200ms").Should(BeTrue())
+				}, "60s", "200ms").Should(BeTrue(), "the upgrade starts the new build once before it ends")
 
-				// Verify the backend was upgraded: run.sh should now contain "v2"
-				runContent, err := os.ReadFile(filepath.Join(
-					systemState.Backend.BackendsPath, "test-upgrade-backend", "run.sh"))
+				// Verify the backend was upgraded: the build in place is v2, and
+				// the start check left no process running.
+				version, err := os.ReadFile(filepath.Join(
+					systemState.Backend.BackendsPath, "test-upgrade-backend", "version"))
 				Expect(err).NotTo(HaveOccurred())
-				Expect(string(runContent)).To(ContainSubstring("v2"))
+				Expect(string(version)).To(Equal("v2"))
+				Eventually(func() []int { return backendtest.LivePIDs(pidDir) }, "10s", "100ms").Should(BeEmpty())
 
 				// Verify metadata was updated with new version
 				metadataContent, err := os.ReadFile(filepath.Join(

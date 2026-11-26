@@ -47,6 +47,26 @@ type triggerRow struct {
 	Route string `gorm:"size:1024"`
 	// Acts is Trigger.Acts, comma separated; empty: read only runs.
 	Acts string `gorm:"size:1024"`
+	// Source, EventType, Matches (a JSON list) and Secret are the fields of an
+	// event trigger.
+	Source    string `gorm:"size:255"`
+	EventType string `gorm:"size:255"`
+	Matches   string // unsized text: JSON escaping can grow a match several times
+	Secret    string `gorm:"size:255"` // MaxEventSecret
+	// Watch is the JSON of Trigger.Watch, empty on a trigger that is not a
+	// watch. Unsized like Matches: the task defaults and the types of a valid
+	// rule, with JSON escaping, can exceed any small size.
+	Watch string
+	// Reminder is the JSON of Trigger.Reminder. ParentID and ThingKey repeat
+	// its watch and key as columns: the unique index on them keeps one
+	// reminder per thing per watch across frontends. Both are NULL on any
+	// other trigger, and NULLs never collide in a unique index.
+	Reminder string
+	ParentID *string `gorm:"uniqueIndex:idx_studio_triggers_thing,priority:1;size:128"`
+	ThingKey *string `gorm:"uniqueIndex:idx_studio_triggers_thing,priority:2;size:255"`
+	// ReminderRev is Reminder.Rev as a column, so a write of a reminder can
+	// compare and set it in one statement.
+	ReminderRev int64 `gorm:"not null;default:0"`
 }
 
 func (triggerRow) TableName() string { return "studio_triggers" }
@@ -67,6 +87,8 @@ type runRow struct {
 	Started   time.Time
 	Ended     time.Time
 	Tokens    int
+	// Payload is the text of the event of an event run.
+	Payload string
 }
 
 func (runRow) TableName() string { return "studio_trigger_runs" }
@@ -102,7 +124,38 @@ func (r triggerRow) trigger() Trigger {
 		Schedule: r.Schedule, TZ: r.TZ, Folder: r.Folder, Quiet: time.Duration(r.QuietNs), DailyCap: r.DailyCap, RunLimit: time.Duration(r.RunLimitNs),
 		Since: utc(r.Since), AgentID: r.AgentID, SourceChatID: r.SourceChatID, Model: r.Model, Proposed: r.Proposed,
 		MinGap: time.Duration(r.MinGapNs), Reads: r.Reads, Writes: r.Writes, Widget: r.Widget, EstTokens: r.EstTokens,
-		Outcome: r.Outcome, OutcomeAt: utc(r.OutcomeAt), Touched: r.Touched, Change: changeOf(r.Change), Route: routeOf(r.Route), Acts: actsOf(r.Acts)}
+		Outcome: r.Outcome, OutcomeAt: utc(r.OutcomeAt), Touched: r.Touched, Change: changeOf(r.Change), Route: routeOf(r.Route), Acts: actsOf(r.Acts),
+		Source: r.Source, EventType: r.EventType, Matches: matchesOf(r.Matches), Secret: r.Secret,
+		Watch: watchOf(r.Watch), Reminder: reminderOf(r.Reminder, r.ReminderRev)}
+}
+
+func watchOf(raw string) *WatchRule {
+	if raw == "" {
+		return nil
+	}
+	var w WatchRule
+	if json.Unmarshal([]byte(raw), &w) != nil {
+		return nil // a broken value reads as a plain event trigger
+	}
+	return &w
+}
+
+func reminderOf(raw string, rev int64) *Reminder {
+	if raw == "" {
+		return nil
+	}
+	var r Reminder
+	if json.Unmarshal([]byte(raw), &r) != nil {
+		return nil
+	}
+	r.Rev = rev
+	r.Anchor, r.At, r.SnoozedTo, r.Skipped = utc(r.Anchor), utc(r.At), utc(r.SnoozedTo), utc(r.Skipped)
+	return &r
+}
+
+func jsonText(v any) string {
+	raw, _ := json.Marshal(v)
+	return string(raw)
 }
 
 func changeOf(raw string) Change {
@@ -128,6 +181,22 @@ func actsOf(raw string) []string {
 	return strings.Split(raw, ",")
 }
 
+func matchesOf(raw string) []string {
+	var m []string
+	if raw != "" {
+		_ = json.Unmarshal([]byte(raw), &m) // a broken value reads as no matches
+	}
+	return m
+}
+
+func matchesText(m []string) string {
+	if len(m) == 0 {
+		return ""
+	}
+	raw, _ := json.Marshal(m)
+	return string(raw)
+}
+
 func routeOf(raw string) Route {
 	var r Route
 	if raw != "" {
@@ -149,8 +218,77 @@ func (s *gormStore) PutTrigger(ctx context.Context, t Trigger) error {
 		Schedule: t.Schedule, TZ: t.TZ, Folder: t.Folder, QuietNs: int64(t.Quiet), DailyCap: t.DailyCap, RunLimitNs: int64(t.RunLimit),
 		Since: utc(t.Since), AgentID: t.AgentID, SourceChatID: t.SourceChatID, Model: t.Model, Proposed: t.Proposed,
 		MinGapNs: int64(t.MinGap), Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens,
-		Outcome: t.Outcome, OutcomeAt: utc(t.OutcomeAt), Touched: t.Touched, Change: changeText(t.Change), Route: routeText(t.Route), Acts: strings.Join(t.Acts, ",")}
+		Outcome: t.Outcome, OutcomeAt: utc(t.OutcomeAt), Touched: t.Touched, Change: changeText(t.Change), Route: routeText(t.Route), Acts: strings.Join(t.Acts, ","),
+		Source: t.Source, EventType: t.EventType, Matches: matchesText(t.Matches), Secret: t.Secret}
+	if t.Watch != nil {
+		row.Watch = jsonText(t.Watch)
+	}
+	if t.IsReminder() {
+		return s.putReminder(ctx, row, t)
+	}
+	if t.Reminder != nil {
+		// A change record holds the reminder a chat proposed; it stays out of
+		// the index, so it never stands in for the watch's reminder.
+		row.Reminder = jsonText(t.Reminder)
+	}
 	return s.db.WithContext(ctx).Save(&row).Error
+}
+
+// putReminder writes a reminder if the stored one still has the version the
+// caller read (compare and set), or creates it.
+func (s *gormStore) putReminder(ctx context.Context, row triggerRow, t Trigger) error {
+	rem := *t.Reminder
+	prev := rem.Rev
+	rem.Rev = prev + 1
+	row.Reminder, row.ReminderRev = jsonText(rem), rem.Rev
+	parent, key := rem.ParentID, rem.Key
+	row.ParentID, row.ThingKey = &parent, &key
+	db := s.db.WithContext(ctx)
+	res := db.Model(&triggerRow{}).Where("id = ? AND reminder_rev = ?", row.ID, prev).Select("*").Updates(&row)
+	if res.Error != nil {
+		if dberr.IsUniqueViolation(res.Error) {
+			return ErrDuplicate
+		}
+		return res.Error
+	}
+	if res.RowsAffected > 0 {
+		return nil
+	}
+	var n int64
+	if err := db.Model(&triggerRow{}).Where("id = ?", row.ID).Count(&n).Error; err != nil {
+		return err
+	}
+	if n > 0 {
+		return ErrConflict
+	}
+	if err := db.Create(&row).Error; err != nil {
+		if dberr.IsUniqueViolation(err) {
+			// Another writer made the reminder for this thing, or this very
+			// reminder, between the update and the create.
+			if again := db.Model(&triggerRow{}).Where("id = ?", row.ID).Count(&n).Error; again == nil && n > 0 {
+				return ErrConflict
+			}
+			return ErrDuplicate
+		}
+		return err
+	}
+	return nil
+}
+
+func (s *gormStore) ReminderByKey(ctx context.Context, parentID, key string) (Trigger, error) {
+	var r triggerRow
+	err := s.db.WithContext(ctx).Where("parent_id = ? AND thing_key = ?", parentID, key).Take(&r).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return Trigger{}, ErrNotFound
+	}
+	if err != nil {
+		return Trigger{}, err
+	}
+	return r.trigger(), nil
+}
+
+func (s *gormStore) Reminders(ctx context.Context, parentID string) ([]Trigger, error) {
+	return s.listTriggers(s.db.WithContext(ctx).Where("parent_id = ?", parentID).Order("id"))
 }
 
 func (s *gormStore) SetOutcome(ctx context.Context, id, from, to string, at time.Time) (bool, error) {
@@ -209,7 +347,7 @@ func (s *gormStore) EnabledTriggers(ctx context.Context) ([]Trigger, error) {
 
 func (r runRow) run() Run {
 	return Run{ID: r.ID, TriggerID: r.TriggerID, DueKey: r.DueKey, Due: utc(r.Due), Status: Status(r.Status),
-		Reason: r.Reason, ChatID: r.ChatID, File: r.File, Started: utc(r.Started), Ended: utc(r.Ended), Tokens: r.Tokens}
+		Reason: r.Reason, ChatID: r.ChatID, File: r.File, Started: utc(r.Started), Ended: utc(r.Ended), Tokens: r.Tokens, Payload: r.Payload}
 }
 
 // Claim inserts the run. The unique index on (trigger, due key) refuses a
@@ -231,7 +369,7 @@ func (s *gormStore) Claim(ctx context.Context, r Run) (bool, error) {
 		return false, fmt.Errorf("triggers: run %s already exists", r.ID)
 	}
 	row := runRow{ID: r.ID, TriggerID: r.TriggerID, DueKey: r.DueKey, Due: utc(r.Due), Status: string(r.Status),
-		Reason: r.Reason, ChatID: r.ChatID, File: r.File, Started: utc(r.Started), Ended: utc(r.Ended), Tokens: r.Tokens}
+		Reason: r.Reason, ChatID: r.ChatID, File: r.File, Started: utc(r.Started), Ended: utc(r.Ended), Tokens: r.Tokens, Payload: r.Payload}
 	err := s.db.WithContext(ctx).Create(&row).Error
 	if err == nil {
 		return true, nil
@@ -268,6 +406,37 @@ func (s *gormStore) SetRunStatus(ctx context.Context, r Run) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+func (s *gormStore) AppendRunPayload(ctx context.Context, runID, payload string, keep int) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var row runRow
+		err := tx.Where("id = ? AND status = ?", runID, string(StatusQueued)).Take(&row).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		res := tx.Model(&runRow{}).Where("id = ? AND status = ? AND payload = ?", runID, string(StatusQueued), row.Payload).
+			Update("payload", MergePayload(row.Payload, payload, keep))
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return ErrNotFound
+		}
+		return nil
+	})
+}
+
+func (s *gormStore) LastStarted(ctx context.Context, triggerID string) (time.Time, error) {
+	var rows []runRow
+	err := s.db.WithContext(ctx).Where("trigger_id = ?", triggerID).Order("started DESC").Limit(1).Find(&rows).Error
+	if err != nil || len(rows) == 0 {
+		return time.Time{}, err
+	}
+	return utc(rows[0].Started), nil
 }
 
 func (s *gormStore) runs(q *gorm.DB) ([]Run, error) {
@@ -341,6 +510,18 @@ func (s *gormStore) QueuedRuns(ctx context.Context) ([]Run, error) {
 	return s.runs(s.db.WithContext(ctx).Where("status = ?", string(StatusQueued)).Order("seq"))
 }
 
+func (s *gormStore) RunByKey(ctx context.Context, triggerID, dueKey string) (Run, error) {
+	var r runRow
+	err := s.db.WithContext(ctx).Where("trigger_id = ? AND due_key = ?", triggerID, dueKey).Take(&r).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return Run{}, ErrNotFound
+	}
+	if err != nil {
+		return Run{}, err
+	}
+	return r.run(), nil
+}
+
 func (s *gormStore) RunByChat(ctx context.Context, chatID string) (Run, error) {
 	if chatID == "" {
 		return Run{}, ErrNotFound
@@ -356,10 +537,17 @@ func (s *gormStore) RunByChat(ctx context.Context, chatID string) (Run, error) {
 	return r.run(), nil
 }
 
+func (s *gormStore) CountHandledSince(ctx context.Context, triggerID string, since time.Time) (int, error) {
+	var n int64
+	err := s.db.WithContext(ctx).Model(&runRow{}).
+		Where("trigger_id = ? AND status = ? AND due >= ?", triggerID, string(StatusHandled), utc(since)).Count(&n).Error
+	return int(n), err
+}
+
 func (s *gormStore) CountRunsSince(ctx context.Context, triggerID string, since time.Time) (int, error) {
 	var n int64
 	err := s.db.WithContext(ctx).Model(&runRow{}).
-		Where("trigger_id = ? AND status <> ? AND due >= ?", triggerID, string(StatusSkipped), utc(since)).Count(&n).Error
+		Where("trigger_id = ? AND status NOT IN ? AND due >= ?", triggerID, []string{string(StatusSkipped), string(StatusHandled)}, utc(since)).Count(&n).Error
 	return int(n), err
 }
 

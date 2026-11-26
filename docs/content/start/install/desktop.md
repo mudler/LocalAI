@@ -122,13 +122,13 @@ If a remote server is the default, the app opens it at once. It does not install
 
 To change the server, use the switcher in the status bar. The shortcut is Ctrl+Shift+S, or Cmd+Shift+S on macOS. If you pick a server in the switcher, it becomes the default. If you pick This computer, the app starts it, and installs it first when it is missing.
 
-The app does not save the password or the API key of a remote server. You sign in again in the web interface when the server asks. The API key of the server on this computer is kept encrypted when your system has a keyring. Without a keyring, the app keeps it for the current session only.
+The app does not save the password or the API key of a remote server. You sign in again in the web interface when the server asks. GitHub and OIDC sign-in work in the window: the pages of the identity provider that the server's sign-in redirects to open in the app, for at most 10 minutes, and the app keeps the session. The API key of the server on this computer is kept encrypted when your system has a keyring. Without a keyring, the app keeps it for the current session only.
 
 If the address is plain `http`, the app shows a warning and a **Remote, not encrypted** chip in the status bar.
 
 ## Updates
 
-The app checks for a new LocalAI server version once a day. It never installs an update without asking you. Open **Settings > Updates** to check by hand, to see the installed version and to change the update channel. The app also updates itself from the same releases. On Linux, **Restart to update** replaces the AppImage file. On macOS it installs the update it downloaded. On Windows it runs the new installer, which closes the app, installs the update and starts the app again. The portable zip does not update itself.
+The app checks for a new LocalAI server version once a day. It never installs an update without asking you. Open **Settings > Updates** to check by hand, to see the installed version and to change the update channel. The app also updates itself from the same releases (from the development build on the Development channel, see below). On Linux, **Restart to update** replaces the AppImage file. On macOS it installs the update it downloaded. On Windows it runs the new installer, which closes the app, installs the update and starts the app again. The portable zip does not update itself.
 
 ### Update channels
 
@@ -138,7 +138,7 @@ The app checks for a new LocalAI server version once a day. It never installs an
 | Release candidates | The newest release, including release candidates. |
 | Development | The rolling `dev-master` build of the server, made from the `master` branch. |
 
-The Development channel is not supported. It installs the binaries that are described in [Development builds]({{% relref "/start/install" %}}#development-builds), with names like `local-ai-master-<os>-<arch>`. It also starts the server with the development backend images, by setting `LOCALAI_PREFER_DEV_BACKENDS`. Backends that are already installed stay as they are. The app asks you to confirm the first change to this channel. The app shows a Development chip while you use This computer. If a remote server is the default, the channel applies to This computer only.
+The Development channel is not supported. It installs the binaries that are described in [Development builds]({{% relref "/start/install" %}}#development-builds), with names like `local-ai-master-<os>-<arch>`. It also starts the server with the development backend images, by setting `LOCALAI_PREFER_DEV_BACKENDS`. Backends that are already installed stay as they are. The app also updates itself from the `dev-master` build while this channel is on: the next development build of the app is offered like a release update, and the same checksum check applies. A development build of the app (version like `5.0.1-dev.42`) updates itself only on this channel. The portable Windows zip does not update itself. The app asks you to confirm the first change to this channel. The app shows a Development chip while you use This computer. If a remote server is the default, the channel applies to This computer only.
 
 When you leave the Development channel with **Back to Stable**, the app keeps the development binary as a rollback copy. The app also keeps the previous binary after each update. If a new server binary does not become ready, the app restores the previous one.
 
@@ -153,9 +153,9 @@ gh run list --repo mudler/LocalAI --workflow launcher-electron-dev.yaml --branch
 gh run download RUN_ID --repo mudler/LocalAI --name localai-launcher-dev-linux-amd64
 ```
 
-A development build has a version like `5.0.1-dev.42`. It never updates itself. To get a newer one, download it again. A development DMG is normally signed and notarized. If it is not, macOS stops the first start. Open **System Settings > Privacy & Security** and select **Open Anyway** next to the message about LocalAI Launcher.
+A development build has a version like `5.0.1-dev.42`. It updates itself only when the update channel is Development, and never from the release feed. On Stable or Release candidates, download a newer one again. A development DMG is normally signed and notarized. If it is not, macOS stops the first start. Open **System Settings > Privacy & Security** and select **Open Anyway** next to the message about LocalAI Launcher.
 
-This is different from the Development update channel above, which updates the LocalAI server.
+The Development update channel above updates the LocalAI server and the app together.
 
 ## Move from the older launcher
 

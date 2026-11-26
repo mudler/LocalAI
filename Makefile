@@ -61,9 +61,10 @@ TEST_DIR=/tmp/test
 
 TEST_FLAKES?=5
 
-## Total deadline for `ginkgo -r` in `make test`. Ginkgo counts it across all
-## suites, not per suite, and its default is 1h. The suites on a macOS runner
-## need about an hour, so the default cuts the run short.
+## Total deadline for `ginkgo -r` in `make test` and for each root of
+## `make test-coverage`. Ginkgo counts it across all suites, not per suite,
+## and its default is 1h. The suites on a macOS runner and the ./core root of
+## the coverage run need about an hour, so the default cuts the run short.
 TEST_TIMEOUT?=2h
 
 RANDOM := $(shell bash -c 'echo $$RANDOM')
@@ -171,7 +172,7 @@ COVERAGE_E2E_LABELS?=!real-models
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
 
 
-.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-unit test-i18n test-postgres test-distributed-fakebus test-p2p test-e2e-p2p test-e2e-distributed-p2p-worker test-e2e-distributed-join-token test-addons-suites test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
+.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-unit test-i18n test-postgres test-distributed-fakebus test-p2p test-e2e-p2p test-e2e-distributed-p2p-worker test-e2e-distributed-join-token test-addons-suites addons-inventory addons-inventory-write test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
 
 all: help
 
@@ -242,6 +243,7 @@ dev-dist-single:
 dist:
 	$(GORELEASER) build --clean
 
+## Entitlements.plist is also the file GoReleaser signs the release binary with.
 osx-signed: build
 	codesign --deep --force --sign "$(OSX_SIGNING_IDENTITY)" --entitlements "./Entitlements.plist" "./$(BINARY_NAME)"
 
@@ -308,6 +310,7 @@ test-coverage: prepare-test
 	COVERAGE_E2E_ROOTS="$(COVERAGE_E2E_ROOTS)" \
 	COVERAGE_E2E_LABELS="$(COVERAGE_E2E_LABELS)" \
 	COVERAGE_EXCLUDE_RE='$(COVERAGE_EXCLUDE_RE)' \
+	COVERAGE_TIMEOUT="$(TEST_TIMEOUT)" \
 	OPUS_SHIM_LIBRARY=$(abspath ./pkg/opus/shim/libopusshim.so) \
 	scripts/run-coverage.sh $(COVERAGE_DIR) $(COVERAGE_PROFILE) $(TEST_FLAKES) $(COVERAGE_ROOTS)
 	@$(GOCMD) tool cover -html=$(COVERAGE_PROFILE) -o $(COVERAGE_DIR)/coverage.html
@@ -1968,6 +1971,17 @@ test-e2e-p2p:
 ## `packaging` is left out because addons-package.yml runs it.
 ## Prepare first with: sh scripts/addons/prepare.sh --prepare, then --integration
 ADDON_SUITES?=prerequisites contracts catalog packages lifecycle runtime gateway policy proposals artifacts apps gallery-ui esm-ui host-slots library-sources foundation-acceptance recovery updates tables-databases tables-schema tables-rows tables-tools tables-admin tables-ui tables-csv tables-acceptance
+## Compare the Ginkgo case inventories of scripts/addons/suites.json with the
+## specs in the code, without running them (a dry run that builds the tests).
+## Fails and names every missing or stale case. addons-inventory-write fixes the
+## file; review the diff. Both need the generated gRPC code (protogen-go).
+## ADDON_INVENTORY_SUITES limits it to some suites.
+addons-inventory: protogen-go
+	python3 scripts/addons/inventory.py $(ADDON_INVENTORY_SUITES)
+
+addons-inventory-write: protogen-go
+	python3 scripts/addons/inventory.py --write $(ADDON_INVENTORY_SUITES)
+
 test-addons-suites:
 	@set -e; for suite in $(ADDON_SUITES); do \
 		echo "== $$suite"; \

@@ -8,3 +8,6 @@ backend/cpp/llama/*.hpp linguist-vendored
 *.md text eol=lf
 *.go text eol=lf
 *.golden text eol=lf
+# The audio.cpp sources these patches touch have CRLF line endings, and
+# git apply needs the patch to match them byte for byte.
+backend/cpp/audio-cpp/patches/*.patch -text

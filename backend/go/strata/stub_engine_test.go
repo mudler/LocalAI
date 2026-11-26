@@ -8,9 +8,16 @@ package main
 //	ok          READY, then answer each GEN with the tokens in STRATA_STUB_TOKENS
 //	noready     never prints READY
 //	exitearly   exits before READY
+//	errexit     prints "ERR <reason>" on stdout and the same reason on stderr,
+//	            then exits with status 1, before READY
 //	crash       prints two tokens of a request, then exits
 //	err         answers every GEN with an ERR line
 //	hangstop    like ok, but ignores STOP and never ends a request
+//	dropstop    like ok, but drops the first STOP it receives, as the real
+//	            engine does when STOP arrives before it has taken the request
+//	native      like ok, but refuses to start the way the engine does for a
+//	            native (IQ) pack unless --native, --spec T (T >= 2) and --prefill
+//	            are on the command line
 //
 // GENI is answered like GEN when the embeddings file exists and has a header;
 // STRATA_STUB_NOVISION makes it an ERR. LP lines follow each T only when the
@@ -51,11 +58,20 @@ func runStub(mode string) {
 		_ = out.Flush()
 	}
 	switch mode {
+	case "native":
+		if why := nativeStubCheck(os.Args[1:]); why != "" {
+			fmt.Fprintln(os.Stderr, why)
+			os.Exit(2)
+		}
 	case "noready":
 		time.Sleep(time.Hour)
 	case "exitearly":
 		fmt.Fprintln(os.Stderr, "stub: cannot load model")
 		os.Exit(2)
+	case "errexit":
+		say("ERR stub-stdout-reason")
+		fmt.Fprintln(os.Stderr, "stub-stderr-reason")
+		os.Exit(1)
 	}
 	ready := "READY 4096 stop"
 	if os.Getenv("STRATA_STUB_NOSTOP") != "" {
@@ -68,12 +84,17 @@ func runStub(mode string) {
 	toks := strings.Split(os.Getenv("STRATA_STUB_TOKENS"), ",")
 
 	var stop atomic.Bool
+	dropped := mode != "dropstop"
 	lines := make(chan string, 16)
 	go func() {
 		sc := bufio.NewScanner(os.Stdin)
 		for sc.Scan() {
 			l := sc.Text()
 			if l == "STOP" {
+				if !dropped {
+					dropped = true
+					continue
+				}
 				if mode != "hangstop" {
 					stop.Store(true)
 				}
@@ -169,6 +190,29 @@ func runStub(mode string) {
 		}
 		say("DONE %d 5 1.0 1.0 %s 0 0 0", n, finish)
 	}
+}
+
+// nativeStubCheck is the check the engine makes for a native (IQ) pack. It
+// returns the engine's message, or "" when the command line is complete.
+func nativeStubCheck(args []string) string {
+	var native, prefill bool
+	spec := 0
+	for i, a := range args {
+		switch a {
+		case "--native":
+			native = i+1 < len(args) && !strings.HasPrefix(args[i+1], "--")
+		case "--prefill":
+			prefill = i+1 < len(args)
+		case "--spec":
+			if i+1 < len(args) {
+				spec, _ = strconv.Atoi(args[i+1])
+			}
+		}
+	}
+	if !native || spec < 2 || !prefill {
+		return "strata generate: pack is a native (IQ) pack: it needs --native SHARD1, --spec T (T >= 2) and --prefill CHUNK"
+	}
+	return ""
 }
 
 // stubConfig returns an engineConfig that runs this test binary as the engine.

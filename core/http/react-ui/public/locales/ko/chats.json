@@ -10,9 +10,7 @@
     "folder": "감시할 폴더",
     "saveEdit": "저장",
     "cancelEdit": "취소",
-    "create": "트리거 만들기",
     "edit": "수정",
-    "dismiss": "거절",
     "receipt": {
       "scheduled": "예약됨:",
       "watching": "감시 중:",
@@ -67,8 +65,17 @@
       "stop": "트리거에서 끄거나 삭제하세요",
       "actsLabel": "권한",
       "limitLabel": "시간 제한",
-      "limitClamped": "{{limit}}, 관리자가 {{ceiling}}(으)로 제한"
-    }
+      "limitClamped": "{{limit}}, 관리자가 {{ceiling}}(으)로 제한",
+      "doesLabel": "하는 일",
+      "tellsYouLabel": "알려 주는 때",
+      "doesWatch": "{{source}}의 알림을 관리합니다. 기본값은 {{offset}}.",
+      "tellsWatch": "도움이 될 때만: 다른 사람이 바꾼 경우, 요약을 준비한 경우, 일정이 겹치는 경우.",
+      "tellsEvery": "매 실행 후.",
+      "tellsOnChange": "답이 이전 실행과 다를 때.",
+      "tellsOnProblem": "실행이 실패할 때만."
+    },
+    "approve": "승인",
+    "notNow": "나중에"
   },
   "mcpPage": {
     "title": "MCP 커넥터",
@@ -814,6 +821,58 @@
           "body_one": "이전 파일 {{count}}개를 삭제했습니다.",
           "body_other": "이전 파일 {{count}}개를 삭제했습니다."
         }
+      },
+      "run": {
+        "title_one": "{{count}}개 업데이트 중",
+        "title_other": "{{count}}개 업데이트 중",
+        "titleAuto_one": "자동 업데이트: {{count}}개",
+        "titleAuto_other": "자동 업데이트: {{count}}개",
+        "updated_one": "{{count}}개 업데이트됨",
+        "updated_other": "{{count}}개 업데이트됨",
+        "running_one": "{{count}}개 진행 중",
+        "running_other": "{{count}}개 진행 중",
+        "waiting_one": "{{count}}개 대기 중",
+        "waiting_other": "{{count}}개 대기 중",
+        "done": "{{total}}개 중 {{done}}개 완료",
+        "end": {
+          "attention_one": "{{updated}}개 업데이트됨, {{count}}개 확인 필요",
+          "attention_other": "{{updated}}개 업데이트됨, {{count}}개 확인 필요",
+          "done_one": "{{count}}개 업데이트됨",
+          "done_other": "{{count}}개 업데이트됨",
+          "auto": "자동: {{text}}",
+          "first": "{{name}}은(는) 여전히 {{version}}입니다.",
+          "firstWhy": "{{name}}은(는) 여전히 {{version}}입니다: {{reason}}.",
+          "cancelled_one": "업데이트 실행 취소됨: {{count}}개 업데이트됨",
+          "cancelled_other": "업데이트 실행 취소됨: {{count}}개 업데이트됨",
+          "cancelledAttention_one": "업데이트 실행 취소됨: {{updated}}개 업데이트됨, {{count}}개 확인 필요",
+          "cancelledAttention_other": "업데이트 실행 취소됨: {{updated}}개 업데이트됨, {{count}}개 확인 필요",
+          "firstStart": "{{name}}은(는) 여전히 {{version}}입니다: 새 버전이 시작되지 않았습니다: {{reason}}."
+        }
+      },
+      "watch": {
+        "set": "\"{{title}}\" 알림을 설정했습니다: {{when}}.",
+        "changed": "\"{{title}}\" 알림을 바꿨습니다: {{when}}.",
+        "cancelled": "\"{{title}}\" 알림을 취소했습니다.",
+        "snoozed": "\"{{title}}\" 알림을 {{when}}(으)로 미뤘습니다.",
+        "snoozeUndone": "\"{{title}}\" 알림 미루기를 취소했습니다.",
+        "skipped": "\"{{title}}\" 알림을 건너뛰었습니다.",
+        "skipUndone": "\"{{title}}\" 알림 건너뛰기를 취소했습니다.",
+        "taskChanged": "\"{{title}}\" 알림의 할 일을 바꿨습니다.",
+        "restored": "\"{{title}}\" 알림을 되돌렸습니다: {{when}}.",
+        "next": "다음 \"{{title}}\" 알림을 설정했습니다: {{when}}.",
+        "moved": "\"{{title}}\" 알림을 {{when}}(으)로 옮겼습니다.",
+        "movedStarted": "\"{{title}}\"이(가) 옮겨졌고 이미 시작되어 알림이 없습니다.",
+        "removed": "\"{{title}}\" 알림을 취소했습니다: 삭제되었습니다.",
+        "woken": "\"{{title}}\"이(가) 바뀌었습니다. 지금 알림을 확인합니다.",
+        "movedBy": "\"{{title}}\"이(가) 옮겨졌습니다. {{when}}에 알려 드릴게요.",
+        "movedByStarted": "\"{{title}}\"이(가) 옮겨졌고 이미 시작되었습니다.",
+        "removedBy": "\"{{title}}\"이(가) 삭제되어 알림을 취소했습니다.",
+        "wokenBy": "\"{{title}}\"이(가) 바뀌었습니다. 알림이 아직 맞는지 확인하고 있습니다.",
+        "missed": "놓침: {{title}}. 알림 시간에 서버가 꺼져 있었습니다.",
+        "onHold": "이 감시가 일시 중지된 동안 \"{{title}}\" 알림은 대기합니다.",
+        "dropped": "\"{{title}}\" 알림이 감시와 함께 삭제되었습니다.",
+        "lastKnown": "다음 \"{{title}}\" 알림을 설정했습니다: {{when}}. 알려진 마지막 시간입니다. 항목을 바꾸면 그 뒤의 알림이 설정됩니다.",
+        "seriesEnded": "\"{{title}}\"의 이후 시간을 알 수 없어 지금은 알림이 없습니다. 항목을 바꾸면 다음 알림이 설정됩니다."
       }
     },
     "tabs": {
@@ -850,7 +909,15 @@
       }
     },
     "chatsOff": "채팅 세션이 꺼져 있음",
-    "emptyBodyNoChats": "업데이트와 완료된 작업이 여기에 표시됩니다."
+    "emptyBodyNoChats": "업데이트와 완료된 작업이 여기에 표시됩니다.",
+    "runProgress": "진행률: {{title}}",
+    "runStarted": "{{when}} 시작됨",
+    "viewProgress": "진행 상황 보기",
+    "seeRun": "실행 보기",
+    "openUpdates": "업데이트 열기",
+    "updatesPending_one": "업데이트 {{count}}개 있음",
+    "updatesPending_other": "업데이트 {{count}}개 있음",
+    "updatesNone": "모두 최신입니다"
   },
   "change": {
     "loading": "트리거 변경 사항을 읽는 중...",
@@ -1517,7 +1584,10 @@
     "mcp": "MCP 서버"
   },
   "triggersPage": {
-    "runLimit": "실행 시간 제한"
+    "runLimit": "실행 시간 제한",
+    "presets": {
+      "event": "이벤트가 도착할 때"
+    }
   },
   "sandboxProfile": {
     "label": "샌드박스 프로필",
@@ -1593,5 +1663,165 @@
       "reason": "이 채팅의 설정은 {{window}}토큰이며 채팅에는 최소 {{minimum}}토큰이 필요합니다.",
       "fix": "모델의 창 사용"
     }
+  },
+  "event": {
+    "listening": "수신 대기 중:",
+    "announceAccepted": "{{name}}을(를) 만들었습니다. 지금 비밀 키를 복사하세요. 한 번만 표시됩니다.",
+    "sentence": {
+      "typed": "{{source}}이(가) {{type}}을(를) 보낼 때",
+      "any": "{{source}}이(가) 어떤 이벤트든 보낼 때",
+      "where": " 조건: {{matches}}",
+      "and": ", "
+    },
+    "hook": {
+      "title": "훅 주소와 비밀 키",
+      "urlLabel": "훅 URL",
+      "secretLabel": "비밀 키 (한 번만 표시)",
+      "curlLabel": "호출 예시",
+      "copy": "복사",
+      "copied": "복사됨",
+      "copyUrl": "훅 URL 복사",
+      "copySecret": "비밀 키 복사",
+      "copyCurl": "호출 예시 복사",
+      "paste": "URL과 비밀 키를 보내는 쪽의 웹훅 설정에 붙여 넣으세요. 비밀 키는 다시 표시되지 않습니다.",
+      "noSecret": "비밀 키는 다시 표시되지 않습니다. 새 키가 필요하면 교체하세요.",
+      "rotate": "비밀 키 교체",
+      "rotateTitle": "{{name}}의 비밀 키를 교체할까요?",
+      "rotateBody": "이전 비밀 키는 즉시 작동하지 않습니다. 다음 이벤트가 오기 전에 새 키를 보내는 쪽에 넣으세요.",
+      "rotateConfirm": "교체",
+      "rotated": "새 비밀 키를 만들었습니다.",
+      "rotateFailed": "비밀 키를 교체하지 못했습니다: {{message}}"
+    },
+    "form": {
+      "source": "보내는 쪽",
+      "sourceHint": "보내는 쪽의 이름입니다. 예: github.",
+      "sourceEmpty": "이벤트를 보내는 쪽의 이름을 입력하세요.",
+      "type": "이벤트 유형",
+      "typeHint": "비워 두면 모든 유형을 받습니다.",
+      "matches": "다음 조건일 때만 (줄마다 필드=값 하나)",
+      "matchesHint": "최대 8줄. 예: action=opened.",
+      "createdTitle": "{{name}} 준비됨",
+      "done": "완료"
+    }
+  },
+  "watch": {
+    "section": "감시",
+    "new": "새 감시",
+    "titleNew": "새 감시",
+    "titleEdit": "{{name}} 편집",
+    "source": "감시 대상",
+    "sourceHelp": "변경을 알리는 애드온만 표시됩니다.",
+    "sourcePick": "애드온 선택",
+    "types": "따를 변경",
+    "typesHelp": "모두 비워 두면 모든 변경을 따릅니다.",
+    "offset": "알림 시간",
+    "none": "기본 알림 없음",
+    "atTime": "정시에",
+    "minutesBefore_one": "{{count}}분 전",
+    "minutesBefore_other": "{{count}}분 전",
+    "hoursBefore_one": "{{count}}시간 전",
+    "hoursBefore_other": "{{count}}시간 전",
+    "daysBefore_one": "{{count}}일 전",
+    "daysBefore_other": "{{count}}일 전",
+    "minutesAfter_one": "{{count}}분 후",
+    "minutesAfter_other": "{{count}}분 후",
+    "hoursAfter_one": "{{count}}시간 후",
+    "hoursAfter_other": "{{count}}시간 후",
+    "daysAfter_one": "{{count}}일 후",
+    "daysAfter_other": "{{count}}일 후",
+    "allDay": "종일 일정",
+    "allDayMorning": "당일 아침 08:00",
+    "allDayNone": "알림 없음",
+    "quiet": "방해 금지 시간",
+    "quietFrom": "시작",
+    "quietTo": "끝",
+    "quietHelp": "이 시간에 걸린 알림은 전날 저녁에 옵니다.",
+    "tasks": "기본 작업",
+    "tasksHelp": "직접 적어 주세요. 예: 다른 사람과의 통화는 30분 전에 요약을 준비.",
+    "problemSource": "감시할 대상을 고르세요.",
+    "problemQuiet": "방해 금지 시간에는 시작과 끝이 필요합니다.",
+    "emptyTitle": "아직 감시할 것이 없습니다",
+    "emptyBody": "변경을 알리는 설치된 애드온이 없습니다. 캘린더 애드온을 설치하면 일정 알림을 받을 수 있습니다.",
+    "summary": "{{source}}, {{offset}}",
+    "watches": "감시 대상",
+    "state": "상태",
+    "on": "켜짐",
+    "paused": "일시 중지",
+    "permissions": "권한 편집",
+    "reminders": "다가오는 알림",
+    "remindersEmpty": "아직 알림이 없습니다. 무언가 추가되면 감시가 알림을 만듭니다.",
+    "dueLine": "{{when}}, {{offset}}",
+    "adjQuiet": "방해 금지 시간을 피해 전날 저녁",
+    "adjAllDay": "당일 아침",
+    "skipped": "건너뜀",
+    "snoozed": "미룸",
+    "started": "이미 시작됨",
+    "open": "열기",
+    "snooze": "미루기",
+    "skip": "건너뛰기",
+    "changeTime": "시간 변경…",
+    "newTime": "새 시간",
+    "saveTime": "저장",
+    "save": "감시 저장",
+    "cancel": "취소",
+    "undo": "되돌리기",
+    "doneSnooze": "{{when}}(으)로 미뤘습니다.",
+    "doneSkip": "건너뛰었습니다. 항목이 옮겨지면 다시 알립니다.",
+    "doneRetime": "{{when}}(으)로 옮겼습니다.",
+    "doneUndo": "되돌렸습니다.",
+    "loadFailed": "알림을 읽을 수 없습니다: {{message}}",
+    "sourcesFailed": "변경을 알리는 애드온을 읽을 수 없습니다: {{message}}",
+    "viewWatch": "감시 보기",
+    "saved": "감시를 저장했습니다.",
+    "nameRequired": "감시에는 이름이 필요합니다.",
+    "promptRequired": "감시가 할 일을 적어 주세요.",
+    "promptHint": "감시가 실행될 때마다 이 글로 시작합니다.",
+    "enabledHint": "꺼진 감시는 알림을 유지하며, 다시 켜질 때까지 기다립니다.",
+    "change": {
+      "title": {
+        "create": "{{title}} 알림 설정",
+        "update": "{{title}} 알림 변경",
+        "delete": "{{title}} 알림 취소"
+      },
+      "help": "승인하기 전까지는 아무것도 바뀌지 않습니다.",
+      "stale": "요청 후 알림이 바뀌었습니다. 다시 요청하세요.",
+      "watch": "감시",
+      "when": "시간",
+      "task": "할 일",
+      "none": "없음",
+      "receipt": {
+        "create": "알림 설정됨:",
+        "update": "알림 변경됨:",
+        "delete": "알림 취소됨:",
+        "dismissed": "변경 안 함:",
+        "undone": "되돌림:"
+      },
+      "blocked": {
+        "expired": "되돌릴 수 있는 시간이 지났습니다. 감시 페이지에서 알림을 바꾸세요.",
+        "edited": "그 뒤로 알림이 바뀌었습니다. 감시 페이지에서 바꾸세요.",
+        "removed": "그 뒤로 알림이나 감시가 삭제되었습니다."
+      },
+      "announce": {
+        "applied": "{{title}} 알림 변경을 승인했습니다.",
+        "dismissed": "{{title}} 알림을 그대로 두었습니다.",
+        "undone": "{{title}} 알림 변경을 되돌렸습니다."
+      }
+    }
+  },
+  "incognito": {
+    "label": "시크릿",
+    "levelLabel": "시크릿 수준",
+    "levels": {
+      "memory-off": "메모리 끔",
+      "zero-retention": "보관 안 함"
+    },
+    "describe": {
+      "memory-off": "이 채팅은 메모리를 읽거나 저장하지 않습니다. 목록에 표시되지 않으며 나가면 종료됩니다. 로그와 추적은 평소처럼 보관됩니다.",
+      "zero-retention": "서버는 이 채팅의 내용을 보관하지 않고 사용량만 기록합니다. 메모리를 읽거나 저장하지 않고 첨부 파일을 받지 않으며 나가면 종료됩니다."
+    },
+    "blocked": "시크릿 채팅에서는 사용할 수 없습니다",
+    "discardTitle": "시크릿 채팅을 끝낼까요?",
+    "discardMessage": "채팅이 삭제되며 다시 열 수 없습니다.",
+    "discardConfirm": "채팅 끝내기"
   }
 }

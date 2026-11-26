@@ -20,11 +20,14 @@ const (
 	ToolListBackendLibraryUpdates = "list_backend_library_updates"
 	ToolBackendUpdates            = "backend_updates"
 	ToolModelUpdates              = "model_updates"
+	ToolUpgradeRunStatus          = "upgrade_run_status"
 	ToolSystemInfo                = "system_info"
 	ToolListNodes                 = "list_nodes"
 	ToolListScheduling            = "list_scheduling"
 	ToolGetScheduling             = "get_scheduling"
 	ToolVRAMEstimate              = "vram_estimate"
+	ToolParseEngineCommand        = "parse_engine_command"
+	ToolPreviewEngineCommand      = "preview_engine_command"
 	ToolGetBranding               = "get_branding"
 	ToolGetUsageStats             = "get_usage_stats"
 	ToolGetPIIEvents              = "get_pii_events"
@@ -50,6 +53,8 @@ const (
 	ToolInstallBackend           = "install_backend"
 	ToolUpgradeBackend           = "upgrade_backend"
 	ToolUpgradeModel             = "upgrade_model"
+	ToolUpgradeRunStart          = "upgrade_run_start"
+	ToolUpgradeRunCancel         = "upgrade_run_cancel"
 	ToolInstallLibraryBackend    = "install_library_backend"
 	ToolToggleModelState         = "toggle_model_state"
 	ToolToggleModelPinned        = "toggle_model_pinned"
@@ -132,6 +137,8 @@ var mutatingToolNames = []string{
 	ToolInstallBackend,
 	ToolUpgradeBackend,
 	ToolUpgradeModel,
+	ToolUpgradeRunStart,
+	ToolUpgradeRunCancel,
 	ToolInstallLibraryBackend,
 	ToolToggleModelState,
 	ToolToggleModelPinned,

@@ -25,6 +25,13 @@ var _ = Describe("wait_agents", func() {
 		DeferCleanup(undo)
 	})
 
+	// A background child that ends reports to the parent as a message
+	// ("[Sub-agent finished: ...]"). When the parent is idle that starts a turn;
+	// when the test sends its "wait ..." message at the same moment, the service
+	// joins the two into one turn, so the script gets the report first and the
+	// message last. The script reads the last line to find the message.
+	lastLine := func(text string) string { return text[strings.LastIndex(text, "\n")+1:] }
+
 	// parent spawns "slow" (blocks until released), "bad" (fails) and "quick"
 	// (done at once) in the background, then calls wait_agents with the
 	// arguments of the message "wait <args>".
@@ -42,8 +49,8 @@ var _ = Describe("wait_agents", func() {
 				return []studiotest.ToolStep{{Err: errFail}}
 			case text == "quick job":
 				return []studiotest.ToolStep{{Say: "quick done"}}
-			case strings.HasPrefix(text, "wait "):
-				return []studiotest.ToolStep{{Tool: "wait_agents", Args: strings.TrimPrefix(text, "wait ")}, {Say: "waited"}}
+			case strings.HasPrefix(lastLine(text), "wait "):
+				return []studiotest.ToolStep{{Tool: "wait_agents", Args: strings.TrimPrefix(lastLine(text), "wait ")}, {Say: "waited"}}
 			}
 			return []studiotest.ToolStep{{Say: "ok"}}
 		})

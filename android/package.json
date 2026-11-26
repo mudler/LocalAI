@@ -1,0 +1,47 @@
+{
+  "name": "localai-android",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LocalAI Android client: the launcher shell over saved servers, as a Capacitor app",
+  "license": "MIT",
+  "author": "LocalAI contributors",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "build": "vite build",
+    "sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.2",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/browser": "8.0.5",
+    "@capacitor/clipboard": "8.0.1",
+    "@capacitor/core": "8.6.2",
+    "@capacitor/filesystem": "8.1.5",
+    "@capacitor/share": "8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.2",
+    "@eslint/js": "10.0.1",
+    "@fontsource-variable/geist": "^5.2.8",
+    "@fontsource-variable/geist-mono": "^5.2.7",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^6.0.2",
+    "eslint": "10.15.0",
+    "globals": "17.14.0",
+    "i18next": "^26.0.8",
+    "jsdom": "^26.1.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-i18next": "^17.0.6",
+    "react-router-dom": "7.18.2",
+    "typescript": "~5.9.0",
+    "typescript-eslint": "8.74.0",
+    "vite": "^8.0.14",
+    "vitest": "^3.2.0"
+  }
+}

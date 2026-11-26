@@ -1,3 +1,6 @@
+import { ViewAsChip } from './viewas/parts'
+import { useViewAs } from '../contexts/ViewAsContext'
+
 // Page header: title, supporting line, and a right-aligned actions slot.
 // There is no eyebrow above the title: the sidebar already says where the page
 // lives, so the title stands alone. An Administration page (AdminPage) passes
@@ -14,11 +17,14 @@
 //   titleId     an id for the h1, to label a region with it
 //   crumbs      a breadcrumb trail above the title (Administration pages)
 export default function PageHeader({ title, supporting, actions, className = '', titleId, crumbs }) {
+  // While "View as" is on, a page that follows it draws a chip beside its title.
+  const { active } = useViewAs()
+  const heading = title && <h1 className="page-title" id={titleId}>{title}</h1>
   return (
     <header className={`page-header page-header--editorial ${className}`.trim()}>
       <div className="page-header__lead">
         {crumbs}
-        {title && <h1 className="page-title" id={titleId}>{title}</h1>}
+        {active && title ? <div className="page-title-row">{heading}<ViewAsChip /></div> : heading}
         {supporting && <p className="page-header__supporting">{supporting}</p>}
       </div>
       {actions && <div className="page-header__meta">{actions}</div>}

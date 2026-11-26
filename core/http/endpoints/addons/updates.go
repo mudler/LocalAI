@@ -71,19 +71,27 @@ func updateCall(c echo.Context, g *gateway.Gateway, a contract.Actor, id, opID, 
 		}
 		return c.JSON(code, AddonErrorResponse{Error: AddonError{Type: env.Error.Type, Message: env.Error.Message, Code: code}})
 	}
+	status := http.StatusOK
 	if after != nil {
-		data, e := after(c, a, id, opID, env.Data)
+		data, st, e := after(c, a, id, opID, env.Data)
+		var refusal *afterRefusal
+		if errors.As(e, &refusal) {
+			return c.JSON(refusal.status, AddonErrorResponse{Error: AddonError{Type: refusal.kind, Message: refusal.message, Code: refusal.status}})
+		}
 		if e != nil {
 			return failure(c, 503, "Addons unavailable")
 		}
 		env.Data = data
+		if st != 0 {
+			status = st
+		}
 	}
 	if wrap {
 		// The answer of a lifecycle action is the operation status in a
 		// result, as every other lifecycle route gives it.
-		return c.JSON(200, contract.Result{Payload: env.Data})
+		return c.JSON(status, contract.Result{Payload: env.Data})
 	}
-	return c.Blob(200, echo.MIMEApplicationJSON, env.Data)
+	return c.Blob(status, echo.MIMEApplicationJSON, env.Data)
 }
 
 // GetUpdate reads the update status of an add-on.
@@ -129,8 +137,9 @@ func updateMutation(g *gateway.Gateway, db *gorm.DB, opts []Option, action strin
 }
 
 // afterUpdate rewrites the data of a successful update action before it is
-// answered; nil answers it as the owner gave it.
-type afterUpdate func(c echo.Context, a contract.Actor, id, opID string, data json.RawMessage) (json.RawMessage, error)
+// answered, with the HTTP status of the answer (zero is 200); nil answers it
+// as the owner gave it.
+type afterUpdate func(c echo.Context, a contract.Actor, id, opID string, data json.RawMessage) (json.RawMessage, int, error)
 
 func updateMutationWith(g *gateway.Gateway, db *gorm.DB, opts []Option, action string, wrap bool, body func() any, opOf func(any) string, argsOf func(any) (uint64, any), after afterUpdate) echo.HandlerFunc {
 	s := resolve(opts)
@@ -165,6 +174,7 @@ func updateMutationWith(g *gateway.Gateway, db *gorm.DB, opts []Option, action s
 		if g == nil {
 			return failure(c, 503, "Addons unavailable")
 		}
+		c.Set(ctxUpdateRequest, req)
 		generation, args := argsOf(req)
 		return updateCall(c, g, a, id, opID, action, generation, args, wrap, after)
 	}
@@ -200,6 +210,7 @@ func CheckUpdate(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFu
 // @Param id path string true "Add-on ID"
 // @Param request body UpgradeRequest true "Operation and the pinned digests"
 // @Success 200 {object} contract.Result "Operation accepted; the payload is the operation status"
+// @Success 202 {object} contract.Result "Operation accepted and handed to an upgrade run that did not start it within the wait; the payload has run and runId but no jobId, and the run starts the recorded operation later"
 // @Failure 400 {object} AddonErrorResponse "Malformed request"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
 // @Failure 403 {object} AddonErrorResponse "Feature, administration or browser session denied"
@@ -214,8 +225,14 @@ func UpgradeAddon(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerF
 			func() any { return &UpgradeRequest{} },
 			func(v any) string { return v.(*UpgradeRequest).OperationID },
 			upgradeArgs,
-			func(c echo.Context, a contract.Actor, id, opID string, status json.RawMessage) (json.RawMessage, error) {
-				return queueUpgrade(g, s, a, id, opID, status)
+			func(c echo.Context, a contract.Actor, id, opID string, status json.RawMessage) (json.RawMessage, int, error) {
+				if s.runs != nil && s.upgrader != nil {
+					if svc := s.runs(); svc != nil {
+						return runUpgrade(c, g, s, svc, a, id, opID, status)
+					}
+				}
+				data, err := queueUpgrade(g, s, a, id, opID, status)
+				return data, 0, err
 			})
 	}
 	return updateMutation(g, db, opts, gateway.ActionUpdateUpgrade, true,
@@ -246,15 +263,41 @@ func queueUpgrade(g *gateway.Gateway, s settings, a contract.Actor, id, opID str
 	if phase, _ := view["Phase"].(string); phase != "accepted" {
 		return status, nil
 	}
+	var opcache addonOpCache
+	if s.opcache != nil {
+		opcache = s.opcache
+	}
+	jobID := enqueueRecordedUpgrade(g, s.queue, opcache, a, id, opID, false)
+	view["jobId"] = jobID
+	return json.Marshal(view)
+}
+
+// addonQueue is the operation queue a recorded upgrade runs on (the gallery
+// service implements it).
+type addonQueue interface {
+	EnqueueAddonOp(op galleryop.AddonOp)
+}
+
+// addonOpCache lists an operation in /api/operations (galleryop.OpCache
+// implements it).
+type addonOpCache interface {
+	Set(key, value string)
+}
+
+// enqueueRecordedUpgrade hands an upgrade the owner recorded (update-queue) to
+// the operation queue and returns the job of /api/operations that runs it.
+// The owner runs it for the actor that recorded it and checks the pins again
+// when it starts. inRun marks the operation as one of an upgrade run.
+func enqueueRecordedUpgrade(g *gateway.Gateway, queue addonQueue, opcache addonOpCache, a contract.Actor, id, opID string, inRun bool) string {
 	call := func(ctx context.Context, action string) (contract.Result, error) {
 		return g.Dispatch(ctx, a, contract.Request{AddonID: id, OperationID: opID, Action: action, Arguments: json.RawMessage(`{}`)})
 	}
 	jobID := uuid.NewString()
-	if s.opcache != nil {
-		s.opcache.Set(galleryop.AddonOpKey(id), jobID)
+	if opcache != nil {
+		opcache.Set(galleryop.AddonOpKey(id), jobID)
 	}
-	s.queue.EnqueueAddonOp(galleryop.AddonOp{
-		ID: jobID, AddonID: id, Upgrade: true,
+	queue.EnqueueAddonOp(galleryop.AddonOp{
+		ID: jobID, AddonID: id, Upgrade: true, InRun: inRun,
 		Run: func(ctx context.Context, progress func(*galleryop.OpStatus)) error {
 			ctx = managerpkg.WithInstallProgress(ctx, func(p managerpkg.InstallProgress) { progress(installStatus(p)) })
 			out, err := call(ctx, gateway.ActionUpdateRunQueued)
@@ -276,6 +319,5 @@ func queueUpgrade(g *gateway.Gateway, s settings, a contract.Actor, id, opID str
 		},
 		Abandon: func() { _, _ = call(context.Background(), gateway.ActionUpdateDropQueued) },
 	})
-	view["jobId"] = jobID
-	return json.Marshal(view)
+	return jobID
 }

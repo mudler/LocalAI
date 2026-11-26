@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import Icon from '../components/Icon'
 import i18n from '../i18n'
 import { addonsApi } from '../utils/addonsClient'
+import { chatTriggersApi } from '../utils/api'
 import { resourceRequest, dispatchArgs } from './resourceCalls'
 import { userSettingsRequest } from './userSettingsCalls'
 import {
@@ -90,4 +91,6 @@ export const host = Object.freeze({
   language: () => i18n.language || 'en',
   subscribeLanguage,
   api: gatewayApi,
+  reminders: (source) => chatTriggersApi.sourceReminders(source).then((r) => r.reminders || []),
+  skipReminder: (source, watchId, id) => chatTriggersApi.patchReminder(watchId, id, { skip: true }, source),
 })

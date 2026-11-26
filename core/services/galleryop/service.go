@@ -235,7 +235,9 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 			if op.Cancelled {
 				status = "cancelled"
 			}
-			if err := store.UpdateStatus(s, status, errMsg); err != nil {
+			if err := store.UpdateStatusWithOutcome(s, status, errMsg, distributed.OperationOutcome{
+				ErrorKey: op.ErrorKey, RolledBack: op.RolledBack, Unconfirmed: op.Unconfirmed,
+			}); err != nil {
 				xlog.Warn("Failed to persist gallery operation status", "op_id", s, "error", err)
 			}
 		} else {
@@ -628,6 +630,10 @@ func (g *GalleryService) StoreCancellationActions(id string, cancelFunc, pauseFu
 	g.storeCancellation(id, cancelFunc, pauseFunc)
 }
 
+// RemoveCancellation drops the cancellation of an operation that ended. A job
+// that registered its own cancel with StoreCancellation calls it when it ends.
+func (g *GalleryService) RemoveCancellation(id string) { g.removeCancellation(id) }
+
 // removeCancellation removes a cancellation function when operation completes
 func (g *GalleryService) removeCancellation(id string) {
 	g.Lock()
@@ -660,12 +666,12 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 	if !g.appConfig.OpaqueErrors {
 		updateError = func(id string, e error) {
 			xlog.Error("Gallery operation failed", "op_id", id, "error", e)
-			g.UpdateStatus(id, &OpStatus{Error: e, Processed: true, Message: "error: " + e.Error()})
+			g.UpdateStatus(id, &OpStatus{Error: e, ErrorKey: string(gallery.UpgradeCodeOf(e)), RolledBack: gallery.UpgradeRolledBack(e), Processed: true, Message: "error: " + e.Error()})
 		}
 	} else {
 		updateError = func(id string, e error) {
 			xlog.Error("Gallery operation failed", "op_id", id, "error", e)
-			g.UpdateStatus(id, &OpStatus{Error: fmt.Errorf("an error occurred"), Processed: true})
+			g.UpdateStatus(id, &OpStatus{Error: fmt.Errorf("an error occurred"), ErrorKey: string(gallery.UpgradeCodeOf(e)), RolledBack: gallery.UpgradeRolledBack(e), Processed: true})
 		}
 	}
 
@@ -791,7 +797,7 @@ func (g *GalleryService) runModelOp(op *ManagementOp[gallery.GalleryModel, galle
 	if err != nil {
 		updateError(op.ID, err)
 	}
-	g.announceOp(op.ID, op.GalleryElementName, false, op.Delete, op.Upgrade, err)
+	g.announceOp(op.ID, op.GalleryElementName, false, op.Delete, op.Upgrade, op.InRun, err)
 	g.removeCancellation(op.ID)
 }
 
@@ -834,6 +840,10 @@ func (g *GalleryService) runBackendOp(op *ManagementOp[gallery.GalleryBackend, a
 		}
 	}
 	err := runOpHandler(func() error { return g.backendHandler(op, systemState) })
+	if err != nil && op.Upgrade {
+		// A panic leaves the handler without its own code.
+		err = gallery.WithUpgradeCode(gallery.UpgradeFailureUnknown, err)
+	}
 	if err != nil {
 		updateError(op.ID, err)
 	} else if g.OnBackendOpCompleted != nil {
@@ -843,7 +853,7 @@ func (g *GalleryService) runBackendOp(op *ManagementOp[gallery.GalleryBackend, a
 		go g.OnBackendOpCompleted()
 	}
 	// The backend handler renames the element when the install derived a name.
-	g.announceOp(op.ID, op.GalleryElementName, true, op.Delete, op.Upgrade, err)
+	g.announceOp(op.ID, op.GalleryElementName, true, op.Delete, op.Upgrade, op.InRun, err)
 	g.removeCancellation(op.ID)
 }
 
@@ -988,6 +998,9 @@ func (g *GalleryService) Hydrate() error {
 		if op.Error != "" {
 			st.Error = errors.New(op.Error)
 		}
+		st.ErrorKey = op.ErrorKey
+		st.RolledBack = op.RolledBack
+		st.Unconfirmed = op.Unconfirmed
 		g.statuses[op.ID] = st
 	}
 	xlog.Info("Hydrated gallery service statuses from store", "count", len(ops))
@@ -1058,7 +1071,9 @@ type OpResult struct {
 	// NeedsApproval is a failed add-on install that waits for the
 	// administrator to review its host access again.
 	NeedsApproval bool
-	Outcome       OpOutcome
+	// InRun is an operation an upgrade run started; the run reports it.
+	InRun   bool
+	Outcome OpOutcome
 	// Err is the reason of a failure, as the operation reports it.
 	Err string
 }
@@ -1069,7 +1084,7 @@ type OpResult struct {
 // returns an error after that), and an error otherwise is a failure. An
 // operation that ended in none of these (another frontend already runs the
 // same element) says nothing.
-func (g *GalleryService) announceOp(id, name string, backend, deletion, upgrade bool, err error) {
+func (g *GalleryService) announceOp(id, name string, backend, deletion, upgrade, inRun bool, err error) {
 	if id == "" {
 		return
 	}
@@ -1085,7 +1100,7 @@ func (g *GalleryService) announceOp(id, name string, backend, deletion, upgrade 
 	if cb == nil {
 		return
 	}
-	res := OpResult{ID: id, Name: name, Backend: backend, Deletion: deletion, Upgrade: upgrade}
+	res := OpResult{ID: id, Name: name, Backend: backend, Deletion: deletion, Upgrade: upgrade, InRun: inRun}
 	switch {
 	case cancelled:
 		res.Outcome = OpCancelled

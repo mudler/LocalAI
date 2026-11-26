@@ -16,6 +16,12 @@ import (
 // read or fetched can reach this path. Who may answer is decided by the
 // capability gate, not here.
 func (c *Connectors) answerPhrase(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage, say func(string), v hostmsg.Voice) bool {
+	// A button of a reminder, or the words that stand for one, is answered
+	// by the host with no model.
+	if reply, handled := c.answerReminder(ctx, b, m, v); handled {
+		say(reply)
+		return true
+	}
 	verb, code, ok := ParseReply(m.Text)
 	isUndo := isUndoReply(m.Text)
 	if !ok {

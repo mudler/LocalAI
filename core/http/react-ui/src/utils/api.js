@@ -2,10 +2,12 @@ import { API_CONFIG } from './config'
 import { apiUrl } from './basePath'
 import { chatsListPath } from './chatsQuery'
 import { addonsApi } from './addonsClient'
+import { confirmedPost } from './upgradeRun'
 import { createSharesApi } from './sharesApi'
 import { createFolderSharesApi } from './folderSharesApi'
 import { createPageSharesApi } from './pageSharesApi'
 import { reportUnauthorized } from './sessionEvents'
+import { INCOGNITO_HEADER, forgetIncognitoChat, incognitoChatLevel, incognitoHeaders } from './incognito'
 
 const enc = encodeURIComponent
 const userQ = (userId) => userId ? `?user_id=${enc(userId)}` : ''
@@ -52,10 +54,13 @@ function buildUrl(endpoint, params) {
 }
 
 async function fetchJSON(endpoint, options = {}) {
-  const response = await fetch(apiUrl(endpoint), {
+  const init = {
     headers: { 'Content-Type': 'application/json', ...options.headers },
     ...options,
-  })
+  }
+  // While an incognito chat is open, every request carries its level.
+  init.headers = incognitoHeaders(init.headers)
+  const response = await fetch(apiUrl(endpoint), init)
   return handleResponse(response)
 }
 
@@ -65,6 +70,30 @@ async function postJSON(endpoint, body, options = {}) {
     body: JSON.stringify(body),
     ...options,
   })
+}
+
+// Engine runtime settings: the engines whose settings LocalAI maps, the
+// settings the model editor's Runtime tuning section draws, and the two-way
+// translation between a model config and an engine command line.
+//
+//   list({ backend })                -> { engines: [{ id, name, binary, backends, capabilities }] }
+//                                       backend: only the engine that serves it
+//   settingsSchema(engine)           -> { id, name, binary, capabilities, flags, groups, combined, presets,
+//                                         reserved_options, placement, example }
+//   commandPreview(engine, config)   -> { command, warnings }          config: a model config (YAML keys)
+//   parseCommand(engine, command)    -> { fields, options, unmapped: [{ flag, value, reason }], warnings, placements }
+//   placement(engine, body)          -> { option, placement, raw }     body: { placement } builds an entry,
+//                                                                     { option } reads one back
+export const engineSettingsApi = {
+  // An empty backend is a real question (a model with no backend), so the
+  // parameter is kept even when empty.
+  list: (params, options) => fetchJSON(params?.backend === undefined
+    ? API_CONFIG.endpoints.engines
+    : `${API_CONFIG.endpoints.engines}?backend=${encodeURIComponent(params.backend)}`, options),
+  settingsSchema: (engine, options) => fetchJSON(API_CONFIG.endpoints.engineSettingsSchema(engine), options),
+  commandPreview: (engine, config, options) => postJSON(API_CONFIG.endpoints.engineCommandPreview(engine), { config }, options),
+  parseCommand: (engine, command, options) => postJSON(API_CONFIG.endpoints.engineParseCommand(engine), { command }, options),
+  placement: (engine, body, options) => postJSON(API_CONFIG.endpoints.enginePlacement(engine), body, options),
 }
 
 // Models API
@@ -195,6 +224,22 @@ export const backendsApi = {
   checkUpdatesNow: () => postJSON(API_CONFIG.endpoints.backendUpdatesCheck, {}),
 }
 
+// Update runs. The server orders the items, runs them and keeps the state, so
+// a run goes on when the page is closed and a reload finds it again.
+export const updateRunsApi = {
+  preview: (items) => postJSON(API_CONFIG.endpoints.updateRunsPreview, { items }),
+  // A start and a retry carry the confirmation of the administrator's browser.
+  start: (items) => fetchJSON(API_CONFIG.endpoints.updateRuns, confirmedPost({ items, source: 'manual' })),
+  active: () => fetchJSON(buildUrl(API_CONFIG.endpoints.updateRuns, { active: 1 })),
+  // The newest runs that are not dismissed, the running one first.
+  list: (limit = 1) => fetchJSON(buildUrl(API_CONFIG.endpoints.updateRuns, { limit })),
+  get: (id) => fetchJSON(API_CONFIG.endpoints.updateRun(id)),
+  cancel: (id) => postJSON(API_CONFIG.endpoints.updateRunCancel(id), {}),
+  cancelItem: (id, key) => postJSON(API_CONFIG.endpoints.updateRunItemCancel(id, key), {}),
+  retry: (id) => fetchJSON(API_CONFIG.endpoints.updateRunRetry(id), confirmedPost({})),
+  dismiss: (id) => fetchJSON(API_CONFIG.endpoints.updateRun(id), { method: 'DELETE' }),
+}
+
 // Chats API: conversations the server keeps. A message sent while a turn runs
 // waits and reaches the model, with any others, at its next request.
 export const chatsApi = {
@@ -266,7 +311,7 @@ export const chatsApi = {
     form.append('text', text)
     Object.entries(cmd).forEach(([k, v]) => form.append(k, v))
     files.forEach(f => form.append('files', f, f.name))
-    const res = await fetch(apiUrl(API_CONFIG.endpoints.chatMessages(id)), { method: 'POST', body: form })
+    const res = await fetch(apiUrl(API_CONFIG.endpoints.chatMessages(id)), { method: 'POST', body: form, headers: incognitoHeaders() })
     return handleResponse(res)
   },
   editPending: (id, pid, text) => fetchJSON(API_CONFIG.endpoints.chatPending(id, pid), { method: 'PATCH', body: JSON.stringify({ text }) }),
@@ -729,8 +774,13 @@ export const chatTriggersApi = {
   enable: (id) => postJSON(`/api/chats/triggers/${enc2(id)}/enable`, {}),
   disable: (id) => postJSON(`/api/chats/triggers/${enc2(id)}/disable`, {}),
   run: (id) => postJSON(`/api/chats/triggers/${enc2(id)}/run`, {}),
+  // A new secret for an event trigger: { secret }. The old one stops working at once; the new one is shown once.
+  rotateSecret: (id) => postJSON(`/api/chats/triggers/${enc2(id)}/secret`, {}),
   runs: (id) => fetchJSON(`/api/chats/triggers/${enc2(id)}/runs`),
   preview: (when, tz) => fetchJSON(`/api/chats/triggers/preview${q({ when, tz, n: 3 })}`),
+  // Where a trigger can report: { connections: [{ id, kind, kind_title, addon, name, enabled, can_receive_reports, talkback_allowed,
+  // channels: [{ id, label, current }], reason }], from_chat, connectors_off }. trigger marks the channel it reports to now.
+  destinations: (agentId, trigger) => fetchJSON(`/api/chats/triggers/destinations${q({ agent_id: agentId, trigger })}`),
   proposals: (chat) => fetchJSON(`/api/chats/triggers/proposals${q({ chat })}`),
   // One proposal and what became of it: { state: pending|accepted|declined|expired|undone, trigger, answered_at, can_undo, undo_blocked }.
   proposal: (id) => fetchJSON(`/api/chats/triggers/proposals/${enc2(id)}`),
@@ -744,6 +794,16 @@ export const chatTriggersApi = {
   applyChange: (id) => postJSON(`/api/chats/triggers/changes/${enc2(id)}/apply`, {}),
   undoChange: (id) => postJSON(`/api/chats/triggers/changes/${enc2(id)}/undo`, {}),
   dismissChange: (id) => fetchJSON(`/api/chats/triggers/changes/${enc2(id)}`, { method: 'DELETE' }),
+  // The add-ons a watch can watch: { sources: [{ id, title, events: [{ type, lifecycle, label }] }] }.
+  sources: (lang) => fetchJSON(`/api/chats/triggers/sources${q({ lang })}`),
+  // The reminders of a watch, soonest first: { reminders: [{ id, title, link, task, due, start, item_time, all_day,
+  // offset_minutes, lead_minutes, at, snoozed_to, skipped, adjusted, snoozable }] }.
+  reminders: (id) => fetchJSON(`/api/chats/triggers/${enc2(id)}/reminders`),
+  // Snooze, skip, re-time or change the task of a reminder; send the old values back to undo. source is the add-on
+  // whose page asks: the server then refuses a reminder of a watch on another add-on.
+  patchReminder: (id, rid, body, source) => fetchJSON(`/api/chats/triggers/${enc2(id)}/reminders/${enc2(rid)}${q({ source })}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  // The reminders of your watches for the items of one add-on: { reminders: [{ item_id, watch_id, id, due, ... }] }.
+  sourceReminders: (source) => fetchJSON(`/api/chats/triggers/reminders${q({ source })}`),
 }
 
 // The changes a model proposed to your memory, profile and other files, and
@@ -999,7 +1059,7 @@ async function parseAudioBlobResponse(response) {
 async function postAudioBlob(endpoint, body, signal) {
   const response = await fetch(apiUrl(endpoint), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: incognitoHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
     ...(signal ? { signal } : {}),
   })
@@ -1009,6 +1069,16 @@ async function postAudioBlob(endpoint, body, signal) {
 async function postMultipartAudioBlob(endpoint, formData) {
   const response = await fetch(apiUrl(endpoint), { method: 'POST', body: formData })
   return parseAudioBlobResponse(response)
+}
+
+// Ends an incognito chat of this tab on the server and forgets it. keepalive
+// lets the request finish while the tab closes. A chat that is not one of the
+// tab's incognito chats is left alone: this never deletes a kept chat.
+export function discardIncognitoChat(id, { keepalive = false } = {}) {
+  const level = incognitoChatLevel(id)
+  if (!level) return
+  forgetIncognitoChat(id)
+  fetch(apiUrl(API_CONFIG.endpoints.chat(id)), { method: 'DELETE', keepalive, headers: { [INCOGNITO_HEADER]: level } }).catch(() => {})
 }
 
 // TTS
@@ -1073,6 +1143,7 @@ export const audioApi = {
       method: 'POST',
       body: formData,
       signal,
+      headers: incognitoHeaders(),
     })
     return handleResponse(response)
   },

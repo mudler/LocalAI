@@ -62,6 +62,24 @@ func (a *Application) startStudioTriggers(svc *studio.Service) {
 	if a.Distributed() != nil && a.authDB != nil {
 		opts.Lead = a.studioLeader(advisorylock.KeyChatsTriggers, "Triggers")
 	}
+	{
+		// Read at each call: the add-on manager may start after the triggers.
+		opts.Sources = func(ctx context.Context) ([]studio.WatchSource, error) {
+			m := a.addonManager
+			if m == nil {
+				return nil, nil
+			}
+			srcs, err := m.EventSources(ctx)
+			if err != nil {
+				return nil, err
+			}
+			out := make([]studio.WatchSource, 0, len(srcs))
+			for _, s := range srcs {
+				out = append(out, studio.WatchSource{ID: s.AddonID, Title: s.Title, Events: s.Events})
+			}
+			return out, nil
+		}
+	}
 	host, err := studio.NewTriggers(svc, opts)
 	if err != nil {
 		xlog.Warn("Triggers disabled: failed to start", "error", err)

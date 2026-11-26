@@ -68,7 +68,7 @@ test('an answered change keeps its receipt on the page and leaves the count', as
   await cards.first().getByRole('button', { name: 'Confirm', exact: true }).click()
   await expect(cards.first()).toHaveAttribute('data-state', 'applied')
   await expect(cards).toHaveCount(2)
-  await cards.nth(1).getByRole('button', { name: 'Dismiss' }).click()
+  await cards.nth(1).getByRole('button', { name: 'Not now' }).click()
   await expect(cards.nth(1)).toHaveAttribute('data-state', 'dismissed')
   expect(s.calls).toEqual(expect.arrayContaining(['POST a1 confirm', 'POST b2 dismiss']))
   await shot(page, 'proposals-page')

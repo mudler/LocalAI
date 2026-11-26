@@ -385,6 +385,10 @@ type ChatsConversation struct {
 	// Harness says whether the chat has the context window the chat agent
 	// needs. It is set when a single chat is opened, created or changed.
 	Harness *ChatsHarness `json:"harness,omitempty"`
+	// Incognito is the privacy level of an incognito chat (memory-off or
+	// zero-retention), empty for any other chat. An incognito chat lives in
+	// the memory of the server only and is never listed.
+	Incognito string `json:"incognito,omitempty"`
 }
 
 // ChatsHarness is the window check of a chat for the user who asks. The
@@ -483,6 +487,9 @@ type ChatsConversationList struct {
 	// ImageModel is the model that describes the images of a chat whose own
 	// model cannot look at them. It is empty when no model can.
 	ImageModel string `json:"image_model,omitempty"`
+	// Incognito is the server's incognito setting, so the page knows whether
+	// to offer incognito chats and up to which level.
+	Incognito *ChatsIncognito `json:"incognito,omitempty"`
 }
 
 // ChatsConversationDetail is a conversation with the messages waiting for the model.
@@ -829,6 +836,9 @@ type ChatsFailure struct {
 	RetryAfter int `json:"retry_after,omitempty"`
 	// Detail is the error text, cleaned, for the technical view.
 	Detail string `json:"detail,omitempty"`
+	// Backend is the backend the cause is about, when it is known (code
+	// model_backend_outdated).
+	Backend string `json:"backend,omitempty"`
 }
 
 // ChatsToolCard points the interface at a record that belongs to a tool result.
@@ -936,10 +946,12 @@ type ChatsEvent struct {
 	// is a stable name of the cause, such as model_backend_missing; Model names
 	// the model it is about; Retry is the seconds until a model in cooldown
 	// loads again; Detail is the error text without addresses and secrets.
-	Code   string `json:"code,omitempty"`
-	Model  string `json:"model,omitempty"`
-	Retry  int    `json:"retry,omitempty"`
-	Detail string `json:"detail,omitempty"`
+	Code  string `json:"code,omitempty"`
+	Model string `json:"model,omitempty"`
+	Retry int    `json:"retry,omitempty"`
+	// Backend names the backend of a model_backend_outdated failure.
+	Backend string `json:"backend,omitempty"`
+	Detail  string `json:"detail,omitempty"`
 }
 
 // ChatsUsage is what one model request used. It feeds the context meter and
@@ -1626,8 +1638,12 @@ type ChatsNotificationsDelete struct {
 }
 
 // ChatsTrigger is a trigger: work that starts by itself, as you, in a new chat.
-// Kind is schedule or file. A schedule trigger has schedule and time_zone; a
-// file trigger has folder, a path inside your files, and quiet_seconds.
+// Kind is schedule, file or event. A schedule trigger has schedule and
+// time_zone; a file trigger has folder, a path inside your files, and
+// quiet_seconds; an event trigger has source, event_type and matches, and
+// hook_path, the path that a device client or a service posts events to. The
+// secret that signs the events is never part of a trigger: only the response of
+// a create and of a rotate carries it.
 type ChatsTrigger struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`
@@ -1637,7 +1653,13 @@ type ChatsTrigger struct {
 	TimeZone     string `json:"time_zone,omitempty"`
 	Folder       string `json:"folder,omitempty"`
 	QuietSeconds int    `json:"quiet_seconds,omitempty"`
-	DailyCap     int    `json:"daily_cap"`
+	// Source, EventType and Matches say which events an event trigger takes.
+	// HookPath is the path of its hook; add the address of the server.
+	Source    string   `json:"source,omitempty"`
+	EventType string   `json:"event_type,omitempty"`
+	Matches   []string `json:"matches,omitempty"`
+	HookPath  string   `json:"hook_path,omitempty"`
+	DailyCap  int      `json:"daily_cap"`
 	// RunLimit is the longest one run may take, as a duration such as 30m;
 	// empty means the administrator's run limit. EffectiveRunLimit is what
 	// applies now: the least of RunLimit and the administrator's limit.
@@ -1679,6 +1701,8 @@ type ChatsTrigger struct {
 	Binding string `json:"binding,omitempty"`
 	// Delivery says where the answer of each run goes.
 	Delivery ChatsTriggerDelivery `json:"delivery"`
+	// Watch is the reminder rule of a watch; absent on any other trigger.
+	Watch *ChatsWatchRule `json:"watch,omitempty"`
 }
 
 // ChatsTriggerDelivery is where the answer of each run of a trigger goes.
@@ -1752,6 +1776,9 @@ type ChatsTriggerChange struct {
 	CanUndo     bool             `json:"can_undo"`
 	UndoBlocked string           `json:"undo_blocked,omitempty"`
 	LastRun     *ChatsTriggerRun `json:"last_run,omitempty"`
+	// Reminder is set on a change of a reminder of a watch, which a chat
+	// proposed; before is then the watch.
+	Reminder *ChatsReminderChange `json:"reminder,omitempty"`
 }
 
 // ChatsTriggerPlan is what a run of a trigger does, as the model that proposed
@@ -1790,7 +1817,14 @@ type ChatsTriggerWrite struct {
 	TimeZone     string `json:"time_zone,omitempty"`
 	Folder       string `json:"folder,omitempty"`
 	QuietSeconds int    `json:"quiet_seconds,omitempty"`
-	DailyCap     int    `json:"daily_cap,omitempty"`
+	// Source, EventType and Matches are for an event trigger: the sender name
+	// (required), the event type (empty takes any), and up to 8 "field=value"
+	// matches on the JSON payload. The secret is made by the server; a secret
+	// in the body is ignored.
+	Source    string   `json:"source,omitempty"`
+	EventType string   `json:"event_type,omitempty"`
+	Matches   []string `json:"matches,omitempty"`
+	DailyCap  int      `json:"daily_cap,omitempty"`
 	// RunLimit is the longest one run may take, a duration from 1m to 24h such
 	// as 30m. Empty or 0 means the administrator's run limit, which is also
 	// the ceiling: a longer value is accepted and runs cut to it.
@@ -1813,6 +1847,83 @@ type ChatsTriggerWrite struct {
 	// (act.files, act.addons, act.addons:<id>, act.send, act.spend). Leave it
 	// out to keep the trigger's value; an empty list takes all of them away.
 	Acts []string `json:"acts,omitempty"`
+	// Delivery is where the runs report. Leave it out to keep where the
+	// trigger reports now (the Inbox for a new trigger); {"target": "inbox"}
+	// sends the reports back to the Inbox. It is refused on a proposal.
+	Delivery *ChatsTriggerDeliveryWrite `json:"delivery,omitempty"`
+	// Watch makes an event trigger of an add-on a watch. Left out on an
+	// update, a watch keeps its rule.
+	Watch *ChatsWatchRule `json:"watch,omitempty"`
+}
+
+// ChatsTriggerDeliveryWrite is where the runs of a trigger report, as the owner
+// sets it. target is inbox, channel (connection and channel name one of your
+// connections and a channel you approved for it, see GET
+// /api/chats/triggers/destinations) or origin (the chat of a messaging app
+// that proposed the trigger; only for such a trigger, which also keeps its
+// connection: leave connection out). channel is the id or the label of the
+// channel. mode is always (the default), on_change or on_problem. The place
+// is checked only when it changes; a connection that is off, not yours, of a
+// service that cannot receive reports, not allowed to write in channels, or a
+// channel you did not approve is refused with 400.
+type ChatsTriggerDeliveryWrite struct {
+	Target     string `json:"target,omitempty" enums:"inbox,channel,origin"`
+	Connection string `json:"connection,omitempty"`
+	Channel    string `json:"channel,omitempty"`
+	Mode       string `json:"mode,omitempty" enums:"always,on_change,on_problem"`
+}
+
+// ChatsTriggerDestinations lists where a trigger can report: your connections,
+// with the channels you approved for each one that can receive a report now.
+// from_chat is set when the trigger asked about was proposed in a chat of a
+// messaging app: it can report to that chat (target origin), to a channel of
+// the same connection (the only one listed), or to the Inbox.
+// connectors_off is set when this server runs no connections: only the Inbox
+// is possible.
+type ChatsTriggerDestinations struct {
+	Connections   []ChatsTriggerDestination `json:"connections"`
+	FromChat      bool                      `json:"from_chat,omitempty"`
+	ConnectorsOff bool                      `json:"connectors_off,omitempty"`
+}
+
+// ChatsTriggerDestination is one of your connections as a place for reports.
+// channels is empty unless the connection can receive a report, you let it
+// write in channels and you approved a channel; reason then says why not:
+// off (you switched it off), addon_off (its add-on does not run), tool_only (a service that agents only
+// use as a tool), talkback_off (it may not write in channels) or no_channel.
+type ChatsTriggerDestination struct {
+	ID                string                           `json:"id"`
+	Kind              string                           `json:"kind"`
+	KindTitle         string                           `json:"kind_title,omitempty"`
+	Addon             string                           `json:"addon,omitempty"`
+	Name              string                           `json:"name"`
+	Enabled           bool                             `json:"enabled"`
+	CanReceiveReports bool                             `json:"can_receive_reports"`
+	TalkbackAllowed   bool                             `json:"talkback_allowed"`
+	Channels          []ChatsTriggerDestinationChannel `json:"channels"`
+	Reason            string                           `json:"reason,omitempty" enums:"off,addon_off,tool_only,talkback_off,no_channel"`
+}
+
+// ChatsTriggerDestinationChannel is a channel you approved. current marks the
+// channel the trigger asked about reports to now.
+type ChatsTriggerDestinationChannel struct {
+	ID      string `json:"id"`
+	Label   string `json:"label,omitempty"`
+	Current bool   `json:"current,omitempty"`
+}
+
+// ChatsTriggerCreated is the response of creating a trigger. Secret is set for
+// an event trigger and shown only here and in the response of a rotate: keep
+// it, because no other call returns it.
+type ChatsTriggerCreated struct {
+	ChatsTrigger
+	Secret string `json:"secret,omitempty"`
+}
+
+// ChatsTriggerSecret is the response of a rotate: the new secret of an event
+// trigger. The old one stops working at once.
+type ChatsTriggerSecret struct {
+	Secret string `json:"secret"`
 }
 
 // ChatsTriggerList is the response of the trigger list endpoint.
@@ -3445,4 +3556,11 @@ type ChatsSandboxProfilesAdmin struct {
 	Addon    string                `json:"addon,omitempty"`
 	Roles    []string              `json:"roles"`
 	Profiles []ChatsSandboxProfile `json:"profiles"`
+}
+
+// ChatsIncognito is the incognito setting of the server as the chat page reads
+// it: Policy is allow or forbid, MaxLevel is memory-off or zero-retention.
+type ChatsIncognito struct {
+	Policy   string `json:"policy"`
+	MaxLevel string `json:"max_level"`
 }

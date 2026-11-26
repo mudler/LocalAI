@@ -10,9 +10,7 @@
     "folder": "Zu überwachender Ordner",
     "saveEdit": "Speichern",
     "cancelEdit": "Abbrechen",
-    "create": "Trigger erstellen",
     "edit": "Bearbeiten",
-    "dismiss": "Ablehnen",
     "receipt": {
       "scheduled": "Geplant:",
       "watching": "Überwacht:",
@@ -67,8 +65,17 @@
       "stop": "Schalte ihn aus oder lösche ihn unter Trigger",
       "actsLabel": "Berechtigungen",
       "limitLabel": "Zeitlimit",
-      "limitClamped": "{{limit}}, vom Administrator auf {{ceiling}} gekürzt"
-    }
+      "limitClamped": "{{limit}}, vom Administrator auf {{ceiling}} gekürzt",
+      "doesLabel": "Macht",
+      "tellsYouLabel": "Meldet sich",
+      "doesWatch": "Führt Erinnerungen für {{source}}, standardmäßig {{offset}}.",
+      "tellsWatch": "Nur wenn es etwas bringt: eine Änderung von jemand anderem, eine geplante Zusammenfassung oder eine Überschneidung.",
+      "tellsEvery": "Nach jedem Lauf.",
+      "tellsOnChange": "Wenn die Antwort sich vom letzten Lauf unterscheidet.",
+      "tellsOnProblem": "Nur wenn ein Lauf fehlschlägt."
+    },
+    "approve": "Genehmigen",
+    "notNow": "Nicht jetzt"
   },
   "mcpPage": {
     "title": "MCP-Konnektoren",
@@ -814,6 +821,58 @@
           "body_one": "{{count}} alte Datei gelöscht.",
           "body_other": "{{count}} alte Dateien gelöscht."
         }
+      },
+      "run": {
+        "title_one": "{{count}} Element wird aktualisiert",
+        "title_other": "{{count}} Elemente werden aktualisiert",
+        "titleAuto_one": "Automatische Aktualisierung: {{count}} Element",
+        "titleAuto_other": "Automatische Aktualisierung: {{count}} Elemente",
+        "updated_one": "{{count}} aktualisiert",
+        "updated_other": "{{count}} aktualisiert",
+        "running_one": "{{count}} läuft",
+        "running_other": "{{count}} laufen",
+        "waiting_one": "{{count}} wartet",
+        "waiting_other": "{{count}} warten",
+        "done": "{{done}} von {{total}} erledigt",
+        "end": {
+          "attention_one": "{{updated}} aktualisiert, {{count}} braucht Aufmerksamkeit",
+          "attention_other": "{{updated}} aktualisiert, {{count}} brauchen Aufmerksamkeit",
+          "done_one": "{{count}} aktualisiert",
+          "done_other": "{{count}} aktualisiert",
+          "auto": "Automatisch: {{text}}",
+          "first": "{{name}} ist weiter auf {{version}}.",
+          "firstWhy": "{{name}} ist weiter auf {{version}}: {{reason}}.",
+          "cancelled_one": "Aktualisierungslauf abgebrochen: {{count}} aktualisiert",
+          "cancelled_other": "Aktualisierungslauf abgebrochen: {{count}} aktualisiert",
+          "cancelledAttention_one": "Aktualisierungslauf abgebrochen: {{updated}} aktualisiert, {{count}} braucht Aufmerksamkeit",
+          "cancelledAttention_other": "Aktualisierungslauf abgebrochen: {{updated}} aktualisiert, {{count}} brauchen Aufmerksamkeit",
+          "firstStart": "{{name}} ist weiter auf {{version}}: Die neue Version ist nicht gestartet: {{reason}}."
+        }
+      },
+      "watch": {
+        "set": "Erinnerung für „{{title}}\" gesetzt: {{when}}.",
+        "changed": "Erinnerung für „{{title}}\" geändert: {{when}}.",
+        "cancelled": "Erinnerung für „{{title}}\" abgesagt.",
+        "snoozed": "Erinnerung für „{{title}}\" auf {{when}} verschoben.",
+        "snoozeUndone": "Verschieben der Erinnerung für „{{title}}\" zurückgenommen.",
+        "skipped": "Erinnerung für „{{title}}\" übersprungen.",
+        "skipUndone": "Überspringen der Erinnerung für „{{title}}\" zurückgenommen.",
+        "taskChanged": "Aufgabe der Erinnerung für „{{title}}\" geändert.",
+        "restored": "Erinnerung für „{{title}}\" wiederhergestellt: {{when}}.",
+        "next": "Erinnerung für das nächste „{{title}}\" gesetzt: {{when}}.",
+        "moved": "Erinnerung für „{{title}}\" auf {{when}} verschoben.",
+        "movedStarted": "„{{title}}\" wurde verschoben und hat schon begonnen, daher gibt es keine Erinnerung.",
+        "removed": "Erinnerung für „{{title}}\" abgesagt: es wurde entfernt.",
+        "woken": "„{{title}}\" hat sich geändert. Ich prüfe jetzt die Erinnerung.",
+        "movedBy": "„{{title}}\" wurde verschoben. Ich erinnere dich um {{when}}.",
+        "movedByStarted": "„{{title}}\" wurde verschoben und hat schon begonnen.",
+        "removedBy": "„{{title}}\" wurde entfernt, daher habe ich die Erinnerung abgesagt.",
+        "wokenBy": "„{{title}}\" hat sich geändert. Ich prüfe, ob die Erinnerung noch passt.",
+        "missed": "Verpasst: {{title}}. Der Server war zur Erinnerungszeit aus.",
+        "onHold": "Die Erinnerung für „{{title}}\" wartet, solange diese Beobachtung pausiert ist.",
+        "dropped": "Die Erinnerung für „{{title}}\" wurde mit ihrer Beobachtung entfernt.",
+        "lastKnown": "Erinnerung für das nächste „{{title}}\" gesetzt: {{when}}. Das ist der letzte bekannte Termin; eine Änderung des Eintrags setzt die folgenden.",
+        "seriesEnded": "Für „{{title}}\" ist kein späterer Termin bekannt, daher gibt es jetzt keine Erinnerung. Eine Änderung des Eintrags setzt die nächste."
       }
     },
     "tabs": {
@@ -850,7 +909,15 @@
       }
     },
     "chatsOff": "Chats sind ausgeschaltet",
-    "emptyBodyNoChats": "Hier erscheinen Updates und abgeschlossene Vorgänge."
+    "emptyBodyNoChats": "Hier erscheinen Updates und abgeschlossene Vorgänge.",
+    "runProgress": "Fortschritt: {{title}}",
+    "runStarted": "Gestartet {{when}}",
+    "viewProgress": "Fortschritt ansehen",
+    "seeRun": "Lauf ansehen",
+    "openUpdates": "Aktualisierungen öffnen",
+    "updatesPending_one": "{{count}} Aktualisierung verfügbar",
+    "updatesPending_other": "{{count}} Aktualisierungen verfügbar",
+    "updatesNone": "Alles ist aktuell"
   },
   "change": {
     "loading": "Die Trigger-Änderung wird gelesen...",
@@ -1517,7 +1584,10 @@
     "mcp": "MCP-Server"
   },
   "triggersPage": {
-    "runLimit": "Zeitlimit eines Laufs"
+    "runLimit": "Zeitlimit eines Laufs",
+    "presets": {
+      "event": "Wenn ein Ereignis eintrifft"
+    }
   },
   "sandboxProfile": {
     "label": "Sandbox-Profil",
@@ -1593,5 +1663,165 @@
       "reason": "Die Einstellung dieses Chats ist {{window}} Token, der Chat braucht mindestens {{minimum}}.",
       "fix": "Fenster des Modells verwenden"
     }
+  },
+  "event": {
+    "listening": "Lauscht:",
+    "announceAccepted": "{{name}} wurde erstellt. Kopiere jetzt das Geheimnis: Es wird nur einmal angezeigt.",
+    "sentence": {
+      "typed": "Wenn {{source}} {{type}} sendet",
+      "any": "Wenn {{source}} ein beliebiges Ereignis sendet",
+      "where": " mit {{matches}}",
+      "and": " und "
+    },
+    "hook": {
+      "title": "Hook-Adresse und Geheimnis",
+      "urlLabel": "Hook-URL",
+      "secretLabel": "Geheimnis (wird einmal angezeigt)",
+      "curlLabel": "Beispielaufruf",
+      "copy": "Kopieren",
+      "copied": "Kopiert",
+      "copyUrl": "Hook-URL kopieren",
+      "copySecret": "Geheimnis kopieren",
+      "copyCurl": "Beispielaufruf kopieren",
+      "paste": "Füge die URL und das Geheimnis in die Webhook-Einstellungen des Absenders ein. Das Geheimnis wird nicht noch einmal angezeigt.",
+      "noSecret": "Das Geheimnis wird nicht noch einmal angezeigt. Erneuere es, um ein neues zu erhalten.",
+      "rotate": "Geheimnis erneuern",
+      "rotateTitle": "Geheimnis von {{name}} erneuern?",
+      "rotateBody": "Das alte Geheimnis funktioniert sofort nicht mehr. Trage das neue beim Absender ein, bevor sein nächstes Ereignis kommt.",
+      "rotateConfirm": "Erneuern",
+      "rotated": "Neues Geheimnis erstellt.",
+      "rotateFailed": "Das Geheimnis konnte nicht erneuert werden: {{message}}"
+    },
+    "form": {
+      "source": "Absender",
+      "sourceHint": "Der Name des Absenders, zum Beispiel github.",
+      "sourceEmpty": "Nenne den Absender der Ereignisse.",
+      "type": "Ereignistyp",
+      "typeHint": "Leer lassen, um jeden Ereignistyp anzunehmen.",
+      "matches": "Nur wenn (ein Feld=Wert pro Zeile)",
+      "matchesHint": "Bis zu 8 Zeilen, zum Beispiel action=opened.",
+      "createdTitle": "{{name}} ist bereit",
+      "done": "Fertig"
+    }
+  },
+  "watch": {
+    "section": "Beobachtung",
+    "new": "Neue Beobachtung",
+    "titleNew": "Neue Beobachtung",
+    "titleEdit": "{{name}} bearbeiten",
+    "source": "Beobachten",
+    "sourceHelp": "Nur Add-ons, die ihre Änderungen melden, werden angezeigt.",
+    "sourcePick": "Add-on wählen",
+    "types": "Zu beachtende Änderungen",
+    "typesHelp": "Lass alles leer, um jede Änderung zu beachten.",
+    "offset": "Erinnere mich",
+    "none": "Keine Standarderinnerung",
+    "atTime": "Zur Uhrzeit",
+    "minutesBefore_one": "{{count}} Min. vorher",
+    "minutesBefore_other": "{{count}} Min. vorher",
+    "hoursBefore_one": "{{count}} Stunde vorher",
+    "hoursBefore_other": "{{count}} Stunden vorher",
+    "daysBefore_one": "{{count}} Tag vorher",
+    "daysBefore_other": "{{count}} Tage vorher",
+    "minutesAfter_one": "{{count}} Min. danach",
+    "minutesAfter_other": "{{count}} Min. danach",
+    "hoursAfter_one": "{{count}} Stunde danach",
+    "hoursAfter_other": "{{count}} Stunden danach",
+    "daysAfter_one": "{{count}} Tag danach",
+    "daysAfter_other": "{{count}} Tage danach",
+    "allDay": "Ganztägige Dinge",
+    "allDayMorning": "Am Morgen, um 08:00",
+    "allDayNone": "Keine Erinnerung",
+    "quiet": "Ruhezeiten",
+    "quietFrom": "Von",
+    "quietTo": "Bis",
+    "quietHelp": "Eine Erinnerung in dieser Zeit kommt am Abend davor.",
+    "tasks": "Standardaufgaben",
+    "tasksHelp": "In deinen Worten, zum Beispiel: für Anrufe mit anderen eine Zusammenfassung 30 Min. vorher vorbereiten.",
+    "problemSource": "Wähle, was beobachtet wird.",
+    "problemQuiet": "Ruhezeiten brauchen einen Anfang und ein Ende.",
+    "emptyTitle": "Noch nichts zu beobachten",
+    "emptyBody": "Kein installiertes Add-on meldet seine Änderungen. Installiere das Kalender-Add-on, um Erinnerungen an deine Termine zu bekommen.",
+    "summary": "{{source}}, {{offset}}",
+    "watches": "Beobachtet",
+    "state": "Status",
+    "on": "An",
+    "paused": "Pausiert",
+    "permissions": "Berechtigungen bearbeiten",
+    "reminders": "Nächste Erinnerungen",
+    "remindersEmpty": "Noch keine Erinnerungen. Die Beobachtung legt eine an, wenn etwas hinzukommt.",
+    "dueLine": "{{when}}, {{offset}}",
+    "adjQuiet": "am Abend davor, außerhalb deiner Ruhezeiten",
+    "adjAllDay": "am Morgen des Tages",
+    "skipped": "Übersprungen",
+    "snoozed": "Verschoben",
+    "started": "Hat schon begonnen",
+    "open": "Öffnen",
+    "snooze": "Später",
+    "skip": "Überspringen",
+    "changeTime": "Zeit ändern…",
+    "newTime": "Neue Zeit",
+    "saveTime": "Speichern",
+    "save": "Beobachtung speichern",
+    "cancel": "Abbrechen",
+    "undo": "Rückgängig",
+    "doneSnooze": "Verschoben auf {{when}}.",
+    "doneSkip": "Übersprungen. Sie kommt wieder, wenn sich der Eintrag verschiebt.",
+    "doneRetime": "Verlegt auf {{when}}.",
+    "doneUndo": "Rückgängig gemacht.",
+    "loadFailed": "Die Erinnerungen konnten nicht gelesen werden: {{message}}",
+    "sourcesFailed": "Die Add-ons, die Änderungen melden, konnten nicht gelesen werden: {{message}}",
+    "viewWatch": "Beobachtung ansehen",
+    "saved": "Beobachtung gespeichert.",
+    "nameRequired": "Eine Beobachtung braucht einen Namen.",
+    "promptRequired": "Schreib, was die Beobachtung tun soll.",
+    "promptHint": "Dieser Text startet jeden Lauf der Beobachtung.",
+    "enabledHint": "Eine ausgeschaltete Beobachtung behält ihre Erinnerungen; sie warten, bis sie wieder an ist.",
+    "change": {
+      "title": {
+        "create": "Erinnerung für {{title}} setzen",
+        "update": "Erinnerung für {{title}} ändern",
+        "delete": "Erinnerung für {{title}} absagen"
+      },
+      "help": "Nichts ändert sich, bis du zustimmst.",
+      "stale": "Die Erinnerung hat sich seit der Anfrage geändert. Frag erneut.",
+      "watch": "Beobachtung",
+      "when": "Wann",
+      "task": "Aufgabe",
+      "none": "keine",
+      "receipt": {
+        "create": "Erinnerung gesetzt:",
+        "update": "Erinnerung geändert:",
+        "delete": "Erinnerung abgesagt:",
+        "dismissed": "Nicht geändert:",
+        "undone": "Rückgängig gemacht:"
+      },
+      "blocked": {
+        "expired": "Die Zeit zum Rückgängigmachen ist vorbei; ändere die Erinnerung auf der Seite der Beobachtung.",
+        "edited": "Die Erinnerung wurde seitdem geändert; ändere sie auf der Seite der Beobachtung.",
+        "removed": "Die Erinnerung oder ihre Beobachtung wurde seitdem entfernt."
+      },
+      "announce": {
+        "applied": "Änderung der Erinnerung für {{title}} angenommen.",
+        "dismissed": "Die Erinnerung für {{title}} bleibt, wie sie war.",
+        "undone": "Änderung der Erinnerung für {{title}} rückgängig gemacht."
+      }
+    }
+  },
+  "incognito": {
+    "label": "Inkognito",
+    "levelLabel": "Inkognito-Stufe",
+    "levels": {
+      "memory-off": "Ohne Gedächtnis",
+      "zero-retention": "Keine Speicherung"
+    },
+    "describe": {
+      "memory-off": "Dieser Chat liest und speichert kein Gedächtnis. Er erscheint in keiner Liste und endet, wenn du ihn verlässt. Protokolle und Traces bleiben wie gewohnt.",
+      "zero-retention": "Der Server behält nichts von diesem Chat, nur Nutzungszähler. Er liest und speichert kein Gedächtnis, nimmt keine Anhänge an und endet, wenn du ihn verlässt."
+    },
+    "blocked": "In einem Inkognito-Chat nicht verfügbar",
+    "discardTitle": "Inkognito-Chat beenden?",
+    "discardMessage": "Der Chat wird gelöscht und kann nicht wieder geöffnet werden.",
+    "discardConfirm": "Chat beenden"
   }
 }

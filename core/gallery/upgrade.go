@@ -2,6 +2,7 @@ package gallery
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -286,6 +287,9 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	if systemState.DisableBackendInstall {
 		return fmt.Errorf("%w: %s", ErrBackendInstallDisabled, backendName)
 	}
+	if err := ValidateBackendName(backendName); err != nil {
+		return WithUpgradeCode(UpgradeFailureUnknown, err)
+	}
 	// Look up the installed backend
 	installedBackends, err := ListSystemBackends(systemState)
 	if err != nil {
@@ -294,17 +298,29 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 
 	installed, ok := installedBackends.Get(backendName)
 	if !ok {
-		return fmt.Errorf("backend %q: %w", backendName, ErrBackendNotFound)
+		return WithUpgradeCode(UpgradeFailureNotInstalled, fmt.Errorf("backend %q: %w", backendName, ErrBackendNotFound))
 	}
 
 	if installed.IsSystem {
-		return fmt.Errorf("system backend %q cannot be upgraded via gallery", backendName)
+		return WithUpgradeCode(UpgradeFailureNoUpdate, fmt.Errorf("system backend %q cannot be upgraded via gallery", backendName))
 	}
 
 	// If this is a meta backend, recursively upgrade the concrete backend it points to
 	if installed.Metadata != nil && installed.Metadata.MetaBackendFor != "" {
 		xlog.Info("Meta backend detected, upgrading concrete backend", "meta", backendName, "concrete", installed.Metadata.MetaBackendFor)
 		return UpgradeBackend(ctx, systemState, modelLoader, galleries, installed.Metadata.MetaBackendFor, downloadStatus, requireIntegrity)
+	}
+
+	// The requested name can be an alias, which may also be the name of
+	// another backend's directory. The build to replace is the directory of
+	// the run file the name resolves to; upgrade it under its own name.
+	dirName := filepath.Base(filepath.Dir(installed.RunFile))
+	if filepath.Dir(filepath.Dir(installed.RunFile)) != filepath.Clean(systemState.Backend.BackendsPath) {
+		return WithUpgradeCode(UpgradeFailureUnknown, fmt.Errorf("%w: backend %q is not a directory of the backends path", ErrInvalidBackendName, backendName))
+	}
+	if dirName != backendName {
+		xlog.Info("Backend name resolves to another directory, upgrading that one", "name", backendName, "directory", dirName)
+		return UpgradeBackend(ctx, systemState, modelLoader, galleries, dirName, downloadStatus, requireIntegrity)
 	}
 
 	// Find the gallery entry. Unfiltered for the same reason as the check
@@ -317,7 +333,7 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 
 	galleryEntry := FindGalleryElement(galleryBackends, backendName)
 	if galleryEntry == nil {
-		return fmt.Errorf("no gallery entry found for backend %q", backendName)
+		return WithUpgradeCode(UpgradeFailureNoUpdate, fmt.Errorf("no gallery entry found for backend %q", backendName))
 	}
 
 	// Resolve integrity options (cosign verifier for OCI URIs, strict-mode
@@ -327,7 +343,7 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	// — see backendDownloadOptions in backends.go.
 	downloadOpts, err := backendDownloadOptions(galleryEntry, requireIntegrity)
 	if err != nil {
-		return fmt.Errorf("upgrade %q: %w", backendName, err)
+		return WithUpgradeCode(UpgradeFailureVerify, fmt.Errorf("upgrade %q: %w", backendName, err))
 	}
 	downloadOpts = append(downloadOpts, downloader.WithStagingDir(systemState.StagingPath))
 
@@ -335,25 +351,29 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	tmpPath := backendPath + ".upgrade-tmp"
 	backupPath := backendPath + ".backup"
 
-	// Clean up any stale tmp/backup dirs from prior attempts
-	os.RemoveAll(tmpPath)
-	os.RemoveAll(backupPath)
+	// Clean up a stale tmp dir from prior attempts. A stale backup can be
+	// the last build that worked (a failed restore keeps it), so it is moved
+	// aside, never deleted.
+	_ = os.RemoveAll(tmpPath)
+	if err := keepPreviousBuild(backupPath); err != nil {
+		return WithUpgradeCode(UpgradeFailureSwap, err)
+	}
 
 	// Step 1: Download the new backend into the tmp directory
 	if err := os.MkdirAll(tmpPath, 0750); err != nil {
-		return fmt.Errorf("failed to create upgrade tmp dir: %w", err)
+		return WithUpgradeCode(UpgradeFailureDownload, fmt.Errorf("failed to create upgrade tmp dir: %w", err))
 	}
 
 	uri := downloader.URI(galleryEntry.URI)
 	if uri.LooksLikeDir() {
 		if err := cp.Copy(string(uri), tmpPath); err != nil {
 			os.RemoveAll(tmpPath)
-			return fmt.Errorf("failed to copy backend from directory: %w", err)
+			return WithUpgradeCode(UpgradeFailureDownload, fmt.Errorf("failed to copy backend from directory: %w", err))
 		}
 	} else {
 		if err := uri.DownloadFileWithContext(ctx, tmpPath, galleryEntry.SHA256, 1, 1, downloadStatus, downloadOpts...); err != nil {
 			os.RemoveAll(tmpPath)
-			return fmt.Errorf("failed to download backend: %w", err)
+			return downloadUpgradeError(ctx, err)
 		}
 	}
 
@@ -361,23 +381,23 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	newRunFile := filepath.Join(tmpPath, runFile)
 	if _, err := os.Stat(newRunFile); os.IsNotExist(err) {
 		os.RemoveAll(tmpPath)
-		return fmt.Errorf("upgrade validation failed: run.sh not found in new backend")
+		return WithUpgradeCode(UpgradeFailureVerify, fmt.Errorf("upgrade validation failed: run.sh not found in new backend"))
 	}
 
 	// Step 3: Atomic swap — rename current to backup, then tmp to current
-	if err := os.Rename(backendPath, backupPath); err != nil {
+	if err := renameBackend(backendPath, backupPath); err != nil {
 		os.RemoveAll(tmpPath)
-		return fmt.Errorf("failed to move current backend to backup: %w", err)
+		return WithUpgradeCode(UpgradeFailureSwap, fmt.Errorf("failed to move current backend to backup: %w", err))
 	}
 
-	if err := os.Rename(tmpPath, backendPath); err != nil {
+	if err := renameBackend(tmpPath, backendPath); err != nil {
 		// Restore backup on failure
 		xlog.Error("Failed to move new backend into place, restoring backup", "error", err)
 		if restoreErr := os.Rename(backupPath, backendPath); restoreErr != nil {
 			xlog.Error("Failed to restore backup", "error", restoreErr)
 		}
 		os.RemoveAll(tmpPath)
-		return fmt.Errorf("failed to move new backend into place: %w", err)
+		return WithUpgradeCode(UpgradeFailureSwap, fmt.Errorf("failed to move new backend into place: %w", err))
 	}
 
 	// Step 4: Write updated metadata, preserving alias from old metadata
@@ -408,19 +428,75 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 		}
 	}
 
-	if err := writeBackendMetadata(backendPath, newMetadata); err != nil {
-		// Metadata write failure is not worth rolling back the entire upgrade
-		xlog.Error("Failed to write metadata after upgrade", "error", err)
+	if err := settleUpgrade(ctx, systemState, modelLoader, backendName, backendPath, backupPath, newMetadata); err != nil {
+		return err
 	}
-
-	// Step 5: Re-register backends so the model loader picks up any changes
-	if err := RegisterBackends(systemState, modelLoader); err != nil {
-		xlog.Warn("Failed to re-register backends after upgrade", "error", err)
-	}
-
-	// Step 6: Remove backup
-	os.RemoveAll(backupPath)
 
 	xlog.Info("Backend upgraded successfully", "backend", backendName, "version", galleryEntry.Version)
 	return nil
 }
+
+// settleUpgrade runs the steps after the swap: it writes the metadata of the
+// new build, checks that the new build starts from its final path, registers
+// the backends again and only then removes the previous build. When a step
+// fails, the previous build and its metadata are put back and registered,
+// and the error says whether that worked.
+//
+// A failed metadata write or registration used to be logged while the
+// upgrade reported success with stale metadata; both now roll back like a
+// build that does not start, with the code swap (the new build could not be
+// put in place completely).
+func settleUpgrade(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, backendName, backendPath, backupPath string, newMetadata *BackendMetadata) error {
+	rollback := func(code UpgradeFailureCode, cause error) error {
+		return rollbackSwap(ctx, systemState, modelLoader, code, cause, backendPath, backupPath)
+	}
+
+	if err := writeUpgradeMetadata(backendPath, newMetadata); err != nil {
+		return rollback(UpgradeFailureSwap, fmt.Errorf("failed to write metadata after upgrade: %w", err))
+	}
+
+	check := newUpgradeStartCheck(modelLoader, backendName)
+	if err := check(ctx, filepath.Join(backendPath, runFile)); err != nil {
+		// The code says that the new build did not start; the readers word
+		// the code (the Updates page, the inbox), so the text is the bare
+		// cause and no reader says it twice.
+		return rollback(UpgradeFailureStart, err)
+	}
+
+	if err := registerBackends(systemState, modelLoader); err != nil {
+		return rollback(UpgradeFailureSwap, fmt.Errorf("failed to register backends after upgrade: %w", err))
+	}
+
+	if err := os.RemoveAll(backupPath); err != nil {
+		xlog.Warn("Could not remove the previous build after the upgrade", "path", backupPath, "error", err)
+	}
+	return nil
+}
+
+// downloadUpgradeError classifies a failed download of an upgrade. A
+// cancelled context keeps its own error, because callers read it as a stop
+// and not as a failure. A refused checksum or signature is a verify failure;
+// everything else is a failed transfer.
+func downloadUpgradeError(ctx context.Context, err error) error {
+	wrapped := fmt.Errorf("failed to download backend: %w", err)
+	if ctx.Err() != nil {
+		return wrapped
+	}
+	if errors.Is(err, downloader.ErrIntegrity) {
+		return WithUpgradeCode(UpgradeFailureVerify, wrapped)
+	}
+	return WithUpgradeCode(UpgradeFailureDownload, wrapped)
+}
+
+// Seams of the swap and the steps after it. Vars so a spec can fail one step
+// without a filesystem or a backend that fails on cue.
+var (
+	// renameBackend moves a backend directory.
+	renameBackend = os.Rename
+	// writeUpgradeMetadata writes the metadata of the new build.
+	writeUpgradeMetadata = writeBackendMetadata
+	// registerBackends registers the installed backends with the loader.
+	registerBackends = RegisterBackends
+	// newUpgradeStartCheck gives the start check of an upgrade.
+	newUpgradeStartCheck = LoaderStartCheck
+)

@@ -289,16 +289,32 @@ func (l *liveTurnState) commitTrigger(eouPending bool, speechEndSec float64) (tr
 // finishTurn finalizes the live stream (flushing the decode tail — the last
 // ~2 encoder frames of text only appear here), folds the terminal events in,
 // and returns the turn's transcript. Returns nil when the stream never
-// produced text (the VAD triggered on something the model heard nothing in).
+// produced text (the VAD triggered on something the model heard nothing in),
+// or when the stream ended before its final transcript: the commit then
+// transcribes the turn's audio instead.
 func (l *liveTurnState) finishTurn(audioSec float64) *liveUtterance {
 	if l.live == nil {
 		return nil
 	}
-	if err := l.live.Close(); err != nil {
-		xlog.Warn("semantic_vad: live transcription finalize failed", "error", err)
-	}
+	closeErr := l.live.Close()
 	l.live = nil
 	l.drainEvents(audioSec)
+
+	if closeErr != nil {
+		// The live decode did not cover all the audio fed to it: it fell
+		// behind real time and Close gave up on the backlog, or the stream
+		// broke. The deltas received so far are only the start of the turn
+		// (none at all when the backlog covered the whole turn), so taking
+		// them as the transcript silently drops the rest of what was said.
+		// The commit audio holds the whole turn: transcribe that instead.
+		xlog.Warn("semantic_vad: live transcript is incomplete; transcribing the turn's audio instead",
+			"item_id", l.itemID,
+			"audio_s", audioSec,
+			"live_text_chars", len(l.previewText()),
+			"error", closeErr)
+		l.resetTurn()
+		return nil
+	}
 
 	text := strings.TrimSpace(l.finalText)
 	if text == "" {

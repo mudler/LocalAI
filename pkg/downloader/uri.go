@@ -700,7 +700,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 			}
 			pinned := pinnedImageRef(url, digest.String())
 			if verr := dopts.verifier.VerifyImage(ctx, pinned); verr != nil {
-				return fmt.Errorf("image verification failed for %q: %w", url, verr)
+				return asIntegrity(fmt.Errorf("image verification failed for %q: %w", url, verr))
 			}
 			xlog.Info("Image signature verified", "ref", pinned)
 		}
@@ -997,7 +997,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		if calculatedSHA != sha {
 			xlog.Debug("SHA mismatch for file", "file", filePath, "calculated", calculatedSHA, "metadata", sha)
 			_ = removePartialFile(tmpFilePath)
-			return asTransient(fmt.Errorf("SHA mismatch for file %q ( calculated: %s != metadata: %s )", filePath, calculatedSHA, sha))
+			return asTransient(asIntegrity(fmt.Errorf("SHA mismatch for file %q ( calculated: %s != metadata: %s )", filePath, calculatedSHA, sha)))
 		}
 	} else {
 		// Visible at the default log level so missing-digest configs are

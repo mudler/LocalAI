@@ -70,6 +70,8 @@ var allowed = []entry{
 
 	// Third-party services: the login, the release source, the token issuer.
 	{"core/cli/run.go", "GitHub OAuth App", "help of the GitHub OAuth login: GitHub the service, not the add-on"},
+	{"core/http/endpoints/studio/triggerhook.go", `github`, "the source of an event that carries the GitHub delivery header: the sender, not the add-on"},
+	{ui + "pages/AgentTaskDetails.jsx", `placeholder="github"`, "an example source of an event trigger: the sender, not the add-on"},
 	{"core/http/auth/models.go", `github`, "the id of the GitHub OAuth login provider"},
 	{ui + "pages/Login.jsx", "github", "the GitHub OAuth login button: the service, not the add-on"},
 	{ui + "pages/Login.jsx", "'GitHub'", "the GitHub OAuth login button: the service, not the add-on"},
@@ -83,6 +85,7 @@ var allowed = []entry{
 	{"core/services/routing/piipattern/builtins.go", "Slack token", "secret pattern: Slack issues the token"},
 	{"core/services/routing/piipattern/builtins.go", "JSON Web Token", "the name of a token format"},
 	{"pkg/addons/packaging/catalog.go", "GitHub owner/repository", "release signing: GitHub Actions is the build system"},
+	{"pkg/addons/packaging/published.go", "GitHub owner/repository", "release signing: GitHub Actions is the build system"},
 	{"pkg/addons/packaging/catalog.go", "GitHub Actions OIDC issuer", "release signing: GitHub Actions is the build system"},
 	{"pkg/addons/packaging/channel.go", "GitHub event name", "release tooling: GitHub Actions is the build system"},
 	{"pkg/addons/packaging/registry.go", "GitHub event name", "release tooling: GitHub Actions is the build system"},
@@ -143,6 +146,8 @@ var allowed = []entry{
 	{"docs/content/administration/reverse-proxy-tls.md", "Web UI", "the web UI of LocalAI"},
 	{"docs/content/administration/troubleshooting.md", "Web UI", "the web UI of LocalAI"},
 	{"docs/content/administration/troubleshooting.md", "Web ", "the web UI of LocalAI"},
+	{"core/cli/run.go", "Web UI", "the web UI of LocalAI"},
+	{"docs/content/reference/cli-reference.md", "Web UI", "the web UI of LocalAI"},
 }
 
 var knownDebt = []debt{}

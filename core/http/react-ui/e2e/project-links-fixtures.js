@@ -42,6 +42,7 @@ const TRIGGERS = {
     { id: 't1', name: 'Morning copy review', kind: 'schedule', agent_id: 'ap1', agent_name: 'Copy editor', schedule: 'daily 08:00', enabled: true, proposed: false, next: new Date(NOW + DAY).toISOString() },
     { id: 't2', name: 'Check new images', kind: 'file', agent_id: 'ap2', agent_name: 'Asset checker', folder: '/Projects/launch-site/files/incoming', enabled: true, proposed: false },
     { id: 't3', name: 'Weekly open questions', kind: 'schedule', agent_id: 'ap3', agent_name: 'Client questions', schedule: 'weekly fri 16:30', enabled: false, proposed: false },
+    { id: 't6', name: 'Build failed hook', kind: 'event', agent_id: 'ap1', agent_name: 'Copy editor', enabled: true, proposed: false },
   ],
   p3: [
     { id: 't4', name: 'Transcript cleanup', kind: 'schedule', agent_id: 'ap4', agent_name: 'Podcast notes', schedule: 'daily 09:00', enabled: true, proposed: false, next: new Date(NOW + DAY).toISOString() },

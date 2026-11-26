@@ -212,14 +212,14 @@ const PICK_BACKENDS = [
   { id: 'diffusers', label: 'diffusers', mono: true, group: 'Image' },
 ]
 const PICK_TOOLS = [
-  { id: 'web', label: 'Web search', icon: 'globe', dot: true },
+  { id: 'search', label: 'Search', icon: 'globe', dot: true },
   { id: 'files', label: 'Files', icon: 'folder', dot: true },
   { id: 'memory', label: 'Memory', icon: 'brain', dot: false },
 ]
 
 function Pickers() {
   const [backend, setBackend] = useState('')
-  const [tools, setTools] = useState(['web'])
+  const [tools, setTools] = useState(['search'])
   const [mode, setMode] = useState('read')
   return (
     <Section id="picker" title="ListPicker" note="A choice from a long list, rows with more than text, several picks, or a chip in a toolbar. A filter box from 8 rows, groups, and the keyboard: arrows, Home, End, Enter, Escape. For a short fixed list in a form, use the native select.">
@@ -241,7 +241,7 @@ function Pickers() {
             ariaLabel="Empty list" testId="cat-pick-empty" items={[]} value="" placeholder="Nothing yet" openable
             emptyText="No backends are installed."
           />
-          <ListPicker ariaLabel="Disabled" testId="cat-pick-disabled" items={PICK_TOOLS} value="web" disabled />
+          <ListPicker ariaLabel="Disabled" testId="cat-pick-disabled" items={PICK_TOOLS} value="search" disabled />
         </div>
         <div className="ui-cat__cell">
           <span className="dk-select-wrap dk-select-wrap--sm">

@@ -121,6 +121,10 @@ type ModelLoader struct {
 	// blockedLoads are the models whose loads are refused while their files
 	// change (a model upgrade). Guarded by mu.
 	blockedLoads map[string]bool
+
+	// hiddenOutput hides the backend output of zero-retention requests
+	// (see HideBackendOutput).
+	hiddenOutput hiddenOutput
 }
 
 // loadFailureState tracks consecutive load failures for a single modelID and
@@ -131,6 +135,9 @@ type loadFailureState struct {
 	// backendMissing records that the last failure was a backend that is not
 	// installed, so a caller can tell the user to install it instead of waiting.
 	backendMissing bool
+	// outdatedBackend names the backend that refused the model because it is
+	// too old for it, so a caller can tell the user to update that backend.
+	outdatedBackend string
 }
 
 // LoadFailedHeader is set on an HTTP answer that refuses a request because the
@@ -149,6 +156,10 @@ const UpstreamStatusHeader = "X-Localai-Upstream-Status"
 const (
 	LoadCauseHeader         = "X-Localai-Model-Load-Cause"
 	LoadCauseBackendMissing = "backend-missing"
+	// LoadCauseBackendOutdated says the backend is too old for the model. The
+	// name of the backend is in LoadBackendHeader.
+	LoadCauseBackendOutdated = "backend-outdated"
+	LoadBackendHeader        = "X-Localai-Model-Load-Backend"
 )
 
 // ModelLoadCooldownError is returned when a model load is skipped because a
@@ -161,6 +172,9 @@ type ModelLoadCooldownError struct {
 	// BackendMissing is true when the failure that armed the cooldown was a
 	// backend that is not installed.
 	BackendMissing bool
+	// OutdatedBackend is the backend that was too old for the model, when
+	// that was the failure that armed the cooldown.
+	OutdatedBackend string
 }
 
 func (e *ModelLoadCooldownError) Error() string {
@@ -250,15 +264,15 @@ func (ml *ModelLoader) SetLoadFailureCooldown(base, max time.Duration) {
 
 // cooldownRemaining returns how long the modelID's load cooldown still has to
 // run, or 0 if there is none. Callers must hold ml.mu.
-func (ml *ModelLoader) cooldownRemaining(modelID string) (time.Duration, bool) {
+func (ml *ModelLoader) cooldownRemaining(modelID string) (time.Duration, bool, string) {
 	st := ml.loadFailures[modelID]
 	if st == nil {
-		return 0, false
+		return 0, false, ""
 	}
 	if remaining := time.Until(st.cooldownUntil); remaining > 0 {
-		return remaining, st.backendMissing
+		return remaining, st.backendMissing, st.outdatedBackend
 	}
-	return 0, false
+	return 0, false, ""
 }
 
 // recordLoadFailure grows the modelID's consecutive-failure count and arms the
@@ -276,6 +290,7 @@ func (ml *ModelLoader) recordLoadFailure(modelID string, cause error) {
 	}
 	st.consecutive++
 	st.backendMissing = errors.Is(cause, ErrBackendNotFound)
+	st.outdatedBackend = OutdatedBackendOf(cause)
 	// base * 2^(consecutive-1), clamped. Cap the shift to avoid overflowing
 	// the Duration; anything past the cap collapses to loadFailureMaxCooldown.
 	shift := st.consecutive - 1
@@ -632,10 +647,10 @@ func (ml *ModelLoader) loadModel(modelID, modelName, modelFileName string, loade
 	// on every request. The coalesced follower-retry below passes
 	// checkCooldown=false so an in-flight burst still gets its one retry.
 	if checkCooldown {
-		if retryAfter, backendMissing := ml.cooldownRemaining(modelID); retryAfter > 0 {
+		if retryAfter, backendMissing, outdated := ml.cooldownRemaining(modelID); retryAfter > 0 {
 			ml.mu.Unlock()
 			xlog.Debug("Model load in cooldown after a recent failure", "modelID", modelID, "retryAfter", retryAfter)
-			return nil, &ModelLoadCooldownError{ModelID: modelID, RetryAfter: retryAfter, BackendMissing: backendMissing}
+			return nil, &ModelLoadCooldownError{ModelID: modelID, RetryAfter: retryAfter, BackendMissing: backendMissing, OutdatedBackend: outdated}
 		}
 	}
 
@@ -816,6 +831,7 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 	ml.mu.Lock()
 	store := ml.store
 	wd := ml.wd
+	remoteUnloader := ml.remoteUnloader
 	ml.mu.Unlock()
 
 	m, ok := store.Get(s)
@@ -862,6 +878,13 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 			}
 			if isConnectionError(err) {
 				xlog.Warn("Remote model unreachable (connection error), removing from cache", "model", s, "error", err)
+				if remoteUnloader != nil {
+					// The stub points at one replica. deleteProcess would
+					// stop the model on every node and take the healthy
+					// replicas down with this one.
+					ml.evictRemoteStub(s)
+					return nil
+				}
 				if delErr := ml.deleteProcess(cTimeout, s, false); delErr != nil {
 					xlog.Error("error cleaning up remote model", "error", delErr, "model", s)
 				}

@@ -90,6 +90,7 @@ const note = (seq, id) => ({ seq, role: 'tool', text: 'propose_memory: x', card:
 const forRow = (r) => (r.proposals || []).map((m) => m.card.id)
 
 test('placeProposals: the card of a turn goes on its last model message, not the first', () => {
+  // What the model said before a call is a note of the activity, not a message.
   const rows = placeProposals(threadRows([
     { seq: 1, role: 'user', text: 'remember it' },
     note(2, 'a'),
@@ -97,10 +98,10 @@ test('placeProposals: the card of a turn goes on its last model message, not the
     { seq: 4, role: 'tool', text: 'read_file: /n\nbody' },
     { seq: 5, role: 'assistant', text: 'Here is the change.' },
   ], emptyLive()))
-  assert.deepEqual(rows.map((r) => r.kind), ['msg', 'msg', 'msg'])
-  assert.deepEqual(rows.map(forRow), [[], [], ['a']])
-  // The tool lines keep their place in the fold.
-  assert.equal(rows[1].activity.length, 1)
+  assert.deepEqual(rows.map((r) => r.kind), ['msg', 'msg'])
+  assert.deepEqual(rows.map(forRow), [[], ['a']])
+  // The tool lines keep their place in the fold, with the note between them.
+  assert.deepEqual(rows[1].activity.map((i) => i.role), ['tool', 'note', 'tool'])
 })
 
 test('placeProposals: several pending cards keep their order', () => {
@@ -109,7 +110,7 @@ test('placeProposals: several pending cards keep their order', () => {
     note(2, 'a'), { seq: 3, role: 'assistant', text: 'one' },
     note(4, 'b'), { seq: 5, role: 'assistant', text: 'two' },
   ], emptyLive()))
-  assert.deepEqual(rows.map(forRow), [[], [], ['a', 'b']])
+  assert.deepEqual(rows.map(forRow), [[], ['a', 'b']])
 })
 
 test('placeProposals: a streaming turn gets a row of its own after the text', () => {

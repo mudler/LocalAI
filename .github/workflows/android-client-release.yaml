@@ -1,0 +1,320 @@
+# Attaches the Android client app and its update feed to the release of a
+# tag. release.yaml calls it after GoReleaser has made the release, and only
+# while the repository variables ANDROID_PUBLISH and ANDROID_SIGNING are both
+# 'true'.
+#
+# Only stable tags vX.Y.Z get an APK. Any other tag (a release candidate,
+# for example) ends the workflow successfully with nothing built: the app has
+# no RC channel. Such a release then has no android-update.json; an app that
+# reads the stable feed while that release is "latest" gets a 404 and treats
+# it as "no update".
+#
+# Jobs: version (from the tag) -> build (read-only: web, P2P library, signed
+# APK, certificate check, checksum, manifest) -> upload (write, downloads the
+# tested files only, no checkout) -> check-feed (read-only).
+# This workflow never creates, edits or publishes a release, and never
+# deletes an asset.
+#
+# The files it attaches: LocalAI-Android.apk, LocalAI-Android.apk.sha256 and
+# android-update.json (the feed the stable app reads through
+# releases/latest/download/android-update.json).
+#
+# Secrets (names only): ANDROID_RELEASE_KEYSTORE (base64 of the keystore),
+# ANDROID_RELEASE_KEYSTORE_PASSWORD, ANDROID_RELEASE_KEY_ALIAS,
+# ANDROID_RELEASE_KEY_PASSWORD. Variable: ANDROID_RELEASE_CERT_SHA256 (the
+# SHA-256 digest of the release signing certificate, hex; colons are
+# ignored). A missing secret or a different certificate fails the build.
+name: Android client release
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag, for example v5.0.0
+        type: string
+        required: true
+    secrets:
+      ANDROID_RELEASE_KEYSTORE:
+        required: false
+      ANDROID_RELEASE_KEYSTORE_PASSWORD:
+        required: false
+      ANDROID_RELEASE_KEY_ALIAS:
+        required: false
+      ANDROID_RELEASE_KEY_PASSWORD:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: App version from the tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      skip: ${{ steps.version.outputs.skip }}
+      version: ${{ steps.version.outputs.version }}
+      version_code: ${{ steps.version.outputs.version_code }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            launcher/scripts
+            android/scripts
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - id: version
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$TAG is not a stable vX.Y.Z tag: no Android app for this release"
+            exit 0
+          fi
+          v=$(node launcher/scripts/version.mjs tag "$TAG")
+          code=$(node android/scripts/version-code.mjs stable "$v")
+          {
+            echo "skip=false"
+            echo "version=$v"
+            echo "version_code=$code"
+          } >> "$GITHUB_OUTPUT"
+          echo "Android app version $v, versionCode $code, from $TAG"
+
+  build:
+    name: Signed stable APK
+    needs: version
+    if: needs.version.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ inputs.tag }}
+      VERSION: ${{ needs.version.outputs.version }}
+      VERSION_CODE: ${{ needs.version.outputs.version_code }}
+      NDK_VERSION: 30.0.16248370
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: refs/tags/${{ inputs.tag }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: android/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: android/p2pmobile/go.mod
+          cache-dependency-path: |
+            go.sum
+            android/p2pmobile/go.sum
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;35.0.0 ndk;30.0.16248370'
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+      # The P2P library. Without it the app builds but cannot use P2P
+      # servers, so a release requires it.
+      - name: Build the P2P library (arm64)
+        working-directory: android/p2pmobile
+        run: |
+          set -euo pipefail
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
+          go vet ./...
+          go test ./...
+          bash build.sh arm64
+          test -s build/p2pmobile.aar
+      - run: npx cap sync android
+      - name: Decode the release keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_RELEASE_KEYSTORE }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::the ANDROID_RELEASE_KEYSTORE secret is not set"
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/android-release.keystore"
+      - name: Unit tests and the signed stable release APK
+        working-directory: android/native
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/android-release.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        # Published APKs are arm64-v8a only (the Gradle default).
+        # localaiRequireSigning: a missing signing value fails the build.
+        run: |
+          ./gradlew testStableReleaseUnitTest assembleStableRelease \
+            "-PlocalaiVersionName=$VERSION" \
+            "-PlocalaiVersionCode=$VERSION_CODE" \
+            -PlocalaiRequireSigning=true
+      - name: Remove the release keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/android-release.keystore"
+      - name: Check the package and the signing certificate
+        env:
+          APK: native/app/build/outputs/apk/stable/release/app-stable-release.apk
+          EXPECTED_CERT: ${{ vars.ANDROID_RELEASE_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          expected=$(printf '%s' "$EXPECTED_CERT" | tr -d ': \n' | tr 'A-F' 'a-f')
+          if ! [[ "$expected" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "::error::the ANDROID_RELEASE_CERT_SHA256 variable is not a SHA-256 digest"
+            exit 1
+          fi
+          badging=$("$tools/aapt2" dump badging "$APK" | head -n 1)
+          echo "$badging"
+          [[ "$badging" == "package: name='io.localai.client' versionCode='$VERSION_CODE' versionName='$VERSION'"* ]] ||
+            { echo "::error::unexpected package, versionCode or versionName"; exit 1; }
+          "$tools/aapt2" dump badging "$APK" | grep -Fxq "native-code: 'arm64-v8a'" ||
+            { echo "::error::the APK must carry arm64-v8a native code only, with the P2P library"; exit 1; }
+          certs=$("$tools/apksigner" verify --print-certs "$APK")
+          echo "$certs"
+          mapfile -t digests < <(printf '%s\n' "$certs" | sed -n -E 's/^Signer #[0-9]+ certificate SHA-256 digest: *([0-9a-fA-F]+)$/\1/p' | tr 'A-F' 'a-f')
+          if [ "${#digests[@]}" -ne 1 ] || [ "${digests[0]}" != "$expected" ]; then
+            echo "::error::the APK is not signed by the release certificate alone"
+            exit 1
+          fi
+      - name: Name the APK and write its checksum and manifest
+        env:
+          NOTES_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cp native/app/build/outputs/apk/stable/release/app-stable-release.apk out/LocalAI-Android.apk
+          (cd out && sha256sum LocalAI-Android.apk > LocalAI-Android.apk.sha256 && cat LocalAI-Android.apk.sha256)
+          node scripts/write-manifest.mjs \
+            --app-id io.localai.client \
+            --version-name "$VERSION" \
+            --version-code "$VERSION_CODE" \
+            --apk out/LocalAI-Android.apk \
+            --name LocalAI-Android.apk \
+            --commit "$(git rev-parse HEAD)" \
+            --notes-url "$NOTES_URL" \
+            --out out/android-update.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: localai-android-release
+          path: android/out/
+          if-no-files-found: error
+          retention-days: 7
+
+  upload:
+    name: Attach to the release
+    needs: [version, build]
+    if: needs.version.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      # Download only: never run repository code with the write token.
+      - uses: actions/download-artifact@v8
+        with:
+          name: localai-android-release
+          path: dist
+      - name: Check the files, the checksum and the manifest
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          ls -l
+          # Exactly these three files, nothing else.
+          names=$(find . -mindepth 1 -printf '%P\n' | sort | tr '\n' ' ')
+          if [ "$names" != "LocalAI-Android.apk LocalAI-Android.apk.sha256 android-update.json " ]; then
+            echo "::error::unexpected files in the artifact: $names"
+            exit 1
+          fi
+          sha256sum --check --strict LocalAI-Android.apk.sha256
+          m=android-update.json
+          test "$(jq -r .applicationId "$m")" = io.localai.client
+          test "$(jq -r .apk "$m")" = LocalAI-Android.apk
+          test "$(jq -r .size "$m")" = "$(stat -c %s LocalAI-Android.apk)"
+          test "$(jq -r .sha256 "$m")" = "$(sha256sum LocalAI-Android.apk | cut -d ' ' -f 1)"
+          jq . "$m"
+      # The release is made by GoReleaser; never make or edit it here.
+      # --clobber: a re-run for the same tag replaces the files. The APK goes
+      # first, then its checksum, and the manifest last, so the feed never
+      # names a file that is not attached yet.
+      - name: Attach to the existing release
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --json isDraft,isPrerelease \
+            --jq '"draft=\(.isDraft) prerelease=\(.isPrerelease)"'
+          upload() {
+            gh release upload "$TAG" LocalAI-Android.apk --clobber &&
+              gh release upload "$TAG" LocalAI-Android.apk.sha256 --clobber &&
+              gh release upload "$TAG" android-update.json --clobber
+          }
+          for attempt in 1 2 3 4 5; do
+            if upload; then
+              exit 0
+            fi
+            echo "attempt ${attempt} failed, retrying"
+            sleep $((attempt * 15))
+          done
+          echo "::error::could not attach the Android files to $TAG"
+          exit 1
+
+  check-feed:
+    name: Check the attached feed
+    needs: [version, upload]
+    if: needs.version.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag }}
+      VERSION: ${{ needs.version.outputs.version }}
+      VERSION_CODE: ${{ needs.version.outputs.version_code }}
+    steps:
+      - name: Download the three files and compare them
+        run: |
+          set -euo pipefail
+          mkdir feed && cd feed
+          for name in LocalAI-Android.apk LocalAI-Android.apk.sha256 android-update.json; do
+            gh release download "$TAG" --pattern "$name" --clobber
+          done
+          m=android-update.json
+          jq . "$m"
+          status=0
+          [ "$(jq -r .versionName "$m")" = "$VERSION" ] || { echo "::error::$m names version $(jq -r .versionName "$m"), expected $VERSION"; status=1; }
+          [ "$(jq -r .versionCode "$m")" = "$VERSION_CODE" ] || { echo "::error::$m names versionCode $(jq -r .versionCode "$m"), expected $VERSION_CODE"; status=1; }
+          [ "$(jq -r .size "$m")" = "$(stat -c %s LocalAI-Android.apk)" ] || { echo "::error::$m gives a size that does not match the attached APK"; status=1; }
+          [ "$(jq -r .sha256 "$m")" = "$(sha256sum LocalAI-Android.apk | cut -d ' ' -f 1)" ] || { echo "::error::$m gives a SHA-256 that does not match the attached APK"; status=1; }
+          sha256sum --check --strict LocalAI-Android.apk.sha256 || { echo "::error::the attached .sha256 does not match the attached APK"; status=1; }
+          draft=$(gh release view "$TAG" --json isDraft --jq .isDraft)
+          if [ "$status" = 0 ]; then
+            echo "The Android feed of $TAG is complete (draft: $draft)."
+            if [ "$draft" = true ]; then
+              echo "::notice::The release is still a draft. A maintainer publishes it; this workflow never does."
+            fi
+          fi
+          exit $status

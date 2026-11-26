@@ -3,6 +3,7 @@ package localaitools
 import (
 	"context"
 	"errors"
+	"github.com/mudler/LocalAI/pkg/enginesettings"
 	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"sync"
 
@@ -272,6 +273,21 @@ func (f *fakeClient) UpgradeBackend(_ context.Context, name string) (string, err
 	return "", errNotConfigured
 }
 
+func (f *fakeClient) StartUpgradeRun(_ context.Context, req UpgradeRunStartRequest) (*UpgradeRun, error) {
+	f.record("StartUpgradeRun", req)
+	return &UpgradeRun{ID: "run-1", State: "running", Items: []UpgradeRunItem{}}, nil
+}
+
+func (f *fakeClient) UpgradeRuns(_ context.Context, id string) ([]UpgradeRun, error) {
+	f.record("UpgradeRuns", id)
+	return []UpgradeRun{}, nil
+}
+
+func (f *fakeClient) CancelUpgradeRun(_ context.Context, id, key string) (*UpgradeRun, error) {
+	f.record("CancelUpgradeRun", map[string]string{"id": id, "key": key})
+	return &UpgradeRun{ID: id, State: "running", Items: []UpgradeRunItem{}}, nil
+}
+
 func (f *fakeClient) ModelUpdates(_ context.Context) (*modelupdates.Snapshot, error) {
 	f.record("ModelUpdates", nil)
 	return &modelupdates.Snapshot{Items: []modelupdates.Item{}}, nil
@@ -361,6 +377,16 @@ func (f *fakeClient) SetNodeVRAMBudget(_ context.Context, nodeID, budget string)
 		return f.setNodeVRAMBudget(nodeID, budget)
 	}
 	return nil
+}
+
+func (f *fakeClient) ParseEngineCommand(_ context.Context, engine, command string) (*enginesettings.ParseResult, error) {
+	f.record("ParseEngineCommand", engine+" "+command)
+	return &enginesettings.ParseResult{}, nil
+}
+
+func (f *fakeClient) PreviewEngineCommand(_ context.Context, engine string, config enginesettings.Config) (*enginesettings.BuildResult, error) {
+	f.record("PreviewEngineCommand", config)
+	return &enginesettings.BuildResult{Command: engine}, nil
 }
 
 func (f *fakeClient) VRAMEstimate(_ context.Context, req VRAMEstimateRequest) (*vram.EstimateResult, error) {

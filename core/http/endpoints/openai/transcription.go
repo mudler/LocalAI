@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/schema"
 	model "github.com/mudler/LocalAI/pkg/model"
 
@@ -149,8 +150,10 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 
 		if _, err := io.Copy(dstFile, f); err != nil {
 			xlog.Debug("Audio file copying error", "filename", file.Filename, "dst", dst, "error", err)
+			_ = dstFile.Close()
 			return err
 		}
+		_ = dstFile.Close()
 
 		xlog.Debug("Audio file copied", "dst", dst)
 
@@ -191,7 +194,11 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			return err
 		}
 
-		xlog.Debug("Transcribed", "transcription", tr)
+		var logged any = tr
+		if !privacy.Allows(c.Request().Context(), privacy.StoreContent) {
+			logged = privacy.Redacted
+		}
+		xlog.Debug("Transcribed", "transcription", logged)
 
 		switch responseFormat {
 		case schema.TranscriptionResponseFormatLrc, schema.TranscriptionResponseFormatText, schema.TranscriptionResponseFormatSrt, schema.TranscriptionResponseFormatVtt:

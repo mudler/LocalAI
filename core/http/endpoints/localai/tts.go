@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/pkg/audio"
@@ -134,6 +135,10 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 		if err != nil {
 			return err
 		}
+		// Every file of this answer (the output and its resampled and
+		// converted copies) goes once it is sent, for an incognito request.
+		written := []string{filePath}
+		defer func() { privacy.Discard(c.Request().Context(), written...) }()
 
 		// Resample to requested sample rate if specified
 		if input.SampleRate > 0 {
@@ -141,6 +146,7 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 			if err != nil {
 				return err
 			}
+			written = append(written, filePath)
 		}
 
 		// Convert generated file to target format
@@ -149,10 +155,12 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 			return err
 		}
 
+		written = append(written, filePath)
 		filePath, contentType := audio.NormalizeAudioFile(filePath)
 		if contentType != "" {
 			c.Response().Header().Set("Content-Type", contentType)
 		}
+		written = append(written, filePath)
 		return c.Attachment(filePath, filepath.Base(filePath))
 	}
 }

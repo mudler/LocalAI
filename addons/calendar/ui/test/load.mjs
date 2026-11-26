@@ -14,7 +14,8 @@ const COMPONENTS = ['Button', 'Spinner', 'EmptyState', 'Badge', 'Stack', 'Text',
 
 // Builds the bundle and draws it through the real registration path: the host
 // SDK, the module's createAddon and its Component. Options: viewer, fetch,
-// components, layers (the openLayer binding), language.
+// components, layers (the openLayer binding), navigate (the binding that
+// opens an address of the app), language.
 export async function load(extra = {}) {
   const dir = await build()
   const mod = await import(pathToFileURL(join(dir, 'ui/calendar.js')).href + `?t=${Date.now()}`)
@@ -23,7 +24,7 @@ export async function load(extra = {}) {
   const calls = []
   const layers = []
   const controller = new AbortController()
-  const { viewer, components, layerSpec, fetch, ...rest } = extra
+  const { viewer, components, layerSpec, fetch, navigate, ...rest } = extra
   const stubs = Object.fromEntries(COMPONENTS.map(n => [n, stub('div')]))
   Object.assign(stubs, kitStubs(React))
   stubs.PageHeader = (p) => React.createElement('header', { 'data-stub': 'header' }, p.title ? React.createElement('h1', null, p.title) : null, p.supporting, p.actions)
@@ -43,6 +44,7 @@ export async function load(extra = {}) {
       current: () => ({ page: 'calendar', path: '', search: '' }),
       openLayer: (kind, spec) => { layers.push({ kind, spec }); return { close() {} } },
       notify() {},
+      navigate,
     },
   })
   return { mod, sdk, controller, calls, layers }

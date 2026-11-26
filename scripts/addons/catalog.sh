@@ -12,7 +12,11 @@
 #
 # Release index, for the asset addons-index.yaml of a GitHub release (entries
 # pinned by digest and tag, signed by the run of the tag). It reads the merged
-# layout of each add-on, <merged-root>/<id>:
+# layout of each add-on, <merged-root>/<id>, for the manifest, and pins the
+# platform digests that the registry holds under <id>-<version>: a publish that
+# adopted an earlier push of the same version (--adopt-existing) did not push
+# the digests of its own layout. The registry must allow anonymous pulls, or
+# the caller must be logged in:
 #
 #   sh scripts/addons/catalog.sh --channel release --repository <repo> \
 #       --version <semver> --signer-ref refs/tags/v<semver> \
@@ -96,7 +100,7 @@ for tmpl in gallery/addons/*.yaml.tmpl; do
             --host-operations-in-index --owner-repo "$owner_repo" --signer-ref "$signer_ref" --out "$part" > /dev/null
     else
         "$tool" catalog --config "$config" --template "$tmpl" --merged "$merged_root/$id" \
-            --repository "$repository" --tag "$version" --channel latest \
+            --repository "$repository" --tag "$version" --channel latest --pin-registry \
             --host-operations-in-index --owner-repo "$owner_repo" --signer-ref "$signer_ref" --out "$part" > /dev/null
     fi
     cat "$part" >> "$result"

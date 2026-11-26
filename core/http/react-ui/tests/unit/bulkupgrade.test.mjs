@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  initialSelection, toggleItem, selectAllItems, beginRun, summarize, failedIds, runSequential, runConcurrent, canStart,
+  beginRun, summarize, failedIds, runSequential, canStart,
 } from '../../src/utils/bulkUpgrade.js'
 
 const items = [
@@ -10,14 +10,6 @@ const items = [
   { id: 'c', name: 'C', from: '1', to: '2', startable: true },
   { id: 'd', name: 'D', from: '1', to: '2', startable: true },
 ]
-
-test('bulk upgrade: only startable items are selected or selectable', () => {
-  assert.deepEqual([...initialSelection(items)], ['a', 'c', 'd'])
-  assert.deepEqual([...toggleItem(new Set(['a']), items, 'b')], ['a'], 'a blocked item never joins')
-  assert.deepEqual([...toggleItem(new Set(['a']), items, 'c')].sort(), ['a', 'c'])
-  assert.deepEqual([...toggleItem(new Set(['a', 'c']), items, 'a')], ['c'])
-  assert.deepEqual([...selectAllItems(items)], ['a', 'c', 'd'])
-})
 
 test('bulk upgrade: a run needs a selection and never starts twice', () => {
   assert.equal(beginRun(null, items, new Set()), null)
@@ -90,39 +82,3 @@ test('bulk upgrade: an item is upgrading, not done, until its runOne resolves', 
   assert.equal(summarize(end).done, 1)
 })
 
-test('bulk upgrade: runConcurrent starts every item at once and a failure does not stop the others', async () => {
-  const run = beginRun(null, items, new Set(['a', 'c', 'd']))
-  const started = []
-  const gates = {}
-  const final = runConcurrent(run, (item) => new Promise((resolve) => {
-    started.push(item.id)
-    gates[item.id] = resolve
-  }))
-  await new Promise(resolve => setTimeout(resolve, 5))
-  assert.deepEqual(started, ['a', 'c', 'd'], 'nothing waits for the item before it')
-  gates.c({ ok: false, message: 'x' })
-  gates.a({ ok: true })
-  gates.d({ ok: true })
-  const end = await final
-  assert.equal(end.phase, 'finished')
-  assert.deepEqual(summarize(end), { total: 3, done: 2, failed: 1, skipped: 0, queued: 0, upgrading: 0 })
-})
-
-test('bulk upgrade: runConcurrent calls every runOne before the first one ends, so every request is sent at the click', async () => {
-  const run = beginRun(null, items, new Set(['a', 'c', 'd']))
-  const calls = []
-  const final = runConcurrent(run, (item) => { calls.push(item.id); return new Promise(r => setTimeout(() => r({ ok: true }), 3)) })
-  // Nothing was awaited: the three calls happened synchronously.
-  assert.deepEqual(calls, ['a', 'c', 'd'])
-  assert.equal((await final).phase, 'finished')
-})
-
-test('bulk upgrade: an aborted signal skips what was not started, and started items are not touched', async () => {
-  const run = beginRun(null, items, new Set(['a', 'c']))
-  const ctl = new AbortController()
-  ctl.abort()
-  const calls = []
-  const end = await runConcurrent(run, async (item) => { calls.push(item.id); return { ok: true } }, { signal: ctl.signal })
-  assert.deepEqual(calls, [])
-  assert.equal(summarize(end).skipped, 2)
-})

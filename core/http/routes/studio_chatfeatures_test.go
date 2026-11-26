@@ -738,6 +738,13 @@ var _ = Describe("Chats route contract", func() {
 			// The administrator views have no feature: they need the admin role
 			// (studio_admin_test.go checks that). They are still documented and
 			// need a login.
+			// The hook of an event trigger is public: the secret of the trigger is
+			// its credential (studio_triggerhook_test.go checks it). It has no
+			// feature and no login, and it is documented.
+			if r.Method == http.MethodPost && r.Path == "/api/chats/triggers/:id/hook" {
+				Expect(documented).To(HaveKey("POST /api/chats/triggers/{id}/hook"), "the hook is missing from swagger.json; run make swagger")
+				continue
+			}
 			isAdmin := strings.HasPrefix(r.Path, "/api/chats/admin/")
 			if !isAdmin {
 				count++

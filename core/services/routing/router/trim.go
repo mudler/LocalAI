@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"math"
 	"strings"
 	"sync"
@@ -39,8 +40,14 @@ func JoinTurns(turns []string) string {
 //
 // render wraps the joined turns into what the model actually tokenizes: a chat
 // template for the scorer, identityRender for an embedder/reranker on raw text.
+// Tokenizer counts the tokens of text for the request of ctx. The context
+// carries the privacy level of the request, so a tokenizer that traces does
+// not keep the text of a zero-retention request.
+type Tokenizer func(ctx context.Context, text string) (int, error)
+
 type promptTrimmer struct {
-	tokenize func(string) (int, error)
+	ctx      context.Context
+	tokenize Tokenizer
 	render   func(joined string) (string, error)
 	budget   int
 }
@@ -58,7 +65,7 @@ func (t promptTrimmer) fit(turns []string) string {
 	if err != nil {
 		return joined
 	}
-	total, err := t.tokenize(rendered)
+	total, err := t.tokenize(t.ctx, rendered)
 	if err != nil || total <= t.budget {
 		return joined
 	}
@@ -80,7 +87,7 @@ func (t promptTrimmer) fit(turns []string) string {
 		if err != nil {
 			return tail
 		}
-		n, err := t.tokenize(rendered)
+		n, err := t.tokenize(t.ctx, rendered)
 		if err != nil || n <= t.budget {
 			return tail
 		}
@@ -120,7 +127,7 @@ func runePretrimStart(turns []string, budgetRunes int) int {
 // loading) recovers on a later call; extras that already fill the context are
 // cached as disabled.
 type lazyBudget struct {
-	tokenize   func(string) (int, error)
+	tokenize   Tokenizer
 	maxContext int
 	extras     []string
 	reserve    int
@@ -149,7 +156,9 @@ func (l *lazyBudget) get() int {
 	}
 	longest := 0
 	for _, e := range l.extras {
-		n, err := l.tokenize(e)
+		// The extras are configuration (candidates, documents), not the
+		// request, so the budget is computed outside any request.
+		n, err := l.tokenize(context.Background(), e)
 		if err != nil {
 			return 0 // transient: leave unset so a later call retries
 		}
@@ -169,10 +178,10 @@ func (l *lazyBudget) get() int {
 // trimmedProbeText returns the text to feed a model: the most recent turns
 // that fit its token budget, or p.Prompt when trimming is disabled (no
 // tokenizer/context wired, or a single-input probe with no Messages).
-func trimmedProbeText(p Probe, b *lazyBudget, render func(string) (string, error)) string {
+func trimmedProbeText(ctx context.Context, p Probe, b *lazyBudget, render func(string) (string, error)) string {
 	if len(p.Messages) > 0 {
 		if budget := b.get(); budget > 0 {
-			return promptTrimmer{tokenize: b.tokenize, render: render, budget: budget}.fit(p.Messages)
+			return promptTrimmer{ctx: ctx, tokenize: b.tokenize, render: render, budget: budget}.fit(p.Messages)
 		}
 	}
 	return p.Prompt

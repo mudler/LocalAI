@@ -9,8 +9,48 @@ ARG BUILDER_BASE_IMAGE=${BASE_IMAGE}
 # usable in `FROM ${BUILDER_TARGET}` below. Default keeps local
 # `make backends/llama-cpp` on the from-source path.
 ARG BUILDER_TARGET=builder-fromsource
+# Base of the stage that builds the ggml CPU variants. Keep it at the oldest glibc
+# of any GPU builder image: see the cpu-variants stage.
+ARG CPU_VARIANTS_BASE_IMAGE=ubuntu:22.04
 ARG APT_MIRROR=""
 ARG APT_PORTS_MIRROR=""
+
+# ============================================================================
+# Stage: cpu-variants - ggml's CPU backend variants (libggml-cpu-*.so), built
+# once per architecture with plain gcc and shared by every image flavor.
+#
+# The variants link only libggml-base, never a GPU backend, so they do not
+# need the CUDA, ROCm or oneAPI toolchains. Building them here keeps icpx
+# (which stalls on ggml-cpu/arch/x86/repack.cpp) and hipcc (whose time is
+# spent on the HIP kernels) away from ggml-cpu, and gives every flavor, GPU
+# or not, the same variants. The GPU stages build with -DGGML_CPU=OFF and
+# take these libraries from here.
+#
+# The stage depends only on the two bind-mounted files, so its layer is reused
+# until the llama.cpp pin or the script changes, not on every LocalAI source
+# change. It uses an Ubuntu 22.04 base on purpose: the package runs on the
+# glibc bundled from the GPU builder, and a variant built against an older
+# glibc runs on any newer one, not the other way round. arm64 needs gcc-14 for
+# the armv9.2 SME variants, which Ubuntu 22.04 only has in the toolchain PPA.
+# ============================================================================
+FROM ${CPU_VARIANTS_BASE_IMAGE} AS cpu-variants
+ARG TARGETARCH
+ARG APT_MIRROR
+ARG APT_PORTS_MIRROR
+ENV APT_MIRROR=${APT_MIRROR} \
+    APT_PORTS_MIRROR=${APT_PORTS_MIRROR} \
+    DEBIAN_FRONTEND=noninteractive
+
+RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    --mount=type=bind,source=.docker/cpu-variants-toolchain.sh,target=/usr/local/sbin/cpu-variants-toolchain.sh \
+    sh /usr/local/sbin/cpu-variants-toolchain.sh
+
+ENV CC=/usr/local/bin/gcc CXX=/usr/local/bin/g++
+RUN --mount=type=bind,source=.docker/llama-cpp-cpu-variants.sh,target=/usr/local/sbin/cpu-variants.sh \
+    --mount=type=bind,source=backend/cpp/llama-cpp/Makefile,target=/usr/local/share/llama-cpp.Makefile \
+    --mount=type=cache,target=/root/.ccache,id=llama-cpp-cpu-variants-${TARGETARCH},sharing=locked \
+    bash /usr/local/sbin/cpu-variants.sh /usr/local/share/llama-cpp.Makefile /out
+
 
 
 # ============================================================================
@@ -84,6 +124,8 @@ RUN --mount=type=bind,source=.docker/install-base-deps.sh,target=/usr/local/sbin
 RUN cp -a /opt/grpc/. /usr/local/
 
 COPY . /LocalAI
+# The ggml CPU variants for this architecture; llama-cpp-compile.sh hands them to make.
+COPY --from=cpu-variants /out/ /LocalAI/backend/cpp/llama-cpp/cpu-variants/
 
 # BuildKit cache mount for ccache. Persists compiler outputs across builds
 # via the registry cache (cache-to: type=registry,mode=max in CI). On a
@@ -136,6 +178,8 @@ ARG TARGETVARIANT
 RUN cp -a /opt/grpc/. /usr/local/
 
 COPY . /LocalAI
+# The ggml CPU variants for this architecture; llama-cpp-compile.sh hands them to make.
+COPY --from=cpu-variants /out/ /LocalAI/backend/cpp/llama-cpp/cpu-variants/
 
 RUN --mount=type=bind,source=.docker/llama-cpp-compile.sh,target=/usr/local/sbin/compile.sh \
     --mount=type=cache,target=/root/.ccache,id=llama-cpp-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \

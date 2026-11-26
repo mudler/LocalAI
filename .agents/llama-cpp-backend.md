@@ -8,6 +8,15 @@ The llama.cpp backend (`backend/cpp/llama-cpp/grpc-server.cpp`) is a gRPC adapta
 - The backend is built as part of the main build process
 - Check `backend/cpp/llama-cpp/Makefile` for build configuration
 
+## CPU variants
+
+Every llama-cpp image ships `llama-cpp-cpu-all`: ggml built with `GGML_BACKEND_DL`, and `ggml` picks the best `libggml-cpu-*.so` for the host at run time. The variants are built once per architecture by the `cpu-variants` stage of `backend/Dockerfile.llama-cpp` (`.docker/llama-cpp-cpu-variants.sh`, plain gcc, Ubuntu 22.04) and copied into every flavor. The GPU stage builds with `-DGGML_CPU=OFF` and compiles only its own backend and the loader, so icpx and hipcc never compile `ggml-cpu`. Rules:
+
+- The variants must come from the same llama.cpp commit as the GPU tree. The Makefile checks this through the `LLAMA_VERSION` file the stage writes.
+- Keep the stage on the oldest glibc of any builder image. The script refuses a variant that needs a newer glibc or libstdc++ than Ubuntu 22.04 has.
+- turboquant, bonsai and olala build a llama.cpp fork and use the same stage with their own pin (`CPU_VARIANTS_VERSION_VAR`, and `OLALA_CMAKE_ARGS` for olala's CPU flags) and their own patches. The variants of a fork come from that fork, never from upstream. ik-llama-cpp has its own ggml without the backend loader, so it keeps per-instruction-set binaries.
+- `llama-cpp-grpc` and `llama-cpp-rpc-server` are separate static builds and still compile their own CPU backend.
+
 ## Architecture
 
 - **grpc-server.cpp**: gRPC server implementation, adapts HTTP server patterns to gRPC

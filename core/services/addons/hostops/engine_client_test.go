@@ -109,6 +109,7 @@ var _ = Describe("Client job operations", func() {
 		Expect(ClientCallOps).To(Equal(map[string]bool{
 			"client.jobs.start": true, "client.jobs.get": true, "client.jobs.cancel": true,
 			"client.workspace.list": true, "client.workspace.read": true, "client.workspace.write": true,
+			"events.emit": true,
 		}))
 		// The same operation runs for a call that is not a client's.
 		live("op2", contract.Actor{UserID: "u1", CredentialID: "c1", Mode: "named-user"})

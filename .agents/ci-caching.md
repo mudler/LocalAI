@@ -304,7 +304,7 @@ concurrency:
 
 ### Test, lint and E2E workflows cancel superseded master runs
 
-`test.yml`, `lint.yml`, `build-test.yaml`, `test-extra.yml`, `tests-e2e.yml`, `tests-ui-e2e.yml`, `tests-aio.yml`, `tests-pii-ner-e2e.yml`, `realtime-conformance.yml` and `ci-tools-tests.yaml` use this instead:
+`test.yml`, `lint.yml`, `build-test.yaml`, `test-extra.yml`, `tests-e2e.yml`, `tests-e2e-distributed.yml`, `tests-e2e-p2p.yml`, `tests-ui-e2e.yml`, `tests-ui-unit.yml`, `tests-aio.yml`, `tests-pii-ner-e2e.yml`, `realtime-conformance.yml`, `ci-tools-tests.yaml`, `backend-library.yml`, `model-library.yml`, `decision-images.yml` and `sandbox-tests.yml` use this instead (some use a group prefix without `ci-` or without the repository suffix):
 
 ```yaml
 concurrency:
@@ -463,8 +463,9 @@ These paths are under `docs/content/`. Gallery edits still run core gallery
 invariants. Host CSS does not trigger package publishing; the package workflow
 retains its original add-on inputs plus shared build and documentation inputs.
 Package pushes run on master, not every feature branch. Tags remain exempt
-from GitHub path filtering, and release events retain the original publishing
-jobs and failure dependencies. PR cancellation does not cancel master runs or
+from GitHub path filtering. A release event builds and publishes nothing: it
+waits for the tag push run of its commit, verifies the published indexes,
+promotes them and attaches the catalog. PR cancellation does not cancel master runs or
 replace the per-channel publishing locks.
 
 **Maintenance rule:** when adding or moving source, generated inputs, fixtures,

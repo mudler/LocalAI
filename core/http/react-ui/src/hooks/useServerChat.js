@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { chatsApi, chatLoopsApi, chatProjectsApi } from '../utils/api'
 import { eventPayload, retryDelay, resumeUrl } from '../utils/streamRetry'
-import { emptyLive, toolStart, toolEnd, cardResult, cardFromMessages, liveCardWanted, consentAsk } from '../utils/chatLive'
+import { emptyLive, liveSteps, foldMs, reasoningDelta, textDelta, toolStart, toolEnd, cardResult, cardFromMessages, liveCardWanted, consentAsk } from '../utils/chatLive'
 import { notifyTurnEnd } from './useWorkspaceFeed'
 import { pushUsage } from '../utils/chatFoot'
 import { savedFailure } from '../utils/chatFailure'
 import { newOptimistic, adoptedSeq } from '../utils/optimisticSend'
 import { emitSound } from '../utils/soundBus'
+import { rememberIncognitoChat, setIncognitoMarker } from '../utils/incognito'
 
 // Every event kind the server sends. EventSource needs one listener per name.
 const EVENT_KINDS = [
@@ -44,6 +45,9 @@ export function useServerChat({ seed = null } = {}) {
   // Unknown until the list answers; only an explicit false shows the notice.
   const [persistent, setPersistent] = useState(true)
   const [imageModel, setImageModel] = useState('')
+  // The server's incognito setting ({ policy, max_level }), null until the
+  // list answers or when the server does not say.
+  const [incognitoSetting, setIncognitoSetting] = useState(null)
   const [files, setFiles] = useState({ on: true, reason: '' })
   // The chat this page created and the last turn it saw start ({ chat, turn }):
   // what the preview pane counts as new does not depend on when the page reads
@@ -56,6 +60,8 @@ export function useServerChat({ seed = null } = {}) {
   // The message being sent, drawn before the server has it (utils/optimisticSend.js).
   const [sending, setSending] = useState(null)
   const [live, setLive] = useState(emptyLive)
+  const liveRef = useRef(live)
+  liveRef.current = live
   const [notes, setNotes] = useState([])
   // What the last model request used ({ used, limit, completion,
   // tokens_per_second }). The server does not keep it: a reload has none until
@@ -149,6 +155,7 @@ export function useServerChat({ seed = null } = {}) {
       setPersistent(data.persistent !== false)
       setFiles({ on: data.files !== false, reason: data.files_reason || '' })
       setImageModel(data.image_model || '')
+      setIncognitoSetting(data.incognito || null)
     } catch (e) {
       setError(e.message)
     }
@@ -167,7 +174,15 @@ export function useServerChat({ seed = null } = {}) {
       if (activeRef.current !== id) return 'stale'
       setDetail(d)
       runningRef.current = Boolean(d?.running)
-      setMessages(m.messages || [])
+      // The answer that takes over a live turn that was folded does not rise in
+      // again: it is the same place on the page.
+      const list = m.messages || []
+      const last = list.length - 1
+      const handOver = endEpoch !== undefined && liveRef.current.ended && list[last]?.role === 'assistant'
+      // The server does not keep which calls failed, so the page carries the
+      // count from the live turn to the line of the record, for this view.
+      const failedCalls = handOver ? liveRef.current.tools.filter(x => x.state === 'failed').length : 0
+      setMessages(handOver ? list.map((x, i) => (i === last ? { ...x, settled: true, failedCalls } : x)) : list)
       endLive()
       return 'ok'
     } catch (e) {
@@ -216,8 +231,8 @@ export function useServerChat({ seed = null } = {}) {
         setDetail(d => (d ? { ...d, running: true } : d))
         refreshChat(id)
       },
-      text: (e) => { piece(); setLive(l => ({ ...l, text: l.text + (e.text || ''), phase: 'text' })) },
-      reasoning: (e) => { piece(); setLive(l => ({ ...l, reasoning: l.reasoning + (e.text || ''), phase: 'reasoning' })) },
+      text: (e) => { piece(); setLive(l => ({ ...textDelta(l, e.text || ''), phase: 'text' })) },
+      reasoning: (e) => { piece(); setLive(l => ({ ...reasoningDelta(l, e.text || ''), phase: 'reasoning' })) },
       tool_start: (e) => { newRequest(); setLive(l => ({ ...toolStart(l, e.tool), phase: 'tool' })) },
       tool_end: (e) => {
         setLive(l => ({ ...toolEnd(l, e.tool), phase: 'after-tool' }))
@@ -282,7 +297,7 @@ export function useServerChat({ seed = null } = {}) {
         setError(e.text)
         // Only the error that ended the turn has a code.
         if (e.code) {
-          setFailure({ code: e.code, model: e.model || '', retry: e.retry || 0, detail: e.detail || '', text: e.text })
+          setFailure({ code: e.code, model: e.model || '', retry: e.retry || 0, detail: e.detail || '', backend: e.backend || '', text: e.text })
           turnFailed = true
           emitSound('error')
         }
@@ -291,10 +306,17 @@ export function useServerChat({ seed = null } = {}) {
         notifyTurnEnd()
         if (!turnFailed) emitSound('replyDone')
         turnFailed = false
+        // The live turn folds into its line first (see StreamingFlow). The
+        // record replaces it only after the fold has settled, and it has that
+        // line already, so the thread moves once and does not jump.
+        const epoch = epochRef.current
+        if (liveSteps(liveRef.current).steps.length > 0) {
+          setLive(l => ({ ...l, ended: true, endedAt: Date.now() }))
+          await new Promise(r => setTimeout(r, foldMs()))
+        }
         // The server publishes the end of a turn just before it records it, so
         // a read at once can still say running. Read again, a few times, until
         // the record agrees, unless a new turn started meanwhile.
-        const epoch = epochRef.current
         for (let i = 0; i < SETTLE_READS; i++) {
           const d = await refreshChat(id, epoch)
           if (d !== 'ok' || epochRef.current !== epoch || !runningRef.current) break
@@ -384,9 +406,20 @@ export function useServerChat({ seed = null } = {}) {
   }, [refreshList, closeStream, connect, refreshChat])
 
   // switches are the drafted switches of the new chat (useChatSwitches).
-  const createChat = useCallback(async (model, agentId, switches, projectId) => {
+  // incognito is the level of an incognito chat ('' for a normal one): the
+  // create request carries the marker, and the server keeps the chat in its
+  // memory only. It refuses a level it does not offer (403).
+  const createChat = useCallback(async (model, agentId, switches, projectId, incognito = '') => {
     setError('')
-    const created = await chatsApi.create(model, undefined, agentId, false, switches || undefined, projectId || undefined)
+    if (incognito) setIncognitoMarker(incognito)
+    let created
+    try {
+      created = await chatsApi.create(model, undefined, agentId, false, switches || undefined, incognito ? undefined : (projectId || undefined))
+    } catch (e) {
+      if (incognito) setIncognitoMarker('')
+      throw e
+    }
+    if (incognito) rememberIncognitoChat(created.id, created.incognito || incognito)
     setMadeHere(created.id)
     await refreshList()
     return created.id
@@ -593,7 +626,7 @@ export function useServerChat({ seed = null } = {}) {
   }, [refreshList, select])
 
   return {
-    chats, persistent, imageModel, files, activeId, detail, messages, live, notes, error, failure, failureSaved, resuming, loading, usage, usageHistory, firstTokenMs, readPace, ticks, madeHere, startedTurn, reconnecting, pausedSteps,
+    chats, persistent, imageModel, incognitoSetting, files, activeId, detail, messages, live, notes, error, failure, failureSaved, resuming, loading, usage, usageHistory, firstTokenMs, readPace, ticks, madeHere, startedTurn, reconnecting, pausedSteps,
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
     // The server resumes an interrupted turn by itself (see utils/turnResume.js).

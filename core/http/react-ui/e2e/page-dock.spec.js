@@ -319,6 +319,11 @@ test('a docked page is live, sandboxed, and its chat.send waits for the person t
   await ask.getByTestId('dock-send').click()
   await expect(dockFrame(page).locator('#sent')).toHaveText('sent')
   await expect(page.getByTestId('chat-thread')).toContainText('Move the dentist to Friday', { timeout: 15_000 })
+  // The send is what this test is about, not the answer. The mock model calls
+  // a tool on every step until the step limit, and those 40 rounds of the
+  // server and the chat view, on a loaded runner, made the beat of the docked
+  // page late enough that the frame was stopped as busy. Stop the run here.
+  expect((await request.post(`/api/chats/${id}/stop`)).ok()).toBeTruthy()
   await expect.poll(async () => (await api(request, `/api/chats/${id}`)).running, { timeout: 60_000 }).toBe(false)
   await expect(dockFrame(page).locator('#count')).toHaveText('7')
   await put(request, `/pages/${BOARD}/tasks.json`, TASKS())

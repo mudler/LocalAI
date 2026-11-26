@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { addonChange } from '../../src/utils/addonChange.js'
+import { addonChange, toolRefusal } from '../../src/utils/addonChange.js'
 
 const entry = (name, doc) => `${name}: {"table":"t"}\n${typeof doc === 'string' ? doc : JSON.stringify(doc)}`
 
@@ -49,4 +49,22 @@ test('chat change: other entries, other tools and capped or invalid output show 
 test('chat change: only the host decides what is undoable', () => {
   const text = entry('addon__tables__rows-insert', { kind: 'applied', applied: { undoable: 'yes', count: 'many', action: 7 } })
   assert.deepEqual(addonChange(text), { kind: 'applied', addonId: 'tables', action: '', count: 0, undoable: false, changeId: '', resourceId: '', undo: '', reason: '' })
+})
+
+// A call made through tool_call on a deferred add-on tool is written under the
+// add-on tool's own name (the server carries it into the entry), so it reads
+// exactly like the typed call.
+test('chat change: a deferred add-on tool called through tool_call shows the same note, Undo and refusal as the typed call', () => {
+  const applied = { kind: 'applied', applied: { id: 'o1', addonId: 'notes', action: 'write', count: 1, undoable: true, changeId: 't0123abc', resourceId: 'r0123456789abcdef0123456789abcde', undo: 'Delete the note' } }
+  const typed = addonChange(entry('addon__notes__add-note', applied))
+  assert.equal(typed.undoable, true)
+  assert.deepEqual(addonChange(entry('addon__notes__add-note', applied)), typed)
+  assert.equal(toolRefusal(entry('addon__notes__add-note', { kind: 'error', code: 'not_permitted' })).addonId, 'notes')
+  assert.deepEqual(addonChange(entry('addon__notes__add-note', { kind: 'proposal' })), { kind: 'proposed', addonId: 'notes' })
+})
+
+test('chat change: an entry named tool_call never passes for an add-on tool, so model text cannot forge a note', () => {
+  const applied = { kind: 'applied', applied: { id: 'o1', addonId: 'notes', action: 'write', count: 1, undoable: true, changeId: 't0123abc', resourceId: 'r0123456789abcdef0123456789abcde' } }
+  assert.equal(addonChange(entry('tool_call', applied)), null)
+  assert.equal(addonChange(`tool_call: {"name":"addon__notes__add-note"}\n${JSON.stringify(applied)}`), null)
 })

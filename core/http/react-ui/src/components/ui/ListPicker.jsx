@@ -5,7 +5,7 @@ import Icon from '../Icon'
 import Tag from './Tag'
 import {
   FILTER_FROM, NONE_KEY, filterRows, groupHeading, initialActive, isRowSelected,
-  moveActive, rowKey, showFilterBox, toggleValue,
+  moveActive, placeMenu, rowKey, showFilterBox, toggleValue,
 } from './listPickerModel'
 import './picker.css'
 
@@ -33,7 +33,6 @@ const ListPicker = forwardRef(function ListPicker(
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
-  const [alignEnd, setAlignEnd] = useState(false)
   const rootRef = useRef(null)
   const triggerRef = useRef(null)
   const listRef = useRef(null)
@@ -73,15 +72,33 @@ const ListPicker = forwardRef(function ListPicker(
     return () => document.removeEventListener('mousedown', onDown)
   }, [open, close])
 
-  // A menu wider than the room to the right of its trigger opens leftwards.
+  // The menu is placed inside the room its trigger has: the window, cut down to
+  // the nearest ancestor that clips (a side sheet's body). A menu that would
+  // leave it hangs at the trigger's right edge or is pushed back in, and one
+  // wider than the room is narrowed. The result goes to the menu as custom
+  // properties that picker.css reads; the natural width is measured first, so
+  // a filter that narrows the list narrows the menu too.
   useLayoutEffect(() => {
-    if (!open) { setAlignEnd(false); return }
     const menu = menuRef.current
     const root = rootRef.current
-    if (!menu || !root || typeof window === 'undefined') return
-    const left = root.getBoundingClientRect().left
-    setAlignEnd(left + menu.offsetWidth > window.innerWidth - 8 && root.getBoundingClientRect().right - menu.offsetWidth >= 8)
-  }, [open])
+    if (!open || !menu || !root || typeof window === 'undefined') return
+    for (const name of ['--menu-left', '--menu-min', '--menu-max']) menu.style.removeProperty(name)
+    let boundsLeft = 0
+    let boundsRight = window.innerWidth
+    for (let el = root.parentElement; el && el !== document.body; el = el.parentElement) {
+      if (getComputedStyle(el).overflowX === 'visible') continue
+      const r = el.getBoundingClientRect()
+      boundsLeft = Math.max(boundsLeft, r.left)
+      boundsRight = Math.min(boundsRight, r.right)
+    }
+    const rect = root.getBoundingClientRect()
+    const { left, width } = placeMenu({ rootLeft: rect.left, rootRight: rect.right, menuWidth: menu.offsetWidth, boundsLeft, boundsRight })
+    if (left !== 0) menu.style.setProperty('--menu-left', `${left}px`)
+    if (width !== null) {
+      menu.style.setProperty('--menu-min', `${width}px`)
+      menu.style.setProperty('--menu-max', `${width}px`)
+    }
+  }, [open, query, rows.length])
 
   // Focus moves into the menu so the arrow keys work, and back to the trigger
   // when it closes by keyboard or by a pick.
@@ -178,7 +195,7 @@ const ListPicker = forwardRef(function ListPicker(
         )}
       </div>
       {open && (
-        <div ref={menuRef} className={`home-menu ${menuClassName}`.trim()} id={menuId} data-align={alignEnd ? 'end' : undefined} onKeyDown={onMenuKey} onBlur={onMenuBlur} data-testid={testId ? `${testId}-menu` : undefined}>
+        <div ref={menuRef} className={`home-menu ${menuClassName}`.trim()} id={menuId} onKeyDown={onMenuKey} onBlur={onMenuBlur} data-testid={testId ? `${testId}-menu` : undefined}>
           {showFilter && (
             <input
               ref={filterRef}

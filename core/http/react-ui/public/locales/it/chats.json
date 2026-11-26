@@ -10,9 +10,7 @@
     "folder": "Cartella da controllare",
     "saveEdit": "Salva",
     "cancelEdit": "Annulla",
-    "create": "Crea trigger",
     "edit": "Modifica",
-    "dismiss": "Rifiuta",
     "receipt": {
       "scheduled": "Pianificato:",
       "watching": "In osservazione:",
@@ -67,8 +65,17 @@
       "stop": "Spegnilo o eliminalo in Trigger",
       "actsLabel": "Permessi",
       "limitLabel": "Limite di tempo",
-      "limitClamped": "{{limit}}, ridotto a {{ceiling}} dall'amministratore"
-    }
+      "limitClamped": "{{limit}}, ridotto a {{ceiling}} dall'amministratore",
+      "doesLabel": "Fa",
+      "tellsYouLabel": "Ti avvisa",
+      "doesWatch": "Tiene i promemoria per {{source}}, {{offset}} di base.",
+      "tellsWatch": "Solo quando aggiunge qualcosa: una modifica fatta da altri, un riassunto pianificato o una sovrapposizione.",
+      "tellsEvery": "Dopo ogni esecuzione.",
+      "tellsOnChange": "Quando la risposta cambia rispetto all'esecuzione precedente.",
+      "tellsOnProblem": "Solo quando un'esecuzione fallisce."
+    },
+    "approve": "Approva",
+    "notNow": "Non ora"
   },
   "mcpPage": {
     "title": "Connettori MCP",
@@ -814,6 +821,58 @@
           "body_one": "{{count}} file vecchio eliminato.",
           "body_other": "{{count}} file vecchi eliminati."
         }
+      },
+      "run": {
+        "title_one": "Aggiornamento di {{count}} elemento",
+        "title_other": "Aggiornamento di {{count}} elementi",
+        "titleAuto_one": "Aggiornamento automatico: {{count}} elemento",
+        "titleAuto_other": "Aggiornamento automatico: {{count}} elementi",
+        "updated_one": "{{count}} aggiornato",
+        "updated_other": "{{count}} aggiornati",
+        "running_one": "{{count}} in corso",
+        "running_other": "{{count}} in corso",
+        "waiting_one": "{{count}} in attesa",
+        "waiting_other": "{{count}} in attesa",
+        "done": "{{done}} di {{total}} completati",
+        "end": {
+          "attention_one": "{{updated}} aggiornati, {{count}} richiede attenzione",
+          "attention_other": "{{updated}} aggiornati, {{count}} richiedono attenzione",
+          "done_one": "{{count}} aggiornato",
+          "done_other": "{{count}} aggiornati",
+          "auto": "Automatico: {{text}}",
+          "first": "{{name}} è ancora alla {{version}}.",
+          "firstWhy": "{{name}} è ancora alla {{version}}: {{reason}}.",
+          "cancelled_one": "Serie annullata: {{count}} aggiornati",
+          "cancelled_other": "Serie annullata: {{count}} aggiornati",
+          "cancelledAttention_one": "Serie annullata: {{updated}} aggiornati, {{count}} richiede attenzione",
+          "cancelledAttention_other": "Serie annullata: {{updated}} aggiornati, {{count}} richiedono attenzione",
+          "firstStart": "{{name}} è ancora alla {{version}}: la nuova versione non si è avviata: {{reason}}."
+        }
+      },
+      "watch": {
+        "set": "Promemoria per \"{{title}}\" impostato: {{when}}.",
+        "changed": "Promemoria per \"{{title}}\" cambiato: {{when}}.",
+        "cancelled": "Promemoria per \"{{title}}\" annullato.",
+        "snoozed": "Promemoria per \"{{title}}\" rimandato a {{when}}.",
+        "snoozeUndone": "Rinvio del promemoria per \"{{title}}\" ritirato.",
+        "skipped": "Promemoria per \"{{title}}\" saltato.",
+        "skipUndone": "Salto del promemoria per \"{{title}}\" ritirato.",
+        "taskChanged": "Compito del promemoria per \"{{title}}\" cambiato.",
+        "restored": "Promemoria per \"{{title}}\" ripristinato: {{when}}.",
+        "next": "Promemoria per il prossimo \"{{title}}\" impostato: {{when}}.",
+        "moved": "Promemoria per \"{{title}}\" spostato a {{when}}.",
+        "movedStarted": "\"{{title}}\" è stato spostato ed è già iniziato, quindi non c'è promemoria.",
+        "removed": "Promemoria per \"{{title}}\" annullato: è stato rimosso.",
+        "woken": "\"{{title}}\" è cambiato. Controllo ora il suo promemoria.",
+        "movedBy": "\"{{title}}\" è stato spostato. Te lo ricordo alle {{when}}.",
+        "movedByStarted": "\"{{title}}\" è stato spostato ed è già iniziato.",
+        "removedBy": "\"{{title}}\" è stato rimosso, quindi ho annullato il suo promemoria.",
+        "wokenBy": "\"{{title}}\" è cambiato. Controllo se il promemoria va ancora bene.",
+        "missed": "Perso: {{title}}. Il server era spento all'ora del promemoria.",
+        "onHold": "Il promemoria per \"{{title}}\" è in attesa finché questa sorveglianza è in pausa.",
+        "dropped": "Il promemoria per \"{{title}}\" è stato rimosso con la sua sorveglianza.",
+        "lastKnown": "Promemoria per il prossimo \"{{title}}\" impostato: {{when}}. È l'ultima data nota; una modifica dell'elemento imposta le successive.",
+        "seriesEnded": "Non si conosce una data successiva di \"{{title}}\", quindi ora non ha promemoria. Una modifica dell'elemento imposta il prossimo."
       }
     },
     "tabs": {
@@ -850,7 +909,15 @@
       }
     },
     "chatsOff": "Le chat sono disattivate",
-    "emptyBodyNoChats": "Qui compaiono gli aggiornamenti e le operazioni concluse."
+    "emptyBodyNoChats": "Qui compaiono gli aggiornamenti e le operazioni concluse.",
+    "runProgress": "Avanzamento: {{title}}",
+    "runStarted": "Avviata {{when}}",
+    "viewProgress": "Vedi l’avanzamento",
+    "seeRun": "Vedi la serie",
+    "openUpdates": "Apri Aggiornamenti",
+    "updatesPending_one": "{{count}} aggiornamento disponibile",
+    "updatesPending_other": "{{count}} aggiornamenti disponibili",
+    "updatesNone": "Tutto è aggiornato"
   },
   "change": {
     "loading": "Lettura della modifica del trigger...",
@@ -1517,7 +1584,10 @@
     "mcp": "Server MCP"
   },
   "triggersPage": {
-    "runLimit": "Limite di tempo di un'esecuzione"
+    "runLimit": "Limite di tempo di un'esecuzione",
+    "presets": {
+      "event": "Quando arriva un evento"
+    }
   },
   "sandboxProfile": {
     "label": "Profilo sandbox",
@@ -1593,5 +1663,165 @@
       "reason": "L'impostazione di questa chat è di {{window}} token e la chat ne richiede almeno {{minimum}}.",
       "fix": "Usa la finestra del modello"
     }
+  },
+  "event": {
+    "listening": "In ascolto:",
+    "announceAccepted": "Creato {{name}}. Copia subito il suo segreto: viene mostrato una volta sola.",
+    "sentence": {
+      "typed": "Quando {{source}} invia {{type}}",
+      "any": "Quando {{source}} invia un evento qualsiasi",
+      "where": " dove {{matches}}",
+      "and": " e "
+    },
+    "hook": {
+      "title": "Indirizzo dell'hook e segreto",
+      "urlLabel": "URL dell'hook",
+      "secretLabel": "Segreto (mostrato una volta)",
+      "curlLabel": "Chiamata di esempio",
+      "copy": "Copia",
+      "copied": "Copiato",
+      "copyUrl": "Copia l'URL dell'hook",
+      "copySecret": "Copia il segreto",
+      "copyCurl": "Copia la chiamata di esempio",
+      "paste": "Incolla l'URL e il segreto nelle impostazioni webhook del mittente. Il segreto non viene mostrato di nuovo.",
+      "noSecret": "Il segreto non viene mostrato di nuovo. Ruotalo per averne uno nuovo.",
+      "rotate": "Ruota il segreto",
+      "rotateTitle": "Ruotare il segreto di {{name}}?",
+      "rotateBody": "Il vecchio segreto smette di funzionare subito. Inserisci il nuovo nel mittente prima del prossimo evento.",
+      "rotateConfirm": "Ruota",
+      "rotated": "Nuovo segreto creato.",
+      "rotateFailed": "Non è stato possibile ruotare il segreto: {{message}}"
+    },
+    "form": {
+      "source": "Mittente",
+      "sourceHint": "Il nome del mittente, per esempio github.",
+      "sourceEmpty": "Indica il mittente degli eventi.",
+      "type": "Tipo di evento",
+      "typeHint": "Lascia vuoto per accettare ogni tipo di evento.",
+      "matches": "Solo quando (un campo=valore per riga)",
+      "matchesHint": "Fino a 8 righe, per esempio action=opened.",
+      "createdTitle": "{{name}} è pronto",
+      "done": "Fatto"
+    }
+  },
+  "watch": {
+    "section": "Sorveglianza",
+    "new": "Nuova sorveglianza",
+    "titleNew": "Nuova sorveglianza",
+    "titleEdit": "Modifica {{name}}",
+    "source": "Sorveglia",
+    "sourceHelp": "Sono elencati solo i componenti aggiuntivi che segnalano le loro modifiche.",
+    "sourcePick": "Scegli un componente aggiuntivo",
+    "types": "Modifiche da seguire",
+    "typesHelp": "Lascia tutto vuoto per seguire ogni modifica.",
+    "offset": "Avvisami",
+    "none": "Nessun promemoria predefinito",
+    "atTime": "All'ora esatta",
+    "minutesBefore_one": "{{count}} min prima",
+    "minutesBefore_other": "{{count}} min prima",
+    "hoursBefore_one": "{{count}} ora prima",
+    "hoursBefore_other": "{{count}} ore prima",
+    "daysBefore_one": "{{count}} giorno prima",
+    "daysBefore_other": "{{count}} giorni prima",
+    "minutesAfter_one": "{{count}} min dopo",
+    "minutesAfter_other": "{{count}} min dopo",
+    "hoursAfter_one": "{{count}} ora dopo",
+    "hoursAfter_other": "{{count}} ore dopo",
+    "daysAfter_one": "{{count}} giorno dopo",
+    "daysAfter_other": "{{count}} giorni dopo",
+    "allDay": "Cose che durano tutto il giorno",
+    "allDayMorning": "Al mattino, alle 08:00",
+    "allDayNone": "Nessun promemoria",
+    "quiet": "Ore di silenzio",
+    "quietFrom": "Dalle",
+    "quietTo": "Alle",
+    "quietHelp": "Un promemoria che cade in queste ore arriva la sera prima.",
+    "tasks": "Compiti predefiniti",
+    "tasksHelp": "Con parole tue, per esempio: per le chiamate con altre persone, prepara un riassunto 30 min prima.",
+    "problemSource": "Scegli cosa sorvegliare.",
+    "problemQuiet": "Le ore di silenzio hanno bisogno di un inizio e di una fine.",
+    "emptyTitle": "Ancora niente da sorvegliare",
+    "emptyBody": "Nessun componente aggiuntivo installato segnala le sue modifiche. Installa il Calendario per avere promemoria dei tuoi eventi.",
+    "summary": "{{source}}, {{offset}}",
+    "watches": "Sorveglia",
+    "state": "Stato",
+    "on": "Attiva",
+    "paused": "In pausa",
+    "permissions": "Modifica i permessi",
+    "reminders": "Prossimi promemoria",
+    "remindersEmpty": "Ancora nessun promemoria. La sorveglianza ne crea uno quando si aggiunge qualcosa.",
+    "dueLine": "{{when}}, {{offset}}",
+    "adjQuiet": "la sera prima, fuori dalle ore di silenzio",
+    "adjAllDay": "al mattino del giorno",
+    "skipped": "Saltato",
+    "snoozed": "Rimandato",
+    "started": "Già iniziato",
+    "open": "Apri",
+    "snooze": "Rimanda",
+    "skip": "Salta",
+    "changeTime": "Cambia orario…",
+    "newTime": "Nuovo orario",
+    "saveTime": "Salva",
+    "save": "Salva sorveglianza",
+    "cancel": "Annulla",
+    "undo": "Annulla azione",
+    "doneSnooze": "Rimandato alle {{when}}.",
+    "doneSkip": "Saltato. Torna se l'elemento si sposta.",
+    "doneRetime": "Spostato a {{when}}.",
+    "doneUndo": "Annullato.",
+    "loadFailed": "Impossibile leggere i promemoria: {{message}}",
+    "sourcesFailed": "Non è stato possibile leggere i componenti aggiuntivi che segnalano modifiche: {{message}}",
+    "viewWatch": "Vedi la sorveglianza",
+    "saved": "Sorveglianza salvata.",
+    "nameRequired": "Una sorveglianza ha bisogno di un nome.",
+    "promptRequired": "Scrivi cosa deve fare la sorveglianza.",
+    "promptHint": "Questo testo avvia ogni esecuzione della sorveglianza.",
+    "enabledHint": "Una sorveglianza spenta tiene i suoi promemoria; aspettano che torni attiva.",
+    "change": {
+      "title": {
+        "create": "Imposta un promemoria per {{title}}",
+        "update": "Cambia il promemoria per {{title}}",
+        "delete": "Annulla il promemoria per {{title}}"
+      },
+      "help": "Non cambia nulla finché non approvi.",
+      "stale": "Il promemoria è cambiato da quando è stato chiesto. Chiedi di nuovo.",
+      "watch": "Sorveglianza",
+      "when": "Quando",
+      "task": "Compito",
+      "none": "nessuno",
+      "receipt": {
+        "create": "Promemoria impostato:",
+        "update": "Promemoria cambiato:",
+        "delete": "Promemoria annullato:",
+        "dismissed": "Non cambiato:",
+        "undone": "Annullato:"
+      },
+      "blocked": {
+        "expired": "Il tempo per annullare è scaduto; cambia il promemoria nella pagina della sorveglianza.",
+        "edited": "Il promemoria è cambiato nel frattempo; cambialo nella pagina della sorveglianza.",
+        "removed": "Il promemoria o la sua sorveglianza sono stati rimossi nel frattempo."
+      },
+      "announce": {
+        "applied": "Approvata la modifica del promemoria per {{title}}.",
+        "dismissed": "Il promemoria per {{title}} resta com'era.",
+        "undone": "Annullata la modifica del promemoria per {{title}}."
+      }
+    }
+  },
+  "incognito": {
+    "label": "In incognito",
+    "levelLabel": "Livello incognito",
+    "levels": {
+      "memory-off": "Senza memoria",
+      "zero-retention": "Nessuna conservazione"
+    },
+    "describe": {
+      "memory-off": "Questa chat non legge né salva la memoria. Non compare nell'elenco e termina quando la lasci. Log e tracce restano come sempre.",
+      "zero-retention": "Il server non conserva nulla di questa chat, solo i conteggi d'uso. Non legge né salva la memoria, non accetta allegati e termina quando la lasci."
+    },
+    "blocked": "Non disponibile in una chat in incognito",
+    "discardTitle": "Terminare la chat in incognito?",
+    "discardMessage": "La chat viene eliminata e non si può più riaprire.",
+    "discardConfirm": "Termina chat"
   }
 }

@@ -61,9 +61,9 @@ describe('electron-builder files list', () => {
     expect(missingFrom(narrowed)).toContain('dist/node/main/supervisor.js')
   })
 
-  it('includes every module under src/main, src/preload and src/shared, imported or not yet', () => {
+  it('includes every module under src/core, src/main, src/preload and src/shared, imported or not yet', () => {
     // A module added now and imported later must not break only the packaged build.
-    const all = ['main', 'preload', 'shared'].flatMap((dir) =>
+    const all = ['core', 'main', 'preload', 'shared'].flatMap((dir) =>
       fs
         .readdirSync(path.join(root, 'src', dir))
         .filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'))
@@ -76,8 +76,8 @@ describe('electron-builder files list', () => {
 
   it('reaches the modules added by the later lanes from the entry points', () => {
     const rel = sources.map((s) => path.relative(root, s))
-    for (const m of ['webuiView', 'webuiPolicy', 'webuiState', 'windowLayout', 'sandboxProbe', 'sandboxSetup', 'hostTools', 'selfUpdate', 'updaterStatus']) {
-      expect(rel).toContain(`src/main/${m}.ts`)
+    for (const m of ['main/webuiView', 'core/webuiPolicy', 'core/webuiState', 'main/windowLayout', 'main/sandboxProbe', 'main/sandboxSetup', 'main/hostTools', 'main/selfUpdate', 'main/updaterStatus']) {
+      expect(rel).toContain(`src/${m}.ts`)
     }
   })
 

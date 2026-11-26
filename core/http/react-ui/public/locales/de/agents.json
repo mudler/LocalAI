@@ -558,7 +558,8 @@
         "prompt": "What to do",
         "schedule": "When",
         "limits": "Limits",
-        "acts": "Berechtigungen"
+        "acts": "Berechtigungen",
+        "delivery": "Berichte"
       },
       "summary": {
         "basics": "{{name}}, {{model}}",
@@ -602,6 +603,25 @@
         "dots": "Ein Ordnername darf „..“ nicht enthalten.",
         "outside": "Dieser Agent kann nur Ordner in seinen eigenen beobachten: {{folders}}.",
         "noFolders": "Dieser Agent hat keinen nutzbaren Ordner. Wähle einen Ordner in den Einstellungen des Agenten."
+      },
+      "delivery": {
+        "now": "Berichtet derzeit an",
+        "where": "Wohin Läufe berichten",
+        "mode": "Wann berichten",
+        "always": "Bei jedem Lauf",
+        "keep": "Beibehalten: {{place}}",
+        "origin": "Der Chat, in dem er vorgeschlagen wurde",
+        "hint": "Aufgeführt sind nur die Kanäle, die du in deinen Verbindungen freigegeben hast, auf Verbindungen, die in Kanälen schreiben dürfen.",
+        "fromChat": "Dieser Trigger wurde in einem Chat einer Messaging-App vorgeschlagen: seine Berichte bleiben auf dieser Verbindung.",
+        "loadFailed": "Die Verbindungen konnten nicht gelesen werden: {{message}}",
+        "unusable": "{{name}}: {{reason}}",
+        "reason": {
+          "off": "ausgeschaltet",
+          "addon_off": "sein Add-on läuft nicht",
+          "tool_only": "ein Dienst für Werkzeuge, kann keine Berichte empfangen",
+          "talkback_off": "darf nicht in Kanälen schreiben",
+          "no_channel": "kein freigegebener Kanal"
+        }
       }
     },
     "subtitle": "Starten Sie einen Agenten nach Zeitplan oder wenn eine Datei ankommt. Jeder Lauf ist ein Chat, den Sie öffnen können.",

@@ -4,6 +4,7 @@ import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { chatProjectsApi } from '../utils/api'
 import Icon from '../components/Icon'
+import { Guarded } from '../components/viewas/parts'
 import { Button, EmptyState, LoadError, Page, PageHeader, SearchField, Segmented, SkeletonRows, StatusChip } from '../components/ui'
 import ProjectSheet from '../components/projects/ProjectSheet'
 import SharedProjects from '../components/projects/SharedProjects'
@@ -73,7 +74,7 @@ export default function Projects() {
   // The empty state is for a person with no project of their own and none
   // shared with them.
   const empty = loaded && !error && rows.length === 0 && shared.length === 0
-  const newProject = <Button variant="primary" icon="plus" onClick={() => setCreating(true)} data-testid="project-new">{t('actions.new')}</Button>
+  const newProject = <Guarded><Button variant="primary" icon="plus" onClick={() => setCreating(true)} data-testid="project-new">{t('actions.new')}</Button></Guarded>
 
   const options = ['all', 'active', 'archived', 'broken'].map(id => ({ id, label: t(`filters.${id}`), count: counts[id] }))
   const clear = () => { setQuery(''); setStatus('all') }
@@ -165,7 +166,7 @@ function ProjectRow({ project: p, t, lang, onRemove }) {
           ? (
             <>
               <Button size="sm" to={projectFolderLink(p)} aria-label={t('actions.openInFilesNamed', { name: p.name })} data-testid="project-row-files">{t('actions.openInFiles')}</Button>
-              <Button variant="danger-ghost" size="sm" aria-label={t('actions.removeNamed', { name: p.name })} onClick={onRemove}>{t('actions.remove')}</Button>
+              <Guarded><Button variant="danger-ghost" size="sm" aria-label={t('actions.removeNamed', { name: p.name })} onClick={onRemove}>{t('actions.remove')}</Button></Guarded>
             </>
           )
           : <Button size="sm" to={projectPath(p.id)} aria-label={`${t('actions.open')} ${p.name}`}>{t('actions.open')}</Button>}

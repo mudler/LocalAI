@@ -33,6 +33,15 @@
     "diskChip": "Disk hampir penuh"
   },
   "activity": {
+    "node": {
+      "done": "Selesai",
+      "failed": "Gagal",
+      "queued": "Dalam antrean",
+      "workerBusy": "Worker sibuk",
+      "downloading": "Mengunduh",
+      "rolledBack": "Dikembalikan",
+      "unconfirmed": "Belum dikonfirmasi"
+    },
     "kind": {
       "addon": "add-on"
     },

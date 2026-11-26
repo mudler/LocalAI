@@ -148,6 +148,9 @@ chat's attachments. It is a normal, visible folder.
   `bash` and `write_file` and the Sandbox document skills say the same. The built-in
   `localai-apps` and `localai-workspace` skills also give this guidance. Pages
   (`pages/<name>/`) and the `LocalAI/` settings folder are not working files.
+  An image, an office document, a PDF, an audio or a video file is never a
+  working file, even in the work folder: a script that saves a chart with a bare
+  file name makes it there, and it is the result you asked for.
   The folder is named in the note and not in the prompt because its name
   carries the chat's title: the prompt stays the same for every chat, so a
   backend with a prompt cache (llama.cpp) reuses it, with the tool

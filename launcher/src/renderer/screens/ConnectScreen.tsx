@@ -95,7 +95,7 @@ export function ConnectScreen({ endpoint }: { endpoint: string }) {
       applyNet(r.network)
       // The plan said it restarts; the user confirmed that.
       if (r.network.restartRequired) {
-        await b.restart()
+        await b.restart?.()
         const n = await b.getNetwork?.()
         if (n) applyNet(n)
       }
@@ -111,7 +111,7 @@ export function ConnectScreen({ endpoint }: { endpoint: string }) {
   }
 
   const restartNow = async () => {
-    await b.restart()
+    await b.restart?.()
     const n = await b.getNetwork?.()
     if (n) applyNet(n)
   }

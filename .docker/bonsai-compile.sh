@@ -19,20 +19,12 @@ fi
 
 cd /LocalAI/backend/cpp/bonsai
 
-if [ -z "${BUILD_TYPE:-}" ]; then
-  # Pure CPU image: one ggml CPU_ALL_VARIANTS build replaces the per-microarch binaries.
-  # arm64: the armv9.2 SME variants need gcc-14 (gcc-13 rejects +sme).
-  if [ "${TARGETARCH}" = "arm64" ]; then
-    apt-get update -qq && apt-get install -y -qq gcc-14 g++-14
-    export CC=gcc-14 CXX=g++-14
-  fi
-  make bonsai-cpu-all
-else
-  # GPU build (cublas/hipblas/sycl/vulkan/...): single fallback CPU build, the accelerator
-  # does the compute. Keeps the GPU compile from also building the CPU variant matrix and
-  # avoids the gcc-14 apt step on GPU base images such as nvidia l4t.
-  make bonsai-fallback
-fi
+# The CPU variants come from the cpu-variants stage of the Dockerfile (the fork's own pin,
+# plain gcc); the tree built here has no CPU backend and ggml dlopens the best variant at
+# run time, for CPU-only and GPU images alike. See .docker/llama-cpp-compile.sh.
+CPU_VARIANTS_DIR=/LocalAI/backend/cpp/bonsai/cpu-variants
+ls "$CPU_VARIANTS_DIR"/libggml-cpu-*.so > /dev/null
+make bonsai-cpu-all CPU_VARIANTS_DIR="$CPU_VARIANTS_DIR"
 make bonsai-grpc
 make bonsai-rpc-server
 

@@ -22,6 +22,7 @@ import { ClockTime, OutputBlock, RelTime, RunItem } from '../components/agents/R
 import { ReadOnlyTag } from '../components/TriggerActs'
 // eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
 import ReportsTo from '../components/agents/ReportsTo'
+import { EventSentence } from '../components/chat/EventHook'
 import { useAddonIcons } from '../hooks/useAddonIcons'
 import Icon from '../components/Icon'
 import { Button, EmptyState, LoadError, Page, PageHeader, Segmented, SkeletonRows, Switch } from '../components/ui'
@@ -167,7 +168,10 @@ export default function AgentJobs() {
         title={t('jobs.title')}
         supporting={t('jobs.subtitle')}
         actions={!off && !emptyTasks && (
-          <Button variant="primary" icon="plus" onClick={() => navigate('/app/triggers/new')}>{t('jobs.newTask')}</Button>
+          <>
+            <Button variant="secondary" icon="clock" onClick={() => navigate('/app/triggers/new?watch=1')} data-testid="new-watch">{t('chats:watch.new')}</Button>
+            <Button variant="primary" icon="plus" onClick={() => navigate('/app/triggers/new')}>{t('jobs.newTask')}</Button>
+          </>
         )}
       />
       <AgentViews />
@@ -393,10 +397,10 @@ function TriggerRow({ task, project, jobs, agent, icons, onToggle, onRun, onOpen
   const file = task.kind === 'file'
   return (
     <li className="ag-row aj-task" data-row data-task={label} data-off={off || undefined}>
-      <span className="ag-tile" aria-hidden="true"><Icon name={file ? 'folder' : 'clock'} /></span>
+      <span className="ag-tile" aria-hidden="true"><Icon name={file ? 'folder' : task.kind === 'event' ? 'bolt' : 'clock'} /></span>
       <div className="ag-row__main">
         <Link className="ag-row__name" to={`/app/triggers/${encodeURIComponent(task.id)}`}>{label}</Link>
-        <span className="aj-task__desc aj-task__when">{task.summary || t('jobs.tasks.noSchedule')}</span>
+        <span className="aj-task__desc aj-task__when">{task.kind === 'event' ? <EventSentence trigger={task} /> : (task.summary || t('jobs.tasks.noSchedule'))}</span>
         <span className="ag-meta">
           {agent
             ? <Link to={`/app/agents/${encodeURIComponent(task.agent_id)}`}><Icon name="robot" />{agent}</Link>

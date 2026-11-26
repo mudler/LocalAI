@@ -65,7 +65,18 @@ var _ = Describe("working files", func() {
 		},
 		// The work folder of any chat holds working files, whatever they are.
 		Entry("a script in the work folder", "/Chats/2026-10-31 Report/work/build_document.py", workfiles.Working),
-		Entry("a document in the work folder", "/Chats/2026-10-31 Report/work/draft.docx", workfiles.Working),
+		Entry("a text draft in the work folder", "/Chats/2026-10-31 Report/work/draft.md", workfiles.Working),
+		// A command starts in the work folder, so what a script saves with a
+		// bare file name lands there. A result that the person opens is
+		// a deliverable wherever it is.
+		Entry("a chart in the work folder", "/Chats/2026-10-31 Report/work/chart.png", workfiles.Deliverable),
+		Entry("a chart by its guest path", "/workspace/home/Chats/2026-10-31 Report/work/Chart.PNG", workfiles.Deliverable),
+		Entry("a nested image in the work folder", "/Chats/2026-10-31 Report/work/out/plot.svg", workfiles.Deliverable),
+		Entry("a document in the work folder", "/Chats/2026-10-31 Report/work/summary.docx", workfiles.Deliverable),
+		Entry("a spreadsheet in the work folder", "/Chats/2026-10-31 Report/work/q1.xlsx", workfiles.Deliverable),
+		Entry("a PDF in the work folder", "/Chats/2026-10-31 Report/work/report.pdf", workfiles.Deliverable),
+		Entry("a clip in the work folder", "/Chats/2026-10-31 Report/work/clip.mp4", workfiles.Deliverable),
+		Entry("an image in a scripts folder", "/scripts/plot.png", workfiles.Deliverable),
 		Entry("a nested file in the work folder", "/Chats/2026-10-31 Report/work/data/rows.json", workfiles.Working),
 		Entry("the guest path of the work folder", "/workspace/home/Chats/2026-10-31 Report/work/notes.md", workfiles.Working),
 		Entry("the Chats folder in another case", "/chats/2026-10-31 Report/work/a.csv", workfiles.Working),
@@ -156,7 +167,8 @@ var _ = Describe("working files", func() {
 			Expect(workfiles.Stray(p)).To(Equal(stray), p)
 		},
 		Entry("a script in the chat's work folder", "/workspace/chat/work/run.py", workfiles.Working, false),
-		Entry("a draft in the chat's work folder", "/workspace/chat/work/draft.docx", workfiles.Working, false),
+		Entry("a draft in the chat's work folder", "/workspace/chat/work/draft.md", workfiles.Working, false),
+		Entry("a chart in the chat's work folder", "/workspace/chat/work/chart.png", workfiles.Deliverable, false),
 		Entry("a nested file in the chat's work folder", "/workspace/chat/work/data/rows.json", workfiles.Working, false),
 		Entry("an attachment in the chat folder", "/workspace/chat/invoice.pdf", workfiles.Deliverable, false),
 		Entry("a script beside the attachments", "/workspace/chat/run.py", workfiles.Working, true),

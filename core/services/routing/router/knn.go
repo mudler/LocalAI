@@ -97,7 +97,7 @@ func NewKNNClassifier(embedder backend.Embedder, store backend.VectorStore, opts
 // the probe embeds the most recent turns that fit instead of a
 // caller-chosen size. nil tokenizer / non-positive context leaves
 // trimming off. Returns the receiver for chaining at construction.
-func (c *KNNClassifier) WithTokenTrim(tokenize func(string) (int, error), maxContextTokens int) *KNNClassifier {
+func (c *KNNClassifier) WithTokenTrim(tokenize Tokenizer, maxContextTokens int) *KNNClassifier {
 	c.budget = &lazyBudget{tokenize: tokenize, maxContext: maxContextTokens}
 	return c
 }
@@ -114,7 +114,7 @@ func (c *KNNClassifier) Classify(ctx context.Context, p Probe) (Decision, error)
 
 	start := time.Now()
 
-	vec, err := c.embedder.Embed(ctx, trimmedProbeText(p, c.budget, identityRender))
+	vec, err := c.embedder.Embed(ctx, trimmedProbeText(ctx, p, c.budget, identityRender))
 	if err != nil {
 		return errDecision(start, fmt.Errorf("knn classifier embed: %w", err))
 	}

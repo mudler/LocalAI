@@ -133,6 +133,19 @@ download; the host tells the sender that the file is too large. A runtime that
 implements `contract.ConnectorRuntime` has the route; others get a 404. The add-on
 cuts a long `text` to the limit of its platform.
 
+### Message buttons
+
+A message of the host can carry up to four `actions` `{id, label}` on a `send`.
+A kind that sets `"actions": true` (feature level 12) shows them as buttons under
+the last part of the message, and reports a tap as an update with `action` set to
+the ID of the button and no text. The add-on answers the tap on its platform so the
+button stops waiting. A kind without `actions` never gets them: the host adds one
+line to the text with the words to reply instead, and answers those words in the
+chat that got the message. Telegram shows the buttons as one row of inline buttons.
+The host uses them today for reminders (snooze, later, skip, got it) and answers a
+tap with no model turn. A tap on a button the host does not know gets a short
+answer and goes no further.
+
 ### File abilities and limits
 
 The bytes of a file never travel inside the connector envelope: they move by a

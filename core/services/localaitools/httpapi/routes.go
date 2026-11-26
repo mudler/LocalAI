@@ -30,11 +30,13 @@ const (
 	routeBackendsLibraryUpdates = "/backends/library/updates"
 	routeBackendsUpdates        = "/backends/updates"
 	routeBackendsUpdatesCheck   = "/backends/updates/check"
+	routeUpgradeRuns            = "/api/updates/runs"
 	routeModelsUpdates          = "/api/models/updates"
 	routeModelsUpdatesCheck     = "/api/models/updates/check"
 	routeNodes                  = "/api/nodes"
 	routeScheduling             = "/api/nodes/scheduling"
 	routeVRAMEstimate           = "/api/models/vram-estimate"
+	routeEngines                = "/api/engines"
 	routeBranding               = "/api/branding"
 	routeSettings               = "/api/settings"
 	routeUsage                  = "/api/usage"
@@ -115,4 +117,18 @@ func routeNodeVRAMBudget(id string) string {
 
 func routeModelScheduling(modelName string) string {
 	return "/api/nodes/scheduling/" + url.PathEscape(modelName)
+}
+
+// routeUpgradeRun is /api/updates/runs/{id}[/{rest}].
+func routeUpgradeRun(id string, rest ...string) string {
+	p := routeUpgradeRuns + "/" + url.PathEscape(id)
+	for _, r := range rest {
+		p += "/" + r
+	}
+	return p
+}
+
+// engineRoute is the path of an operation of one engine's settings.
+func engineRoute(engine, op string) string {
+	return routeEngines + "/" + url.PathEscape(engine) + "/" + op
 }

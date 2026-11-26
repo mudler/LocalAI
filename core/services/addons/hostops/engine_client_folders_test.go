@@ -83,6 +83,7 @@ var _ = Describe("client folder operations", func() {
 			Expect(ClientCallOps).To(Equal(map[string]bool{
 				"client.jobs.start": true, "client.jobs.get": true, "client.jobs.cancel": true,
 				"client.workspace.list": true, "client.workspace.read": true, "client.workspace.write": true,
+				"events.emit": true,
 			}))
 			Expect(SupportedOperations()).To(ContainElements("client.workspace.list", "client.workspace.read", "client.workspace.write"))
 			Expect(f.b.Register(Spec{Op: "client.workspace.delete", Scope: "apply", Feature: "chats", Handler: func(context.Context, Call) (json.RawMessage, error) { return json.RawMessage(`{}`), nil }})).To(Succeed())

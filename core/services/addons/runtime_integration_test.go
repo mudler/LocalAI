@@ -385,6 +385,10 @@ var _ = Describe("Upgrade whose candidate does not start", func() {
 		Expect(line).To(ContainSubstring("Addon operation failed"))
 		Expect(line).To(ContainSubstring("the new generation did not start; the previous generation was kept: addon runtime unavailable or invalid protocol"))
 		Expect(line).NotTo(ContainSubstring("no cause recorded"))
+		// The cause says how the process ended and what it wrote last.
+		Expect(line).To(ContainSubstring("process_exited_before_handshake"))
+		Expect(line).To(ContainSubstring("exited 3"))
+		Expect(line).To(ContainSubstring(`last output: \"candidate-boom\"`))
 
 		// The previous generation is the journaled one and the running one.
 		Expect(m.journal.Addons["sample"].Generation).To(Equal(uint64(1)))
@@ -402,5 +406,16 @@ var _ = Describe("The text of a cause in the owner log", func() {
 		Expect(text).NotTo(ContainSubstring("s3cret"))
 		Expect(text).NotTo(ContainSubstring("\n"))
 		Expect(len([]rune(text))).To(BeNumerically("<=", maxCauseText+3))
+	})
+})
+
+var _ = Describe("The cause of a candidate that did not start", func() {
+	It("carries the launch stage and reason in the log, bounded and without credentials", func() {
+		cause := startCause(&addonruntime.LaunchFailure{Stage: addonruntime.StageProcessExited, Reason: "exited 3; last output: \"dial https://user:hunter2@example.test/x API_TOKEN=abc123\" " + strings.Repeat("y", 1000)})
+		text := cause.Error()
+		Expect(text).To(ContainSubstring("the new generation did not start; the previous generation was kept: addon runtime unavailable or invalid protocol: process_exited_before_handshake: exited 3"))
+		Expect(text).NotTo(ContainSubstring("hunter2"))
+		Expect(text).NotTo(ContainSubstring("abc123"))
+		Expect(len([]rune(text))).To(BeNumerically("<", 600))
 	})
 })

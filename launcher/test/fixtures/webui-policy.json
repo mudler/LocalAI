@@ -1,0 +1,2152 @@
+{
+  "schema": 1,
+  "navigation": [
+    {
+      "url": "https://ai.example.com/app/chat?model=a&q=b#bottom",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "https://AI.Example.COM/app",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "https://ai.example.com:443/app",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "http://192.0.2.10:8080/app/models?q=x#top",
+      "origin": "http://192.0.2.10:8080",
+      "frame": "main",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "http://127.0.0.1:41873/app",
+      "origin": "http://127.0.0.1:41873",
+      "frame": "main",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "http://2130706433:41873/app",
+      "origin": "http://127.0.0.1:41873",
+      "frame": "main",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "https://ai.example.com:8443/app",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "https://ai.example.com:8443/app"
+      }
+    },
+    {
+      "url": "http://ai.example.com/app",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "http://ai.example.com/app"
+      }
+    },
+    {
+      "url": "http://192.0.2.10/app",
+      "origin": "http://192.0.2.10:8080",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "http://192.0.2.10/app"
+      }
+    },
+    {
+      "url": "http://192.0.2.10:8081/app",
+      "origin": "http://192.0.2.10:8080",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "http://192.0.2.10:8081/app"
+      }
+    },
+    {
+      "url": "https://192.0.2.10:8080/app",
+      "origin": "http://192.0.2.10:8080",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "https://192.0.2.10:8080/app"
+      }
+    },
+    {
+      "url": "http://127.0.0.1:41874/app",
+      "origin": "http://127.0.0.1:41873",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "http://127.0.0.1:41874/app"
+      }
+    },
+    {
+      "url": "http://localhost:41873/app",
+      "origin": "http://127.0.0.1:41873",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "http://localhost:41873/app"
+      }
+    },
+    {
+      "url": "https://other.example.org/page?x=1",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "https://other.example.org/page?x=1"
+      }
+    },
+    {
+      "url": "http://other.example.org/page",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "http://other.example.org/page"
+      }
+    },
+    {
+      "url": "https://b\u00fccher.example/",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "https://xn--bcher-kva.example/"
+      }
+    },
+    {
+      "url": "http://[2001:db8::1]:8080/app",
+      "origin": "http://192.0.2.10:8080",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "http://[2001:db8::1]:8080/app"
+      }
+    },
+    {
+      "url": "http://[::1]:41873/app",
+      "origin": "http://127.0.0.1:41873",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "http://[::1]:41873/app"
+      }
+    },
+    {
+      "url": "mailto:someone@example.com?subject=hi",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "mailto:someone@example.com?subject=hi"
+      }
+    },
+    {
+      "url": "https://user:secret@ai.example.com/app",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "credentials in URL"
+      }
+    },
+    {
+      "url": "https://user@other.example.org/",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "credentials in URL"
+      }
+    },
+    {
+      "url": "javascript:alert(1)",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "scheme javascript:"
+      }
+    },
+    {
+      "url": "data:text/html,<p>hi</p>",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "scheme data:"
+      }
+    },
+    {
+      "url": "file:///etc/hosts",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "scheme file:"
+      }
+    },
+    {
+      "url": "blob:https://ai.example.com/0b6c3f0e-1111-4222-8333-944445555666",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "scheme blob:"
+      }
+    },
+    {
+      "url": "about:blank",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "scheme about:"
+      }
+    },
+    {
+      "url": "intent://scan/#Intent;scheme=zxing;package=com.example.scanner;end",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "scheme intent:"
+      }
+    },
+    {
+      "url": "localai://pair?token=abc",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "scheme localai:"
+      }
+    },
+    {
+      "url": "http://",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "not a URL"
+      }
+    },
+    {
+      "url": "not a url",
+      "origin": "http://192.0.2.10:8080",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "not a URL"
+      }
+    },
+    {
+      "url": "about:blank",
+      "origin": "https://ai.example.com",
+      "frame": "sub",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "about:srcdoc",
+      "origin": "https://ai.example.com",
+      "frame": "sub",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "blob:https://ai.example.com/0b6c3f0e-1111-4222-8333-944445555666",
+      "origin": "https://ai.example.com",
+      "frame": "sub",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "blob:https://other.example.org/0b6c3f0e-1111-4222-8333-944445555666",
+      "origin": "https://ai.example.com",
+      "frame": "sub",
+      "expect": {
+        "action": "deny",
+        "reason": "subframe to blob:"
+      }
+    },
+    {
+      "url": "https://other.example.org/embed",
+      "origin": "https://ai.example.com",
+      "frame": "sub",
+      "expect": {
+        "action": "deny",
+        "reason": "subframe to https:"
+      }
+    },
+    {
+      "url": "https://ai.example.com/app/preview",
+      "origin": "https://ai.example.com",
+      "frame": "sub",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "blob:http://192.0.2.10:8080/0b6c3f0e-1111-4222-8333-944445555666",
+      "origin": "http://192.0.2.10:8080",
+      "frame": "sub",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "javascript:alert(1)",
+      "origin": "http://192.0.2.10:8080",
+      "frame": "sub",
+      "expect": {
+        "action": "deny",
+        "reason": "subframe to javascript:"
+      }
+    },
+    {
+      "url": "data:text/html,<p>hi</p>",
+      "origin": "http://127.0.0.1:41873",
+      "frame": "sub",
+      "expect": {
+        "action": "deny",
+        "reason": "subframe to data:"
+      }
+    },
+    {
+      "url": "mailto:someone@example.com",
+      "origin": "http://127.0.0.1:41873",
+      "frame": "sub",
+      "expect": {
+        "action": "deny",
+        "reason": "subframe to mailto:"
+      }
+    },
+    {
+      "url": "https://idp.example.net/authorize?client_id=a&state=b",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "allowedOrigins": [
+        "https://idp.example.net"
+      ],
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "https://IDP.example.net:443/login",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "allowedOrigins": [
+        "https://idp.example.net"
+      ],
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "https://idp.example.net:8443/login",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "allowedOrigins": [
+        "https://idp.example.net"
+      ],
+      "expect": {
+        "action": "external",
+        "url": "https://idp.example.net:8443/login"
+      }
+    },
+    {
+      "url": "http://idp.example.net/login",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "allowedOrigins": [
+        "https://idp.example.net"
+      ],
+      "expect": {
+        "action": "external",
+        "url": "http://idp.example.net/login"
+      }
+    },
+    {
+      "url": "https://other.example.org/page",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "allowedOrigins": [
+        "https://idp.example.net"
+      ],
+      "expect": {
+        "action": "external",
+        "url": "https://other.example.org/page"
+      }
+    },
+    {
+      "url": "https://user:secret@idp.example.net/login",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "allowedOrigins": [
+        "https://idp.example.net"
+      ],
+      "expect": {
+        "action": "deny",
+        "reason": "credentials in URL"
+      }
+    },
+    {
+      "url": "javascript:alert(1)",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "allowedOrigins": [
+        "https://idp.example.net"
+      ],
+      "expect": {
+        "action": "deny",
+        "reason": "scheme javascript:"
+      }
+    },
+    {
+      "url": "https://sso.example.org/saml",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "allowedOrigins": [
+        "https://idp.example.net",
+        "https://sso.example.org"
+      ],
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "https://ai.example.com/app",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "allowedOrigins": [
+        "https://idp.example.net"
+      ],
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "https://idp.example.net/login",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "allowedOrigins": [],
+      "expect": {
+        "action": "external",
+        "url": "https://idp.example.net/login"
+      }
+    },
+    {
+      "url": "https://idp.example.net/login",
+      "origin": "https://ai.example.com",
+      "frame": "sub",
+      "allowedOrigins": [
+        "https://idp.example.net"
+      ],
+      "expect": {
+        "action": "deny",
+        "reason": "subframe to https:"
+      }
+    },
+    {
+      "url": "about:srcdoc",
+      "origin": "https://ai.example.com",
+      "frame": "sub",
+      "allowedOrigins": [
+        "https://idp.example.net"
+      ],
+      "expect": {
+        "action": "allow"
+      }
+    }
+  ],
+  "windowOpen": [
+    {
+      "url": "https://ai.example.com/app",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "same-view",
+        "url": "https://ai.example.com/app"
+      }
+    },
+    {
+      "url": "https://ai.example.com/app/chat/1",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "same-view",
+        "url": "https://ai.example.com/app/chat/1"
+      }
+    },
+    {
+      "url": "https://ai.example.com/apps",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "external",
+        "url": "https://ai.example.com/apps"
+      }
+    },
+    {
+      "url": "https://ai.example.com/api/x",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "external",
+        "url": "https://ai.example.com/api/x"
+      }
+    },
+    {
+      "url": "https://ai.example.com/swagger",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "external",
+        "url": "https://ai.example.com/swagger"
+      }
+    },
+    {
+      "url": "https://other.example.org/docs",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "external",
+        "url": "https://other.example.org/docs"
+      }
+    },
+    {
+      "url": "javascript:alert(1)",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "none",
+        "reason": "scheme javascript:"
+      }
+    },
+    {
+      "url": "mailto:someone@example.com",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "external",
+        "url": "mailto:someone@example.com"
+      }
+    },
+    {
+      "url": "http://192.0.2.10:8080/app/chat/2",
+      "origin": "http://192.0.2.10:8080",
+      "expect": {
+        "route": "same-view",
+        "url": "http://192.0.2.10:8080/app/chat/2"
+      }
+    },
+    {
+      "url": "http://127.0.0.1:41873/api/x",
+      "origin": "http://127.0.0.1:41873",
+      "expect": {
+        "route": "external",
+        "url": "http://127.0.0.1:41873/api/x"
+      }
+    },
+    {
+      "url": "https://user:secret@other.example.org/",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "none",
+        "reason": "credentials in URL"
+      }
+    },
+    {
+      "url": "not a url",
+      "origin": "http://127.0.0.1:41873",
+      "expect": {
+        "route": "none",
+        "reason": "not a URL"
+      }
+    }
+  ],
+  "permission": [
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {},
+      "expect": "ask"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "video"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {},
+      "expect": "ask"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio",
+          "video"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {},
+      "expect": "ask"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "screen"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {},
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio",
+          "screen"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {
+        "https://ai.example.com": {
+          "media": "allow"
+        }
+      },
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {},
+      "expect": "ask"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {},
+      "expect": "ask"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio"
+        ],
+        "userGesture": false
+      },
+      "origin": "https://ai.example.com",
+      "store": {},
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio"
+        ],
+        "userGesture": false
+      },
+      "origin": "https://ai.example.com",
+      "store": {
+        "https://ai.example.com": {
+          "media": "allow"
+        }
+      },
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {
+        "https://ai.example.com": {
+          "media": "allow"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {
+        "https://ai.example.com": {
+          "media": "deny"
+        }
+      },
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {
+        "http://192.0.2.10:8080": {
+          "media": "allow"
+        }
+      },
+      "expect": "ask"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://other.example.org/embed",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {
+        "https://ai.example.com": {
+          "media": "allow"
+        }
+      },
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://other.example.org/",
+        "mediaTypes": [
+          "audio"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {
+        "https://ai.example.com": {
+          "media": "allow"
+        }
+      },
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "clipboard-sanitized-write",
+        "requestingUrl": "http://192.0.2.10:8080/app",
+        "topUrl": "http://192.0.2.10:8080/app",
+        "userGesture": true
+      },
+      "origin": "http://192.0.2.10:8080",
+      "store": {},
+      "expect": "allow"
+    },
+    {
+      "request": {
+        "permission": "clipboard-sanitized-write",
+        "requestingUrl": "http://192.0.2.10:8080/app",
+        "topUrl": "http://192.0.2.10:8080/app",
+        "userGesture": false
+      },
+      "origin": "http://192.0.2.10:8080",
+      "store": {},
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "geolocation",
+        "requestingUrl": "http://127.0.0.1:41873/app",
+        "topUrl": "http://127.0.0.1:41873/app",
+        "userGesture": true
+      },
+      "origin": "http://127.0.0.1:41873",
+      "store": {},
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "notifications",
+        "requestingUrl": "http://127.0.0.1:41873/app",
+        "topUrl": "http://127.0.0.1:41873/app",
+        "userGesture": true
+      },
+      "origin": "http://127.0.0.1:41873",
+      "store": {},
+      "expect": "deny"
+    }
+  ],
+  "fileName": [
+    {
+      "name": "model.gguf",
+      "expect": "model.gguf"
+    },
+    {
+      "name": "a/b/c.txt",
+      "expect": "c.txt"
+    },
+    {
+      "name": "..\\evil.exe",
+      "expect": "evil.exe"
+    },
+    {
+      "name": ".hidden",
+      "expect": "hidden"
+    },
+    {
+      "name": "name. ",
+      "expect": "name"
+    },
+    {
+      "name": "CON",
+      "expect": "_CON"
+    },
+    {
+      "name": "lpt1.txt",
+      "expect": "_lpt1.txt"
+    },
+    {
+      "name": "invoice\u202egpj.exe",
+      "expect": "invoicegpj.exe"
+    },
+    {
+      "name": "bell\u0007\u0000tab\t.txt",
+      "expect": "belltab.txt"
+    },
+    {
+      "name": "zero\u200bwidth\u2066iso\u2069.txt",
+      "expect": "zerowidthiso.txt"
+    },
+    {
+      "name": "a<b>:c|d?.txt",
+      "expect": "a_b__c_d_.txt"
+    },
+    {
+      "name": "quote\"star*.txt",
+      "expect": "quote_star_.txt"
+    },
+    {
+      "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.gguf",
+      "expect": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.gguf"
+    },
+    {
+      "name": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "expect": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+    },
+    {
+      "name": "",
+      "expect": "download"
+    },
+    {
+      "name": "",
+      "fallback": "model.gguf",
+      "expect": "model.gguf"
+    },
+    {
+      "name": "   ",
+      "expect": "download"
+    },
+    {
+      "name": "...",
+      "fallback": "file",
+      "expect": "file"
+    }
+  ],
+  "oauthLimits": {
+    "pendingTimeoutMs": 30000,
+    "signInTimeoutMs": 600000,
+    "maxOrigins": 5
+  },
+  "oauthLogin": [
+    {
+      "url": "https://ai.example.com/api/auth/oidc/login",
+      "origin": "https://ai.example.com",
+      "expect": true
+    },
+    {
+      "url": "https://ai.example.com/api/auth/oidc/login?invite_code=abc",
+      "origin": "https://ai.example.com",
+      "expect": true
+    },
+    {
+      "url": "https://ai.example.com/api/auth/github/login",
+      "origin": "https://ai.example.com",
+      "expect": true
+    },
+    {
+      "url": "https://AI.example.com:443/api/auth/github/login#x",
+      "origin": "https://ai.example.com",
+      "expect": true
+    },
+    {
+      "url": "http://192.0.2.10:8080/api/auth/oidc/login",
+      "origin": "http://192.0.2.10:8080",
+      "expect": true
+    },
+    {
+      "url": "https://ai.example.com/api/auth/oidc/callback?code=1&state=2",
+      "origin": "https://ai.example.com",
+      "expect": false
+    },
+    {
+      "url": "https://ai.example.com/api/auth/login",
+      "origin": "https://ai.example.com",
+      "expect": false
+    },
+    {
+      "url": "https://ai.example.com/api/auth/oidc/login/",
+      "origin": "https://ai.example.com",
+      "expect": false
+    },
+    {
+      "url": "https://ai.example.com/API/auth/oidc/login",
+      "origin": "https://ai.example.com",
+      "expect": false
+    },
+    {
+      "url": "https://ai.example.com/prefix/api/auth/oidc/login",
+      "origin": "https://ai.example.com",
+      "expect": false
+    },
+    {
+      "url": "https://ai.example.com/api/auth/x/../oidc/login",
+      "origin": "https://ai.example.com",
+      "expect": true
+    },
+    {
+      "url": "https://idp.example.net/api/auth/oidc/login",
+      "origin": "https://ai.example.com",
+      "expect": false
+    },
+    {
+      "url": "https://ai.example.com:8443/api/auth/oidc/login",
+      "origin": "https://ai.example.com",
+      "expect": false
+    },
+    {
+      "url": "https://user@ai.example.com/api/auth/oidc/login",
+      "origin": "https://ai.example.com",
+      "expect": false
+    },
+    {
+      "url": "javascript:location=\"/api/auth/oidc/login\"",
+      "origin": "https://ai.example.com",
+      "expect": false
+    },
+    {
+      "url": "not a url",
+      "origin": "https://ai.example.com",
+      "expect": false
+    }
+  ],
+  "oauthFlow": [
+    {
+      "name": "OIDC sign-in completes inside the view",
+      "origin": "https://ai.example.com",
+      "steps": [
+        {
+          "event": "navigate",
+          "at": 0,
+          "url": "https://ai.example.com/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "load",
+          "at": 10,
+          "url": "https://ai.example.com/login",
+          "expect": {
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "navigate",
+          "at": 100,
+          "url": "https://ai.example.com/api/auth/oidc/login?invite_code=abc",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "pending"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 200,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "request",
+          "at": 210,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "load",
+          "at": 300,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "expect": {
+            "phase": "active"
+          }
+        },
+        {
+          "event": "navigate",
+          "at": 5000,
+          "url": "https://idp.example.net/login-actions/authenticate?session=1",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "request",
+          "at": 5010,
+          "url": "https://idp.example.net/login-actions/authenticate?session=1",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 5100,
+          "url": "https://ai.example.com/api/auth/oidc/callback?code=c1&state=s1",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "request",
+          "at": 5110,
+          "url": "https://ai.example.com/api/auth/oidc/callback?code=c1&state=s1",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "load",
+          "at": 5200,
+          "url": "https://ai.example.com/app",
+          "expect": {
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "navigate",
+          "at": 6000,
+          "url": "https://idp.example.net/account",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://idp.example.net/account"
+            },
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "request",
+          "at": 6010,
+          "url": "https://idp.example.net/account",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://idp.example.net/account"
+            },
+            "phase": "idle"
+          }
+        }
+      ]
+    },
+    {
+      "name": "GitHub sign-in through federated hops, at most five origins",
+      "origin": "https://ai.example.com",
+      "steps": [
+        {
+          "event": "navigate",
+          "at": 0,
+          "url": "https://ai.example.com/api/auth/github/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "pending"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 10,
+          "url": "https://github.com/login/oauth/authorize?client_id=a&state=s",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 20,
+          "url": "https://github.com/login?return_to=%2Flogin%2Foauth%2Fauthorize",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 30,
+          "url": "https://sso1.example.org/saml",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 40,
+          "url": "https://sso2.example.org/saml",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 50,
+          "url": "https://sso3.example.org/saml",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 60,
+          "url": "https://sso4.example.org/saml",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 70,
+          "url": "https://sso5.example.org/saml",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://sso5.example.org/saml"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "navigate",
+          "at": 80,
+          "url": "https://sso2.example.org/next",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "navigate",
+          "at": 90,
+          "url": "https://links.example.org/help",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://links.example.org/help"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 100,
+          "url": "http://github.com/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "http://github.com/login"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 110,
+          "url": "https://ai.example.com/api/auth/github/callback?code=c&state=s",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 120,
+          "url": "https://sso1.example.org/saml",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://sso1.example.org/saml"
+            },
+            "phase": "idle"
+          }
+        }
+      ]
+    },
+    {
+      "name": "a link the IdP page follows adds no origin",
+      "origin": "http://192.0.2.10:8080",
+      "steps": [
+        {
+          "event": "navigate",
+          "at": 0,
+          "url": "http://192.0.2.10:8080/api/auth/oidc/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "pending"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 10,
+          "url": "https://idp.example.net/auth",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "navigate",
+          "at": 20,
+          "url": "https://help.example.org/",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://help.example.org/"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "request",
+          "at": 30,
+          "url": "https://help.example.org/",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://help.example.org/"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "navigate",
+          "at": 40,
+          "url": "https://idp.example.net/auth?retry=1",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        }
+      ]
+    },
+    {
+      "name": "subframes stay strict during sign-in",
+      "origin": "https://ai.example.com",
+      "steps": [
+        {
+          "event": "navigate",
+          "at": 0,
+          "url": "https://ai.example.com/api/auth/oidc/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "pending"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 10,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "navigate",
+          "at": 20,
+          "url": "https://idp.example.net/embed",
+          "frame": "sub",
+          "expect": {
+            "decision": {
+              "action": "deny",
+              "reason": "subframe to https:"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 30,
+          "url": "https://idp.example.net/embed",
+          "frame": "sub",
+          "expect": {
+            "decision": {
+              "action": "deny",
+              "reason": "subframe to https:"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "request",
+          "at": 40,
+          "url": "https://idp.example.net/embed",
+          "frame": "sub",
+          "expect": {
+            "decision": {
+              "action": "deny",
+              "reason": "subframe to https:"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 50,
+          "url": "https://frames.example.org/x",
+          "frame": "sub",
+          "expect": {
+            "decision": {
+              "action": "deny",
+              "reason": "subframe to https:"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "navigate",
+          "at": 60,
+          "url": "about:srcdoc",
+          "frame": "sub",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "request",
+          "at": 70,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        }
+      ]
+    },
+    {
+      "name": "a subframe to the login route does not start a sign-in",
+      "origin": "https://ai.example.com",
+      "steps": [
+        {
+          "event": "navigate",
+          "at": 0,
+          "url": "https://ai.example.com/api/auth/oidc/login",
+          "frame": "sub",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 10,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "sub",
+          "expect": {
+            "decision": {
+              "action": "deny",
+              "reason": "subframe to https:"
+            },
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 20,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback"
+            },
+            "phase": "idle"
+          }
+        }
+      ]
+    },
+    {
+      "name": "other schemes and credentials never start a sign-in",
+      "origin": "https://ai.example.com",
+      "steps": [
+        {
+          "event": "navigate",
+          "at": 0,
+          "url": "https://ai.example.com/api/auth/oidc/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "pending"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 10,
+          "url": "javascript:alert(1)",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "deny",
+              "reason": "scheme javascript:"
+            },
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 20,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback"
+            },
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "navigate",
+          "at": 30,
+          "url": "https://ai.example.com/api/auth/oidc/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "pending"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 40,
+          "url": "https://user:pw@idp.example.net/authorize",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "deny",
+              "reason": "credentials in URL"
+            },
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 50,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback"
+            },
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "navigate",
+          "at": 60,
+          "url": "https://ai.example.com/api/auth/oidc/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "pending"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 70,
+          "url": "localai://callback?code=1",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "deny",
+              "reason": "scheme localai:"
+            },
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 80,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback"
+            },
+            "phase": "idle"
+          }
+        }
+      ]
+    },
+    {
+      "name": "the pending state ends after its timeout",
+      "origin": "https://ai.example.com",
+      "steps": [
+        {
+          "event": "navigate",
+          "at": 0,
+          "url": "https://ai.example.com/api/auth/oidc/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "pending"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 30001,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback"
+            },
+            "phase": "idle"
+          }
+        }
+      ]
+    },
+    {
+      "name": "the pending state lasts its full timeout",
+      "origin": "https://ai.example.com",
+      "steps": [
+        {
+          "event": "navigate",
+          "at": 0,
+          "url": "https://ai.example.com/api/auth/oidc/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "pending"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 30000,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        }
+      ]
+    },
+    {
+      "name": "the active state ends after its timeout",
+      "origin": "https://ai.example.com",
+      "steps": [
+        {
+          "event": "navigate",
+          "at": 0,
+          "url": "https://ai.example.com/api/auth/oidc/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "pending"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 1000,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "request",
+          "at": 601000,
+          "url": "https://idp.example.net/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "request",
+          "at": 601001,
+          "url": "https://idp.example.net/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://idp.example.net/login"
+            },
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 601002,
+          "url": "https://idp.example.net/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://idp.example.net/login"
+            },
+            "phase": "idle"
+          }
+        }
+      ]
+    },
+    {
+      "name": "a cross-origin link while pending cancels the sign-in",
+      "origin": "https://ai.example.com",
+      "steps": [
+        {
+          "event": "navigate",
+          "at": 0,
+          "url": "https://ai.example.com/api/auth/oidc/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "pending"
+          }
+        },
+        {
+          "event": "navigate",
+          "at": 10,
+          "url": "https://other.example.org/",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://other.example.org/"
+            },
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 20,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback"
+            },
+            "phase": "idle"
+          }
+        }
+      ]
+    },
+    {
+      "name": "a login route that renders a page cancels the sign-in",
+      "origin": "https://ai.example.com",
+      "steps": [
+        {
+          "event": "navigate",
+          "at": 0,
+          "url": "https://ai.example.com/api/auth/oidc/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "pending"
+          }
+        },
+        {
+          "event": "load",
+          "at": 10,
+          "url": "https://ai.example.com/api/auth/oidc/login",
+          "expect": {
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 20,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback"
+            },
+            "phase": "idle"
+          }
+        }
+      ]
+    },
+    {
+      "name": "a login route that fails to load cancels the sign-in",
+      "origin": "https://ai.example.com",
+      "steps": [
+        {
+          "event": "navigate",
+          "at": 0,
+          "url": "https://ai.example.com/api/auth/github/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "pending"
+          }
+        },
+        {
+          "event": "loadFailed",
+          "at": 10,
+          "expect": {
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 20,
+          "url": "https://github.com/login/oauth/authorize",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://github.com/login/oauth/authorize"
+            },
+            "phase": "idle"
+          }
+        }
+      ]
+    },
+    {
+      "name": "the login route sent back to the server cancels the sign-in",
+      "origin": "https://ai.example.com",
+      "steps": [
+        {
+          "event": "navigate",
+          "at": 0,
+          "url": "https://ai.example.com/api/auth/oidc/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "pending"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 10,
+          "url": "https://ai.example.com/login?error=oidc",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 20,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback"
+            },
+            "phase": "idle"
+          }
+        }
+      ]
+    },
+    {
+      "name": "a server redirect to the login route starts a sign-in",
+      "origin": "https://ai.example.com",
+      "steps": [
+        {
+          "event": "navigate",
+          "at": 0,
+          "url": "https://ai.example.com/app/start-sso",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 10,
+          "url": "https://ai.example.com/api/auth/oidc/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "pending"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 20,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        }
+      ]
+    },
+    {
+      "name": "a reset ends an active sign-in",
+      "origin": "https://ai.example.com",
+      "steps": [
+        {
+          "event": "navigate",
+          "at": 0,
+          "url": "https://ai.example.com/api/auth/oidc/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "pending"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 10,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "reset",
+          "at": 20,
+          "expect": {
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "request",
+          "at": 30,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback"
+            },
+            "phase": "idle"
+          }
+        }
+      ]
+    },
+    {
+      "name": "an IdP page load keeps the sign-in, a failed IdP load too",
+      "origin": "https://ai.example.com",
+      "steps": [
+        {
+          "event": "navigate",
+          "at": 0,
+          "url": "https://ai.example.com/api/auth/oidc/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "pending"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 10,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        },
+        {
+          "event": "load",
+          "at": 20,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "expect": {
+            "phase": "active"
+          }
+        },
+        {
+          "event": "loadFailed",
+          "at": 30,
+          "expect": {
+            "phase": "active"
+          }
+        },
+        {
+          "event": "request",
+          "at": 40,
+          "url": "https://idp.example.net/authorize?client_id=localai&state=s1&redirect_uri=https%3A%2F%2Fai.example.com%2Fapi%2Fauth%2Foidc%2Fcallback",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "allow"
+            },
+            "phase": "active"
+          }
+        }
+      ]
+    },
+    {
+      "name": "a login route on another origin does not start a sign-in",
+      "origin": "https://ai.example.com",
+      "steps": [
+        {
+          "event": "navigate",
+          "at": 0,
+          "url": "https://idp.example.net/api/auth/oidc/login",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://idp.example.net/api/auth/oidc/login"
+            },
+            "phase": "idle"
+          }
+        },
+        {
+          "event": "redirect",
+          "at": 10,
+          "url": "https://idp2.example.net/authorize",
+          "frame": "main",
+          "expect": {
+            "decision": {
+              "action": "external",
+              "url": "https://idp2.example.net/authorize"
+            },
+            "phase": "idle"
+          }
+        }
+      ]
+    }
+  ]
+}

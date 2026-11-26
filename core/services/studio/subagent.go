@@ -45,14 +45,15 @@ type child struct {
 	background bool
 }
 
-// chatTools is the hook that gives every chat its host tools. A conversation
+// chatToolsAll gives every chat its host tools (chatTools then applies the
+// privacy level of the chat). A conversation
 // gets the host tools plus spawn_agent; a sub-agent gets only the tools its
 // parent chose and never spawn_agent. A sub-agent started from a saved agent
 // gets what the agent grants instead, read from the store like any chat with
 // an agent, so it needs no tool list in memory. Every tool is built from the
 // chat's access for the turn: its actor is fenced when the chat's agent has a
 // folder.
-func (s *Service) chatTools(ctx context.Context, x session.Access) (session.TurnTools, error) {
+func (s *Service) chatToolsAll(ctx context.Context, x session.Access) (session.TurnTools, error) {
 	a := x.Actor()
 	if s.d.Files.Available() && x.Place().Primary() == "" {
 		// An access without a folder was never resolved for this chat
@@ -248,13 +249,26 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// whatever its parent names (the group refuses a sub-agent as well).
 	// A deferred connector tool still holds its name, so no LocalAI tool takes it.
 	aTools, aDeferred, aDeferredGroups, aPrompt, aNote := s.localaiTurn(ctx, a, x, rec, append(slices.Clone(tools), connDeferred...))
+	// The deferred tools of the add-ons are a source of their own: the LocalAI
+	// groups keep their decision whatever add-ons are installed, and the
+	// add-on tools are decided by the same modes on their own size.
+	var addonDeferred []session.Tool
+	if dt := deferrableAddonTools(tools); shouldDefer(s.toolSearchMode(), dt, s.windowOf(rec)) {
+		// They go behind the bridge: out of the typed tools, into the set the
+		// bridge may run. They were gated with the typed add-on tools.
+		addonDeferred = dt
+		tools = slices.DeleteFunc(tools, func(t session.Tool) bool { return t.Deferrable })
+	}
 	tools = append(tools, aTools...)
 	// The deferred tools are gated like the typed ones (the action policy of
 	// an unattended run), then hidden behind the three tool-search tools. The
 	// connector tools were gated in scopedHostTools.
-	deferred := slices.Concat(s.gateBuiltinActs(ctx, rec, aDeferred), connDeferred)
+	deferred := slices.Concat(s.gateBuiltinActs(ctx, rec, aDeferred), connDeferred, addonDeferred)
 	if len(connDeferred) > 0 {
 		aDeferredGroups = append(slices.Clone(aDeferredGroups), toolSearchConnectors)
+	}
+	if len(addonDeferred) > 0 {
+		aDeferredGroups = append(slices.Clone(aDeferredGroups), toolSearchAddons)
 	}
 	tools = append(tools, toolSearchTools(deferred, aDeferredGroups)...)
 	// The tools of a self-paced loop, while the chat has one.

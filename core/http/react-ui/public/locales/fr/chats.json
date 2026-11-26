@@ -10,9 +10,7 @@
     "folder": "Dossier à surveiller",
     "saveEdit": "Enregistrer",
     "cancelEdit": "Annuler",
-    "create": "Créer le déclencheur",
     "edit": "Modifier",
-    "dismiss": "Refuser",
     "receipt": {
       "scheduled": "Planifié :",
       "watching": "Surveille :",
@@ -67,8 +65,17 @@
       "stop": "Désactivez-le ou supprimez-le dans Déclencheurs",
       "actsLabel": "Permissions",
       "limitLabel": "Durée maximale",
-      "limitClamped": "{{limit}}, ramené à {{ceiling}} par l'administrateur"
-    }
+      "limitClamped": "{{limit}}, ramené à {{ceiling}} par l'administrateur",
+      "doesLabel": "Fait",
+      "tellsYouLabel": "Vous prévient",
+      "doesWatch": "Garde des rappels pour {{source}}, {{offset}} par défaut.",
+      "tellsWatch": "Seulement quand c'est utile : un changement fait par quelqu'un d'autre, une synthèse prévue ou un conflit.",
+      "tellsEvery": "Après chaque exécution.",
+      "tellsOnChange": "Quand la réponse diffère de l'exécution précédente.",
+      "tellsOnProblem": "Seulement quand une exécution échoue."
+    },
+    "approve": "Approuver",
+    "notNow": "Pas maintenant"
   },
   "mcpPage": {
     "title": "Connecteurs MCP",
@@ -814,6 +821,58 @@
           "body_one": "{{count}} ancien fichier supprimé.",
           "body_other": "{{count}} anciens fichiers supprimés."
         }
+      },
+      "run": {
+        "title_one": "Mise à jour de {{count}} élément",
+        "title_other": "Mise à jour de {{count}} éléments",
+        "titleAuto_one": "Mise à jour automatique : {{count}} élément",
+        "titleAuto_other": "Mise à jour automatique : {{count}} éléments",
+        "updated_one": "{{count}} mis à jour",
+        "updated_other": "{{count}} mis à jour",
+        "running_one": "{{count}} en cours",
+        "running_other": "{{count}} en cours",
+        "waiting_one": "{{count}} en attente",
+        "waiting_other": "{{count}} en attente",
+        "done": "{{done}} sur {{total}} terminées",
+        "end": {
+          "attention_one": "{{updated}} mis à jour, {{count}} demande votre attention",
+          "attention_other": "{{updated}} mis à jour, {{count}} demandent votre attention",
+          "done_one": "{{count}} mis à jour",
+          "done_other": "{{count}} mis à jour",
+          "auto": "Automatique : {{text}}",
+          "first": "{{name}} reste en {{version}}.",
+          "firstWhy": "{{name}} reste en {{version}} : {{reason}}.",
+          "cancelled_one": "Série annulée : {{count}} mis à jour",
+          "cancelled_other": "Série annulée : {{count}} mis à jour",
+          "cancelledAttention_one": "Série annulée : {{updated}} mis à jour, {{count}} demande votre attention",
+          "cancelledAttention_other": "Série annulée : {{updated}} mis à jour, {{count}} demandent votre attention",
+          "firstStart": "{{name}} reste en {{version}} : la nouvelle version n’a pas démarré : {{reason}}."
+        }
+      },
+      "watch": {
+        "set": "Rappel de « {{title}} » mis : {{when}}.",
+        "changed": "Rappel de « {{title}} » changé : {{when}}.",
+        "cancelled": "Rappel de « {{title}} » annulé.",
+        "snoozed": "Rappel de « {{title}} » reporté à {{when}}.",
+        "snoozeUndone": "Report du rappel de « {{title}} » retiré.",
+        "skipped": "Rappel de « {{title}} » sauté.",
+        "skipUndone": "Saut du rappel de « {{title}} » retiré.",
+        "taskChanged": "Tâche du rappel de « {{title}} » changée.",
+        "restored": "Rappel de « {{title}} » rétabli : {{when}}.",
+        "next": "Rappel du prochain « {{title}} » mis : {{when}}.",
+        "moved": "Rappel de « {{title}} » déplacé à {{when}}.",
+        "movedStarted": "« {{title}} » a été déplacé et a déjà commencé, donc pas de rappel.",
+        "removed": "Rappel de « {{title}} » annulé : il a été supprimé.",
+        "woken": "« {{title}} » a changé. Je vérifie son rappel.",
+        "movedBy": "« {{title}} » a été déplacé. Je vous le rappelle à {{when}}.",
+        "movedByStarted": "« {{title}} » a été déplacé et a déjà commencé.",
+        "removedBy": "« {{title}} » a été supprimé, donc j'ai annulé son rappel.",
+        "wokenBy": "« {{title}} » a changé. Je vérifie si son rappel convient encore.",
+        "missed": "Manqué : {{title}}. Le serveur était arrêté à l'heure du rappel.",
+        "onHold": "Le rappel de « {{title}} » attend tant que cette veille est en pause.",
+        "dropped": "Le rappel de « {{title}} » a été supprimé avec sa veille.",
+        "lastKnown": "Rappel du prochain « {{title}} » mis : {{when}}. C'est la dernière date connue ; une modification de l'élément met les suivantes.",
+        "seriesEnded": "Aucune date suivante de « {{title}} » n'est connue, il n'a donc pas de rappel. Une modification de l'élément met le prochain."
       }
     },
     "tabs": {
@@ -850,7 +909,15 @@
       }
     },
     "chatsOff": "Les chats sont désactivés",
-    "emptyBodyNoChats": "Les mises à jour et les opérations terminées apparaissent ici."
+    "emptyBodyNoChats": "Les mises à jour et les opérations terminées apparaissent ici.",
+    "runProgress": "Progression : {{title}}",
+    "runStarted": "Lancée {{when}}",
+    "viewProgress": "Voir la progression",
+    "seeRun": "Voir la série",
+    "openUpdates": "Ouvrir Mises à jour",
+    "updatesPending_one": "{{count}} mise à jour disponible",
+    "updatesPending_other": "{{count}} mises à jour disponibles",
+    "updatesNone": "Tout est à jour"
   },
   "change": {
     "loading": "Lecture de la modification du déclencheur...",
@@ -1517,7 +1584,10 @@
     "mcp": "Serveurs MCP"
   },
   "triggersPage": {
-    "runLimit": "Durée maximale d'une exécution"
+    "runLimit": "Durée maximale d'une exécution",
+    "presets": {
+      "event": "Quand un événement arrive"
+    }
   },
   "sandboxProfile": {
     "label": "Profil de sandbox",
@@ -1593,5 +1663,165 @@
       "reason": "Le réglage de ce chat est de {{window}} jetons et le chat en demande au moins {{minimum}}.",
       "fix": "Utiliser la fenêtre du modèle"
     }
+  },
+  "event": {
+    "listening": "À l'écoute :",
+    "announceAccepted": "{{name}} est créé. Copiez son secret maintenant : il n'est affiché qu'une fois.",
+    "sentence": {
+      "typed": "Quand {{source}} envoie {{type}}",
+      "any": "Quand {{source}} envoie n'importe quel événement",
+      "where": " où {{matches}}",
+      "and": " et "
+    },
+    "hook": {
+      "title": "Adresse du hook et secret",
+      "urlLabel": "URL du hook",
+      "secretLabel": "Secret (affiché une fois)",
+      "curlLabel": "Appel d'exemple",
+      "copy": "Copier",
+      "copied": "Copié",
+      "copyUrl": "Copier l'URL du hook",
+      "copySecret": "Copier le secret",
+      "copyCurl": "Copier l'appel d'exemple",
+      "paste": "Collez l'URL et le secret dans les réglages webhook de l'expéditeur. Le secret n'est plus affiché ensuite.",
+      "noSecret": "Le secret n'est plus affiché. Renouvelez-le pour en obtenir un nouveau.",
+      "rotate": "Renouveler le secret",
+      "rotateTitle": "Renouveler le secret de {{name}} ?",
+      "rotateBody": "L'ancien secret cesse de fonctionner tout de suite. Mettez le nouveau chez l'expéditeur avant son prochain événement.",
+      "rotateConfirm": "Renouveler",
+      "rotated": "Nouveau secret créé.",
+      "rotateFailed": "Le secret n'a pas pu être renouvelé : {{message}}"
+    },
+    "form": {
+      "source": "Expéditeur",
+      "sourceHint": "Le nom de l'expéditeur, par exemple github.",
+      "sourceEmpty": "Indiquez l'expéditeur des événements.",
+      "type": "Type d'événement",
+      "typeHint": "Laissez vide pour accepter tous les types d'événement.",
+      "matches": "Seulement quand (un champ=valeur par ligne)",
+      "matchesHint": "Jusqu'à 8 lignes, par exemple action=opened.",
+      "createdTitle": "{{name}} est prêt",
+      "done": "Terminé"
+    }
+  },
+  "watch": {
+    "section": "Veille",
+    "new": "Nouvelle veille",
+    "titleNew": "Nouvelle veille",
+    "titleEdit": "Modifier {{name}}",
+    "source": "Surveiller",
+    "sourceHelp": "Seuls les modules qui signalent leurs changements sont listés.",
+    "sourcePick": "Choisir un module",
+    "types": "Changements à suivre",
+    "typesHelp": "Ne cochez rien pour suivre chaque changement.",
+    "offset": "Me rappeler",
+    "none": "Pas de rappel par défaut",
+    "atTime": "À l'heure",
+    "minutesBefore_one": "{{count}} min avant",
+    "minutesBefore_other": "{{count}} min avant",
+    "hoursBefore_one": "{{count}} heure avant",
+    "hoursBefore_other": "{{count}} heures avant",
+    "daysBefore_one": "{{count}} jour avant",
+    "daysBefore_other": "{{count}} jours avant",
+    "minutesAfter_one": "{{count}} min après",
+    "minutesAfter_other": "{{count}} min après",
+    "hoursAfter_one": "{{count}} heure après",
+    "hoursAfter_other": "{{count}} heures après",
+    "daysAfter_one": "{{count}} jour après",
+    "daysAfter_other": "{{count}} jours après",
+    "allDay": "Ce qui dure toute la journée",
+    "allDayMorning": "Le matin, à 08:00",
+    "allDayNone": "Pas de rappel",
+    "quiet": "Heures calmes",
+    "quietFrom": "De",
+    "quietTo": "À",
+    "quietHelp": "Un rappel qui tombe pendant ces heures arrive la veille au soir.",
+    "tasks": "Tâches par défaut",
+    "tasksHelp": "Avec vos mots, par exemple : pour les appels avec d'autres personnes, préparer une synthèse 30 min avant.",
+    "problemSource": "Choisissez quoi surveiller.",
+    "problemQuiet": "Les heures calmes ont besoin d'un début et d'une fin.",
+    "emptyTitle": "Rien à surveiller pour l'instant",
+    "emptyBody": "Aucun module installé ne signale ses changements. Installez l'Agenda pour recevoir des rappels de vos événements.",
+    "summary": "{{source}}, {{offset}}",
+    "watches": "Surveille",
+    "state": "État",
+    "on": "Active",
+    "paused": "En pause",
+    "permissions": "Modifier les permissions",
+    "reminders": "Prochains rappels",
+    "remindersEmpty": "Pas encore de rappel. La veille en crée un quand quelque chose est ajouté.",
+    "dueLine": "{{when}}, {{offset}}",
+    "adjQuiet": "la veille au soir, hors de vos heures calmes",
+    "adjAllDay": "le matin du jour",
+    "skipped": "Ignoré",
+    "snoozed": "Reporté",
+    "started": "Déjà commencé",
+    "open": "Ouvrir",
+    "snooze": "Reporter",
+    "skip": "Ignorer",
+    "changeTime": "Changer l'heure…",
+    "newTime": "Nouvelle heure",
+    "saveTime": "Enregistrer",
+    "save": "Enregistrer la veille",
+    "cancel": "Annuler",
+    "undo": "Annuler l'action",
+    "doneSnooze": "Reporté à {{when}}.",
+    "doneSkip": "Ignoré. Il revient si l'élément est déplacé.",
+    "doneRetime": "Déplacé à {{when}}.",
+    "doneUndo": "Annulé.",
+    "loadFailed": "Impossible de lire les rappels : {{message}}",
+    "sourcesFailed": "Impossible de lire les modules qui signalent des changements : {{message}}",
+    "viewWatch": "Voir la veille",
+    "saved": "Veille enregistrée.",
+    "nameRequired": "Une veille a besoin d'un nom.",
+    "promptRequired": "Écrivez ce que la veille doit faire.",
+    "promptHint": "Ce texte démarre chaque exécution de la veille.",
+    "enabledHint": "Une veille désactivée garde ses rappels ; ils attendent qu'elle soit réactivée.",
+    "change": {
+      "title": {
+        "create": "Mettre un rappel pour {{title}}",
+        "update": "Changer le rappel de {{title}}",
+        "delete": "Annuler le rappel de {{title}}"
+      },
+      "help": "Rien ne change tant que vous n'approuvez pas.",
+      "stale": "Le rappel a changé depuis la demande. Demandez à nouveau.",
+      "watch": "Veille",
+      "when": "Quand",
+      "task": "Tâche",
+      "none": "aucun",
+      "receipt": {
+        "create": "Rappel mis :",
+        "update": "Rappel changé :",
+        "delete": "Rappel annulé :",
+        "dismissed": "Inchangé :",
+        "undone": "Annulé :"
+      },
+      "blocked": {
+        "expired": "Le délai pour annuler est passé ; changez le rappel sur la page de la veille.",
+        "edited": "Le rappel a changé depuis ; changez-le sur la page de la veille.",
+        "removed": "Le rappel ou sa veille a été supprimé depuis."
+      },
+      "announce": {
+        "applied": "Changement du rappel de {{title}} approuvé.",
+        "dismissed": "Le rappel de {{title}} reste tel quel.",
+        "undone": "Changement du rappel de {{title}} annulé."
+      }
+    }
+  },
+  "incognito": {
+    "label": "Navigation privée",
+    "levelLabel": "Niveau de confidentialité",
+    "levels": {
+      "memory-off": "Sans mémoire",
+      "zero-retention": "Aucune conservation"
+    },
+    "describe": {
+      "memory-off": "Ce chat ne lit ni n'enregistre la mémoire. Il n'apparaît dans aucune liste et se termine quand vous le quittez. Les journaux et les traces sont conservés comme d'habitude.",
+      "zero-retention": "Le serveur ne conserve rien de ce chat, seulement les compteurs d'utilisation. Il ne lit ni n'enregistre la mémoire, n'accepte aucune pièce jointe et se termine quand vous le quittez."
+    },
+    "blocked": "Indisponible dans un chat privé",
+    "discardTitle": "Terminer le chat privé ?",
+    "discardMessage": "Le chat est supprimé et ne peut plus être rouvert.",
+    "discardConfirm": "Terminer le chat"
   }
 }

@@ -125,6 +125,11 @@ var _ = Describe("Route auth coverage", func() {
 			// every wrong code the same way.
 			{method: http.MethodPost, path: "/api/client/pair"}: {},
 
+			// The hook of an event trigger. The caller is a service with no
+			// session; the handler checks the secret of the trigger and
+			// answers every failure with the same 404.
+			{method: http.MethodPost, path: "/api/chats/triggers/:id/hook"}: {},
+
 			// The scripts that join a worker answer only for a valid join token in
 			// the query (the token is the credential, and serving does not spend
 			// it); every other request gets 404, never 401.

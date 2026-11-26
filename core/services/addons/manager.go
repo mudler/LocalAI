@@ -893,7 +893,7 @@ func boundCause(text string) string {
 // startCause is the log cause of a candidate generation that did not start or
 // did not complete its handshake. The previous generation was restored.
 func startCause(e error) error {
-	return logOnly("the new generation did not start; the previous generation was kept: " + boundCause(e.Error()))
+	return logOnly("the new generation did not start; the previous generation was kept: " + boundCause(addonruntime.Cause(e)))
 }
 
 // describeCauses is the text of the errors a failed operation had, for the log.
@@ -902,9 +902,9 @@ func describeCauses(causes []error) string {
 	for _, c := range causes {
 		var typed *FailureCause
 		if errors.As(c, &typed) && typed.detail != nil {
-			parts = append(parts, typed.Code+": "+boundCause(typed.detail.Error()))
+			parts = append(parts, typed.Code+": "+boundCause(addonruntime.Cause(typed.detail)))
 		} else if c != nil {
-			parts = append(parts, boundCause(c.Error()))
+			parts = append(parts, boundCause(addonruntime.Cause(c)))
 		}
 	}
 	if len(parts) == 0 {
@@ -1154,6 +1154,7 @@ func (m *Manager) startCandidate(ctx context.Context, id string, prev Status, re
 		// Recorded so that the next command on this add-on, with any
 		// operation ID, tries the journaled generation again.
 		m.startFailed[id] = be
+		xlog.Warn("Addon previous generation did not restart after a failed upgrade", "addonId", id, "generation", g.Number, "cause", boundCause(addonruntime.Cause(be)))
 	}
 	return e
 }
@@ -1650,6 +1651,7 @@ func (m *Manager) DeclaredCapabilities(ctx context.Context, id string, generatio
 	out.ContextFiles = append([]contract.ContextFile(nil), c.ContextFiles...)
 	out.Credentials = slices.Clone(c.Credentials)
 	out.Provides = slices.Clone(c.Provides)
+	out.Events = slices.Clone(c.Events)
 	if c.ModelSearch != nil {
 		ms := *c.ModelSearch
 		ms.Sorts, ms.Filters = slices.Clone(ms.Sorts), slices.Clone(ms.Filters)

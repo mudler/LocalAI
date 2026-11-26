@@ -392,14 +392,14 @@ describe('the update channel', () => {
     expect(await r.core.setUpdateChannel('dev')).toEqual({ ok: false, reason: 'confirm-required' })
   })
 
-  it('the launcher updater follows release candidates only', async () => {
-    const told: boolean[] = []
-    const r = await rig({}, { onIncludePrereleases: (on) => told.push(on) })
+  it('the launcher updater is told every channel change', async () => {
+    const told: string[] = []
+    const r = await rig({}, { onUpdateChannel: (ch) => told.push(ch) })
     await r.core.init()
     await r.core.setUpdateChannel('rc')
     await r.core.setUpdateChannel('dev', true)
     await r.core.setUpdateChannel('stable')
-    expect(told).toEqual([true, false, false])
+    expect(told).toEqual(['rc', 'dev', 'stable'])
   })
 
   it('reads the old include_prereleases key as release candidates and keeps it', async () => {

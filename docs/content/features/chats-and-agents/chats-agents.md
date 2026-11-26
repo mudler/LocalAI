@@ -687,6 +687,44 @@ to the connections page. The same fields are in `delivery` of the trigger in
 `state` (`ok`, `off`, `gone`, `unavailable`, `no_channel`, `blocked`) and
 `mode`.
 
+#### Change where a trigger reports
+
+Open the trigger, select **Edit**, and open the **Reports** section. It shows
+where the runs report now, and two choices:
+
+- **Where runs report**: the Inbox, a channel that you approved on one of your
+  connections, or **Keep** for the channel that the trigger uses now. A trigger
+  that a messaging app proposed can also go back to **The chat where it was
+  proposed**, and it can only use channels of that same connection.
+- **When to report**: every run, only when the answer changes, or only when a
+  run fails.
+
+The list holds only the channels that can receive a report now: the connection
+is yours and on, its add-on runs and can receive reports, you let it write in
+channels, and you approved the channel. Under the list, the form names your
+other connections and says why each one has no channel to offer. Any kind of
+messaging connection works the same way.
+
+The form saves at once, because you are the person who changes it; a
+confirmation card is shown only when the model asks for the change in a chat.
+
+The REST API does the same. `POST` and `PUT /api/chats/triggers` take
+`delivery`: `{"target": "channel", "connection": <id>, "channel": <id or
+label>, "mode": "always" | "on_change" | "on_problem"}`, `{"target": "inbox"}`
+to go back to the Inbox, or `{"target": "origin"}` for a trigger that a
+messaging app proposed (leave `connection` out for such a trigger: it keeps its
+own). Leave `delivery` out of a `PUT` to keep where the trigger reports. The
+server makes the same checks as for `update_trigger` and answers `400` with the
+reason when one fails. It checks only a new place: a save that sends back the
+same place, or the same place with another mode, works even while the
+connection is off. `GET /api/chats/triggers/destinations?agent_id=<id>&trigger=<id>`
+lists your connections with the channels you approved, the channel that the
+trigger reports to now (`current`), `from_chat` for a trigger that a messaging
+app proposed, and a `reason` (`off`, `addon_off`, `tool_only`, `talkback_off`,
+`no_channel`) for a connection with no channel to offer. It never returns a
+token or a sender. A proposal that waits for an answer keeps the place that was
+proposed: confirm it first, then change it.
+
 ### What a run gets
 
 - **Its message.** The first message is the prompt of the trigger, the folder
@@ -764,7 +802,7 @@ that cannot be read at that moment gives a read only run.
 | Files | `act.files` | `write_file`, `edit_file`, `move_file`, `delete_file`, and the built-in `bash` of this machine. |
 | Add-on actions | `act.addons`, or `act.addons:<add-on id>` for one add-on | Every add-on tool whose kind is not `read` (`action`, `write`, `schema`, `create`), including an add-on that serves `bash`. |
 | Outside | `act.spend` | MCP tools (of a server or a connector), and an add-on action tool that the add-on declares with a permission, which means it acts outside LocalAI with a credential. The last one needs `act.addons` as well. |
-| Send | `act.send` | Reserved for messages beyond the delivery target. No tool of this class exists yet. |
+| Send | `act.send` | `send_message` in a trigger run: a message to an approved channel of one of the owner's connections, in addition to the delivery target. See [Write to a messaging connection]({{% relref "/features/chats-and-agents/chats-tools#from-a-trigger-run" %}}). |
 
 What a run holds:
 
@@ -1067,6 +1105,35 @@ A trigger in a response also has `plan` (`reads`, `writes`, `widget`), `cost`
 `last_done` (the end of the newest run that ended well), `min_gap_seconds` for a
 file trigger, and each run its `tokens`. A create or replace takes `plan`,
 `estimated_tokens` and `min_gap_seconds`; an empty one keeps the stored value.
+
+An event trigger (`"kind": "event"`) starts a run when a service or a device
+client posts an event to its hook. Create it with `source` (the sender name,
+required), `event_type` (empty takes any type) and `matches` (up to 8
+`field=value` checks on the JSON body, where `field` is a dot path such as
+`pull_request.base.ref`). It has no schedule or folder. A trigger of this kind
+in a response has the same three fields and `hook_path`, the path of its hook
+(`/api/chats/triggers/{id}/hook`); add the address of your server.
+
+The response to the create has `secret`, the key that signs the events (32
+random bytes, base64url). It is shown there and in the response of
+`POST /api/chats/triggers/{id}/secret`, which makes a new one, and never again:
+get, list, update and the administrator views leave it out, and a `secret` in the
+body of a create or replace is ignored. The old secret stops working at once. A
+replace keeps the stored secret. A replace that makes a trigger an event trigger
+gives it a secret; rotate it to read it. Only the owner can rotate; for a trigger
+that is not an event trigger the call is a `400`.
+
+A model in a Studio chat can propose an event trigger with `propose_trigger` and
+`kind` `event`: it gives `source`, `event_type`, `matches` and an optional
+one-line `condition` (at most 300 characters), which is added to the prompt as
+`Act only if: ...`. It names in `acts` what the run needs, within what its agent
+holds; without acts the run only reads. The proposal is off and has no secret.
+When you confirm it, the response (`POST /api/chats/triggers/proposals/{id}/confirm`)
+has `secret` and `hook_path` once, as the create does; paste them into the
+sender. Reloading the proposal or the chat never shows the secret again. A
+messaging-app chat cannot propose an event trigger: create it in Studio. How a
+sender signs a call, the GitHub setup and the limits are on
+[Event triggers]({{% relref "/features/chats-and-agents/chats-event-triggers" %}}).
 
 `GET`, `PUT` and `DELETE /api/chats/triggers/{id}` read, replace and delete one,
 and `POST .../enable` and `.../disable` switch it. Deleting a trigger stops its

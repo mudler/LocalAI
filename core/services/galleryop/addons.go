@@ -35,6 +35,9 @@ type AddonOp struct {
 	AddonID string
 	// Upgrade is an upgrade of an installed add-on, not an install.
 	Upgrade bool
+	// InRun is true for an upgrade that an upgrade run started
+	// (ManagementOp.InRun).
+	InRun bool
 	// Context is the operation context; CancelFunc cancels it. EnqueueAddonOp
 	// makes them when Context is nil.
 	Context    context.Context
@@ -143,12 +146,12 @@ func (g *GalleryService) runAddonOp(op AddonOp) {
 	default:
 		g.UpdateStatus(op.ID, &OpStatus{Processed: true, Progress: 100, Message: MessageCompleted, GalleryElementName: op.AddonID})
 	}
-	g.announceAddonOp(op.ID, op.AddonID, op.Upgrade, err)
+	g.announceAddonOp(op.ID, op.AddonID, op.Upgrade, op.InRun, err)
 	g.removeCancellation(op.ID)
 }
 
 // announceAddonOp is announceOp for an add-on install.
-func (g *GalleryService) announceAddonOp(id, name string, upgrade bool, err error) {
+func (g *GalleryService) announceAddonOp(id, name string, upgrade, inRun bool, err error) {
 	g.Lock()
 	cb := g.OnOpFinished
 	st := g.statuses[id]
@@ -156,7 +159,7 @@ func (g *GalleryService) announceAddonOp(id, name string, upgrade bool, err erro
 	if cb == nil || id == "" {
 		return
 	}
-	res := OpResult{ID: id, Name: name, Addon: true, Upgrade: upgrade}
+	res := OpResult{ID: id, Name: name, Addon: true, Upgrade: upgrade, InRun: inRun}
 	switch {
 	case st != nil && st.Cancelled:
 		res.Outcome = OpCancelled

@@ -7,7 +7,9 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -77,6 +79,15 @@ func utc(t time.Time) time.Time {
 
 func normTrigger(t Trigger) Trigger {
 	t.Since, t.OutcomeAt = utc(t.Since), utc(t.OutcomeAt)
+	if t.Watch != nil {
+		w := *t.Watch
+		t.Watch = &w
+	}
+	if t.Reminder != nil {
+		r := *t.Reminder
+		r.Anchor, r.At, r.SnoozedTo, r.Skipped = utc(r.Anchor), utc(r.At), utc(r.SnoozedTo), utc(r.Skipped)
+		t.Reminder = &r
+	}
 	t.Route.ProposedAt, t.Route.Expires, t.Route.Until = utc(t.Route.ProposedAt), utc(t.Route.Expires), utc(t.Route.Until)
 	return t
 }
@@ -89,8 +100,26 @@ func normRun(r Run) Run {
 func (s *jsonStore) PutTrigger(_ context.Context, t Trigger) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if t.IsReminder() {
+		for id, o := range s.d.Triggers {
+			if id != t.ID && o.IsReminder() && o.Reminder.ParentID == t.Reminder.ParentID && o.Reminder.Key == t.Reminder.Key {
+				return ErrDuplicate
+			}
+		}
+		// Compare and set the version, as the database store does.
+		var stored int64
+		if o, ok := s.d.Triggers[t.ID]; ok && o.Reminder != nil && !o.IsChange() {
+			stored = o.Reminder.Rev
+		}
+		if _, ok := s.d.Triggers[t.ID]; ok && stored != t.Reminder.Rev {
+			return ErrConflict
+		}
+		rem := *t.Reminder
+		rem.Rev = stored + 1
+		t.Reminder = &rem
+	}
 	old, had := s.d.Triggers[t.ID]
-	s.d.Triggers[t.ID] = normTrigger(t)
+	s.d.Triggers[t.ID] = copyTrigger(t)
 	if err := s.save(); err != nil {
 		if had {
 			s.d.Triggers[t.ID] = old
@@ -149,7 +178,7 @@ func (s *jsonStore) GetTrigger(_ context.Context, id string) (Trigger, error) {
 	if !ok {
 		return Trigger{}, ErrNotFound
 	}
-	return t, nil
+	return copyTrigger(t), nil
 }
 
 func (s *jsonStore) triggersWhere(keep func(Trigger) bool, less func(a, b Trigger) bool) []Trigger {
@@ -158,7 +187,7 @@ func (s *jsonStore) triggersWhere(keep func(Trigger) bool, less func(a, b Trigge
 	var out []Trigger
 	for _, t := range s.d.Triggers {
 		if keep(t) {
-			out = append(out, t)
+			out = append(out, copyTrigger(t))
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return less(out[i], out[j]) })
@@ -241,6 +270,40 @@ func (s *jsonStore) SetRunStatus(_ context.Context, r Run) error {
 	return ErrNotFound
 }
 
+func (s *jsonStore) AppendRunPayload(_ context.Context, runID, payload string, keep int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, x := range s.d.Runs {
+		if x.ID != runID {
+			continue
+		}
+		if x.Status != StatusQueued {
+			return ErrNotFound
+		}
+		prev := x
+		x.Payload = MergePayload(x.Payload, payload, keep)
+		s.d.Runs[i] = x
+		if err := s.save(); err != nil {
+			s.d.Runs[i] = prev
+			return err
+		}
+		return nil
+	}
+	return ErrNotFound
+}
+
+func (s *jsonStore) LastStarted(_ context.Context, triggerID string) (time.Time, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var last time.Time
+	for _, x := range s.d.Runs {
+		if x.TriggerID == triggerID && x.Started.After(last) {
+			last = x.Started
+		}
+	}
+	return last, nil
+}
+
 func (s *jsonStore) ListRuns(_ context.Context, triggerID string, limit int) ([]Run, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -304,6 +367,17 @@ func (s *jsonStore) RunningRuns(context.Context) ([]Run, error) {
 }
 func (s *jsonStore) QueuedRuns(context.Context) ([]Run, error) { return s.byStatus(StatusQueued), nil }
 
+func (s *jsonStore) RunByKey(_ context.Context, triggerID, dueKey string) (Run, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, r := range s.d.Runs {
+		if r.TriggerID == triggerID && r.DueKey == dueKey {
+			return r, nil
+		}
+	}
+	return Run{}, ErrNotFound
+}
+
 func (s *jsonStore) RunByChat(_ context.Context, chatID string) (Run, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -315,12 +389,24 @@ func (s *jsonStore) RunByChat(_ context.Context, chatID string) (Run, error) {
 	return Run{}, ErrNotFound
 }
 
+func (s *jsonStore) CountHandledSince(_ context.Context, triggerID string, since time.Time) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, r := range s.d.Runs {
+		if r.TriggerID == triggerID && r.Status == StatusHandled && !r.Due.Before(since) {
+			n++
+		}
+	}
+	return n, nil
+}
+
 func (s *jsonStore) CountRunsSince(_ context.Context, triggerID string, since time.Time) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	n := 0
 	for _, r := range s.d.Runs {
-		if r.TriggerID == triggerID && r.Status != StatusSkipped && !r.Due.Before(since) {
+		if r.TriggerID == triggerID && r.Status != StatusSkipped && r.Status != StatusHandled && !r.Due.Before(since) {
 			n++
 		}
 	}
@@ -365,4 +451,42 @@ func (s *jsonStore) SetLastDue(_ context.Context, id string, t time.Time) error 
 		return err
 	}
 	return nil
+}
+
+func (s *jsonStore) ReminderByKey(_ context.Context, parentID, key string) (Trigger, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, t := range s.d.Triggers {
+		if t.IsReminder() && t.Reminder.ParentID == parentID && t.Reminder.Key == key {
+			return copyTrigger(t), nil
+		}
+	}
+	return Trigger{}, ErrNotFound
+}
+
+func (s *jsonStore) Reminders(_ context.Context, parentID string) ([]Trigger, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []Trigger
+	for _, t := range s.d.Triggers {
+		if t.IsReminder() && t.Reminder.ParentID == parentID {
+			out = append(out, copyTrigger(t))
+		}
+	}
+	slices.SortFunc(out, func(a, b Trigger) int { return strings.Compare(a.ID, b.ID) })
+	return out, nil
+}
+
+// copyTrigger gives a trigger that shares no pointer and no slice with t, so
+// a caller that changes a trigger it read or wrote does not change the store.
+func copyTrigger(t Trigger) Trigger {
+	t = normTrigger(t)
+	t.Matches, t.Acts = slices.Clone(t.Matches), slices.Clone(t.Acts)
+	if t.Watch != nil {
+		t.Watch.Types = slices.Clone(t.Watch.Types)
+	}
+	if t.Reminder != nil {
+		t.Reminder.Following = slices.Clone(t.Reminder.Following)
+	}
+	return t
 }

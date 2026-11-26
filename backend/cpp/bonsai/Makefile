@@ -71,6 +71,12 @@ bonsai-fallback:
 # through to the copied build: SHARED_LIBS=ON, the DL flags, and --target ggml (which
 # pulls in the per-microarch libggml-cpu-*.so via ggml's add_dependencies). The .so set
 # is collected for package.sh to bundle into package/lib.
+# CPU_VARIANTS_DIR (absolute path) holds libggml-cpu-*.so built from this fork's pin by
+# .docker/llama-cpp-cpu-variants.sh. When set, the tree here is built with -DGGML_CPU=OFF
+# (loader and accelerator backend only) and the variants are copied into ggml-shared-libs.
+# Unset, the variants are built in tree.
+CPU_VARIANTS_DIR?=
+
 bonsai-cpu-all:
 	rm -rf $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build
 	cp -rf $(LLAMA_CPP_DIR) $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build
@@ -85,12 +91,22 @@ bonsai-cpu-all:
 	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(BONSAI_VERSION) \
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build llama.cpp
 	bash $(CURRENT_MAKEFILE_DIR)/apply-patches.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/llama.cpp $(PATCHES_DIR)
+ifneq ($(strip $(CPU_VARIANTS_DIR)),)
+	test "$$(cat $(CPU_VARIANTS_DIR)/LLAMA_VERSION)" = "$(BONSAI_VERSION)" || { echo "CPU variants in $(CPU_VARIANTS_DIR) were built for another commit than $(BONSAI_VERSION)" >&2; exit 1; }
+	SHARED_LIBS=ON EXTRA_CMAKE_ARGS="-DGGML_BACKEND_DL=ON -DGGML_CPU=OFF" TARGET="--target grpc-server --target ggml" \
+	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(BONSAI_VERSION) \
+	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build grpc-server
+else
 	SHARED_LIBS=ON EXTRA_CMAKE_ARGS="-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON" TARGET="--target grpc-server --target ggml" \
 	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(BONSAI_VERSION) \
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build grpc-server
+endif
 	cp -rfv $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/grpc-server bonsai-cpu-all
 	rm -rf ggml-shared-libs && mkdir -p ggml-shared-libs
 	find $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/llama.cpp/build \( -name '*.so*' -o -name '*.dylib' \) -exec cp -av {} ggml-shared-libs/ \;
+ifneq ($(strip $(CPU_VARIANTS_DIR)),)
+	cp -av $(CPU_VARIANTS_DIR)/libggml-cpu-*.so ggml-shared-libs/
+endif
 	@echo "Collected ggml shared backends:" && ls -la ggml-shared-libs/
 
 bonsai-grpc:

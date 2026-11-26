@@ -34,7 +34,8 @@ export function isActive(job) {
 
 // The state names the Agents area already draws (StatusMark).
 export function jobMark(status) {
-  if (status === 'done') return 'done'
+  // handled: a watch acted on a reminder with no model run.
+  if (status === 'done' || status === 'handled') return 'done'
   if (status === 'failed') return 'failed'
   if (status === 'running') return 'running'
   if (status === 'skipped') return 'stopped'
@@ -69,6 +70,8 @@ export function jobLine(job, max = 110) {
     case 'failed': return { kind: 'error', text: why }
     case 'skipped': return { kind: 'skipped', text: why }
     case 'done': return { kind: 'done', text: '' }
+    // What a watch did with a reminder, in the words of its history.
+    case 'handled': return { kind: 'done', text: why }
     case 'running': return { kind: 'running', text: '' }
     default: return { kind: 'queued', text: '' }
   }

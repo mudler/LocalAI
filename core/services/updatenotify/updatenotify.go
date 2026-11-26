@@ -15,13 +15,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/notify"
+	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/xlog"
 )
 
@@ -252,7 +252,7 @@ func (e *Emitter) Result(ctx context.Context, r Result) error {
 		if o.Err == "" {
 			return o.Name
 		}
-		return o.Name + " (" + oneLine(withoutPaths(o.Err), 100) + ")"
+		return o.Name + " (" + sanitize.Text(o.Err, 100) + ")"
 	})
 	add(held, "held", "waiting for approval", "Waiting for your approval: ", func(o Outcome) string { return versions(o) })
 
@@ -283,6 +283,11 @@ func (e *Emitter) Result(ctx context.Context, r Result) error {
 // not tell a cancel.
 func (e *Emitter) Operation(ctx context.Context, op galleryop.OpResult) error {
 	if op.ID == "" || op.Name == "" {
+		return nil
+	}
+	// An operation of an upgrade run is reported by the rows of the run
+	// (RunNotifier): one live row and one end row, not one row per item.
+	if op.InRun {
 		return nil
 	}
 	if op.Upgrade && !op.Backend && !op.Addon && op.Outcome != galleryop.OpCancelled {
@@ -347,45 +352,9 @@ func versions(o Outcome) string {
 	return o.Name
 }
 
-// absPath matches an absolute path (POSIX, or Windows with a drive letter)
-// and keeps its last element.
-var absPath = regexp.MustCompile(`(?:[A-Za-z]:)?(?:[\\/][^\s\\/:"'()]+)+[\\/]([^\s\\/:"'()]+)`)
-
-// withoutPaths replaces each absolute path in s by its file name. An error
-// text reaches the inbox and a browser push service, which must not learn
-// the layout of the server. A path counts only at the start of the text or
-// after a space, a tab, a quote, a parenthesis or an equals sign, so a URL, a
-// scheme-less URL and a relative path are left alone.
-func withoutPaths(s string) string {
-	var b strings.Builder
-	last := 0
-	for _, m := range absPath.FindAllStringSubmatchIndex(s, -1) {
-		start := m[0]
-		if start > 0 && !strings.ContainsRune(" \t\"'(=", rune(s[start-1])) {
-			// The tail of a longer token: the path of a URL, a relative path
-			// ("models/sub/x.gguf") or a scheme-less URL. Only a path that
-			// starts a word is absolute.
-			continue
-		}
-		b.WriteString(s[last:start])
-		b.WriteString(s[m[2]:m[3]])
-		last = m[1]
-	}
-	b.WriteString(s[last:])
-	return b.String()
-}
-
 // errorLine is the body of an item that tells a failure: one line, no
-// server paths.
-func errorLine(s string) string { return oneLine(withoutPaths(s), 200) }
-
-func oneLine(s string, max int) string {
-	s = strings.Join(strings.Fields(s), " ")
-	if r := []rune(s); len(r) > max {
-		return string(r[:max]) + "…"
-	}
-	return s
-}
+// server paths, no credentials.
+func errorLine(s string) string { return sanitize.Text(s, 200) }
 
 func plural(n int, one, other string) string {
 	if n == 1 {

@@ -33,6 +33,9 @@ const (
 	// SendLoopReport is the report that a loop sends when it ends or has a
 	// problem, as its start_loop report asked.
 	SendLoopReport = "loop_report"
+	// SendTriggerRun is a message that a run of a trigger wrote with
+	// send_message, under act.send, in an approved channel of the owner.
+	SendTriggerRun = "trigger_run"
 )
 
 // ErrMessageEmpty and ErrMessageTooLong are the refusals of the text rules.
@@ -44,6 +47,9 @@ var (
 // Outgoing is one message to write to a chat of a binding.
 type Outgoing struct {
 	Binding, Chat, Thread, Text string
+	// Actions and Hint go with the message (see Post).
+	Actions []contract.MessageAction
+	Hint    string
 	// Kind is one of the Send constants and Capability the capability that
 	// allowed it; both go to the audit.
 	Kind, Capability string
@@ -71,7 +77,7 @@ func (c *Connectors) Send(ctx context.Context, o Outgoing) (queued bool, err err
 	if b, gerr := c.o.Store.GetBinding(ctx, o.Binding); gerr == nil {
 		ev.Kind = b.Kind
 	}
-	queued, err = c.Post(ctx, Post{Binding: o.Binding, Chat: o.Chat, Thread: o.Thread, Text: text,
+	queued, err = c.Post(ctx, Post{Binding: o.Binding, Chat: o.Chat, Thread: o.Thread, Text: text, Actions: o.Actions, Hint: o.Hint,
 		OnFail: func(err error) {
 			f := ev
 			f.Reason = "failed after waiting"

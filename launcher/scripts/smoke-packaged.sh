@@ -6,7 +6,7 @@
 # installed local-ai-launcher.exe on the runner's own desktop.
 #
 #   SMOKE_DIR=/short/dir scripts/smoke-packaged.sh release/LocalAI-Launcher-x86_64.AppImage [extra args]
-#   SMOKE_DIR=/short/dir SMOKE_FEED_FILE=release/latest-mac.yml scripts/smoke-packaged.sh "/Volumes/LocalAI Launcher/LocalAI Launcher.app"
+#   SMOKE_DIR=/short/dir SMOKE_FEED_FILE=release/latest-mac.yml scripts/smoke-packaged.sh "/Volumes/LocalAI/LocalAI.app"
 #   SMOKE_DIR=/c/smoke SMOKE_FEED_FILE=release/latest.yml scripts/smoke-packaged.sh "$LOCALAPPDATA/Programs/localai-launcher/local-ai-launcher.exe"
 #
 # It passes when:

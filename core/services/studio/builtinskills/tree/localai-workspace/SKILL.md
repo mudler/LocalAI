@@ -5,9 +5,9 @@ description: Use to personalise LocalAI for the user - persona, profile, shortcu
 
 # Make LocalAI theirs
 
-Do the work with files, but talk to the user in plain words: say what changed ("I saved your shortcuts", "I added a Reading list page", "Home now shows your open tasks"), not file names, folders, formats or JSON. Name a file only if the user named it or asks where something is, or when you give them a file as a result (a document they asked for).
+Do the work with files, but talk to the user in plain words: say what changed ("I saved your shortcuts", "I added a Reading list page", "Home now shows your open tasks"), not file names, folders, formats or JSON. Name a file only if the user named it, asks where something is, or you give them a file as a result.
 
-A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/LocalAI/`) change LocalAI for this user. LocalAI reads them; the settings pages edit the same files. Use these paths: a settings file at the top of the home is in the old place, and LocalAI moves it into `LocalAI/`. Each has a JSON Schema in the `schemas/` folder of this skill, `/workspace/shared-builtin-skills/localai-workspace/schemas/`: read it with read_file before you write, and keep to it. A file that breaks its schema is ignored and LocalAI uses its last good version, so check your JSON.
+A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/LocalAI/`) change LocalAI for this user. LocalAI reads them; the settings pages edit the same files. A settings file at the top of the home is in the old place; LocalAI moves it into `LocalAI/`. Each has a JSON Schema in the `schemas/` folder of this skill, `/workspace/shared-builtin-skills/localai-workspace/schemas/`: read it with read_file before you write, and keep to it. A file that breaks its schema is ignored and LocalAI uses its last good version, so check your JSON.
 
 | File | What it does |
 |---|---|
@@ -26,7 +26,7 @@ Rules:
 - Change only the keys the user asked for. Read the file first and keep every other key.
 - Keep files small (at most 64 KiB). Use 2-space indentation.
 - A script, draft or test data goes in the chat's work folder, `"$WORK"` in the shell (the file tools take the path the note names), not in `LocalAI/` or at the top of the home.
-- After a change, tell the user in one line what changed and where they see it ("I saved your shortcut. It shows above the message box.").
+- After a change, tell the user in one line what changed and where they see it.
 - A page is `pages/<name>/index.html` with an optional `page.json` and its data files; it runs sandboxed, as the user, with no network. To build one, use the `localai-apps` skill.
 
 ## Sidebar
@@ -44,18 +44,20 @@ Rules:
 
 ## Backgrounds
 
-`homeBackground` (behind Home) and `chatBackground` (behind the chat view) in `LocalAI/ui.json` are independent. Same shape, every key optional; layers stack picture over gradient over colour:
+`homeBackground` (behind Home) and `chatBackground` (behind the chat) in `LocalAI/ui.json` are independent. Same shape, every key optional; layers stack video over picture over gradient over colour:
 
 ```json
 {"homeBackground": {"image": "Pictures/sky.jpg", "fit": "cover", "opacity": 0.9, "blur": 4, "overlay": 0.4}}
 {"chatBackground": {"gradient": {"from": "#0f172a", "to": "#3b82f6", "angle": 135}}}
 {"homeBackground": {"color": "#1e293b"}}
+{"chatBackground": {"video": "Videos/loop.mp4", "overlay": 0.85}}
 ```
 
 - `color`, `gradient` (`from`, `to`, `angle`), `fit`, `opacity`, `blur`, `overlay`: values and ranges in `schemas/ui.schema.json`. Write no CSS.
-- `image`: the path of a picture in the user's files, relative to the home, with no leading slash (`Pictures/sky.jpg`, not `/Pictures/sky.jpg`). Only `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif` and `.avif`. No `..`, no address (`https://`, `data:`), no backslash. A path the user cannot read shows nothing; check the file exists first.
-- Raise `overlay` (a veil, 0 to 1) for a busy or bright picture.
-- To remove a background, delete its key (a save with `null` does the same).
+- `image`: the path of a picture in the user's files, relative to the home, with no leading slash (`Pictures/sky.jpg`). Only `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif` and `.avif`. No `..`, address (`https://`, `data:`) or backslash. An unreadable path shows nothing; check it exists.
+- `video`: a path like `image`, ending `.mp4`, `.webm` or `.mov`. It loops muted. A set `image` is its poster.
+- Raise `overlay` (a veil, 0 to 1) for a busy or bright background.
+- To remove a background, delete its key (`null` does the same).
 
 ## Default models
 

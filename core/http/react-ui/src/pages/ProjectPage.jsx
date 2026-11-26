@@ -11,6 +11,7 @@ import { useModels } from '../hooks/useModels'
 import ActionMenu from '../components/ActionMenu'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Icon from '../components/Icon'
+import { Guarded } from '../components/viewas/parts'
 import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows, Tabs } from '../components/ui'
 import ProjectSheet from '../components/projects/ProjectSheet'
 import ProjectChats, { ChatRows, chatPath } from '../components/projects/ProjectChats'
@@ -225,7 +226,7 @@ export default function ProjectPage() {
           actions={(
             <div className="pj-acts">
               {shares.available && !broken && <Button icon="users" onClick={openShare} data-testid="project-share">{t('actions.share')}</Button>}
-              <Button icon="edit" disabled={broken || archived} title={archived ? t('actions.editArchived') : undefined} onClick={() => setEditing(true)} data-testid="project-edit">{t('actions.edit')}</Button>
+              <Guarded><Button icon="edit" disabled={broken || archived} title={archived ? t('actions.editArchived') : undefined} onClick={() => setEditing(true)} data-testid="project-edit">{t('actions.edit')}</Button></Guarded>
               <ActionMenu ariaLabel={t('actions.more', { name: project.name })} items={menu} />
             </div>
           )}
@@ -238,7 +239,7 @@ export default function ProjectPage() {
 
         {broken && <Callout tone="error" role="alert" title={t('broken.title')} testId="project-broken">{project.error || t('broken.fallback')}</Callout>}
         {archived && tab !== 'automations' && (
-          <Callout tone="info" testId="project-archived" actions={<Button size="sm" onClick={() => act('restore')} data-testid="project-archived-restore">{t('actions.restore')}</Button>}>
+          <Callout tone="info" testId="project-archived" actions={<Guarded><Button size="sm" onClick={() => act('restore')} data-testid="project-archived-restore">{t('actions.restore')}</Button></Guarded>}>
             {t('archivedNote')}
           </Callout>
         )}

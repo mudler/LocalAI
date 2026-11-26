@@ -300,7 +300,8 @@
         "none": "Nenhum",
         "color": "Cor",
         "gradient": "Gradiente",
-        "image": "Imagem"
+        "image": "Imagem",
+        "video": "Vídeo"
       },
       "color": "Cor de fundo",
       "from": "De",
@@ -309,6 +310,11 @@
       "imagePath": "Caminho da imagem nos seus arquivos",
       "choose": "Escolher uma imagem",
       "imageBad": "Use o caminho de um arquivo png, jpg, webp, gif ou avif dos seus arquivos, sem barra inicial e sem ..",
+      "videoPath": "Caminho do vídeo nos seus arquivos",
+      "chooseVideo": "Escolher um vídeo",
+      "videoBad": "Use o caminho de um arquivo mp4, webm ou mov nos seus arquivos, sem barra inicial e sem ..",
+      "posterPath": "Caminho de uma imagem estática mostrada antes do vídeo tocar (opcional)",
+      "posterHint": "Pictures/poster.jpg (imagem estática opcional)",
       "fit": "Ajuste",
       "fits": {
         "cover": "Preencher a página",
@@ -320,6 +326,7 @@
       "clear": "Remover o plano de fundo",
       "pickFailed": "Não foi possível ler a pasta.",
       "pickEmpty": "Não há imagens nem pastas aqui.",
+      "pickEmptyVideo": "Nenhum vídeo ou pasta aqui.",
       "pickClose": "Fechar"
     },
     "nav": {

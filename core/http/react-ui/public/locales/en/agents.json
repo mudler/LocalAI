@@ -772,7 +772,8 @@
         "media": "Media sources",
         "webhooks": "Webhooks",
         "limits": "Limits",
-        "acts": "Permissions"
+        "acts": "Permissions",
+        "delivery": "Reports"
       },
       "summary": {
         "basics": "{{name}}, {{model}}",
@@ -825,6 +826,25 @@
         "dots": "A folder name cannot contain \"..\".",
         "outside": "This agent can only watch folders inside its own: {{folders}}.",
         "noFolders": "This agent has no folder it can use. Choose a folder in the settings of the agent."
+      },
+      "delivery": {
+        "now": "Reports to now",
+        "where": "Where runs report",
+        "mode": "When to report",
+        "always": "Every run",
+        "keep": "Keep: {{place}}",
+        "origin": "The chat where it was proposed",
+        "hint": "Only the channels you approved on your connections are listed, on connections allowed to write in channels.",
+        "fromChat": "This trigger was proposed in a chat of a messaging app: its reports stay on that connection.",
+        "loadFailed": "The connections could not be read: {{message}}",
+        "unusable": "{{name}}: {{reason}}",
+        "reason": {
+          "off": "switched off",
+          "addon_off": "its add-on is not running",
+          "tool_only": "a service for tools, it cannot receive reports",
+          "talkback_off": "not allowed to write in channels",
+          "no_channel": "no approved channel"
+        }
       }
     },
     "actionFailed": "The action failed: {{message}}",

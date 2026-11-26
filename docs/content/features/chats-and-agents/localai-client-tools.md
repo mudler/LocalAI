@@ -57,6 +57,8 @@ The decision uses only the tools the chat would send and the window, so a chat g
 
 Permissions do not change. `tool_call` runs the same tool a direct call would, with the same checks: the role, the switches of the chat, the ceiling of a saved agent, the `act.spend` rule of a run that starts by itself, and the account of the person who is chatting. `tool_search` and `tool_describe` list and describe only tools the chat could call. Any other name, whether the tool exists or not, gets the same answer: `no such tool`. The tools of other groups, like the file and web tools, are always sent in full; so are the tools of MCP connectors unless the setting is `on`. The tools panel (`GET /api/chats/{id}/tools`) marks a group that loads on demand with `deferred: true`, and the Tools menu shows it as "Loaded on demand".
 
+An add-on can mark some of its tools as `deferred` in its manifest (see [Deferred tools]({{% relref "/addons/contract-reference/owner-forwarding#deferred-tools" %}})). They are another source behind the same three tools. With `off` they are sent in full; with `on` they always load on demand; with `auto` the schemas of these tools alone are counted against a tenth of the window. The two groups are decided on their own schemas, so an add-on never changes whether they load on demand. A tie in `tool_search` ranks a LocalAI tool before an add-on tool. The tool keeps its `addon__<id>__<tool>` name, and `tool_call` applies the same role, approval and switch checks as a typed call.
+
 The OpenAI-compatible API is not changed: `metadata.localai_assistant` still gives an administrator the admin tools there, and the client tools are not offered.
 
 ## Client tools

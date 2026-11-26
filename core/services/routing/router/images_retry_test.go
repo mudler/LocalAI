@@ -117,7 +117,7 @@ func (retryNoStore) Insert(context.Context, []float32, []byte) error { panic("im
 var _ = It("TestRetryCacheCompleteProbe", func() {
 	for _, image := range []string{"AA==", "AQ=="} {
 		p := Probe{Prompt: "identical", Messages: []string{"first", "second"}, State: []byte(`{}`), Images: []byte(`["data:image/png;base64,` + image + `"]`)}
-		c := NewEmbeddingCacheClassifier(&retryInner{p}, retryNoEmbed{}, retryNoStore{}, .9, .5).WithTokenTrim(func(string) (int, error) { panic("image cache trim") }, 10)
+		c := NewEmbeddingCacheClassifier(&retryInner{p}, retryNoEmbed{}, retryNoStore{}, .9, .5).WithTokenTrim(func(context.Context, string) (int, error) { panic("image cache trim") }, 10)
 		if _, err := c.Classify(context.Background(), p); err != nil {
 			Fail(fmt.Sprint(err))
 		}

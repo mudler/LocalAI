@@ -10,9 +10,7 @@
     "folder": "要监视的文件夹",
     "saveEdit": "保存",
     "cancelEdit": "取消",
-    "create": "创建触发器",
     "edit": "编辑",
-    "dismiss": "拒绝",
     "receipt": {
       "scheduled": "已安排：",
       "watching": "监视中：",
@@ -67,8 +65,17 @@
       "stop": "在触发器中关闭或删除",
       "actsLabel": "权限",
       "limitLabel": "时间限制",
-      "limitClamped": "{{limit}}，管理员限制为 {{ceiling}}"
-    }
+      "limitClamped": "{{limit}}，管理员限制为 {{ceiling}}",
+      "doesLabel": "做什么",
+      "tellsYouLabel": "何时通知你",
+      "doesWatch": "为 {{source}} 保持提醒，默认{{offset}}。",
+      "tellsWatch": "只在有用时：别人做了改动、安排了简报或时间冲突。",
+      "tellsEvery": "每次运行后。",
+      "tellsOnChange": "回答与上次运行不同时。",
+      "tellsOnProblem": "仅在运行失败时。"
+    },
+    "approve": "批准",
+    "notNow": "暂不"
   },
   "mcpPage": {
     "title": "MCP 连接器",
@@ -814,6 +821,58 @@
           "body_one": "已删除 {{count}} 个旧文件。",
           "body_other": "已删除 {{count}} 个旧文件。"
         }
+      },
+      "run": {
+        "title_one": "正在更新 {{count}} 项",
+        "title_other": "正在更新 {{count}} 项",
+        "titleAuto_one": "自动更新:{{count}} 项",
+        "titleAuto_other": "自动更新:{{count}} 项",
+        "updated_one": "{{count}} 项已更新",
+        "updated_other": "{{count}} 项已更新",
+        "running_one": "{{count}} 项进行中",
+        "running_other": "{{count}} 项进行中",
+        "waiting_one": "{{count}} 项等待中",
+        "waiting_other": "{{count}} 项等待中",
+        "done": "已完成 {{done}}/{{total}}",
+        "end": {
+          "attention_one": "{{updated}} 项已更新,{{count}} 项需要处理",
+          "attention_other": "{{updated}} 项已更新,{{count}} 项需要处理",
+          "done_one": "{{count}} 项已更新",
+          "done_other": "{{count}} 项已更新",
+          "auto": "自动:{{text}}",
+          "first": "{{name}} 仍是 {{version}}。",
+          "firstWhy": "{{name}} 仍是 {{version}}:{{reason}}。",
+          "cancelled_one": "本次更新已取消:{{count}} 项已更新",
+          "cancelled_other": "本次更新已取消:{{count}} 项已更新",
+          "cancelledAttention_one": "本次更新已取消:{{updated}} 项已更新,{{count}} 项需要处理",
+          "cancelledAttention_other": "本次更新已取消:{{updated}} 项已更新,{{count}} 项需要处理",
+          "firstStart": "{{name}} 仍是 {{version}}:新版本未能启动:{{reason}}。"
+        }
+      },
+      "watch": {
+        "set": "已为“{{title}}”设置提醒：{{when}}。",
+        "changed": "已更改“{{title}}”的提醒：{{when}}。",
+        "cancelled": "已取消“{{title}}”的提醒。",
+        "snoozed": "已将“{{title}}”的提醒推迟到 {{when}}。",
+        "snoozeUndone": "已撤回“{{title}}”提醒的推迟。",
+        "skipped": "已跳过“{{title}}”的提醒。",
+        "skipUndone": "已撤回“{{title}}”提醒的跳过。",
+        "taskChanged": "已更改“{{title}}”提醒的任务。",
+        "restored": "已恢复“{{title}}”的提醒：{{when}}。",
+        "next": "已为下一次“{{title}}”设置提醒：{{when}}。",
+        "moved": "已将“{{title}}”的提醒移到 {{when}}。",
+        "movedStarted": "“{{title}}”已移动且已开始，因此没有提醒。",
+        "removed": "已取消“{{title}}”的提醒：它已被删除。",
+        "woken": "“{{title}}”有变化，正在检查它的提醒。",
+        "movedBy": "“{{title}}”已移动。我会在 {{when}} 提醒你。",
+        "movedByStarted": "“{{title}}”已移动且已开始。",
+        "removedBy": "“{{title}}”已被删除，所以我取消了它的提醒。",
+        "wokenBy": "“{{title}}”有变化。我正在确认提醒是否仍然合适。",
+        "missed": "错过：{{title}}。提醒时服务器未运行。",
+        "onHold": "此监视暂停期间，“{{title}}”的提醒会等待。",
+        "dropped": "“{{title}}”的提醒已随监视一起删除。",
+        "lastKnown": "已为下一次“{{title}}”设置提醒：{{when}}。这是已知的最后一次；修改该项目后会设置之后的提醒。",
+        "seriesEnded": "不知道“{{title}}”之后的时间，所以现在没有提醒。修改该项目会设置下一次提醒。"
       }
     },
     "tabs": {
@@ -850,7 +909,15 @@
       }
     },
     "chatsOff": "聊天会话已关闭",
-    "emptyBodyNoChats": "更新和已完成的操作会显示在这里。"
+    "emptyBodyNoChats": "更新和已完成的操作会显示在这里。",
+    "runProgress": "进度:{{title}}",
+    "runStarted": "开始于{{when}}",
+    "viewProgress": "查看进度",
+    "seeRun": "查看本次更新",
+    "openUpdates": "打开更新",
+    "updatesPending_one": "有 {{count}} 项可用更新",
+    "updatesPending_other": "有 {{count}} 项可用更新",
+    "updatesNone": "全部已是最新"
   },
   "change": {
     "loading": "正在读取触发器更改...",
@@ -1517,7 +1584,10 @@
     "mcp": "MCP 服务器"
   },
   "triggersPage": {
-    "runLimit": "单次运行的时间限制"
+    "runLimit": "单次运行的时间限制",
+    "presets": {
+      "event": "收到事件时"
+    }
   },
   "sandboxProfile": {
     "label": "沙箱配置",
@@ -1593,5 +1663,165 @@
       "reason": "此聊天的设置为 {{window}} 个 token,聊天至少需要 {{minimum}} 个。",
       "fix": "使用模型的窗口"
     }
+  },
+  "event": {
+    "listening": "监听中：",
+    "announceAccepted": "已创建 {{name}}。请立即复制它的密钥：密钥只显示一次。",
+    "sentence": {
+      "typed": "当 {{source}} 发送 {{type}}",
+      "any": "当 {{source}} 发送任意事件",
+      "where": " 且 {{matches}}",
+      "and": "、"
+    },
+    "hook": {
+      "title": "钩子地址和密钥",
+      "urlLabel": "钩子 URL",
+      "secretLabel": "密钥（只显示一次）",
+      "curlLabel": "调用示例",
+      "copy": "复制",
+      "copied": "已复制",
+      "copyUrl": "复制钩子 URL",
+      "copySecret": "复制密钥",
+      "copyCurl": "复制调用示例",
+      "paste": "把 URL 和密钥粘贴到发送方的 webhook 设置中。密钥不会再次显示。",
+      "noSecret": "密钥不会再次显示。轮换密钥可获得新的密钥。",
+      "rotate": "轮换密钥",
+      "rotateTitle": "要轮换 {{name}} 的密钥吗？",
+      "rotateBody": "旧密钥会立即失效。请在发送方下一次发送事件之前换成新密钥。",
+      "rotateConfirm": "轮换",
+      "rotated": "已生成新密钥。",
+      "rotateFailed": "无法轮换密钥：{{message}}"
+    },
+    "form": {
+      "source": "发送方",
+      "sourceHint": "发送方的名称，例如 github。",
+      "sourceEmpty": "请填写事件的发送方。",
+      "type": "事件类型",
+      "typeHint": "留空表示接收任意类型的事件。",
+      "matches": "仅当（每行一个 字段=值）",
+      "matchesHint": "最多 8 行，例如 action=opened。",
+      "createdTitle": "{{name}} 已就绪",
+      "done": "完成"
+    }
+  },
+  "watch": {
+    "section": "提醒监视",
+    "new": "新建监视",
+    "titleNew": "新建监视",
+    "titleEdit": "编辑 {{name}}",
+    "source": "监视",
+    "sourceHelp": "只列出会报告变动的插件。",
+    "sourcePick": "选择插件",
+    "types": "要跟进的变动",
+    "typesHelp": "全部不勾选即跟进所有变动。",
+    "offset": "提醒我",
+    "none": "没有默认提醒",
+    "atTime": "准时",
+    "minutesBefore_one": "提前 {{count}} 分钟",
+    "minutesBefore_other": "提前 {{count}} 分钟",
+    "hoursBefore_one": "提前 {{count}} 小时",
+    "hoursBefore_other": "提前 {{count}} 小时",
+    "daysBefore_one": "提前 {{count}} 天",
+    "daysBefore_other": "提前 {{count}} 天",
+    "minutesAfter_one": "之后 {{count}} 分钟",
+    "minutesAfter_other": "之后 {{count}} 分钟",
+    "hoursAfter_one": "之后 {{count}} 小时",
+    "hoursAfter_other": "之后 {{count}} 小时",
+    "daysAfter_one": "之后 {{count}} 天",
+    "daysAfter_other": "之后 {{count}} 天",
+    "allDay": "全天的事项",
+    "allDayMorning": "当天早上 08:00",
+    "allDayNone": "不提醒",
+    "quiet": "免打扰时段",
+    "quietFrom": "从",
+    "quietTo": "到",
+    "quietHelp": "落在此时段内的提醒会提前到前一天晚上。",
+    "tasks": "默认任务",
+    "tasksHelp": "用你自己的话写，例如：和别人通话前 30 分钟准备一份简报。",
+    "problemSource": "选择要监视的内容。",
+    "problemQuiet": "免打扰时段需要开始和结束时间。",
+    "emptyTitle": "暂时没有可监视的内容",
+    "emptyBody": "没有已安装的插件会报告变动。安装日历插件即可为你的日程设置提醒。",
+    "summary": "{{source}}，{{offset}}",
+    "watches": "监视",
+    "state": "状态",
+    "on": "开启",
+    "paused": "已暂停",
+    "permissions": "编辑权限",
+    "reminders": "即将到来的提醒",
+    "remindersEmpty": "还没有提醒。有新内容时，监视会自动设置。",
+    "dueLine": "{{when}}，{{offset}}",
+    "adjQuiet": "前一天晚上，避开免打扰时段",
+    "adjAllDay": "当天早上",
+    "skipped": "已跳过",
+    "snoozed": "已推迟",
+    "started": "已经开始",
+    "open": "打开",
+    "snooze": "推迟",
+    "skip": "跳过",
+    "changeTime": "更改时间…",
+    "newTime": "新时间",
+    "saveTime": "保存",
+    "save": "保存监视",
+    "cancel": "取消",
+    "undo": "撤销",
+    "doneSnooze": "已推迟到 {{when}}。",
+    "doneSkip": "已跳过。若事项改期会再次提醒。",
+    "doneRetime": "已改到 {{when}}。",
+    "doneUndo": "已撤销。",
+    "loadFailed": "无法读取提醒：{{message}}",
+    "sourcesFailed": "无法读取报告更改的加载项：{{message}}",
+    "viewWatch": "查看监视",
+    "saved": "监视已保存。",
+    "nameRequired": "监视需要一个名称。",
+    "promptRequired": "写下监视要做什么。",
+    "promptHint": "每次监视运行都从这段文字开始。",
+    "enabledHint": "关闭的监视会保留提醒，等它重新开启后再提醒。",
+    "change": {
+      "title": {
+        "create": "为 {{title}} 设置提醒",
+        "update": "更改 {{title}} 的提醒",
+        "delete": "取消 {{title}} 的提醒"
+      },
+      "help": "在你批准之前，什么都不会改变。",
+      "stale": "提出请求后提醒已变化，请重新提出。",
+      "watch": "监视",
+      "when": "时间",
+      "task": "任务",
+      "none": "无",
+      "receipt": {
+        "create": "已设置提醒：",
+        "update": "已更改提醒：",
+        "delete": "已取消提醒：",
+        "dismissed": "未更改：",
+        "undone": "已撤销："
+      },
+      "blocked": {
+        "expired": "撤销时间已过；请在监视页面更改提醒。",
+        "edited": "提醒此后已被更改；请在监视页面更改。",
+        "removed": "提醒或其监视此后已被删除。"
+      },
+      "announce": {
+        "applied": "已批准 {{title}} 的提醒更改。",
+        "dismissed": "{{title}} 的提醒保持原样。",
+        "undone": "已撤销 {{title}} 的提醒更改。"
+      }
+    }
+  },
+  "incognito": {
+    "label": "无痕",
+    "levelLabel": "无痕级别",
+    "levels": {
+      "memory-off": "关闭记忆",
+      "zero-retention": "零保留"
+    },
+    "describe": {
+      "memory-off": "此对话不读取也不保存记忆。它不会出现在列表中，离开后即结束。日志和追踪照常保留。",
+      "zero-retention": "服务器不保留此对话的任何内容，只记录用量。它不读取也不保存记忆，不接受附件，离开后即结束。"
+    },
+    "blocked": "无痕对话中不可用",
+    "discardTitle": "结束无痕对话？",
+    "discardMessage": "对话将被删除，且无法再次打开。",
+    "discardConfirm": "结束对话"
   }
 }

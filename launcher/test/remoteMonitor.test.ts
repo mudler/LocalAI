@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { RemoteMonitor, REMOTE_RETRY_MS, reasonText } from '../src/main/remoteMonitor'
+import { RemoteMonitor, REMOTE_RETRY_MS, reasonText } from '../src/core/remoteMonitor'
 import type { TestResult } from '../src/main/testConnection'
 import type { RemoteStatusView } from '../src/shared/types'
 

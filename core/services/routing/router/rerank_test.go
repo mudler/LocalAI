@@ -51,7 +51,7 @@ var _ = Describe("RerankClassifier", func() {
 			{Index: 1, RelevanceScore: 0.10},
 			{Index: 2, RelevanceScore: 0.05},
 		}}
-		wordCount := func(s string) (int, error) { return len(strings.Fields(s)), nil }
+		wordCount := func(_ context.Context, s string) (int, error) { return len(strings.Fields(s)), nil }
 		// budget = 60 − longest policy description − 16 margin; still well under
 		// the ~120-word transcript, so the oldest turns drop.
 		c := NewRerankClassifier(testPolicies(), r, 0, 0).WithTokenTrim(wordCount, 60)

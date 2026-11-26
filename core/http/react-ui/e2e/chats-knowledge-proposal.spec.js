@@ -119,14 +119,14 @@ test('Confirm adds it and keeps Undo although the change has no change set; Undo
   expect(s.fileReads).toBe(0)
 })
 
-test('Edit then confirm labels the text with the collection, and Dismiss adds nothing', async ({ page }) => {
+test('Edit then confirm labels the text with the collection, and Not now adds nothing', async ({ page }) => {
   const s = await serve(page, [make(), make({ id: 'k2', summary: 'Wiki page' })])
   await page.goto('/app/chats/proposals')
   const cards = page.getByTestId('change-proposal')
   await cards.first().getByRole('button', { name: 'Edit' }).click()
   await expect(cards.first().getByLabel('Text to add to router-manuals')).toBeVisible()
   await cards.first().getByRole('button', { name: 'Cancel' }).click()
-  await cards.nth(1).getByRole('button', { name: 'Dismiss' }).click()
+  await cards.nth(1).getByRole('button', { name: 'Not now' }).click()
   await expect(cards.nth(1)).toHaveAttribute('data-state', 'dismissed')
   expect(s.calls).not.toContain('POST k2 confirm')
 })

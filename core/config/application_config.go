@@ -273,6 +273,13 @@ type ApplicationConfig struct {
 	AutoUpgradeAddons                           bool
 	PreferDevelopmentBackends                   bool
 
+	// UpgradeRunKeep is the most finished upgrade runs kept. Zero means 200
+	// (upgraderun.DefaultRetention), a negative value keeps any number.
+	UpgradeRunKeep int
+	// UpgradeRunRetentionDays is how long finished upgrade runs are kept.
+	// Zero means 30 days, a negative value keeps them forever.
+	UpgradeRunRetentionDays int
+
 	// RequireBackendIntegrity promotes a missing SHA256 (tarball/HTTP URIs)
 	// or missing verification policy (OCI URIs) from a warning to a hard
 	// failure during backend install/upgrade. Off by default to keep
@@ -533,8 +540,18 @@ type ApplicationConfig struct {
 	// at startup or in a later runtime settings change, does not override it.
 	AdminOffByDeprecatedOption bool
 
+	// Incognito is the setting incognito: allow (empty) or forbid. It decides
+	// whether web UI sessions may start incognito conversations. Read at each
+	// request, see IncognitoPolicy.
+	Incognito string
+	// IncognitoMaxLevelName is the setting incognito_max_level: memory-off or
+	// zero-retention (empty). An administrator who needs audit logs allows
+	// memory isolation only. See IncognitoMaxLevel.
+	IncognitoMaxLevelName string
+
 	// ChatsToolSearch is the setting chats_tool_search: whether the large
-	// LocalAI tool groups are replaced by the three tool-search tools. One of
+	// LocalAI tool groups and the deferred add-on tools are replaced by the
+	// three tool-search tools. One of
 	// the ToolSearch* values; empty means auto. Read at each turn.
 	ChatsToolSearch string
 
@@ -1563,6 +1580,12 @@ func WithMCPCIJobTimeout(d time.Duration) AppOption {
 // trigger, and for how many days.
 func WithTriggerRunRetention(keep, days int) AppOption {
 	return func(o *ApplicationConfig) { o.TriggerRunKeep, o.TriggerRunRetentionDays = keep, days }
+}
+
+// WithUpgradeRunRetention sets how many finished upgrade runs are kept, and
+// for how many days.
+func WithUpgradeRunRetention(keep, days int) AppOption {
+	return func(o *ApplicationConfig) { o.UpgradeRunKeep, o.UpgradeRunRetentionDays = keep, days }
 }
 
 // Defaults of the agent jobs.

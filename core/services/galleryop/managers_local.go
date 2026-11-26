@@ -131,15 +131,22 @@ func (b *LocalBackendManager) CheckUpgrades(ctx context.Context) (map[string]gal
 }
 
 func (b *LocalBackendManager) InstallBackend(ctx context.Context, op *ManagementOp[gallery.GalleryBackend, any], progressCb ProgressCallback) error {
+	// A forced install replaces a build that works. Keep that build until the
+	// new one starts, as an upgrade does. The check runs only when a build is
+	// replaced, so a first install starts nothing.
+	var opts []gallery.BackendInstallOption
+	if op.Force {
+		opts = append(opts, gallery.WithStartCheck(gallery.LoaderStartCheck(b.modelLoader, op.GalleryElementName)))
+	}
 	if op.ExternalURI != "" {
 		return InstallExternalBackend(ctx, b.backendGalleries, b.systemState, b.modelLoader,
-			progressCb, op.ExternalURI, op.ExternalName, op.ExternalAlias, op.Force, b.requireBackendIntegrity)
+			progressCb, op.ExternalURI, op.ExternalName, op.ExternalAlias, op.Force, b.requireBackendIntegrity, opts...)
 	}
 	// op.Force distinguishes an explicit reinstall from an idempotent
 	// "make sure it's installed" op; the latter must not re-download an
 	// already-runnable backend (supervisors apply on every boot).
 	return gallery.InstallBackendFromGallery(ctx, b.backendGalleries, b.systemState,
-		b.modelLoader, op.GalleryElementName, progressCb, op.Force, b.requireBackendIntegrity)
+		b.modelLoader, op.GalleryElementName, progressCb, op.Force, b.requireBackendIntegrity, opts...)
 }
 
 func (b *LocalBackendManager) IsDistributed() bool { return false }

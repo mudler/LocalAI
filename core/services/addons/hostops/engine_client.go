@@ -77,6 +77,9 @@ var ClientCallOps = map[string]bool{
 	"client.workspace.list":  true,
 	"client.workspace.read":  true,
 	"client.workspace.write": true,
+	// A change that a client makes is reported like any other; the host
+	// marks the client as its cause.
+	"events.emit": true,
 }
 
 func clientFrom(c Call) (ClientCall, error) {

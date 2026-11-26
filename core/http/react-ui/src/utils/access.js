@@ -28,6 +28,15 @@ export function userState(user) {
   return 'pending'
 }
 
+// Whether an administrator may use View as on this person: an active account
+// that is neither the viewer nor an administrator. A person waiting for approval
+// or disabled has no data to view, and viewing another administrator is not part
+// of View as. `self` is the viewer ({ id, email }).
+export function canViewAs(user, self) {
+  if (!user || user.role === 'admin' || userState(user) !== 'active') return false
+  return !(self && (user.id === self.id || (user.email && user.email === self.email)))
+}
+
 // The "Filters" popover narrows the list further: the sign-in method and
 // whether the person's access differs from the defaults.
 export function filterUsers(users, { query = '', filter = 'all', provider = '', access = '', featureMeta = null, now = Date.now() } = {}) {

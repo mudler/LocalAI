@@ -168,6 +168,57 @@ test.describe('Placement rules: the sheet', () => {
   })
 })
 
+test.describe('Placement rules: the model search list', () => {
+  // Long ids make the list as wide as it can get. The list must stay inside the
+  // sheet, which clips what leaves it, and nothing may cover any part of it.
+  const LONG = [
+    'unsloth-qwen3-235b-a22b-instruct-2507-gguf-q4-k-xl-long-context',
+    'bartowski-llama-3.3-70b-instruct-q4-k-m',
+    'qwen3-8b',
+  ]
+  const listIsShown = async (page, width, height) => {
+    await page.setViewportSize({ width, height })
+    await mockSwarm(page)
+    await page.route('**/api/models/capabilities', route => route.fulfill({ json: { object: 'list', data: LONG.map(id => ({ id })) } }))
+    await page.goto('/app/scheduling')
+    await page.getByRole('button', { name: 'New rule' }).click()
+    const sheet = page.getByTestId('rule-sheet')
+    await expect.poll(async () => { const b = await sheet.boundingBox(); return b && b.y + b.height }).toBeLessThanOrEqual(height)
+    await page.getByRole('button', { name: 'Model' }).click()
+    await page.getByRole('combobox', { name: 'Filter models' }).fill('q')
+    const menu = page.locator('.home-menu--models')
+    await expect(menu.getByRole('option')).toHaveCount(4) // three models and the typed name
+    // The sheet and the list come to rest before they are measured.
+    await page.waitForTimeout(500)
+    const m = await menu.boundingBox()
+    const s = await sheet.boundingBox()
+    expect(m.x).toBeGreaterThanOrEqual(s.x)
+    expect(m.x + m.width).toBeLessThanOrEqual(s.x + s.width)
+    expect(m.x).toBeGreaterThanOrEqual(0)
+    expect(m.x + m.width).toBeLessThanOrEqual(width)
+    expect(m.y + m.height).toBeLessThanOrEqual(height)
+    // Four points of the menu, and the middle of its list, hit the menu itself.
+    const covered = await menu.evaluate((el) => {
+      const r = el.getBoundingClientRect()
+      const points = [[r.left + 6, r.top + 6], [r.right - 6, r.top + 6], [r.left + 6, r.bottom - 6], [r.right - 6, r.bottom - 6], [r.left + r.width / 2, r.top + r.height / 2]]
+      return points.filter(([x, y]) => { const hit = document.elementFromPoint(x, y); return !hit || !el.contains(hit) }).length
+    })
+    expect(covered).toBe(0)
+  }
+
+  test('stays inside the sheet when the list is wide', async ({ page }) => {
+    await listIsShown(page, 1440, 900)
+  })
+
+  test('stays inside a narrower window', async ({ page }) => {
+    await listIsShown(page, 768, 700)
+  })
+
+  test('stays inside the bottom sheet on a phone', async ({ page }) => {
+    await listIsShown(page, 390, 844)
+  })
+})
+
 test.describe('Placement rules: delete with undo', () => {
   test('takes a rule back with Undo and sends nothing', async ({ page }) => {
     const log = await mockSwarm(page)

@@ -169,7 +169,8 @@ let them do more, per binding, with `approval.acts` in the settings of the conne
 the `act.*` permissions that a trigger proposed from a chat of this binding may carry:
 `act.files` (write files in the agent's folders), `act.addons` (use the actions of the
 agent's add-ons, including running commands through an add-on), `act.send` (send
-messages beyond where the run reports) and `act.spend` (use paid or external tools and
+messages beyond where the run reports, with `send_message`, to the approved channels of
+this connection only) and `act.spend` (use paid or external tools and
 the network). The default is an empty list. Any other name is refused with `400`. A
 present `approval` object replaces the whole object, so send `acts` again when you change
 the mode or a limit.

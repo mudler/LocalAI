@@ -116,6 +116,14 @@ type ToolDefinition struct {
 	// administrator. It is never offered to a model, a chat or an agent. The
 	// page has no resource to name, so it must be a read tool without one.
 	UIOnly bool `json:"uiOnly,omitempty"`
+	// Deferred says that a chat offers this tool through the tool search
+	// (tool_search, tool_describe and tool_call) instead of as a typed tool, so
+	// its schema is not sent on every turn. It changes the model's prompt only:
+	// the tool keeps its name, its kind, its role check and its approval, and
+	// pages, MCP clients, agents and triggers list it as before. It is refused
+	// on a UIOnly tool, which no model is offered, and on a tool that Shadows a
+	// built-in one, which must keep its name.
+	Deferred bool `json:"deferred,omitempty"`
 	// Enumerates marks a read tool that lists what the credential reaches, such
 	// as the repositories of a token. It names no resource, so the host cannot
 	// hold it to the person's list: it runs only for a binding whose list is
@@ -318,6 +326,12 @@ func validateToolDefinitionsFor(defs []ToolDefinition, tools []string, credentia
 		}
 		if d.UIOnly && !IsResourceless(d) && (d.Kind != ToolKindAction || d.Name != jobsTool) {
 			return fmt.Errorf("tool %s: a page-only tool must be a read tool without a resource", d.Name)
+		}
+		if d.Deferred && d.UIOnly {
+			return fmt.Errorf("tool %s: a page-only tool is never offered to a model, so it cannot be deferred", d.Name)
+		}
+		if d.Deferred && d.Shadows != "" {
+			return fmt.Errorf("tool %s: a tool that shadows %s keeps its name and cannot be deferred", d.Name, d.Shadows)
 		}
 		if err := d.Execution.validate(d); err != nil {
 			return err

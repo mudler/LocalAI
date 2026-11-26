@@ -30,6 +30,9 @@ import { useNavConfig, useNavLinks } from '../hooks/useNavConfig'
 import { sections as navSections, entryLabel } from '../utils/nav'
 import { useUiString } from './wellknown/Identity'
 import WorkspaceSlot from './slots/WorkspaceSlot'
+import { NavMark, NavLegend } from './viewas/parts'
+import { useViewAs } from '../contexts/ViewAsContext'
+import { followsNav } from '../utils/viewAsRoutes'
 import { readSidebarCollapsed, writeSidebarCollapsed, readSidebarSections, writeSidebarSections } from '../utils/sidebarState'
 
 
@@ -58,6 +61,8 @@ function NavItem({ item, onClose, collapsed, active, badge, label: ownLabel }) {
   // before the synthetic click on mobile; mouseenter/focus cover desktop and
   // keyboard. The underlying import() is memoised so multiple triggers are free.
   const preload = () => preloadRoute(item.path)
+  // The marker of a page that follows "View as".
+  const { active: viewing } = useViewAs()
   return (
     <NavLink
       to={item.path}
@@ -73,6 +78,7 @@ function NavItem({ item, onClose, collapsed, active, badge, label: ownLabel }) {
     >
       <Icon name={item.icon} className="nav-icon" aria-hidden="true" />
       <span className="nav-label">{label}</span>
+      {viewing && followsNav(item.id) && <NavMark />}
       {badge}
     </NavLink>
   )
@@ -339,6 +345,7 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
           {!legacy && hasFeature('chats') && features.chats !== false && (
             <SidebarChats onClose={onClose} collapsed={collapsed} />
           )}
+          {!collapsed && <NavLegend />}
 
           {/* Collapsible sections */}
           {(legacy ? sections : sections.filter(s => s.hubs)).map(section => {

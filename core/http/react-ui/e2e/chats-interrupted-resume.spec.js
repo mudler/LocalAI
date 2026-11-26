@@ -101,8 +101,11 @@ test.describe('Interrupted turn', () => {
     await freezeClock(page)
     await page.clock.fastForward(3500)
     await expect(page.getByText(FINISHED)).toBeVisible()
-    await expect(page.getByText('I will read the three source files first.')).toHaveCount(1)
     await expect(card(page)).toHaveCount(0)
+    // The turn has its answer now: what the model said before its call is a
+    // note in the folded steps above the answer, and it is there once.
+    await page.getByTestId('chat-activity').getByRole('button', { expanded: false }).first().click()
+    await expect(page.getByText('I will read the three source files first.')).toHaveCount(1)
     expect(api.state.calls).toEqual(['resume'])
   })
 

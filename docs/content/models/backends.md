@@ -70,8 +70,8 @@ URL, so a shared link opens the same state.
 ask for that backend by name, and any installed meta backend that points at it
 (for example `llama-cpp` pointing at a hardware-specific build), because those
 stop working without it. The catalog does not report a size per backend, and
-LocalAI keeps no earlier version of a backend, so there is no size column and
-no rollback.
+LocalAI keeps no earlier version of a backend once an upgrade has finished, so
+there is no size column and no rollback after the fact.
 
 **Admin → Runtime → Logs** (`/app/backend-logs`) lists the backend processes
 that have printed something. Open one to read its output live, filter by stream
@@ -97,7 +97,7 @@ Each open row displays:
 **Admin → Updates** (`/app/updates`) is the one place that answers "what is
 out of date, and what is changing". It is for administrators. It lists backends of the gallery, backends of a library, add-ons and, in their
 own rows, the installed gallery models whose entry changed (see [Model
-updates]({{% relref "/models/model-updates" %}}); models never take part in **Update N ready**).
+updates]({{% relref "/models/model-updates" %}}); in a review, models start unselected).
 
 At the top, one sentence says how many updates there are and how many are ready,
 updating or need you. Under it a line for each source (the backend gallery, the
@@ -114,7 +114,7 @@ The rows are in four groups, in this order:
 |---|---|
 | **Needs you** | An update that failed (**Retry**), an add-on upgrade that is held until you approve the access it asks for (**Review**), and an update that cannot start, with the reason (an add-on that cannot run on this host, or backend installs turned off on this server). |
 | **Updating** | An update in progress, with its phase and progress. **Cancel** shows where the operation can be cancelled. |
-| **Ready to update** | An update that you can start. An add-on asks for your confirmation first, in this browser. |
+| **Ready to update** | An update that you can start. **Update** opens the review of that row. |
 | **Up to date** | One collapsed line. A backend is listed here only when its source answered. |
 
 **Check now** runs a real check of every source and waits for the answer. It
@@ -123,26 +123,69 @@ browser session, and shows the result under the sentence. The button waits 15
 seconds before the next check, as the server answers a check within that time
 from the last one.
 
-An update is **done** only when two things hold: the operation ended without an
-error, and a new check no longer lists the item. If the operation ended and the
-item is still listed, the row says "The update ended but the version did not
-change". A throttled check answer, which is seconds old, is asked again before
-the page decides.
+### Review and update run
 
-**Update N ready** runs the checked rows one after another. Rows that are held
-or blocked never take part, a failure does not stop the others, and **Retry
-failed** runs only the failed ones. The summary ("2 updated, 1 failed") counts a
-row as updated only when it is done by the rule above. Closing the page does not
-stop the run: the operations are the server's, and the page reads them again when
-you return.
+Every update starts with a review, and nothing changes until you start it.
+**Update N ready** reviews every ready row. **Update** or **Retry** on a row
+reviews that row only. The server makes the plan of the review:
+
+- The items are grouped by kind: backends, add-ons and models. Each item has a
+  checkbox and its versions.
+- An item shows a risk line only when the server knows the risk. In a
+  cluster, a backend says how many loaded models stop while it switches and on
+  how many nodes ("Stops 2 loaded models on 2 nodes while it switches"). When
+  no loaded model is known to use it, it says on how many nodes it is replaced,
+  and when the nodes run different builds now, it says so. A single server does
+  not know which models use a backend, so its backends have no such line. An
+  add-on says that its data is backed up and migrated. A model update that
+  changes only the settings says that nothing is downloaded. See
+  [Risks]({{% relref "/models/upgrade-runs#risks" %}}).
+- The versions are the versions you know: an add-on shows "0.8.1 to 0.8.2",
+  and the run pins the exact release the review showed.
+- Models start unselected, because an update reloads a model. **Select all**,
+  **Select none** and the count ("6 of 8 selected") are at the top.
+- An item that cannot start (for example a held add-on) shows the reason and
+  cannot be selected.
+
+The primary button starts an **update run** with the selected items. The
+**Upgrade** and **Retry** of a model row, and an approved add-on upgrade, start
+a run of one item; the page shows that run as soon as the server accepts it. The server
+owns the run. It updates the backends first, then the models, then the add-ons
+one at a time. Each update keeps the previous version until the new version
+runs. You can close the page: the run continues, and the page shows it again
+when you come back (the address `/app/updates?run=<id>` opens one run).
+
+While the run is active, the top of the page says how many items are updated,
+running and waiting, with a progress bar and **Cancel remaining**. Each queued
+item has **Cancel**, and a running item has it while its update can still stop. The group
+**This update run** lists the items in the order they run, with their state:
+queued (with the reason it waits), updating (with progress), updated, failed,
+rolled back, cancelled, skipped, or not confirmed. An item is updated only when
+its operation ended without an error and a new check no longer lists it. When
+the result is not known (for example, the reply of a worker was lost), the item
+is "not confirmed": run **Check now** to see its version.
+
+When the run ends, the top of the page gives the result, for example "5
+updated, 1 needs attention". An item needs attention when it failed, was
+rolled back, is not confirmed, or was skipped for a reason; a cancelled item
+does not. The result in the notification center counts the same items. A failed item says what happened, which version
+it is on now and that its data did not change. **Retry** shows only when the
+server can retry the item; **Details** shows the server's own words.
+**Retry failed** runs the retryable items again, and **Dismiss** removes the
+result from the page.
+
+Each run also has one item in the notification center: it shows the progress
+while the run is active, and when the run ends it is replaced by the result.
+It opens the run on this page. The footer of the notification center has **Open Updates** with the
+number of updates, for administrators.
 
 In a cluster, a backend that more than one node has shows a **Nodes** action.
 It opens `/app/updates/backend/<name>`, which lists each node with its version,
 the models that use the backend there, and its state, and updates one node or
-every node that needs it. **Update** and **Retry** on such a row, and **Update N ready** when the selection holds one, open the same confirmation. It lists every affected node and the models that stop, and nothing starts until you confirm. The other selected rows start when you confirm.
-Every update that touches a node asks first, because a worker stops the models
-that use the backend: see [the Workers page]({{% relref "/administration/distributed-mode" %}}).
-On a single machine there is no **Nodes** action and **Update** starts at once.
+every node that needs it, after a confirmation that names the models that stop.
+On the Updates page, such a backend is part of the review like any other row,
+and its risk line says how many loaded models stop on how many nodes. See
+[the Workers page]({{% relref "/administration/distributed-mode" %}}).
 
 ### Shortcuts from other pages
 
@@ -180,7 +223,7 @@ Administrators get updates in the [inbox]({{% relref "/features/chats-and-agents
   - when you delete it, it is hidden, not forgotten. It stays hidden while the updates are the same or fewer, and it comes back, unread, for the next new update;
   - when none is left it is removed. A later update is then new again.
   The digest changes only when every source that can be checked answered in that pass. A failed check does not turn "unknown" into "all done".
-- **The result of an automatic pass**, "Backends: 2 updated automatically, 1 failed". When the automatic update installed or failed to install something, the pass writes one item, with the counts and the names. A pass that did nothing writes nothing. The item is a failure (red) when anything failed, and then it links to the updates that need you. A report is written once: the same failure of the same release at the next pass (the pass retries every six hours) does not write it again, also after you deleted the first item. A different release, or a different set of outcomes, is a new item. Gallery models write their own items (see [Model updates]({{% relref "/models/model-updates#where-you-see-it" %}})). Add-ons write their own item in their own pass (see [Add-ons]({{% relref "/addons/manage-addons#automatic-upgrade" %}})).
+- **The result of an automatic pass**, "Backends: 2 updated automatically, 1 failed". On a server that keeps upgrade runs, the automatic pass starts a run instead of installing, and the run writes its own items (see [Notifications of a run]({{% relref "/models/upgrade-runs#notifications-of-a-run" %}})); the item below is then written only by a server without runs. When the automatic update installed or failed to install something, the pass writes one item, with the counts and the names. A pass that did nothing writes nothing. The item is a failure (red) when anything failed, and then it links to the updates that need you. A report is written once: the same failure of the same release at the next pass (the pass retries every six hours) does not write it again, also after you deleted the first item. A different release, or a different set of outcomes, is a new item. Gallery models write their own items (see [Model updates]({{% relref "/models/model-updates#where-you-see-it" %}})). Add-ons write their own item in their own pass (see [Add-ons]({{% relref "/addons/manage-addons#automatic-upgrade" %}})).
 - **The end of an operation**, "Model qwen3-4b installed" or "Backend whisper: install failed". When an install, removal or upgrade that an administrator started completes, fails or is cancelled, the frontend that ran it writes one item for each administrator (code `updates.opDone`, or `updates.opFailed` with the outcome `failed` or `cancelled`). It is a once item keyed by the operation, so it is written once. A failure carries the reason. Model items open the Models page, backend items the Updates page.
 - **The failed check**, "The update check failed". When the automatic check of the backend gallery or the backend library fails in two passes in a row (more than half a day), one item names the sources. It is removed when the check works again, and written again only if a source fails again for two passes. The Updates page shows the same failure on its source line at once.
 
@@ -204,7 +247,11 @@ serves the request and contacts no registry. It has:
   how) or `drift` (the nodes of a cluster do not agree on the build). A library
   item also has `sourceId` and `signed`. In a cluster an item has `nodes`, with
   the version of every node that has the backend and `drift` on the ones that
-  differ from the majority.
+  differ from the majority. With **Update backends automatically** on, an item
+  has `heldBack: true` when the automatic update does not take its release,
+  because the same release already did not start in a recent upgrade run (see
+  [Automatic updates are runs]({{% relref "/models/upgrade-runs#automatic-updates-are-runs" %}})).
+  You can still update it by hand.
 - `sources.gallery` and `sources.library`: the freshness of each source. `state`
   is `ok`, `failed`, `never` (not checked since the server started) or
   `disabled` (with a `reason`). A source also has `checkedAt`, `lastSuccessAt`
@@ -223,6 +270,86 @@ previous list stays. Callers that arrive during a check share it. A call within
 15 seconds of the last check is answered from it, with `throttled` set. A check
 installs nothing. The older `POST /backends/upgrades/check` still only starts a
 check and returns the cache at once.
+
+**Starting an upgrade.** `POST /backends/upgrade/{name}` (alias
+`POST /api/backends/upgrade/{name}`) and `POST /api/nodes/{id}/backends/upgrade`
+answer at once when the request cannot do anything, and queue nothing. The body
+is `{"error": "...", "code": "..."}`:
+
+| Status | `code` | Meaning |
+|---|---|---|
+| `404` | `not_installed` | The backend is not installed (on that node, for the node route). |
+| `409` | `no_update` | The backend is installed but has nothing to upgrade to: no newer build in the last check, or a backend that the system provides. |
+| `409` | `stale` | The request named a build with `expected_to` and it is no longer the available one. |
+
+`expected_to` is optional. It is the version or the digest that the caller saw
+in the update list, in the query or in a JSON body field of the same name. The
+server compares it with the available build when it accepts the request, and
+answers `stale` when it moved. The job then installs the build the gallery
+lists when it runs; it does not compare it with `expected_to` again. The
+integrity checks of the gallery entry (SHA-256, signature policy) run before
+the swap. A request without `expected_to` upgrades to whatever is available.
+
+A request is never refused as `no_update` from an old list. When the last
+successful check is older than five minutes, or there is none, the request first
+runs a check (the one of **Check now**, shared with a check that already runs)
+and waits for it at most 15 seconds. The fresh list decides. When that check
+fails or runs out of time the request is accepted, and the job reports what
+happens. A request for a build with `expected_to` is compared with the list as
+it is.
+
+An upgrade that fails after it started ends the job with an `error_key` next to
+the `error` text in the status of the job (`GET /backends/jobs/{id}`):
+
+| `error_key` | The step that failed |
+|---|---|
+| `download` | The new build could not be fetched or staged. |
+| `verify` | A checksum or signature check refused the new build, or its content is not a runnable backend. |
+| `swap` | The new build could not be moved into place. The installed build is restored. |
+| `start` | The new build was moved into place but did not start. See below: the previous build is normally back. |
+| `not_installed`, `no_update`, `stale` | As above, when the request was accepted and the state changed before the job ran. |
+| `unknown` | Any other failure. |
+
+Read the `error_key`, not the text: the text can change. Cancelled jobs have no
+`error_key`, and neither has a failed install. A panic in an upgrade ends as
+`unknown`. In distributed mode the key is stored with the operation record
+(`gallery_operations.error_key`, added by the automatic migration at start-up),
+so every frontend and the history (`errorKey`) have it.
+
+**When the new build does not start.** An upgrade keeps the build you have
+until the new one has started once. After the new build is moved into place
+and its metadata is written, LocalAI starts it from its final path, the way a
+model load starts a backend, on a free local port of its own, and waits up to
+40 seconds for it to answer a health check. Then it stops it again. Only when
+the new build answered is the previous build deleted.
+
+When the new build exits, or does not answer in time, LocalAI puts the previous
+build and its metadata back, registers the backends again, and ends the job
+with `error_key` `start` and `rolled_back: true`. The `error` text ends with the
+last lines the new build wrote (at most 512 bytes), for example a missing
+shared library. The backend then runs the version it ran before. A metadata
+write or a backend registration that fails after the swap is handled the same
+way, with `error_key` `swap`. When the previous build cannot be put back,
+`rolled_back` is false, the text says so, and the failed build stays in place
+for diagnosis next to the previous one (`<name>.backup`). The next upgrade
+moves that previous build to `<name>.backup.kept-<time>` instead of deleting
+it.
+
+A forced reinstall of an installed backend (`force: true`) keeps the replaced
+build in the same way. A first install starts nothing.
+
+Limits of the start check:
+
+- It proves that the build starts and listens. It loads no model, so it does
+  not prove that a model loads, or that it loads on the GPU. A build that starts
+  but fails to load a model is found at the next load.
+- Models that run on the backend keep running during the check: the check uses
+  its own process and port, and running processes keep the files of the build
+  they started from.
+- Cancelling the job stops the check and puts the previous build back.
+- The check runs the downloaded build as the user LocalAI runs as. Without
+  strict integrity, a build with no SHA-256 and no signature policy runs at
+  this point, at upgrade time, and not only at the next model load.
 
 Limits:
 

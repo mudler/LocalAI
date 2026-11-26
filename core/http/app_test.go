@@ -439,7 +439,7 @@ var _ = Describe("API test", func() {
 				Expect(err).To(BeNil(), "error")
 				Expect(sc).To(Equal(200), "status code")
 				// Non-API paths pass through to the React SPA (which handles login client-side)
-				Expect(string(body)).To(ContainSubstring(`<base href="https://example.org/myprefix/" />`), "body")
+				Expect(string(body)).To(ContainSubstring(`<base href="/myprefix/" />`), "body")
 				Expect(string(body)).To(ContainSubstring(`<div id="root">`), "should serve React SPA")
 			})
 
@@ -453,7 +453,7 @@ var _ = Describe("API test", func() {
 				})
 				Expect(err).To(BeNil(), "error")
 				Expect(sc).To(Equal(200), "status code")
-				Expect(string(body)).To(ContainSubstring(`<base href="https://example.org/myprefix/" />`), "body")
+				Expect(string(body)).To(ContainSubstring(`<base href="/myprefix/" />`), "body")
 			})
 
 			// Caddy's `handle_path` (and similar directives) strip the matched
@@ -470,7 +470,7 @@ var _ = Describe("API test", func() {
 				})
 				Expect(err).To(BeNil(), "error")
 				Expect(sc).To(Equal(200), "status code")
-				Expect(string(body)).To(ContainSubstring(`<base href="https://example.org/myprefix/" />`), "body")
+				Expect(string(body)).To(ContainSubstring(`<base href="/myprefix/" />`), "body")
 				Expect(string(body)).ToNot(ContainSubstring(`="/assets/`), "asset URLs must include the prefix")
 				Expect(string(body)).ToNot(ContainSubstring(`="/favicon.svg"`), "favicon URL must include the prefix")
 				Expect(string(body)).ToNot(ContainSubstring(`="/apple-touch-icon.png"`), "touch icon URL must include the prefix")
@@ -489,9 +489,29 @@ var _ = Describe("API test", func() {
 				app.ServeHTTP(rec, req)
 				Expect(rec.Code).To(Equal(200))
 				body := rec.Body.String()
-				Expect(body).To(ContainSubstring(`<base href="http://example.com/" />`))
+				Expect(body).To(ContainSubstring(`<base href="/" />`))
 				Expect(body).ToNot(ContainSubstring("evil.example"))
 				Expect(body).ToNot(ContainSubstring("forged"))
+			})
+
+			// A TLS proxy outside --trusted-proxies makes BaseURL report
+			// http:// while the browser is on https://. A full-URL base then
+			// fails the CSP base-uri 'self' check, and the relative asset URLs
+			// of a deep link resolve under the page path. The base must be a
+			// path only, so the browser keeps it on any scheme.
+			It("Should serve a path-only base on a deep link from an untrusted TLS proxy", func() {
+				req := httptest.NewRequest(http.MethodGet, "/invite/abc123", nil)
+				req.RemoteAddr = "203.0.113.9:4000"
+				req.Header.Set("Accept", "text/html")
+				req.Header.Set("X-Forwarded-Proto", "https")
+				req.Header.Set("X-Forwarded-Host", "example.org")
+				rec := httptest.NewRecorder()
+				app.ServeHTTP(rec, req)
+				Expect(rec.Code).To(Equal(200))
+				body := rec.Body.String()
+				Expect(body).To(ContainSubstring(`<div id="root">`))
+				Expect(body).To(ContainSubstring(`<base href="/" />`))
+				Expect(body).ToNot(MatchRegexp(`<base href="[a-z]+:`))
 			})
 
 			It("Should not add a forged prefix to the redirect of an untrusted peer", func() {

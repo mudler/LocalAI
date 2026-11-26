@@ -261,6 +261,33 @@ minutes; this count is kept in memory by each server instance. Chats that a
 connector started keep their own `send_message`, which writes in the chat that
 the sender used; see [Chat apps]({{% relref "/features/chat-apps/actions" %}}).
 
+### From a trigger run
+
+A trigger run gets `send_message` only when the trigger holds `act.send` (see
+[Action policy of unattended runs]({{% relref "/features/chats-and-agents/chats-agents#action-policy-of-unattended-runs" %}})).
+Without it the run does not see the tool. The run still reports to the delivery
+target of the trigger; `send_message` is for an extra message that the run
+decides to send while it works, for example when a check finds a problem. The
+tool tells the model to send only when the task of the trigger asks for it and
+the case is met, and not to send the final answer again.
+
+The rules are those of a chat in Studio, with these differences:
+
+- The run holds `act.send` only when the trigger lists it in `acts` and its
+  agent holds the grant. A trigger whose runs only read never gets the tool.
+  The policy is checked again at each call.
+- The destinations are the connections of the trigger owner, with their
+  approved channels, as above. A connection of another user is refused. A
+  trigger that a chat of a messaging app proposed writes only to that
+  connection, and the model may leave out `connection`.
+- One trigger may send at most 5 messages in 10 minutes, counted over all its
+  runs. As for chats, each server instance keeps this count in memory.
+- The result of each call names the connection and the channel that received
+  the message. It stays in the chat of the run, so you can see what the run
+  sent and where. The audit of the connection records the send with the kind
+  `trigger_run`.
+- Sub-agents of the run and agent jobs do not get the tool.
+
 ## Web
 
 A chat can search the web with `web_search` and read a page with `web_fetch`.
@@ -283,7 +310,7 @@ A chat can use the tools of the add-ons you may use. The **Tools** menu of the c
 
 - A chat is offered a limited number of add-on tools (64 unless an administrator changes it in **Settings > Tools**, **Add-on tools per chat**). The limit applies to the add-ons the chat uses, so switching an add-on off in the chat, or not granting it to the chat's agent, makes room for the others. Tools that replace a built-in tool, such as `bash`, come first. When the limit leaves tools out, the **Tools** menu shows a notice with how many of the add-on tools are available and which add-ons lost tools. It says what you can do: switch off the add-ons you do not use in this chat, or raise the limit in Settings (an administrator) or ask an administrator (anyone else). The notice is absent when nothing is left out. `GET /api/chats/{id}/tools` and `GET /api/chats/draft/tools` carry the same facts in `tool_cap` (`limit`, `offered`, `total`, `cut` and `addons`, each with `id`, `title` and `cut`); the field is absent when nothing is left out. The draft takes `addons_off`, a comma-separated list of the add-ons the composer switched off, so the answer is the one the chat would get.
 - A tool that only reads gives the model its result.
-- A tool that changes an add-on's data (rows, a schema, a new database, a job) changes it at once. Turning an add-on on for a chat or an agent is your consent, so there is no confirmation card. The model is told what was changed and whether it can be undone, and the tool entry in the chat says the same. Undo is the safety net, so a change the add-on kept a change set for shows an **Undo** button on its entry: Tables keeps one for every row and schema change and for a new database, and Fine-tuning and Quantization keep one for a job start (an undo stops the job while it runs). After you press it the entry says "Undone", or why it could not be: the data changed after the change (undoing would overwrite later work, and nothing is changed), the change is older than 7 days, or the job already finished. Only you can press it: the model is told the change can be undone but has no tool for it, and an API key cannot call it. Some changes keep no change set, such as one whose data was too large to keep, stopping a job or exporting a model; their entry says "This cannot be undone" and gives the reason. The file changes of a sandbox or an Office document are different: they are one change in the history of your files and you can undo them there. Reads and changes use your own permissions, and a change on data that moved since it was read is refused, not applied. A scheduled or file-triggered run uses the same rule, but a run with no agent gets no tool that changes anything: name the add-on in an agent to allow it.
+- A tool that changes an add-on's data (rows, a schema, a new database, a job) changes it at once. Turning an add-on on for a chat or an agent is your consent, so there is no confirmation card. The model is told what was changed and whether it can be undone, and the tool entry in the chat says the same. Undo is the safety net, so a change the add-on kept a change set for shows an **Undo** button on its entry: Tables keeps one for every row and schema change and for a new database, and Fine-tuning and Quantization keep one for a job start (an undo stops the job while it runs). After you press it the entry says "Undone", or why it could not be: the data changed after the change (undoing would overwrite later work, and nothing is changed), the change is older than 7 days, or the job already finished. Only you can press it: the model is told the change can be undone but has no tool for it, and an API key cannot call it. Some changes keep no change set, such as one whose data was too large to keep, stopping a job or exporting a model; their entry says "This cannot be undone" and gives the reason. The file changes of a sandbox or an Office document are different: they are one change in the history of your files and you can undo them there. Reads and changes use your own permissions, and a change on data that moved since it was read is refused, not applied. A scheduled, file-triggered or event-triggered run uses the same rule, but a run with no agent gets no tool that changes anything: name the add-on in an agent to allow it.
 - An *action* tool, such as running a command in a sandbox, runs at once and only in a chat. No other place that offers add-on tools (the OpenAI-compatible API, MCP, agents) lists or runs one.
 - A sub-agent gets the add-on tools its parent names, or all of the parent's tools when the parent names none.
 
