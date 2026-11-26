@@ -26,7 +26,7 @@ Reading changes nothing. Look before you answer; do not guess a state.
 
 - Prefer `scale`, `rollout-restart` and `rollout-undo` to `patch` when they fit.
 - `delete-pod` deletes one pod; its controller makes a new one.
-- `cordon` and `uncordon` mark a node. `drain` cordons a node and evicts its pods through the Eviction API, so disruption budgets hold. It runs at most 45 seconds per call. If the result lists `pending` pods, call `drain` again to continue. If it lists `blocked` pods, tell the person why each one is blocked; do not delete them to get around a budget.
+- `cordon` and `uncordon` mark a node. `drain` cordons a node and evicts its pods through the Eviction API, so disruption budgets hold. One call evicts at most 50 pods and ends within 50 seconds. If the result lists `pending` or `remaining` pods, call `drain` again to continue. A result with an `error` still cordoned the node: say so, and call `drain` again when the error is gone. A note that the API server is throttling means wait a little before the next call. If it lists `blocked` pods, tell the person why each one is blocked; do not delete them to get around a budget.
 - `apply` and `patch` work on namespaced objects. The person sees the diff of a server-side dry run before anything is written. Write one object per `apply`. A conflict with another field manager comes back as an error: read the object again and tell the person; do not try to force it.
 - `exec` runs one command in a container, with no terminal. It is off unless an administrator turned it on.
 

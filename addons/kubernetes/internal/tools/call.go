@@ -4,6 +4,7 @@ package tools
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/kubeapi"
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/policy"
@@ -19,6 +20,8 @@ type call struct {
 	c        *kubeapi.Client
 	pol      policy.Policy
 	warnings []string
+	// deadline is when an apply must end, on the clock of the runtime.
+	deadline time.Time
 }
 
 // newCall checks the cluster of the envelope: the host allowed one cluster

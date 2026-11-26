@@ -27,6 +27,9 @@ import (
 const (
 	previewBudget = 12 << 10
 	previewExpiry = 5 * time.Minute
+	// applyBudget is the time one apply may take, counted from its start,
+	// checks included. The host stops an apply after 60 seconds.
+	applyBudget = 50 * time.Second
 )
 
 // writeOp is one parsed write. inspect reads what the write touches and
@@ -123,10 +126,14 @@ func (r *Runtime) Receipt(_ context.Context, op string) (contract.Receipt, error
 // only, so a long exec or drain does not hold up the writes of other people.
 func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract.Revision) (contract.Receipt, error) {
 	opID := env.Request.OperationID
+	deadline := r.now().Add(applyBudget)
+	ctx, cancel := context.WithTimeout(ctx, applyBudget)
+	defer cancel()
 	op, c, rc, err := r.begin(ctx, env, rev)
 	if op == nil {
 		return rc, err
 	}
+	c.deadline = deadline
 	out, err := op.apply(c)
 	r.applyMu.Lock()
 	defer r.applyMu.Unlock()

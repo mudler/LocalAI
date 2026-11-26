@@ -3,10 +3,12 @@ package tools_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/policy"
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/tools"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -124,4 +126,87 @@ var _ = Describe("drain", func() {
 		Expect(strs(data["pending"])).To(ConsistOf("team-a/slow"))
 		Expect(slept).To(Equal(5))
 	})
+
+	It("keeps one call inside the time budget: slow evictions leave the rest for the next call", func() {
+		var objs []runtime.Object
+		objs = append(objs, node("node-1"))
+		for i := range 8 {
+			objs = append(objs, owned(pod("team-a", fmt.Sprintf("web-%d", i), "node-1", time.Hour), "ReplicaSet", "web"))
+		}
+		g := newRig(objs...)
+		start := g.now
+		// Each eviction takes ten seconds.
+		g.k.Typed.PrependReactor("create", "pods", func(a k8stesting.Action) (bool, runtime.Object, error) {
+			if a.GetSubresource() == "eviction" {
+				g.now = g.now.Add(10 * time.Second)
+			}
+			return false, nil, nil
+		})
+		g.rt.Sleep = func(context.Context, time.Duration) error { g.now = g.now.Add(2 * time.Second); return nil }
+		_, data := g.run("op", tools.ToolDrain, drainArgs)
+		Expect(data["done"]).To(BeFalse())
+		Expect(g.now.Sub(start)).To(BeNumerically("<=", 55*time.Second), "the call ends inside the host limit")
+		evicted, remaining := strs(data["evicted"]), strs(data["remaining"])
+		Expect(len(evicted)).To(BeNumerically(">=", 1))
+		Expect(len(evicted)).To(BeNumerically("<", 8))
+		Expect(len(evicted) + len(remaining)).To(Equal(8))
+		Expect(data["note"]).To(ContainSubstring("call drain again"))
+
+		_, data = g.run("op-2", tools.ToolDrain, drainArgs)
+		Expect(strs(data["evicted"])).To(ConsistOf(remainingOf(remaining)))
+	})
+
+	It("bounds the evictions of one call", func() {
+		objs := []runtime.Object{node("node-1")}
+		for i := range 60 {
+			objs = append(objs, owned(pod("team-a", fmt.Sprintf("web-%02d", i), "node-1", time.Hour), "ReplicaSet", "web"))
+		}
+		g := newRig(objs...)
+		_, data := g.run("op", tools.ToolDrain, drainArgs)
+		Expect(data["done"]).To(BeFalse())
+		Expect(strs(data["evicted"])).To(HaveLen(tools.MaxEvictions))
+		Expect(strs(data["remaining"])).To(HaveLen(60 - tools.MaxEvictions))
+	})
+
+	It("reports a failure after the cordon as a partial result, never as nothing changed", func() {
+		g := newRig(node("node-1"), owned(pod("team-a", "web-1", "node-1", time.Hour), "ReplicaSet", "web"),
+			owned(pod("team-a", "web-2", "node-1", time.Hour), "ReplicaSet", "web"))
+		g.k.Typed.PrependReactor("create", "pods", func(a k8stesting.Action) (bool, runtime.Object, error) {
+			if a.GetSubresource() == "eviction" {
+				return true, nil, apierrors.NewInternalError(fmt.Errorf("etcd is down"))
+			}
+			return false, nil, nil
+		})
+		rc, data := g.run("op", tools.ToolDrain, drainArgs)
+		Expect(rc.State).To(Equal(contract.ReceiptCommitted))
+		Expect(data["cordoned"]).To(BeTrue())
+		Expect(data["done"]).To(BeFalse())
+		Expect(data["error"]).To(ContainSubstring("500"))
+		Expect(strs(data["remaining"])).To(ConsistOf("team-a/web-1", "team-a/web-2"))
+		n, _ := g.k.Typed.CoreV1().Nodes().Get(context.Background(), "node-1", metav1.GetOptions{})
+		Expect(n.Spec.Unschedulable).To(BeTrue())
+	})
+
+	It("tells API throttling apart from a PodDisruptionBudget", func() {
+		g := newRig(node("node-1"), owned(pod("team-a", "web-1", "node-1", time.Hour), "ReplicaSet", "web"))
+		g.k.Typed.PrependReactor("create", "pods", func(a k8stesting.Action) (bool, runtime.Object, error) {
+			if a.GetSubresource() == "eviction" {
+				return true, nil, apierrors.NewTooManyRequests("Too many requests, please try again later.", 1)
+			}
+			return false, nil, nil
+		})
+		_, data := g.run("op", tools.ToolDrain, drainArgs)
+		Expect(data["done"]).To(BeFalse())
+		Expect(data["blocked"]).To(BeEmpty())
+		Expect(strs(data["remaining"])).To(ConsistOf("team-a/web-1"))
+		Expect(data["note"]).To(ContainSubstring("throttl"))
+	})
 })
+
+func remainingOf(s []string) []any {
+	out := make([]any, len(s))
+	for i, x := range s {
+		out[i] = x
+	}
+	return out
+}

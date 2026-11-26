@@ -135,12 +135,12 @@ To keep a chat from reading Secret values through a workload, leave `apply`, `pa
 
 ## Errors
 
-API errors keep their status, reason and message, so the model can act on them. A 403 says the RBAC of the credential does not allow the call; a 401 says the cluster refused the credential. `scale` and `rollout-restart` try once more after a 409 conflict. Nothing else is retried. A server-side apply does not force ownership: a conflict with another field manager comes back as an error.
+API errors keep their status, reason and message, so the model can act on them. The message, and the reason a drain could not evict a pod, are quoted and marked as data, not instructions, because an admission webhook can write any text there. An error about a Secret keeps only its status and reason while the policy hides Secret values. A 403 says the RBAC of the credential does not allow the call; a 401 says the cluster refused the credential. `scale` and `rollout-restart` try once more after a 409 conflict. Nothing else is retried. A server-side apply does not force ownership: a conflict with another field manager comes back as an error.
 
 ## Limits
 
 - The kubeconfig is at most 16 KiB, with one context and embedded data. No credential plugins and no file references.
-- `drain` waits at most 45 seconds per call, because LocalAI stops a write after 60 seconds. A result with `pending` pods means the drain goes on with a second call; the node is already cordoned.
+- One `drain` call ends within 50 seconds, checks included, because LocalAI stops a write after 60 seconds. It evicts at most 50 pods, starts no eviction in the last 5 seconds, and waits for the evicted pods to go at most `timeoutSeconds` (at most 45). The result lists `pending` pods (evicted, not gone yet) and `remaining` pods (not evicted yet); a second call continues, and the node is already cordoned. An error after the cordon ends the call with a partial result and an `error` field, not with an error that says nothing changed. A 429 from API Priority and Fairness is reported as throttling, not as a PodDisruptionBudget.
 - `exec` runs for at most 45 seconds and its output is not filtered. One `exec` runs per pod at a time.
 - No cluster-scoped `apply` or `patch`, no port forwarding, no interactive exec or attach, no file copy, no Helm and no watches.
 - `top` needs the `metrics.k8s.io` API (metrics-server).

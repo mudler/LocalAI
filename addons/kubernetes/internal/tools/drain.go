@@ -4,6 +4,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -20,16 +21,29 @@ import (
 )
 
 // A drain runs inside one apply call, which the host stops after 60
-// seconds. So one call waits at most MaxDrainTimeout for the evicted pods to
-// go; what is left is "pending", and a second call continues: the node is
-// already cordoned, and the pods that are gone are not evicted again.
+// seconds. The whole call, checks included, keeps to the budget of an apply
+// (applyBudget, counted from the start of Apply): one call evicts at most
+// MaxEvictions pods and stops evicting when little time is left, and it
+// waits for the evicted pods to go at most timeoutSeconds and never past the
+// budget. Pods it did not evict are "remaining" and pods that are still
+// going are "pending"; a second call continues. The node is already
+// cordoned then, and the pods that are gone are not evicted again.
 // Evictions go through the Eviction API, so PodDisruptionBudgets hold.
+//
+// Once the cordon is written, the call has changed the cluster: a later
+// error ends the call with a partial result, never with an error that says
+// nothing changed.
 
 const (
 	defaultDrainTimeout = 40
 	drainPoll           = 2 * time.Second
 	mirrorAnnotation    = "kubernetes.io/config.mirror"
 	maxDrainPods        = 500
+	// MaxEvictions bounds the evictions of one call.
+	MaxEvictions = 50
+	// evictReserve is the time an eviction may take: no eviction starts
+	// later than this before the end of the budget.
+	evictReserve = 5 * time.Second
 )
 
 type drainOp struct {
@@ -211,31 +225,72 @@ func (r *Runtime) sleep(ctx context.Context, d time.Duration) error {
 	}
 }
 
+// throttled reports a 429 of API Priority and Fairness, as opposed to the 429
+// of an eviction that a PodDisruptionBudget refuses.
+func throttled(err error) bool {
+	if !apierrors.IsTooManyRequests(err) {
+		return false
+	}
+	var st apierrors.APIStatus
+	if errors.As(err, &st) {
+		s := st.Status()
+		if s.Details != nil {
+			for _, cause := range s.Details.Causes {
+				if cause.Type == policyv1.DisruptionBudgetCause {
+					return false
+				}
+			}
+		}
+		if strings.Contains(strings.ToLower(s.Message), "disruption budget") {
+			return false
+		}
+	}
+	return true
+}
+
 func (o *drainOp) apply(c *call) (map[string]any, error) {
 	if err := setUnschedulable(c, o.Node, true); err != nil {
 		return nil, err
 	}
-	var evicted []podRef
+	var evicted, remaining []podRef
 	blocked := []podNote{}
-	for _, p := range o.evict {
+	var failure error
+	slow := false
+	for i, p := range o.evict {
+		if i >= MaxEvictions || !c.r.now().Add(evictReserve).Before(c.deadline) {
+			remaining = append(remaining, o.evict[i:]...)
+			break
+		}
 		err := c.c.Typed.CoreV1().Pods(p.Namespace).EvictV1(c.ctx, &policyv1.Eviction{
 			ObjectMeta:    metav1.ObjectMeta{Namespace: p.Namespace, Name: p.Name},
 			DeleteOptions: &metav1.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &p.UID}}})
 		switch {
 		case err == nil, apierrors.IsNotFound(err):
 			evicted = append(evicted, p)
+		case throttled(err):
+			slow = true
+			remaining = append(remaining, p)
 		case apierrors.IsTooManyRequests(err):
-			blocked = append(blocked, podNote{p.String(), "PodDisruptionBudget: " + kubeapi.Short(err.Error())})
+			blocked = append(blocked, podNote{p.String(), "PodDisruptionBudget: " + kubeapi.Framed(err, kubeapi.ShortMessage)})
 		case apierrors.IsForbidden(err) || apierrors.IsConflict(err) || apierrors.IsInvalid(err):
-			blocked = append(blocked, podNote{p.String(), kubeapi.Short(err.Error())})
+			blocked = append(blocked, podNote{p.String(), kubeapi.Framed(err, kubeapi.ShortMessage)})
 		default:
-			return nil, err
+			// The node is cordoned: stop here and say what was done.
+			failure = err
+			remaining = append(remaining, o.evict[i:]...)
+		}
+		if failure != nil {
+			break
 		}
 	}
-	// Wait for the evicted pods to go, up to the timeout of this call.
+	// Wait for the evicted pods to go, up to the timeout of this call and
+	// never past the budget of the apply.
 	deadline := c.r.now().Add(time.Duration(o.TimeoutSeconds) * time.Second)
+	if c.deadline.Before(deadline) {
+		deadline = c.deadline
+	}
 	pending := evicted
-	for {
+	for failure == nil {
 		var still []podRef
 		for _, p := range pending {
 			got, err := c.c.Typed.CoreV1().Pods(p.Namespace).Get(c.ctx, p.Name, metav1.GetOptions{})
@@ -253,6 +308,22 @@ func (o *drainOp) apply(c *call) (map[string]any, error) {
 			break
 		}
 	}
-	return map[string]any{"node": o.Node, "cordoned": true, "evicted": refs(evicted), "blocked": blocked,
-		"pending": refs(pending), "done": len(blocked) == 0 && len(pending) == 0}, nil
+	done := failure == nil && len(blocked) == 0 && len(pending) == 0 && len(remaining) == 0
+	out := map[string]any{"node": o.Node, "cordoned": true, "evicted": refs(evicted), "blocked": blocked,
+		"pending": refs(pending), "remaining": refs(remaining), "done": done}
+	var notes []string
+	if failure != nil {
+		out["error"] = kubeapi.Framed(failure, kubeapi.ShortMessage)
+		notes = append(notes, "The node is cordoned and the drain stopped on an error.")
+	}
+	if slow {
+		notes = append(notes, "The API server is throttling requests; wait a little.")
+	}
+	if len(remaining) > 0 || len(pending) > 0 {
+		notes = append(notes, "Some pods are not gone yet: call drain again to continue.")
+	}
+	if len(notes) > 0 {
+		out["note"] = strings.Join(notes, " ")
+	}
+	return out, nil
 }
