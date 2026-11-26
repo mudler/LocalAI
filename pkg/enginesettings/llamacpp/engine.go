@@ -176,6 +176,37 @@ var presets = []es.Preset{
 	},
 }
 
+// profiles are the quick setups of the editor: one is current at a time.
+// Each lists the same keys; nil unsets a key, so Balanced is the defaults of
+// LocalAI and llama.cpp for the host. They change memory needs, so nothing
+// applies them unless the person picks one.
+var profiles = []es.Preset{
+	{
+		ID: "balanced", Name: "Balanced", Profile: true,
+		Description: "The defaults: LocalAI picks the batch and the slots for the GPU, with an f16 KV cache.",
+		Settings: map[string]any{
+			"batch": nil, "ubatch": nil, "cache_type_k": nil, "cache_type_v": nil,
+			"flash_attention": nil, "paged_kv": nil, "parallel": nil,
+		},
+	},
+	{
+		ID: "longPrompts", Name: "Long prompts", Profile: true,
+		Description: "Batch and micro-batch of 2048: long prompts are read much faster, and the compute buffers grow.",
+		Settings: map[string]any{
+			"batch": 2048, "ubatch": 2048, "cache_type_k": nil, "cache_type_v": nil,
+			"flash_attention": nil, "paged_kv": nil, "parallel": nil,
+		},
+	},
+	{
+		ID: "concurrent", Name: "More concurrent users", Profile: true,
+		Description: "8-bit KV cache, paged serving and 8 slots: about twice the tokens fit, shared by more users, at a small cost in quality.",
+		Settings: map[string]any{
+			"batch": nil, "ubatch": nil, "cache_type_k": "q8_0", "cache_type_v": "q8_0",
+			"flash_attention": "on", "paged_kv": true, "parallel": 8,
+		},
+	},
+}
+
 // Engine returns the llama.cpp engine.
 func Engine() *es.Engine {
 	return &es.Engine{
@@ -191,10 +222,10 @@ func Engine() *es.Engine {
 			Excluded: []string{"ik-llama-cpp"},
 			Empty:    true,
 		},
-		Groups:   []es.Group{GroupMemory, GroupSpeed, GroupPlacement, GroupSampling, GroupTemplate},
+		Groups:   []es.Group{GroupMemory, GroupSpeed, GroupServing, GroupPlacement, GroupSampling, GroupTemplate},
 		Flags:    flags,
 		Combined: []es.Combined{loadMode},
-		Presets:  presets,
+		Presets:  append(append([]es.Preset{}, profiles...), presets...),
 		// The MoE placement section of the editor writes these.
 		ReservedOptions: []string{"cpu_moe", "n_cpu_moe", "moe_cache_mib"},
 		Command: &es.CommandLine{

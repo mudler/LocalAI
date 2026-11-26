@@ -127,8 +127,15 @@ type Preset struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	// Settings maps flag keys to values.
+	// Settings maps flag keys to values. A nil value unsets the key.
 	Settings map[string]any `json:"settings"`
+	// Profile marks one of a set of exclusive setups, such as a balanced,
+	// a long prompt and a many users setup. A client shows the profiles as
+	// one choice and reads the current one back: a profile is current when
+	// every key it lists has its value (unset for nil). All the profiles of
+	// an engine list the same keys, so at most one is current. A profile
+	// has no placement.
+	Profile bool `json:"profile,omitempty"`
 	// Placement is an optional tensor placement. Only for engines with the
 	// tensor-placement capability.
 	Placement *Placement `json:"placement,omitempty"`
@@ -269,7 +276,11 @@ func (e *Engine) Validate() error {
 		if f.Type == TypeEnum && len(f.Enum) == 0 {
 			bad("engine %s: enum flag %s lists no value", e.ID, f.Key)
 		}
-		if e.Command != nil && len(f.CLI) == 0 {
+		if f.LocalAIOnly {
+			if f.Target != TargetOption || len(f.CLI) > 0 || len(f.CLINegated) > 0 || f.Raw {
+				bad("engine %s: flag %s is LocalAI only, so it must be a plain option with no command-line spelling", e.ID, f.Key)
+			}
+		} else if e.Command != nil && len(f.CLI) == 0 {
 			bad("engine %s: flag %s has no command-line spelling", e.ID, f.Key)
 		}
 		addCLI(f.Key, append(append([]string{}, f.CLI...), f.CLINegated...))
@@ -310,11 +321,15 @@ func (e *Engine) Validate() error {
 			}
 		}
 	}
+	var profileKeys map[string]bool
 	for _, p := range e.Presets {
 		for k, v := range p.Settings {
 			f := e.flag(k)
 			if f == nil {
 				bad("engine %s: preset %s sets the unknown key %s", e.ID, p.ID, k)
+				continue
+			}
+			if v == nil {
 				continue
 			}
 			if _, err := NormalizeValue(f, fmt.Sprint(v)); err != nil {
@@ -323,6 +338,26 @@ func (e *Engine) Validate() error {
 		}
 		if p.Placement != nil && e.Placement == nil {
 			bad("engine %s: preset %s has a placement but the engine has no placement capability", e.ID, p.ID)
+		}
+		if !p.Profile {
+			continue
+		}
+		if p.Placement != nil {
+			bad("engine %s: profile %s has a placement", e.ID, p.ID)
+		}
+		if profileKeys == nil {
+			profileKeys = map[string]bool{}
+			for k := range p.Settings {
+				profileKeys[k] = true
+			}
+			continue
+		}
+		same := len(p.Settings) == len(profileKeys)
+		for k := range p.Settings {
+			same = same && profileKeys[k]
+		}
+		if !same {
+			bad("engine %s: profile %s does not list the same keys as the other profiles", e.ID, p.ID)
 		}
 	}
 	if pl := e.Placement; pl != nil {

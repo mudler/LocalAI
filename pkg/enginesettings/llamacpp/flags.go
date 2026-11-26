@@ -6,6 +6,7 @@ import es "github.com/mudler/LocalAI/pkg/enginesettings"
 const (
 	GroupMemory    es.Group = "memory"
 	GroupSpeed     es.Group = "speed"
+	GroupServing   es.Group = "serving"
 	GroupPlacement es.Group = "placement"
 	GroupSampling  es.Group = "sampling"
 	GroupTemplate  es.Group = "template"
@@ -41,7 +42,7 @@ var flags = []es.Flag{
 		Key: "batch", Target: es.TargetConfig, Path: "parameters.batch",
 		CLI: []string{"-b", "--batch-size"}, Type: es.TypeInt, Min: es.F64(1),
 		Default: "backend default", Group: GroupSpeed,
-		Doc: "Logical batch size: the most prompt tokens processed in one step.",
+		Doc: "Logical batch size: the most prompt tokens processed in one step. Larger values read long prompts faster and use more compute memory.",
 	},
 	{
 		Key: "flash_attention", Target: es.TargetConfig, Path: "flash_attention",
@@ -54,7 +55,8 @@ var flags = []es.Flag{
 		Key: "cache_type_k", Target: es.TargetConfig, Path: "cache_type_k",
 		CLI: []string{"-ctk", "--cache-type-k"}, Type: es.TypeEnum, Enum: cacheTypes,
 		Default: "f16", Group: GroupMemory,
-		Doc: "Data type of the K half of the KV cache. Smaller types save memory at some cost in quality.",
+		Doc: "Data type of the K half of the KV cache. q8_0 holds about twice the tokens of f16 in the same memory, at a small cost in quality. " +
+			"A quantized cache can be slower on some attention paths until llama.cpp has a fast kernel for them.",
 	},
 	{
 		Key: "cache_type_v", Target: es.TargetConfig, Path: "cache_type_v",
@@ -84,16 +86,36 @@ var flags = []es.Flag{
 	{
 		Key: "parallel", Target: es.TargetOption, Path: "options", Option: "parallel",
 		CLI: []string{"-np", "--parallel"}, Type: es.TypeInt, Min: es.F64(-1),
-		Default: "1", Group: GroupSpeed,
-		Doc:           "Number of requests served at the same time (server slots). The context is shared between the slots.",
+		Default: "LocalAI default for the GPU", Group: GroupServing,
+		Doc:           "Number of requests served at the same time (server slots). The slots share the context, so long requests leave less room for the others.",
 		OptionAliases: []string{"n_parallel"},
 	},
 	{
 		Key: "ubatch", Target: es.TargetOption, Path: "options", Option: "ubatch",
 		CLI: []string{"-ub", "--ubatch-size"}, Type: es.TypeInt, Min: es.F64(1),
 		Default: "same as the batch size", Group: GroupSpeed,
-		Doc:           "Physical batch size: the most tokens one compute step handles. Smaller values use less memory.",
+		Doc:           "Physical batch size: the most tokens one compute step handles. Larger values prefill faster and use more compute memory; smaller values use less.",
 		OptionAliases: []string{"n_ubatch"},
+	},
+	// Paged serving is a patch of LocalAI's llama.cpp backend, not a
+	// llama-server flag. A backend without it ignores these options.
+	{
+		Key: "paged_kv", Target: es.TargetOption, Path: "options", Option: "paged_kv",
+		Type: es.TypeBool, Default: "backend default", Group: GroupServing, LocalAIOnly: true,
+		Doc: "Paged serving: start a request only when the shared KV cache has room for it, and pause the newest one when it runs out, " +
+			"so many users share the cache without failing. It needs more than one slot.",
+		OptionAliases: []string{"paged_serving"},
+	},
+	{
+		Key: "paged_preempt", Target: es.TargetOption, Path: "options", Option: "paged_preempt",
+		Type: es.TypeBool, Default: "on", Group: GroupServing, LocalAIOnly: true,
+		Doc: "With paged serving: pause the newest request when the KV cache is full and resume it later. Off makes new requests wait instead.",
+	},
+	{
+		Key: "prefill_budget", Target: es.TargetOption, Path: "options", Option: "prefill_budget",
+		Type: es.TypeInt, Min: es.F64(0), Default: "backend default", Group: GroupServing, LocalAIOnly: true,
+		Doc:           "Prompt tokens read per step while other requests generate, so a long prompt does not stall them. 0 turns it off.",
+		OptionAliases: []string{"max_prefill_tokens"},
 	},
 	{
 		Key: "threads_batch", Target: es.TargetOption, Path: "options", Option: "threads_batch",

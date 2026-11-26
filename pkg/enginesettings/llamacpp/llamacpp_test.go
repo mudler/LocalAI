@@ -288,6 +288,10 @@ var _ = Describe("Flags table", func() {
 			keys[f.Key] = true
 			Expect(f.Doc).ToNot(BeEmpty(), f.Key)
 			Expect(f.Group).ToNot(BeEmpty(), f.Key)
+			if f.LocalAIOnly {
+				Expect(f.CLI).To(BeEmpty(), f.Key)
+				continue
+			}
 			Expect(f.CLI).ToNot(BeEmpty(), f.Key)
 			for _, c := range append(append([]string{}, f.CLI...), f.CLINegated...) {
 				Expect(cli[c]).To(BeFalse(), c)
@@ -477,10 +481,63 @@ var _ = Describe("the llama.cpp engine", func() {
 		Expect(s.Placement.Group).To(Equal(lc.GroupPlacement))
 		Expect(s.Combined).To(HaveLen(1))
 		Expect(s.Combined[0].Keys).To(Equal([]string{"mmap", "mmlock", "direct_io"}))
-		Expect(s.Presets).To(HaveLen(3))
-		Expect(s.Presets[0].Placement.Mode).To(Equal(es.ExpertsCPUAll))
-		Expect(s.Presets[0].Settings["gpu_layers"]).To(Equal(999))
+		Expect(s.Presets).To(HaveLen(6))
+		byID := map[string]es.Preset{}
+		for _, p := range s.Presets {
+			byID[p.ID] = p
+		}
+		Expect(byID["bigMoe"].Placement.Mode).To(Equal(es.ExpertsCPUAll))
+		Expect(byID["bigMoe"].Settings["gpu_layers"]).To(Equal(999))
+		Expect(byID["bigMoe"].Profile).To(BeFalse())
 		Expect(s.ReservedOptions).To(ContainElement("n_cpu_moe"))
+	})
+
+	It("has three quick setup profiles over the same keys, Balanced unsetting them all", func() {
+		var got []es.Preset
+		for _, p := range engine.Schema().Presets {
+			if p.Profile {
+				got = append(got, p)
+			}
+		}
+		Expect(got).To(HaveLen(3))
+		Expect(got[0].ID).To(Equal("balanced"))
+		for _, v := range got[0].Settings {
+			Expect(v).To(BeNil())
+		}
+		Expect(got[1].ID).To(Equal("longPrompts"))
+		Expect(got[1].Settings).To(HaveKeyWithValue("batch", 2048))
+		Expect(got[1].Settings).To(HaveKeyWithValue("ubatch", 2048))
+		Expect(got[2].ID).To(Equal("concurrent"))
+		Expect(got[2].Settings).To(HaveKeyWithValue("cache_type_k", "q8_0"))
+		Expect(got[2].Settings).To(HaveKeyWithValue("cache_type_v", "q8_0"))
+		Expect(got[2].Settings).To(HaveKeyWithValue("paged_kv", true))
+		Expect(got[2].Settings).To(HaveKeyWithValue("parallel", 8))
+		for _, p := range got[1:] {
+			Expect(len(p.Settings)).To(Equal(len(got[0].Settings)), p.ID)
+			for k := range p.Settings {
+				Expect(got[0].Settings).To(HaveKey(k), p.ID)
+			}
+		}
+	})
+
+	It("keeps the paged serving options in the file and out of the command", func() {
+		res, err := engine.BuildCommand(es.Config{"options": []any{"paged_serving:true", "paged_preempt:false", "max_prefill_tokens:512", "parallel:8"}})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res.Command).To(Equal("llama-server -np 8"))
+		Expect(res.Warnings).To(HaveLen(3))
+		for _, w := range res.Warnings {
+			Expect(w).To(ContainSubstring("read by LocalAI"))
+		}
+		s := engine.Schema()
+		names := map[string]es.Flag{}
+		for _, f := range s.Flags {
+			names[f.Key] = f
+		}
+		Expect(names["paged_kv"].Option).To(Equal("paged_kv"))
+		Expect(names["paged_kv"].OptionAliases).To(ContainElement("paged_serving"))
+		Expect(names["prefill_budget"].OptionAliases).To(ContainElement("max_prefill_tokens"))
+		Expect(names["paged_preempt"].Group).To(Equal(lc.GroupServing))
+		Expect(names["parallel"].Group).To(Equal(lc.GroupServing))
 	})
 
 	// The combined control writes what --load-mode parses to, so the editor
