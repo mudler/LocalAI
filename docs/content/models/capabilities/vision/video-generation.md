@@ -313,8 +313,6 @@ The `avatarforcing-cpp` backend runs [avatarforcing.cpp](https://github.com/mudl
 | Gallery model | Inputs | Output |
 |---------------|--------|--------|
 | `avatarforcing` | portrait (`start_image`), speech (`audio`) | 512x512 video at 25 FPS, with the speech as its audio track |
-| `avatarforcing-f32` | the same | the same, from the float32 weights |
-| `avatarforcing-q8_0` | the same | the same, from Q8_0 weights |
 
 {{% callout style="warning" %}}
 The `avatarforcing` weights are licensed under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). Use them for non-commercial purposes only. The backend code is MIT.
@@ -330,19 +328,21 @@ local-ai models install avatarforcing
 
 LocalAI installs the backend when it first loads the model.
 
-The weights come in three files. The three gallery entries are builds of one model: `avatarforcing` lists the other two as variants, so the install picker offers all three.
+The weights come in three files, each with its own gallery entry:
 
-| File | Size | Notes |
-|------|------|-------|
-| F16 (`avatarforcing`) | 700 MB | The default file of the `avatarforcing` entry |
-| F32 (`avatarforcing-f32`) | 1.2 GB | The reference precision of the port |
-| Q8_0 (`avatarforcing-q8_0`) | 490 MB | The smallest file, with lower fidelity: the motion drifts from the F32 output over the length of a clip |
+| Gallery model | File | Size | Notes |
+|---------------|------|------|-------|
+| `avatarforcing` | F16 | 700 MB | The build most users should install |
+| `avatarforcing-q8_0` | Q8_0 | 490 MB | The smallest file, with lower fidelity: the motion drifts from the F32 output over the length of a clip |
+| `avatarforcing-f32` | F32 | 1.18 GB | The reference precision of the port |
 
-When you install `avatarforcing` without choosing a build, LocalAI picks the largest build that fits in memory. On most hosts, that is F32. To get a specific file, choose it in the picker, install its entry by name, or pass the build:
+`avatarforcing` lists `avatarforcing-q8_0` as a variant. When you install `avatarforcing`, LocalAI installs F16, or Q8_0 on a host that does not have the memory for F16. The install picker offers both. To choose a build yourself, pass it:
 
 ```bash
-local-ai models install avatarforcing --variant avatarforcing
+local-ai models install avatarforcing --variant avatarforcing-q8_0
 ```
+
+To install F32, install its entry by name: `local-ai models install avatarforcing-f32`.
 
 ### Generate a talking-head video
 

@@ -34793,15 +34793,15 @@
 - kind: model
   id: avatarforcing
   name: avatarforcing
-  version: 0.0.0-gallery.3a0d6bd94549
+  version: 0.0.0-gallery.8a1b8f464930
   description: |
     AvatarForcing talking-head model for the avatarforcing-cpp backend (C++/ggml port). It turns a portrait image and
     speech audio into a lip-synced 512x512 video at 25 fps, returned as an mp4 with the speech as its audio track. The
     portrait should show one face near the centre; other sizes are cropped to a square and scaled. Runs on CPU and
     NVIDIA CUDA.
 
-    This is the float16 GGUF, about 700 MB. Other builds of the same weights: avatarforcing-f32 (float32, about
-    1.2 GB, the reference precision) and avatarforcing-q8_0 (Q8_0, about 490 MB, smaller but lower fidelity).
+    This is the float16 GGUF, about 700 MB, and the build most users should install. The smaller avatarforcing-q8_0
+    build (about 490 MB, lower fidelity) is offered as a variant. avatarforcing-f32 is the float32 reference build.
 
     Non-commercial use only: the weights are licensed under CC BY-NC 4.0.
   license: cc-by-nc-4.0
@@ -34841,20 +34841,19 @@
       parameters:
         model: avatarforcing-cpp/avatarforcing-f16.gguf
     variants:
-      - model: avatarforcing-f32
       - model: avatarforcing-q8_0
 - kind: model
   id: avatarforcing-f32
   name: avatarforcing-f32
-  version: 0.0.0-gallery.e50621b9de4b
+  version: 0.0.0-gallery.5ea3c3094280
   description: |
     AvatarForcing talking-head model for the avatarforcing-cpp backend (C++/ggml port). It turns a portrait image and
     speech audio into a lip-synced 512x512 video at 25 fps, returned as an mp4 with the speech as its audio track. The
     portrait should show one face near the centre; other sizes are cropped to a square and scaled. Runs on CPU and
     NVIDIA CUDA.
 
-    This is the float32 GGUF, about 1.2 GB: the reference precision of the port. The float16 build (avatarforcing)
-    is half the size.
+    This is the reference-precision build: the float32 GGUF, 1.18 GB. Most users should install avatarforcing, the
+    float16 build, which is about 700 MB.
 
     Non-commercial use only: the weights are licensed under CC BY-NC 4.0.
   license: cc-by-nc-4.0

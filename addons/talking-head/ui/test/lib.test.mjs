@@ -20,6 +20,12 @@ test('models: each part lists the usable models that can do it, and only avatarf
   assert.deepEqual(modelGroups(null), { chat: [], tts: [], stt: [], avatar: [], vad: [] })
 })
 
+test('models: every build of the avatar model is an avatar choice, whatever its name', () => {
+  const builds = ['avatarforcing', 'avatarforcing-q8_0', 'avatarforcing-f32']
+    .map((id) => ({ id, capabilities: ['FLAG_VIDEO'], backend: 'avatarforcing-cpp' }))
+  assert.deepEqual(modelGroups(builds).avatar, ['avatarforcing', 'avatarforcing-f32', 'avatarforcing-q8_0'])
+})
+
 test('models: a saved choice wins while it is installed, a link picks the avatar model', () => {
   const groups = { chat: ['a', 'b'], tts: ['t'], stt: [], avatar: ['x', 'y'] }
   assert.deepEqual(chooseModels({ chat: 'b', avatar: 'gone' }, groups, ''), { chat: 'b', tts: 't', stt: '', avatar: 'x' })
