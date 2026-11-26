@@ -87,8 +87,11 @@ func GenerateEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evalu
 
 		var predInput string
 		if input.Raw {
-			// Raw mode: skip chat template, use prompt directly
+			// Raw mode bypasses every chat template, including the backend's:
+			// with messages present, a tokenizer-template model would get an
+			// empty prompt and apply its own template to the messages.
 			predInput = input.Prompt
+			openAIReq.Messages = nil
 		} else {
 			predInput = evaluator.TemplateMessages(*openAIReq, openAIReq.Messages, cfg, nil, false)
 		}
