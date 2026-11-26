@@ -40,6 +40,8 @@ on:
       - 'pkg/system/**'
       - 'core/services/addons/**'
       - 'core/gallery/**'
+      - 'core/application/startup.go'
+      - 'core/cli/run_addons.go'
       - 'tests/e2e-container-users/**'
       - '.github/workflows/tests-container-users.yml'
   push:
@@ -52,6 +54,8 @@ on:
       - 'pkg/system/**'
       - 'core/services/addons/**'
       - 'core/gallery/**'
+      - 'core/application/startup.go'
+      - 'core/cli/run_addons.go'
       - 'tests/e2e-container-users/**'
       - '.github/workflows/tests-container-users.yml'
 
