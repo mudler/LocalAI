@@ -344,15 +344,25 @@ var _ = Describe("background jobs of sub-agents", func() {
 			child := g.spawn("hold")
 			until("the job", func() bool { return len(g.infos()) == 1 })
 			id := g.infos()[0].ID
+			// The delete ends the jobs the chat record lists, and the stub is
+			// written after the job shows in the registry.
+			until("the stub", func() bool {
+				rec, _ := g.r.svc.Get(ctx, alice, child)
+				return len(rec.Jobs) == 1
+			})
 			Expect(g.r.svc.Delete(ctx, alice, child)).To(Succeed())
 			finished(g, id, bgjob.EndAgentEnded)
 		})
 
 		It("ends the jobs when the parent chat is deleted", func() {
 			g := newSubRig("on")
-			g.spawn("hold")
+			child := g.spawn("hold")
 			until("the job", func() bool { return len(g.infos()) == 1 })
 			id := g.infos()[0].ID
+			until("the stub", func() bool {
+				rec, _ := g.r.svc.Get(ctx, alice, child)
+				return len(rec.Jobs) == 1
+			})
 			Expect(g.r.svc.Delete(ctx, alice, g.parent)).To(Succeed())
 			finished(g, id, bgjob.EndAgentEnded)
 		})
