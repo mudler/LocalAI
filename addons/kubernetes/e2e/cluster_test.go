@@ -113,7 +113,9 @@ func startCluster() *cluster {
 		"--service-account-issuer", "https://kubernetes.default.svc", "--service-account-key-file", pub,
 		"--service-account-signing-key-file", priv, "--service-cluster-ip-range", "10.0.0.0/24",
 		"--disable-admission-plugins", "ServiceAccount", "--allow-privileged=true")
-	c.server = fmt.Sprintf("https://127.0.0.1:%d", apiPort)
+	// The add-on refuses a loopback address, so the specs name the server
+	// by host name; the serving certificate of the API server includes it.
+	c.server = fmt.Sprintf("https://localhost:%d", apiPort)
 	// The self-signed serving certificate covers 127.0.0.1; it appears once
 	// the server starts.
 	Eventually(func() error {

@@ -118,7 +118,7 @@ var _ = Describe("Secret values", func() {
 
 	It("allows a json patch that copies a Secret value when the policy shows values", func() {
 		g := newRig(secret("team-a", "db"))
-		g.setPolicy(policy.Policy{Namespaces: []string{"*"}, WriteTools: policy.Defaults().WriteTools, ReadSecretValues: true})
+		g.setPolicy(policy.Policy{Namespaces: []string{"*"}, WriteTools: writes, ReadSecretValues: true})
 		args := map[string]any{"kind": "secrets", "namespace": "team-a", "name": "db", "patchType": "json",
 			"patch": `[{"op":"copy","from":"/data/password","path":"/metadata/annotations/copy"}]`}
 		_, err := g.preview("op", tools.ToolPatch, args)

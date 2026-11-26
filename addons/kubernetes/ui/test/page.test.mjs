@@ -25,6 +25,8 @@ const { createRoot } = require('react-dom/client')
 const { act } = React
 
 const KEY = 'https://cluster.example:6443#context=team-a'
+// The policy is keyed by the server of the cluster.
+const SERVER = 'https://cluster.example:6443'
 const KUBECONFIG = `apiVersion: v1
 clusters:
 - cluster:
@@ -46,7 +48,9 @@ users:
 
 const json = (body, status = 200) => ({ ok: status < 400, status, json: async () => body })
 const kinds = { kinds: [{ kind: 'kubernetes', addon_id: 'kubernetes', tool_only: true, agent_optional: true, title: 'Kubernetes' }], capabilities: [] }
-const DEFAULTS = { namespaces: ['*'], writeTools: ['scale', 'rollout-restart', 'rollout-undo', 'delete-pod', 'cordon', 'uncordon', 'drain', 'apply', 'patch'], readSecretValues: false }
+const WRITE_TOOLS = ['scale', 'rollout-restart', 'rollout-undo', 'delete-pod', 'cordon', 'uncordon', 'drain', 'apply', 'patch', 'exec']
+// The built-in default: reads, no write.
+const DEFAULTS = { namespaces: ['*'], writeTools: [], readSecretValues: false }
 
 function ConfirmDialog({ open, title, onConfirm }) {
   if (!open) return null
@@ -94,8 +98,8 @@ async function mount({ admin = true, existing = false } = {}) {
           const a = body.arguments || {}
           reads.push(a)
           if (a.tool === 'check') return { data: { cluster: KEY, server: 'https://cluster.example:6443', context: 'team-a', check: { version: 'v1.31.2', namespace: 'default', rules: [{ verbs: ['get', 'list'], apiGroups: ['apps'], resources: ['deployments'] }], incomplete: false } } }
-          if (a.tool === 'get-policy') return { data: { clusters: {}, defaults: DEFAULTS, writeTools: [...DEFAULTS.writeTools, 'exec'], admin, broken: false } }
-          if (a.tool === 'set-policy') return { data: { saved: true, key: a.key, policy: { namespaces: a.namespaces, writeTools: a.writeTools, readSecretValues: a.readSecretValues } } }
+          if (a.tool === 'get-policy') return { data: { clusters: {}, default: DEFAULTS, defaultSet: false, builtinDefault: DEFAULTS, writeTools: WRITE_TOOLS, admin, broken: false, legacy: [] } }
+          if (a.tool === 'set-policy') return { data: { saved: true, key: a.default ? '' : a.key, default: a.default === true, policy: { namespaces: a.namespaces, writeTools: a.writeTools, readSecretValues: a.readSecretValues } } }
           return { data: {} }
         },
         userSettings: async (body) => {
@@ -147,8 +151,8 @@ test('kubernetes page: a pasted kubeconfig is saved with its cluster key, asks f
   assert.match(h.q('kubernetes-rbac').textContent, /RBAC in default/)
   assert.match(h.q('kubernetes-rbac').textContent, /deployments\.apps/)
   assert.match(h.q('kubernetes-checks').textContent, /Kubernetes v1\.31\.2/)
-  // The policy editor now lists the new cluster.
-  assert.equal(h.q('kubernetes-policy-cluster').value, KEY)
+  // The policy editor now lists the server of the new cluster.
+  assert.equal(h.q('kubernetes-policy-cluster').value, SERVER)
 })
 
 test('kubernetes page: a kubeconfig with a credential plugin cannot be saved', async () => {
@@ -161,7 +165,9 @@ test('kubernetes page: a kubeconfig with a credential plugin cannot be saved', a
 
 test('kubernetes page: an administrator saves the policy of a cluster; exec is marked powerful', async () => {
   const h = await mount({ existing: true })
-  assert.equal(h.q('kubernetes-policy-cluster').value, KEY)
+  assert.equal(h.q('kubernetes-policy-cluster').value, SERVER)
+  assert.match(h.q('kubernetes-policy-own').textContent, /Not configured: writes are off/)
+  assert.match(h.q('kubernetes-policy-cluster').textContent, /https:\/\/cluster\.example:6443 \(team-a\)/)
   assert.ok(h.q('kubernetes-policy-powerful-exec'))
   const exec = h.q('kubernetes-policy-tool-exec')
   assert.equal(exec.checked, false, 'exec is off by default')
@@ -171,9 +177,25 @@ test('kubernetes page: an administrator saves the policy of a cluster; exec is m
   await click(h.q('kubernetes-policy-ns-add'))
   await click(h.q('kubernetes-policy-save'))
   const set = h.reads.find((a) => a.tool === 'set-policy')
-  assert.deepEqual(set, { tool: 'set-policy', key: KEY, namespaces: ['team-a'], writeTools: [...DEFAULTS.writeTools, 'exec'], readSecretValues: false })
+  assert.deepEqual(set, { tool: 'set-policy', key: SERVER, namespaces: ['team-a'], writeTools: ['exec'], readSecretValues: false })
   assert.ok(h.q('kubernetes-policy-saved'))
   assert.equal(h.q('kubernetes-policy-own').textContent, 'This cluster has its own policy.')
+})
+
+test('kubernetes page: an administrator sets the default policy of the clusters with none', async () => {
+  const h = await mount({ existing: true })
+  await act(async () => {
+    const sel = h.q('kubernetes-policy-cluster')
+    const set = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(sel), 'value').set
+    set.call(sel, 'default')
+    sel.dispatchEvent(new window.Event('change', { bubbles: true }))
+  })
+  assert.match(h.q('kubernetes-policy-own').textContent, /built-in default/)
+  await click(h.q('kubernetes-policy-tool-scale'))
+  await click(h.q('kubernetes-policy-save'))
+  const set = h.reads.find((a) => a.tool === 'set-policy')
+  assert.deepEqual(set, { tool: 'set-policy', default: true, namespaces: ['*'], writeTools: ['scale'], readSecretValues: false })
+  assert.match(h.q('kubernetes-policy-own').textContent, /An administrator set this default/)
 })
 
 test('kubernetes page: someone who is not an administrator sees the policy read-only', async () => {

@@ -104,7 +104,7 @@ var _ = Describe("drain", func() {
 
 	It("refuses a pod outside the namespace allowlist before evicting anything", func() {
 		g := newRig(node("node-1"), owned(pod("team-a", "a", "node-1", time.Hour), "ReplicaSet", "a"), owned(pod("team-b", "b", "node-1", time.Hour), "ReplicaSet", "b"))
-		g.setPolicy(policy.Policy{Namespaces: []string{"team-a"}, WriteTools: policy.Defaults().WriteTools})
+		g.setPolicy(policy.Policy{Namespaces: []string{"team-a"}, WriteTools: writes})
 		_, err := g.preview("op", tools.ToolDrain, drainArgs)
 		Expect(err).To(MatchError(ContainSubstring("(namespaces)")))
 		Expect(err).To(MatchError(ContainSubstring("team-b/b")))

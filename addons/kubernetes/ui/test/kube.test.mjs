@@ -41,7 +41,7 @@ users:
 test('kubernetes: reads the contexts and the current one from a kubectl-written kubeconfig', () => {
   assert.deepEqual(kubeconfigContexts(KUBECONFIG), { contexts: ['team-a', 'team-b-ro'], current: 'team-a' })
   assert.equal(kubeconfigServer(KUBECONFIG, 'team-a'), 'https://cluster.example:6443')
-  assert.equal(kubeconfigServer(KUBECONFIG, 'team-b-ro'), 'https://other.example:443')
+  assert.equal(kubeconfigServer(KUBECONFIG, 'team-b-ro'), 'https://other.example', 'the default port 443 is left out, as the add-on writes it')
   assert.equal(kubeconfigServer(KUBECONFIG, 'missing'), '')
   // An indented list, as some tools write it, reads the same.
   const indented = KUBECONFIG.replace(/^- /gm, '  - ').replace(/^ {4}(?=[a-z-]+:)/gm, '      ').replace(/^ {2}name:/gm, '    name:')

@@ -329,7 +329,7 @@
             "namespace": {
               "type": "string",
               "maxLength": 63,
-              "description": "The namespace of the rules (default default)."
+              "description": "The namespace of the rules (default: default, or the first namespace the policy allows)."
             }
           },
           "additionalProperties": false
@@ -821,7 +821,7 @@
       },
       {
         "name": "set-policy",
-        "description": "Save the policy of one cluster. Administrators only. The page calls it; no model does.",
+        "description": "Save the policy of one cluster, or the default policy of the clusters with none. Administrators only. The page calls it; no model does.",
         "kind": "read",
         "uiOnly": true,
         "inputSchema": {
@@ -831,7 +831,11 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 200,
-              "description": "The cluster as the connection lists it."
+              "description": "The server URL of the cluster, or a cluster as the connection lists it. Leave it out with default."
+            },
+            "default": {
+              "type": "boolean",
+              "description": "Save the default policy of the clusters with no policy of their own."
             },
             "namespaces": {
               "type": "array",
@@ -867,10 +871,7 @@
               "description": "Show Secret values to the tools."
             }
           },
-          "additionalProperties": false,
-          "required": [
-            "key"
-          ]
+          "additionalProperties": false
         }
       }
     ],

@@ -37,9 +37,9 @@ A chat can answer questions such as:
    ```
 
 4. On the add-on page, choose a new connection. Paste the kubeconfig and pick the context, or type the server URL, paste the CA and the token.
-5. Press **Save**. The page runs the check: it shows the server version and the RBAC rules of the credential in the `default` namespace.
+5. Press **Save**. The page runs the check: it shows the server version and the RBAC rules of the credential in the `default` namespace, or in the first namespace the policy allows when `default` is not allowed.
 
-One connection is one cluster and one context. The connection lists the cluster as `https://<host>:<port>#context=<name>`. A chat uses the connections you enable for it in the **Tools** menu. With two or more enabled, the model names the cluster in each call.
+One connection is one cluster and one context. The connection lists the cluster as `https://<host>:<port>#context=<name>`. The host is written in lower case, and the port is left out when it is 443. A chat uses the connections you enable for it in the **Tools** menu. With two or more enabled, the model names the cluster in each call.
 
 ### What the kubeconfig may hold
 
@@ -48,7 +48,8 @@ The kubeconfig is the sealed secret of the connection, at most 16 KiB. The add-o
 - runs a credential plugin (`exec` or `auth-provider`), such as the login helpers of cloud providers;
 - names a local file (`certificate-authority`, `client-certificate`, `client-key`, `tokenFile`). Embed the data with the `-data` fields;
 - turns off certificate checks (`insecure-skip-tls-verify: true`) or uses a proxy (`proxy-url`);
-- uses a user name and a password.
+- uses a user name and a password;
+- names a server by a loopback, link-local, unspecified or multicast IP address, such as `127.0.0.1`, `::1` or `169.254.169.254`. The credential would go to a service of the LocalAI host or of its network. Host names are not resolved, so a local cluster (for example one made by kind) works when its kubeconfig names the server `https://localhost:<port>`. There is no setting to allow these addresses.
 
 The add-on never reads a file on the LocalAI host because a kubeconfig names it. The kubeconfig is never in a result, an error, a log or a preview.
 
@@ -94,27 +95,43 @@ On the add-on page, the section for approvals has one choice for each write tool
 
 An administrator sets a policy for each cluster on the add-on page. The add-on checks it on every call, confirmed or not. Skipping a confirmation never widens what a call can touch.
 
-| Rule | Default | What it does |
+| Rule | Built-in default | What it does |
 |---|---|---|
-| `namespaces` | `*` | The namespaces the tools may read and change. A namespaced call outside the list is refused. A list across all namespaces returns only the allowed ones, whatever the selectors say. |
-| `writeTools` | all except `exec` | The write tools that work. A disabled tool is still offered to the model and answers that the policy disabled it. |
-| `readSecretValues` | off | When off, Secret values are hidden everywhere (see below). |
+| `namespaces` | `*` | The namespaces the tools may read and change. A namespaced call outside the list is refused. A list across all namespaces returns only the allowed ones, whatever the selectors say. `check` also stays inside the list. |
+| `writeTools` | none | The write tools that work. A disabled tool is still offered to the model and answers that the policy disabled it. |
+| `readSecretValues` | off | When off, the tools hide Secret values. See [Secret values](#secret-values) for what that covers and what it does not. |
+
+The policy of a cluster is keyed by its server URL, written one way: the host in lower case without a trailing dot, the port left out when it is 443, and no trailing slash. Every context and every connection of one server share one policy, so renaming a context in the kubeconfig, or writing `:443`, does not change which policy applies.
+
+A cluster with no policy of its own uses the **default policy**. Out of the box the default allows reads in every namespace and **no write**: the page shows such a cluster as "Not configured: writes are off" until an administrator saves a policy for it. An administrator can also change the default policy itself: choose **Default for clusters with no policy** in the cluster list.
 
 Cluster-scoped objects are always readable. The only cluster-scoped writes are `cordon`, `uncordon` and `drain` of a node. `apply` and `patch` of a cluster-scoped kind (a Namespace, a ClusterRole, a CustomResourceDefinition) are refused.
 
-A refusal names its rule, for example `refused by the connection policy (namespaces)`. A policy file that cannot be read refuses every tool until an administrator saves the policy again.
+A refusal names its rule, for example `refused by the connection policy (namespaces)`.
 
-The policy lives in the data folder of the add-on, keyed by the cluster, like the settings of the other add-ons. Two connections to the same cluster and context share one policy.
+The policy is kept in `policy.json` in the data folder of the add-on. If that file cannot be read, every cluster uses the built-in default (reads only, no write) until an administrator saves a policy again; a damaged file never gives more than that. The next save keeps the damaged file aside as `policy.json.damaged-<time>` and starts a new file, and a save that names only some rules takes the others from the built-in default.
+
+Policies saved by an earlier build were keyed by server and context. They move to the key of their server by themselves. When two contexts of one server had different policies, neither applies: the page lists them, the server uses the default policy, and saving a policy for that server removes them.
+
+With several frontends, the add-on runs on the add-on owner, and every frontend sends its tool calls there. So there is one policy file, on the instance that runs the add-on owner.
 
 ## Secret values
 
-With `readSecretValues` off:
+With `readSecretValues` off, "hidden" means that the read tools (`get`, `describe`, `list`) and the diffs and results of the write tools do not show a value:
 
-- A Secret shows its keys, its type and the length of each value, never the value. Its `last-applied-configuration` annotation is removed.
-- An environment variable whose name holds `TOKEN`, `PASSWORD`, `SECRET` or `KEY` (in any case) shows `***` instead of an inline value, in any container list of any object. A `secretKeyRef` stays visible: it names a Secret and a key, and holds no value.
-- The diff of `apply` or `patch` on a Secret shows the keys and marks the ones whose value changes.
+- A Secret shows its keys, its type and the length of each value, never the value. Its `last-applied-configuration` annotation is removed, and its other annotations show only their length, except `kubernetes.io/service-account.name` and `kubernetes.io/service-account.uid`.
+- An environment variable whose name holds `TOKEN`, `PASSWORD`, `SECRET` or `KEY` (in any case) shows `***` instead of an inline value. This covers every container list (`containers`, `initContainers`, `ephemeralContainers`) at any depth of any object: pods, the pod templates of Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs and the `jobTemplate` of CronJobs, and custom resources that use the same field names. A `secretKeyRef` stays visible: it names a Secret and a key, and holds no value.
+- The diff of `apply` or `patch` marks a Secret key, a Secret annotation or a hidden environment value that the write changes as `(new value)`, without the value.
+- A `json` patch of a Secret may not use `copy`, `move` or `test`, and may not name `data`, `stringData` or the whole object. Those operations could copy a value to a place that is shown, or answer yes or no about a value. Use a `merge` or `strategic` patch.
+- An API error about a Secret keeps only its status code and reason, because the API server can quote a value in the message.
 
-`exec` output is not filtered: a command can print a Secret that the container holds. That is why `exec` is off by default.
+"Hidden" does not cover:
+
+- the `args` and `command` of a container, environment values whose name does not look secret, and other fields of custom resources;
+- what a workload shows. A pod that a chat creates with `apply` can mount a Secret or print it, and its `logs` then show the value. `exec` output is not filtered: a command can print a Secret that the container holds;
+- what the cluster itself puts in events or in the status of an object.
+
+To keep a chat from reading Secret values through a workload, leave `apply`, `patch` and `exec` off for that cluster, or limit the RBAC of the credential. `exec` is off by default, and out of the box every write tool is off.
 
 ## Errors
 

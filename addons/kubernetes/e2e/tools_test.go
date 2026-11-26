@@ -108,6 +108,10 @@ var _ = BeforeSuite(func() {
 	Expect(len(cred)).To(BeNumerically("<=", contract.MaxCredentialBytes))
 	key = kc.server + "#context=e2e"
 	pols = policy.Open(GinkgoT().TempDir())
+	// Out of the box a cluster may not be changed. The specs of the write
+	// tools run as if an administrator had allowed every write tool but exec.
+	_, err := pols.SetDefault(writable)
+	Expect(err).NotTo(HaveOccurred())
 	rt = tools.New(kubeapi.NewFactory(), pols).WithDataDir(GinkgoT().TempDir())
 	rt.Admin = admin{}
 })
@@ -193,10 +197,13 @@ func sample(p contract.Preview) map[string]any {
 	return s.Sample
 }
 
+// writable allows every namespace and every write tool but exec.
+var writable = policy.Policy{Namespaces: []string{policy.All}, WriteTools: []string{"scale", "rollout-restart", "rollout-undo", "delete-pod", "cordon", "uncordon", "drain", "apply", "patch"}}
+
 func setPolicy(p policy.Policy) {
 	_, err := pols.Set(key, p)
 	Expect(err).NotTo(HaveOccurred())
-	DeferCleanup(func() { _, _ = pols.Set(key, policy.Defaults()) })
+	DeferCleanup(func() { _, _ = pols.Set(key, writable) })
 }
 
 var _ = Describe("the tools against a real API server", Ordered, func() {
@@ -326,7 +333,7 @@ var _ = Describe("the tools against a real API server", Ordered, func() {
 		e := env(cred, tools.ToolScale, args)
 		p, err := rt.Preview(bg, e)
 		Expect(err).NotTo(HaveOccurred())
-		setPolicy(policy.Policy{Namespaces: []string{"team-a"}, WriteTools: policy.Defaults().WriteTools})
+		setPolicy(policy.Policy{Namespaces: []string{"team-a"}, WriteTools: writable.WriteTools})
 		_, err = rt.Apply(bg, e, p.Revision)
 		Expect(err).To(MatchError(ContainSubstring("(namespaces)")))
 		_, _, _, err = write(tools.ToolScale, args)

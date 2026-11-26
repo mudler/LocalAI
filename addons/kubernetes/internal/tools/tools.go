@@ -142,8 +142,6 @@ var _ contract.Runtime = (*Runtime)(nil)
 // MaxPayload bounds the JSON of one result.
 const MaxPayload = 512 << 10
 
-const policyUnreadable = "the policy of the add-on cannot be read: an administrator must fix it on the add-on page"
-
 type wrapped struct {
 	Source    string   `json:"source"`
 	Untrusted bool     `json:"untrusted"`

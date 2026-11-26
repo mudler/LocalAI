@@ -43,9 +43,9 @@ func (r *Runtime) newCall(ctx context.Context, env contract.Envelope, clusterArg
 	if err != nil {
 		return nil, bad("%s. Ask the person to fix the connection", err.Error())
 	}
-	pol, err := r.Policy.Get(conn.Key())
+	pol, err := r.Policy.Get(conn.Server)
 	if err != nil {
-		return nil, bad("%s", policyUnreadable)
+		return nil, bad("%s", err.Error())
 	}
 	c, err := r.Factory(cfg)
 	if err != nil {

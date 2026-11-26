@@ -22,7 +22,19 @@ func (c *call) check(raw map[string]json.RawMessage) (any, error) {
 	if err := decodeArgs(raw, &a); err != nil {
 		return nil, err
 	}
-	res, err := kubeapi.Check(c.ctx, c.c, a.Namespace)
+	ns := a.Namespace
+	if ns == "" {
+		// The page names no namespace: check default, or the first
+		// namespace the policy allows.
+		ns = "default"
+		if !c.pol.NamespaceAllowed(ns) {
+			ns = c.pol.Namespaces[0]
+		}
+	}
+	if err := c.allow(ns); err != nil {
+		return nil, err
+	}
+	res, err := kubeapi.Check(c.ctx, c.c, ns)
 	if err != nil {
 		return nil, err
 	}
@@ -36,30 +48,33 @@ func (r *Runtime) isAdmin(ctx context.Context, env contract.Envelope) bool {
 // getPolicy is the page's read of the policies. Anyone who may open the page
 // sees them; only an administrator sees them as editable.
 func (r *Runtime) getPolicy(ctx context.Context, env contract.Envelope) (contract.Result, error) {
-	all, err := r.Policy.All()
-	broken := err != nil
-	if broken {
-		all = map[string]policy.Policy{}
-	}
+	v := r.Policy.View()
 	return finish(map[string]any{
-		"clusters":   all,
-		"defaults":   policy.Defaults(),
-		"writeTools": policy.WriteTools,
-		"admin":      r.isAdmin(ctx, env),
-		"broken":     broken,
+		"clusters":       v.Clusters,
+		"default":        v.Default,
+		"defaultSet":     v.DefaultSet,
+		"builtinDefault": policy.Defaults(),
+		"writeTools":     policy.WriteTools,
+		"admin":          r.isAdmin(ctx, env),
+		"broken":         v.Broken,
+		"legacy":         v.Legacy,
 	}, nil)
 }
 
 type setPolicyArgs struct {
 	Key              string    `json:"key"`
+	Default          bool      `json:"default"`
 	Namespaces       *[]string `json:"namespaces"`
 	WriteTools       *[]string `json:"writeTools"`
 	ReadSecretValues *bool     `json:"readSecretValues"`
 }
 
-// setPolicy replaces the fields of one cluster's policy that the page names.
-// Only an administrator may call it, and nothing is saved when a field is
-// refused.
+// setPolicy replaces the fields of one policy that the page names: the
+// policy of a cluster (key, its server URL or a connection key) or the
+// default policy (default true). Only an administrator may call it, and
+// nothing is saved when a field is refused. A field the page leaves out keeps
+// the value the cluster has now; while the file is damaged that is the
+// built-in default, which allows no write.
 func (r *Runtime) setPolicy(ctx context.Context, env contract.Envelope, args map[string]json.RawMessage) (contract.Result, error) {
 	if !r.isAdmin(ctx, env) {
 		return contract.Result{}, bad("only an administrator can change the policy")
@@ -68,14 +83,22 @@ func (r *Runtime) setPolicy(ctx context.Context, env contract.Envelope, args map
 	if err := decodeArgs(args, &a); err != nil {
 		return contract.Result{}, err
 	}
-	conn, err := kubeapi.ParseKey(a.Key)
-	if err != nil {
-		return contract.Result{}, bad("%s", err.Error())
-	}
-	p, err := r.Policy.Get(conn.Key())
-	if err != nil {
-		// A damaged file is replaced, starting from the defaults.
-		p = policy.Defaults()
+	var p policy.Policy
+	server := ""
+	switch {
+	case a.Default && a.Key != "":
+		return contract.Result{}, bad("name a cluster or the default policy, not both")
+	case a.Default:
+		p = r.Policy.View().Default
+	default:
+		s, err := policy.ServerKey(a.Key)
+		if err != nil {
+			return contract.Result{}, bad("the key is the server URL of a cluster: %s", err.Error())
+		}
+		server = s
+		if p, err = r.Policy.Get(server); err != nil {
+			return contract.Result{}, bad("%s", err.Error())
+		}
 	}
 	if a.Namespaces != nil {
 		p.Namespaces = *a.Namespaces
@@ -86,9 +109,15 @@ func (r *Runtime) setPolicy(ctx context.Context, env contract.Envelope, args map
 	if a.ReadSecretValues != nil {
 		p.ReadSecretValues = *a.ReadSecretValues
 	}
-	saved, err := r.Policy.Set(conn.Key(), p)
+	var saved policy.Policy
+	var err error
+	if a.Default {
+		saved, err = r.Policy.SetDefault(p)
+	} else {
+		saved, err = r.Policy.Set(server, p)
+	}
 	if err != nil {
 		return contract.Result{}, bad("%s", err.Error())
 	}
-	return finish(map[string]any{"saved": true, "key": conn.Key(), "policy": saved}, nil)
+	return finish(map[string]any{"saved": true, "key": server, "default": a.Default, "policy": saved}, nil)
 }

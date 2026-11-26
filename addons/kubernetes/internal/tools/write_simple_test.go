@@ -86,7 +86,7 @@ var _ = Describe("the guarded writes", func() {
 		Expect(*g.deploy("team-a", "web").Spec.Replicas).To(BeNumerically("==", 5))
 
 		p, _ = g.preview("op-2", tools.ToolScale, scaleArgs)
-		g.setPolicy(policy.Policy{Namespaces: []string{"team-a", "team-b"}, WriteTools: policy.Defaults().WriteTools})
+		g.setPolicy(policy.Policy{Namespaces: []string{"team-a", "team-b"}, WriteTools: writes})
 		rc, err = g.apply("op-2", tools.ToolScale, scaleArgs, p)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rc.State).To(Equal(contract.ReceiptRejected))
@@ -110,7 +110,7 @@ var _ = Describe("the guarded writes", func() {
 		args := map[string]any{"kind": "Deployment", "namespace": "team-b", "name": "api", "replicas": 1}
 		p, err := g.preview("op-1", tools.ToolScale, args)
 		Expect(err).NotTo(HaveOccurred())
-		g.setPolicy(policy.Policy{Namespaces: []string{"team-a"}, WriteTools: policy.Defaults().WriteTools})
+		g.setPolicy(policy.Policy{Namespaces: []string{"team-a"}, WriteTools: writes})
 		_, err = g.apply("op-1", tools.ToolScale, args, p)
 		Expect(err).To(MatchError(ContainSubstring("(namespaces)")))
 		_, err = g.preview("op-2", tools.ToolScale, args)
@@ -193,7 +193,7 @@ var _ = Describe("the guarded writes", func() {
 
 	It("cordons whatever the namespace allowlist says, since nodes have none", func() {
 		g := newRig(node("node-1"))
-		g.setPolicy(policy.Policy{Namespaces: []string{"team-a"}, WriteTools: policy.Defaults().WriteTools})
+		g.setPolicy(policy.Policy{Namespaces: []string{"team-a"}, WriteTools: writes})
 		rc, _ := g.run("op-1", tools.ToolCordon, map[string]any{"node": "node-1"})
 		Expect(rc.State).To(Equal(contract.ReceiptCommitted))
 	})

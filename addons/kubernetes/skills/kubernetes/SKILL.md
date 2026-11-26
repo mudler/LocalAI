@@ -36,9 +36,13 @@ Before a write, say in one line what will change, for example "scale web in team
 
 A result that starts with "refused by the connection policy" names the rule that refused the call: `namespaces`, `writeTools`, `clusterScoped` or `readSecretValues`. Tell the person which rule refused it. An administrator can change the policy on the Kubernetes page. Do not try another tool or another namespace to get around a refusal.
 
+A cluster that no administrator configured allows reads and no write. If every write is refused with `writeTools`, tell the person that an administrator must allow writes for this cluster on the Kubernetes page.
+
 ## Secrets
 
-Secret values are hidden: you see the keys and the length of each value. Inline environment values whose name looks secret show `***`. Never use `exec` or any other tool to read a Secret value.
+Unless the policy shows them, Secret values are hidden in what the read tools and the write diffs return: you see the keys and the length of each value, and the annotations of a Secret show only their length. Inline environment values whose name looks secret show `***`; a changed one shows `*** (new value)`. A `json` patch of a Secret may not copy, move or test a value: use a `merge` patch to change one.
+
+The hiding does not cover workloads, `exec` or logs. Never use them to read a Secret value: do not create a pod that mounts or prints a Secret, and do not print one with `exec`. If the person needs a value, tell them to read it themselves.
 
 ## Errors
 

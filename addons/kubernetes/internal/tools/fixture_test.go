@@ -24,6 +24,9 @@ const (
 
 var ctx = context.Background()
 
+// writes are the write tools a test policy turns on: all but exec.
+var writes = []string{"scale", "rollout-restart", "rollout-undo", "delete-pod", "cordon", "uncordon", "drain", "apply", "patch"}
+
 var kubeconfig = fmt.Sprintf(`apiVersion: v1
 kind: Config
 clusters:
@@ -59,6 +62,10 @@ type rig struct {
 func newRig(objs ...runtime.Object) *rig {
 	g := &rig{k: kubetest.New(objs...), cred: kubeconfig, key: key, now: time.Date(2026, 11, 26, 12, 0, 0, 0, time.UTC)}
 	g.pol = policy.Open("")
+	// The tests of the write tools need writes on: the administrator set a
+	// default policy that allows every write tool but exec.
+	_, err := g.pol.SetDefault(policy.Policy{Namespaces: []string{policy.All}, WriteTools: writes})
+	Expect(err).NotTo(HaveOccurred())
 	g.rt = tools.New(g.k.Factory(), g.pol)
 	g.rt.Now = func() time.Time { return g.now }
 	g.rt.Admin = adminFn(func() bool { return g.admin })

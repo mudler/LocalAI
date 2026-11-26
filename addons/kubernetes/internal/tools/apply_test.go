@@ -50,7 +50,7 @@ var _ = Describe("apply and patch", func() {
 
 	It("holds the namespace of the manifest to the allowlist", func() {
 		g := newRig()
-		g.setPolicy(policy.Policy{Namespaces: []string{"team-a"}, WriteTools: policy.Defaults().WriteTools})
+		g.setPolicy(policy.Policy{Namespaces: []string{"team-a"}, WriteTools: writes})
 		noNs := "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: x\ndata: {a: b}\n"
 		_, err := g.preview("op1", tools.ToolApply, map[string]any{"manifest": noNs})
 		Expect(err).To(MatchError(ContainSubstring("(namespaces): the namespace default")))

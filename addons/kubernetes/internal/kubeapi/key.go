@@ -7,7 +7,7 @@ package kubeapi
 
 import (
 	"errors"
-	"fmt"
+	"net/netip"
 	"net/url"
 	"strings"
 	"unicode"
@@ -63,14 +63,51 @@ func validContext(name string) bool {
 }
 
 // NormalizeServer checks a server URL and writes it one way: https, host in
-// lower case, no user, path, query or fragment. The port stays as written.
+// lower case without a trailing dot, the default port 443 left out, and no
+// user, path, query or fragment. The policy of a cluster is keyed by this
+// form, so a kubeconfig that writes the same server another way still finds
+// it.
+//
+// An IP address that is loopback, link-local, unspecified or multicast is
+// refused: the credential would go to a service of the host or of its
+// network, such as a cloud metadata endpoint. Host names are not resolved.
 func NormalizeServer(s string) (string, error) {
 	u, err := url.Parse(s)
 	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" {
-		return "", fmt.Errorf("the server must be an https URL with no path")
+		return "", errNotHTTPS
 	}
 	if u.Path != "" && u.Path != "/" {
-		return "", fmt.Errorf("the server must be an https URL with no path")
+		return "", errNotHTTPS
 	}
-	return "https://" + strings.ToLower(u.Host), nil
+	host := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
+	port := u.Port()
+	if host == "" || (port == "" && strings.HasSuffix(u.Host, ":")) {
+		return "", errNotHTTPS
+	}
+	if ip, err := netip.ParseAddr(host); err == nil {
+		ip = ip.Unmap()
+		if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() || ip.IsMulticast() {
+			return "", ErrLocalServer
+		}
+		if ip.Zone() != "" {
+			return "", errNotHTTPS
+		}
+	}
+	if port == "443" {
+		port = ""
+	}
+	hp := host
+	if strings.Contains(host, ":") {
+		hp = "[" + host + "]"
+	}
+	if port != "" {
+		hp += ":" + port
+	}
+	return "https://" + hp, nil
 }
+
+var errNotHTTPS = errors.New("the server must be an https URL with no path")
+
+// ErrLocalServer means the server is an address of the host or of its local
+// link.
+var ErrLocalServer = errors.New("the server must not be a loopback, link-local, unspecified or multicast address")

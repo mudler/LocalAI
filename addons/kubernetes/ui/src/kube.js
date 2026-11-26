@@ -123,7 +123,14 @@ export function kubeconfigContexts(text) {
 export function normalizeServer(s) {
   const m = /^https:\/\/([^/?#@\s]+)\/?$/i.exec(String(s || '').trim())
   if (!m) return ''
-  return `https://${m[1].toLowerCase()}`
+  // As the add-on writes it: host in lower case without a trailing dot, and
+  // the default port 443 left out. The add-on keys the policy by this form.
+  const hp = /^(\[[^\]]+\]|[^:[\]]+)(?::(\d+))?$/.exec(m[1].toLowerCase())
+  if (!hp) return ''
+  const host = hp[1].replace(/\.$/, '')
+  if (!host) return ''
+  const port = hp[2] && hp[2] !== '443' ? `:${hp[2]}` : ''
+  return `https://${host}${port}`
 }
 
 // The server of a context: its cluster, then that cluster's server. '' when unsure.

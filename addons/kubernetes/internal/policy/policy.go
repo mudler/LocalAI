@@ -6,10 +6,16 @@
 // add-on enforces it on every call, whether a person confirmed the call or
 // not, so skipping a confirmation never widens what a call can touch.
 //
-// The file is keyed by the cluster key (<server>#context=<name>), the
-// resource the connection lists, so two connections of one cluster share one
-// policy. It lives in the data folder of the add-on, like the settings of the
-// other add-ons: each node that runs the add-on reads its own copy.
+// The file is keyed by the server URL of the cluster, written one way
+// (kubeapi.NormalizeServer), so every context and every connection of one
+// cluster shares one policy, and renaming a context of the kubeconfig does
+// not change it. A cluster with no policy of its own uses the default policy,
+// which an administrator can set too. Out of the box that default allows
+// reads in every namespace and no write at all, so a new cluster can be read
+// and cannot be changed until an administrator decides.
+//
+// The file lives in the data folder of the add-on, like the settings of the
+// other add-ons.
 package policy
 
 import (
@@ -22,8 +28,12 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"sort"
+	"strings"
 	"sync"
+	"time"
 
+	"github.com/mudler/LocalAI/addons/kubernetes/internal/kubeapi"
 	"github.com/mudler/LocalAI/pkg/addons/sdk/atomicfile"
 )
 
@@ -69,10 +79,10 @@ type Policy struct {
 	ReadSecretValues bool     `json:"readSecretValues"`
 }
 
-// Defaults allow every namespace and every write tool except exec, and hide
-// Secret values.
+// Defaults is the default policy out of the box: every namespace may be read,
+// no write tool works and Secret values are hidden.
 func Defaults() Policy {
-	return Policy{Namespaces: []string{All}, WriteTools: slices.DeleteFunc(slices.Clone(WriteTools), func(s string) bool { return s == "exec" })}
+	return Policy{Namespaces: []string{All}, WriteTools: []string{}}
 }
 
 var label = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$`)
@@ -144,7 +154,13 @@ func (p Policy) Hash() string {
 }
 
 type file struct {
+	// Default applies to a cluster with no policy of its own. Nil is the
+	// built-in Defaults.
+	Default  *Policy          `json:"default,omitempty"`
 	Clusters map[string]Policy `json:"clusters"`
+	// Legacy keeps entries of the old per-context key that could not be
+	// migrated. They never apply.
+	Legacy map[string]Policy `json:"legacy,omitempty"`
 }
 
 // Store keeps the policies in policy.json in dir, mode 0600, written
@@ -154,97 +170,241 @@ type Store struct {
 	mu   sync.Mutex
 	path string
 	mem  file
+	now  func() time.Time
 }
 
 // Open returns a store in dir. An empty dir keeps the policies in memory.
 func Open(dir string) *Store {
-	s := &Store{mem: file{Clusters: map[string]Policy{}}}
+	s := &Store{mem: file{Clusters: map[string]Policy{}}, now: time.Now}
 	if dir != "" {
 		s.path = filepath.Join(dir, "policy.json")
 	}
 	return s
 }
 
-// ErrUnreadable means the file exists and cannot be read. A caller refuses
-// every tool then: a broken policy must never widen access.
+// ErrUnreadable means the file exists and cannot be read.
 var ErrUnreadable = errors.New("the policy file cannot be read")
 
-func (s *Store) read() (file, error) {
+// ServerKey writes the key of a cluster: its server URL, written one way. It
+// also takes a connection key (<server>#context=<name>).
+func ServerKey(key string) (string, error) {
+	if strings.Contains(key, "#") {
+		c, err := kubeapi.ParseKey(key)
+		if err != nil {
+			return "", err
+		}
+		return c.Server, nil
+	}
+	return kubeapi.NormalizeServer(key)
+}
+
+// state is the file as read: the policies in force and what could not be
+// used.
+type state struct {
+	f file
+	// legacy are entries of the old per-context key that were not
+	// migrated: they disagree with another entry of the same server.
+	legacy []string
+	broken bool
+}
+
+func (s *Store) read() state {
 	if s.path == "" {
-		return s.mem, nil
+		return migrate(s.mem)
 	}
 	b, err := os.ReadFile(s.path)
 	if errors.Is(err, os.ErrNotExist) {
-		return file{Clusters: map[string]Policy{}}, nil
+		return state{f: file{Clusters: map[string]Policy{}}}
 	}
 	if err != nil {
-		return file{}, ErrUnreadable
+		return state{f: file{Clusters: map[string]Policy{}}, broken: true}
 	}
 	var f file
 	if json.Unmarshal(b, &f) != nil {
-		return file{}, ErrUnreadable
+		return state{f: file{Clusters: map[string]Policy{}}, broken: true}
 	}
-	if f.Clusters == nil {
-		f.Clusters = map[string]Policy{}
-	}
-	for k, p := range f.Clusters {
-		n, err := p.Normalize()
+	if f.Default != nil {
+		n, err := f.Default.Normalize()
 		if err != nil {
-			return file{}, ErrUnreadable
+			return state{f: file{Clusters: map[string]Policy{}}, broken: true}
 		}
-		f.Clusters[k] = n
+		f.Default = &n
 	}
-	return f, nil
+	for _, m := range []map[string]Policy{f.Clusters, f.Legacy} {
+		for k, p := range m {
+			n, err := p.Normalize()
+			if err != nil {
+				return state{f: file{Clusters: map[string]Policy{}}, broken: true}
+			}
+			m[k] = n
+		}
+	}
+	return migrate(f)
 }
 
-// Get returns the policy of one cluster; the defaults for a cluster with none.
+// migrate moves entries of the old key (<server>#context=<name>) to the key
+// of their server. Entries of one server that disagree are not migrated: they
+// stay in the file under legacy, and the server uses the default policy until
+// an administrator saves one for it. An old entry of a server that already
+// has a policy under the new key is dropped.
+func migrate(in file) state {
+	out := file{Default: in.Default, Clusters: map[string]Policy{}, Legacy: map[string]Policy{}}
+	for k, p := range in.Legacy {
+		out.Legacy[k] = p
+	}
+	old := map[string]map[string]Policy{}
+	for k, p := range in.Clusters {
+		server, err := ServerKey(k)
+		switch {
+		case err != nil:
+			out.Legacy[k] = p
+		case strings.Contains(k, "#"):
+			if old[server] == nil {
+				old[server] = map[string]Policy{}
+			}
+			old[server][k] = p
+		default:
+			out.Clusters[server] = p
+		}
+	}
+	for server, entries := range old {
+		if _, own := out.Clusters[server]; own {
+			continue
+		}
+		hashes := map[string]Policy{}
+		for _, p := range entries {
+			hashes[p.Hash()] = p
+		}
+		if len(hashes) == 1 {
+			for _, p := range hashes {
+				out.Clusters[server] = p
+			}
+			continue
+		}
+		for k, p := range entries {
+			out.Legacy[k] = p
+		}
+	}
+	legacy := make([]string, 0, len(out.Legacy))
+	for k := range out.Legacy {
+		legacy = append(legacy, k)
+	}
+	sort.Strings(legacy)
+	if len(out.Legacy) == 0 {
+		out.Legacy = nil
+	}
+	return state{f: out, legacy: legacy}
+}
+
+// Get returns the policy of one cluster: its own, or the default policy. A
+// file that cannot be read gives every cluster the built-in Defaults, which
+// allow no write, so a damaged file never widens what a write can do.
 func (s *Store) Get(key string) (Policy, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	f, err := s.read()
+	server, err := ServerKey(key)
 	if err != nil {
 		return Policy{}, err
 	}
-	if p, ok := f.Clusters[key]; ok {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	st := s.read()
+	if p, ok := st.f.Clusters[server]; ok {
 		return p, nil
+	}
+	if st.f.Default != nil {
+		return *st.f.Default, nil
 	}
 	return Defaults(), nil
 }
 
-// All returns the policy of every cluster that has one.
-func (s *Store) All() (map[string]Policy, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	f, err := s.read()
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[string]Policy, len(f.Clusters))
-	for k, p := range f.Clusters {
-		out[k] = p
-	}
-	return out, nil
+// View is what the page shows.
+type View struct {
+	// Clusters holds the clusters that have a policy of their own.
+	Clusters map[string]Policy
+	// Default applies to every other cluster; DefaultSet says whether an
+	// administrator set it.
+	Default    Policy
+	DefaultSet bool
+	// Broken means the file could not be read; every cluster uses the
+	// built-in Defaults until an administrator saves.
+	Broken bool
+	// Legacy lists entries of the old per-context key that were not
+	// migrated.
+	Legacy []string
 }
 
-// Set stores the policy of one cluster. A damaged file is replaced.
+// View returns the policies.
+func (s *Store) View() View {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	st := s.read()
+	v := View{Clusters: make(map[string]Policy, len(st.f.Clusters)), Default: Defaults(), Broken: st.broken, Legacy: st.legacy}
+	for k, p := range st.f.Clusters {
+		v.Clusters[k] = p
+	}
+	if st.f.Default != nil {
+		v.Default, v.DefaultSet = *st.f.Default, true
+	}
+	if v.Legacy == nil {
+		v.Legacy = []string{}
+	}
+	return v
+}
+
+// Set stores the policy of one cluster.
 func (s *Store) Set(key string, p Policy) (Policy, error) {
+	server, err := ServerKey(key)
+	if err != nil {
+		return Policy{}, err
+	}
+	return s.save(func(f *file, n Policy) error {
+		if _, known := f.Clusters[server]; !known && len(f.Clusters) >= MaxClusters {
+			return fmt.Errorf("at most %d clusters have a policy", MaxClusters)
+		}
+		f.Clusters[server] = n
+		for k := range f.Legacy {
+			if old, err := ServerKey(k); err == nil && old == server {
+				delete(f.Legacy, k)
+			}
+		}
+		return nil
+	}, p)
+}
+
+// SetDefault stores the default policy.
+func (s *Store) SetDefault(p Policy) (Policy, error) {
+	return s.save(func(f *file, n Policy) error {
+		f.Default = &n
+		return nil
+	}, p)
+}
+
+// save changes the file. A file that cannot be read is kept aside under a
+// new name, and the change starts from an empty file: nothing of the damaged
+// file is trusted.
+func (s *Store) save(change func(*file, Policy) error, p Policy) (Policy, error) {
 	n, err := p.Normalize()
 	if err != nil {
 		return Policy{}, err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	f, err := s.read()
-	if err != nil {
-		f = file{Clusters: map[string]Policy{}}
+	st := s.read()
+	f := st.f
+	if err := change(&f, n); err != nil {
+		return Policy{}, err
 	}
-	if _, known := f.Clusters[key]; !known && len(f.Clusters) >= MaxClusters {
-		return Policy{}, fmt.Errorf("at most %d clusters have a policy", MaxClusters)
+	if len(f.Legacy) == 0 {
+		f.Legacy = nil
 	}
-	f.Clusters[key] = n
 	if s.path == "" {
-		s.mem = file{Clusters: f.Clusters}
+		s.mem = f
 		return n, nil
+	}
+	if st.broken {
+		aside := fmt.Sprintf("%s.damaged-%d", s.path, s.now().Unix())
+		if err := os.Rename(s.path, aside); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return Policy{}, errors.New("the damaged policy file could not be kept aside, so nothing was saved")
+		}
 	}
 	b, err := json.MarshalIndent(f, "", "  ")
 	if err != nil {
