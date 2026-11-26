@@ -29854,6 +29854,45 @@
     parameters:
       model: meituan-longcat/LongCat-Video-Avatar-1.5
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: avatarforcing
+  description: |
+    AvatarForcing talking-head model for the avatarforcing-cpp backend (C++/ggml port). It turns a portrait image and
+    speech audio into a lip-synced 512x512 video at 25 fps, returned as an mp4 with the speech as its audio track. The
+    portrait should show one face near the centre; other sizes are cropped to a square and scaled. Runs on CPU and
+    NVIDIA CUDA. float32 GGUF, about 1.2 GB.
+
+    Non-commercial use only: the weights are licensed under CC BY-NC 4.0.
+  license: cc-by-nc-4.0
+  urls:
+    - https://huggingface.co/mudler/avatarforcing-cpp-gguf
+    - https://github.com/mudler/avatarforcing.cpp
+  tags:
+    - audio-to-video
+    - image-to-video
+    - avatar-generation
+    - talking-head
+    - avatarforcing-cpp
+    - gguf
+    - ggml
+    - cpu
+    - cuda
+  files:
+    - filename: avatarforcing-cpp/avatarforcing-f32.gguf
+      sha256: a2c922c7e0adf1461f96d5b5b0a06d7f916f7b6837a687b9f93e90022e00cb3e
+      uri: huggingface://mudler/avatarforcing-cpp-gguf/avatarforcing-f32.gguf
+  overrides:
+    backend: avatarforcing-cpp
+    known_input_modalities:
+      - image
+      - audio
+    known_output_modalities:
+      - video
+    known_usecases:
+      - video
+    name: avatarforcing
+    parameters:
+      model: avatarforcing-cpp/avatarforcing-f32.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: qwen3.8-27b-exl3-vllm-cpp
   description: |
     Qwen3.8-27B EXL3 3.5bpw served by vllm.cpp, LocalAI's C++ vLLM-style
