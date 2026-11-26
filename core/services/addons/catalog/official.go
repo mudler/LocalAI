@@ -46,6 +46,10 @@ var ReleaseAssetHosts = []string{
 // match, so such a build reads the development library.
 var releaseVersionRE = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+(\.[0-9A-Za-z-]+)*)?$`)
 
+// IsReleaseVersion reports whether version is the version of a tagged build
+// (v<semver>), which reads the files of its own tag rather than master.
+func IsReleaseVersion(version string) bool { return releaseVersionRE.MatchString(version) }
+
 // OfficialLibrary is the library a standard install registers on its first
 // start. A release build (internal.Version is a v<semver> tag) reads the index
 // attached to its own release and requires the signature of the add-on package
