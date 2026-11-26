@@ -6,6 +6,14 @@
 # from the official libraries. This catches a container that starts cleanly
 # but cannot install anything, as in #13507.
 #
+# Expected per setup (tests/e2e-container-users/usermodes_test.go):
+#   default, LOCALAI_UID, bind mounts of the host user, read-only root:
+#     no folder warning; the add-on and the backend install.
+#   docker --user with named volumes of the image user: the user cannot write
+#     the volumes. LocalAI still starts, logs the folder warning naming /data,
+#     /models and /backends, turns add-ons off with a log line that names the
+#     add-on folder, and the backend install fails on /backends.
+#
 # The image is built here with the same build arguments and the same registry
 # cache as the CPU image of image_build.yml, so an unchanged base costs only
 # the Go build. Set the `image` input of a manual run to test a published image

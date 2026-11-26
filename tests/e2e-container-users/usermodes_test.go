@@ -100,14 +100,17 @@ func cases() []userCase {
 			// docker run --user with fresh named volumes. The entrypoint does
 			// nothing for a container that does not start as root, and the
 			// volumes get the owner of the image folders (10001), so this
-			// user cannot write them. The documented outcome: LocalAI starts,
-			// names the folders it cannot write, and the installs that need
-			// them fail with the reason.
+			// user cannot write them. This setup is not supported as it is
+			// (see "Container user and permissions" in the container docs),
+			// but it must fail in a way the user can act on: LocalAI starts,
+			// names the folders it cannot write, turns add-ons off with a log
+			// line that says why (the add-on API then answers that add-ons
+			// are off), and a backend install fails on the backends folder.
 			name: "docker-user-named-volumes", uid: 1234,
 			warn:        true,
 			warnFolders: []string{"/data", "/models", "/backends"},
-			addon:       outcome{failure: regexp.MustCompile(`(?i)permission denied|unavailable`)},
-			backend:     outcome{failure: regexp.MustCompile(`(?i)permission denied`)},
+			addon:       outcome{failure: regexp.MustCompile(`(?s)Add-ons are off: LocalAI cannot write the add-on folder.*add-ons are turned off|add-ons are turned off.*Add-ons are off: LocalAI cannot write the add-on folder`)},
+			backend:     outcome{failure: regexp.MustCompile(`(?i)/backends/\S*: permission denied`)},
 			setup: func(req *testcontainers.ContainerRequest) {
 				suffix := randomSuffix()
 				for _, target := range []string{"/models", "/backends", "/configuration", "/data"} {
@@ -420,7 +423,7 @@ func installAddon(b *box) error {
 		phase := str(status, "Phase", "phase")
 		switch phase {
 		case "completed":
-			return nil
+			return checkAddonInstalled(b)
 		case "failed":
 			return fmt.Errorf("install of %s failed: %v; log: %s", addonID, status, lastAddonFailure(b))
 		}
@@ -485,4 +488,20 @@ func installBackend(b *box) error {
 		}
 		time.Sleep(2 * time.Second)
 	}
+}
+
+// checkAddonInstalled reads the installed add-ons back, so a completed
+// operation that left nothing behind does not pass.
+func checkAddonInstalled(b *box) error {
+	out, err := b.dispatch("addons-installed", "", nil, newOperationID())
+	if err != nil {
+		return err
+	}
+	list, _ := out["addons"].([]any)
+	for _, a := range list {
+		if m, _ := a.(map[string]any); str(m, "id", "ID", "addonId") == addonID {
+			return nil
+		}
+	}
+	return fmt.Errorf("install of %s completed but it is not installed: %v", addonID, out)
 }
