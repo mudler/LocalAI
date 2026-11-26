@@ -1,6 +1,7 @@
 # Attaches the Android client app and its update feed to the release of a
 # tag. release.yaml calls it after GoReleaser has made the release, and only
-# while the repository variable ANDROID_PUBLISH is 'true'.
+# while the repository variables ANDROID_PUBLISH and ANDROID_SIGNING are both
+# 'true'.
 #
 # Only stable tags vX.Y.Z get an APK. Any other tag (a release candidate,
 # for example) ends the workflow successfully with nothing built: the app has

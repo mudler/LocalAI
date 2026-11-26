@@ -12,17 +12,38 @@
 # Every APK, debug or signed, includes the P2P library: the apk job fails
 # when the APK has no lib/arm64-v8a/libgojni.so.
 #
-# Publishing is switched off until the repository variable ANDROID_PUBLISH is
-# 'true' (Settings > Variables). A maintainer sets it after the signing keys,
-# the secrets, the certificate digest variables and the Android developer
-# verification are in place. When it is 'true', a push to master in
-# mudler/LocalAI builds the dev flavor as a release APK (arm64-v8a only)
-# signed with the development key, checks the signing certificate, writes
-# the update manifest, and the publish job attaches three files to the
-# rolling dev-master pre-release:
-#   LocalAI-Android-dev.apk, LocalAI-Android-dev.apk.sha256,
-#   android-update-dev.json (the feed the development app reads).
-# Pull requests never get the secrets and never publish.
+# Two repository variables (Settings > Variables) control publishing. Only a
+# push to master in mudler/LocalAI publishes; pull requests and manual runs
+# never get the secrets and never publish.
+#
+#   ANDROID_PUBLISH  ANDROID_SIGNING  A master push
+#   not 'true'       any              builds the debug APK (artifact only).
+#   'true'           not 'true'       builds the dev flavor as a release APK
+#                                     (arm64-v8a only) signed with a debug key
+#                                     made on the runner, and attaches
+#                                       LocalAI-Android-dev-debug-key.apk and
+#                                       LocalAI-Android-dev-debug-key.apk.sha256
+#                                     to the rolling dev-master pre-release.
+#   'true'           'true'           builds the same APK signed with the
+#                                     development key, checks the signing
+#                                     certificate, writes the update manifest
+#                                     and attaches
+#                                       LocalAI-Android-dev.apk,
+#                                       LocalAI-Android-dev.apk.sha256 and
+#                                       android-update-dev.json (the feed the
+#                                       development app reads).
+#
+# The debug key changes on every run, and Android installs an update only
+# when its signer matches the installed app. So a debug-key APK never updates
+# another one, and no manifest is published for it: the in-app updater would
+# download the APK and then refuse it. The app treats the missing manifest as
+# "no update". Each mode removes the files of the other mode from dev-master,
+# so the release always shows one Android build.
+#
+# ANDROID_SIGNING also switches on the signed stable APK of release.yaml.
+# Set it only when the development and release keys, their secrets, the
+# certificate digest variables and the Android developer verification are in
+# place (android/README.md).
 #
 # Secrets (names only): ANDROID_DEV_KEYSTORE (base64 of the keystore),
 # ANDROID_DEV_KEYSTORE_PASSWORD, ANDROID_DEV_KEY_ALIAS,
@@ -214,18 +235,28 @@ jobs:
           retention-days: 1
 
   apk:
-    name: ${{ (github.event_name == 'push' && github.repository == 'mudler/LocalAI' && vars.ANDROID_PUBLISH == 'true') && 'Signed dev APK' || 'Debug APK' }}
+    name: ${{ (github.event_name == 'push' && github.repository == 'mudler/LocalAI' && vars.ANDROID_PUBLISH == 'true') && (vars.ANDROID_SIGNING == 'true' && 'Signed dev APK' || 'Debug-key dev APK') || 'Debug APK' }}
     needs: [version, web, p2p-aar]
     runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
     env:
-      # True only for a master push in the main repository with publishing on.
-      PUBLISH: ${{ github.event_name == 'push' && github.repository == 'mudler/LocalAI' && vars.ANDROID_PUBLISH == 'true' }}
+      # off: no publishing (pull requests, manual runs, master while
+      # ANDROID_PUBLISH is not 'true'). signed: the development key.
+      # debug-key: a debug key made on the runner. Publishing happens only for
+      # a master push in the main repository.
+      MODE: ${{ (github.event_name == 'push' && github.repository == 'mudler/LocalAI' && vars.ANDROID_PUBLISH == 'true') && (vars.ANDROID_SIGNING == 'true' && 'signed' || 'debug-key') || 'off' }}
       VERSION: ${{ needs.version.outputs.version }}
       VERSION_CODE: ${{ needs.version.outputs.version_code }}
     defaults:
       run:
         working-directory: android
     steps:
+      # The publish job reads the mode from here, so both jobs agree even if a
+      # variable changes while the run is going.
+      - id: mode
+        working-directory: .
+        run: echo "mode=$MODE" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -259,10 +290,9 @@ jobs:
       - run: test -s p2pmobile/build/p2pmobile.aar
       - run: npx cap sync android
 
-      # Publishing off (pull requests, manual runs, and master while
-      # ANDROID_PUBLISH is not 'true'): a debug APK, artifact only.
+      # Publishing off: a debug APK, artifact only.
       - name: Lint, unit tests and the dev debug APK
-        if: env.PUBLISH != 'true'
+        if: env.MODE == 'off'
         working-directory: android/native
         run: |
           ./gradlew lintDevDebug testDevDebugUnitTest assembleDevDebug \
@@ -270,7 +300,7 @@ jobs:
             "-PlocalaiVersionCode=$VERSION_CODE" \
             -PlocalaiAbis=arm64-v8a,x86_64
       - name: Check the P2P library in the debug APK
-        if: env.PUBLISH != 'true'
+        if: env.MODE == 'off'
         env:
           APK: native/app/build/outputs/apk/dev/debug/app-dev-debug.apk
         run: |
@@ -281,28 +311,29 @@ jobs:
               { echo "::error::the APK has no lib/$abi/libgojni.so (P2P library)"; exit 1; }
           done
       - name: Name the debug APK and write its checksum
-        if: env.PUBLISH != 'true'
+        if: env.MODE == 'off'
         run: |
           mkdir -p out
           cp native/app/build/outputs/apk/dev/debug/app-dev-debug.apk out/LocalAI-Android-dev.apk
           (cd out && sha256sum LocalAI-Android-dev.apk > LocalAI-Android-dev.apk.sha256 && cat LocalAI-Android-dev.apk.sha256)
 
-      # Publishing on: the release APK signed with the development key. The
-      # keystore lives only in $RUNNER_TEMP and is deleted at the end.
+      # Publishing on with signing on: the release APK signed with the
+      # development key. The keystore lives only in $RUNNER_TEMP and is
+      # deleted at the end.
       - name: Decode the development keystore
-        if: env.PUBLISH == 'true'
+        if: env.MODE == 'signed'
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_DEV_KEYSTORE }}
         run: |
           set -euo pipefail
           if [ -z "$KEYSTORE_B64" ]; then
-            echo "::error::ANDROID_PUBLISH is true but the ANDROID_DEV_KEYSTORE secret is not set"
+            echo "::error::ANDROID_SIGNING is true but the ANDROID_DEV_KEYSTORE secret is not set"
             exit 1
           fi
           umask 077
           printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/android-dev.keystore"
       - name: Lint, unit tests and the signed dev release APK
-        if: env.PUBLISH == 'true'
+        if: env.MODE == 'signed'
         working-directory: android/native
         env:
           ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/android-dev.keystore
@@ -317,20 +348,34 @@ jobs:
             "-PlocalaiVersionCode=$VERSION_CODE" \
             -PlocalaiRequireSigning=true
       - name: Remove the development keystore
-        if: always() && env.PUBLISH == 'true'
+        if: always() && env.MODE == 'signed'
         run: rm -f "$RUNNER_TEMP/android-dev.keystore"
+      # Publishing on with signing off: the same release APK, signed with the
+      # debug key that the Android Gradle plugin makes on the runner. Never
+      # the debug build type: a debuggable APK lets adb read the app's data.
+      - name: Lint, unit tests and the debug-key dev release APK
+        if: env.MODE == 'debug-key'
+        working-directory: android/native
+        run: |
+          ./gradlew lintDevDebug testDevDebugUnitTest assembleDevRelease \
+            "-PlocalaiVersionName=$VERSION" \
+            "-PlocalaiVersionCode=$VERSION_CODE" \
+            -PlocalaiSignWithDebug=true
       - name: Check the package and the signing certificate
-        if: env.PUBLISH == 'true'
+        if: env.MODE != 'off'
         env:
           APK: native/app/build/outputs/apk/dev/release/app-dev-release.apk
           EXPECTED_CERT: ${{ vars.ANDROID_DEV_CERT_SHA256 }}
         run: |
           set -euo pipefail
           tools="$ANDROID_HOME/build-tools/35.0.0"
-          expected=$(printf '%s' "$EXPECTED_CERT" | tr -d ': \n' | tr 'A-F' 'a-f')
-          if ! [[ "$expected" =~ ^[0-9a-f]{64}$ ]]; then
-            echo "::error::the ANDROID_DEV_CERT_SHA256 variable is not a SHA-256 digest"
-            exit 1
+          # A debug-key build has no fixed certificate to compare with.
+          if [ "$MODE" = signed ]; then
+            expected=$(printf '%s' "$EXPECTED_CERT" | tr -d ': \n' | tr 'A-F' 'a-f')
+            if ! [[ "$expected" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "::error::the ANDROID_DEV_CERT_SHA256 variable is not a SHA-256 digest"
+              exit 1
+            fi
           fi
           badging=$("$tools/aapt2" dump badging "$APK" | head -n 1)
           echo "$badging"
@@ -344,12 +389,25 @@ jobs:
           certs=$("$tools/apksigner" verify --print-certs "$APK")
           echo "$certs"
           mapfile -t digests < <(printf '%s\n' "$certs" | sed -n -E 's/^Signer #[0-9]+ certificate SHA-256 digest: *([0-9a-fA-F]+)$/\1/p' | tr 'A-F' 'a-f')
-          if [ "${#digests[@]}" -ne 1 ] || [ "${digests[0]}" != "$expected" ]; then
+          if [ "${#digests[@]}" -ne 1 ]; then
+            echo "::error::the APK must have exactly one signer"
+            exit 1
+          fi
+          if [ "$MODE" = signed ] && [ "${digests[0]}" != "$expected" ]; then
             echo "::error::the APK is not signed by the development certificate alone"
             exit 1
           fi
+      # No manifest: no installed app can update to a debug-key APK (see the
+      # header of this file).
+      - name: Name the debug-key APK and write its checksum
+        if: env.MODE == 'debug-key'
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cp native/app/build/outputs/apk/dev/release/app-dev-release.apk out/LocalAI-Android-dev-debug-key.apk
+          (cd out && sha256sum LocalAI-Android-dev-debug-key.apk > LocalAI-Android-dev-debug-key.apk.sha256 && cat LocalAI-Android-dev-debug-key.apk.sha256)
       - name: Name the signed APK and write its checksum and manifest
-        if: env.PUBLISH == 'true'
+        if: env.MODE == 'signed'
         env:
           COMMIT: ${{ github.sha }}
           NOTES_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/dev-master
@@ -472,14 +530,15 @@ jobs:
 
   # The only job with write access, and only when publishing is on. It checks
   # out no code and runs nothing from the repository: it downloads the
-  # artifact of the signed build, verifies it and talks to the GitHub API.
+  # artifact of the APK build, verifies it and talks to the GitHub API.
   #
   # It never creates the release or moves the tag (master-dev-binary.yml owns
-  # those) and never deletes an asset. It only replaces the three names
-  # below; the server and launcher workflows never touch them.
+  # those). It only adds and removes the Android names below; the server and
+  # launcher workflows never touch them (they own local-ai-master-*,
+  # LocalAI-Launcher-dev* and latest*.yml).
   publish:
     name: Attach to the dev-master pre-release
-    if: github.event_name == 'push' && github.repository == 'mudler/LocalAI' && vars.ANDROID_PUBLISH == 'true'
+    if: github.event_name == 'push' && github.repository == 'mudler/LocalAI' && vars.ANDROID_PUBLISH == 'true' && needs.apk.outputs.mode != 'off'
     # Nothing is published unless the app also passed the emulator smoke test.
     needs: [apk, emulator-smoke]
     runs-on: ubuntu-latest
@@ -492,6 +551,8 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
       RELEASE_TAG: dev-master
+      # signed or debug-key, as the apk job built it.
+      MODE: ${{ needs.apk.outputs.mode }}
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -502,20 +563,31 @@ jobs:
         run: |
           set -euo pipefail
           ls -l
-          # Exactly these three files, nothing else. LC_ALL=C: the expected
-          # order below is byte order (upper case first), not the locale's.
+          case "$MODE" in
+            signed)
+              apk=LocalAI-Android-dev.apk
+              want="LocalAI-Android-dev.apk LocalAI-Android-dev.apk.sha256 android-update-dev.json " ;;
+            debug-key)
+              apk=LocalAI-Android-dev-debug-key.apk
+              want="LocalAI-Android-dev-debug-key.apk LocalAI-Android-dev-debug-key.apk.sha256 " ;;
+            *) echo "::error::unexpected build mode '$MODE'"; exit 1 ;;
+          esac
+          # Exactly these files, nothing else. LC_ALL=C: the expected order
+          # is byte order (upper case first), not the locale's.
           names=$(find . -mindepth 1 -printf '%P\n' | LC_ALL=C sort | tr '\n' ' ')
-          if [ "$names" != "LocalAI-Android-dev.apk LocalAI-Android-dev.apk.sha256 android-update-dev.json " ]; then
+          if [ "$names" != "$want" ]; then
             echo "::error::unexpected files in the artifact: $names"
             exit 1
           fi
-          sha256sum --check --strict LocalAI-Android-dev.apk.sha256
-          m=android-update-dev.json
-          test "$(jq -r .applicationId "$m")" = io.localai.client.dev
-          test "$(jq -r .apk "$m")" = LocalAI-Android-dev.apk
-          test "$(jq -r .size "$m")" = "$(stat -c %s LocalAI-Android-dev.apk)"
-          test "$(jq -r .sha256 "$m")" = "$(sha256sum LocalAI-Android-dev.apk | cut -d ' ' -f 1)"
-          jq . "$m"
+          sha256sum --check --strict "$apk.sha256"
+          if [ "$MODE" = signed ]; then
+            m=android-update-dev.json
+            test "$(jq -r .applicationId "$m")" = io.localai.client.dev
+            test "$(jq -r .apk "$m")" = "$apk"
+            test "$(jq -r .size "$m")" = "$(stat -c %s "$apk")"
+            test "$(jq -r .sha256 "$m")" = "$(sha256sum "$apk" | cut -d ' ' -f 1)"
+            jq . "$m"
+          fi
       # The release is made by master-dev-binary.yml, which can still be
       # running for this commit. Wait for it. Do not create it here.
       - name: Wait for the release
@@ -535,14 +607,32 @@ jobs:
       # feed never describes a file that is not there yet. For a short time
       # the manifest can still describe the last build's APK; the app then
       # refuses the download (size or SHA-256 differs) and checks again later.
+      #
+      # Then the files of the other mode go, the manifest first, so the feed
+      # never names a removed APK. The release shows one Android build, and a
+      # debug-key build never leaves a feed that offers an older signed APK.
       - name: Upload the APK, its checksum and the manifest
         working-directory: upload
         run: |
           set -euo pipefail
+          if [ "$MODE" = signed ]; then
+            files=(LocalAI-Android-dev.apk LocalAI-Android-dev.apk.sha256 android-update-dev.json)
+            stale=(LocalAI-Android-dev-debug-key.apk LocalAI-Android-dev-debug-key.apk.sha256)
+          else
+            files=(LocalAI-Android-dev-debug-key.apk LocalAI-Android-dev-debug-key.apk.sha256)
+            stale=(android-update-dev.json LocalAI-Android-dev.apk LocalAI-Android-dev.apk.sha256)
+          fi
           upload() {
-            gh release upload "${RELEASE_TAG}" LocalAI-Android-dev.apk --clobber &&
-              gh release upload "${RELEASE_TAG}" LocalAI-Android-dev.apk.sha256 --clobber &&
-              gh release upload "${RELEASE_TAG}" android-update-dev.json --clobber
+            for f in "${files[@]}"; do
+              gh release upload "${RELEASE_TAG}" "$f" --clobber || return 1
+            done
+            present=$(gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name') || return 1
+            for f in "${stale[@]}"; do
+              if grep -Fxq "$f" <<<"$present"; then
+                echo "removing ${f} (the other signing mode)"
+                gh release delete-asset "${RELEASE_TAG}" "$f" --yes || return 1
+              fi
+            done
           }
           for attempt in 1 2 3 4 5; do
             if upload; then

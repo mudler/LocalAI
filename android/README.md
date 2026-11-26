@@ -170,7 +170,7 @@ the UI kit, the P2P packages and `go.mod`/`go.sum`. Jobs:
 | `p2p-aar` | Vet, test and build the P2P library for arm64 and x86_64. Checks the 16 KB alignment of the native libraries. A cache skips the build when the Go inputs did not change. |
 | `apk` | Gradle lint, unit tests and the APK, with the AAR. Fails when the APK has no `lib/arm64-v8a/libgojni.so`, debug or signed. |
 | `emulator-smoke` | The smoke test on an API 34 x86_64 emulator against the fake server. |
-| `publish` | Attaches the dev APK to the `dev-master` pre-release. Runs only when publishing is on, and only after `apk` and `emulator-smoke` pass. |
+| `publish` | Attaches the dev APK to the `dev-master` pre-release. Runs only when publishing is on, and only after `apk` and `emulator-smoke` pass. Signed or debug-key, see [Publishing](#publishing). |
 
 Pull requests, manual runs and `master` pushes while publishing is off build
 a debug APK of the `dev` flavor (`arm64-v8a` and `x86_64`). The APK is a
@@ -186,12 +186,25 @@ and attaches `LocalAI-Android.apk`, `LocalAI-Android.apk.sha256` and
 
 ### Publishing
 
-Publishing is off. It stays off until the signing keys, the secrets, the
-certificate digest variables and the Android developer verification exist.
-While it is off, CI builds debug APKs and uploads them as workflow artifacts
-only. No APK goes to a release.
+Two repository variables control publishing:
 
-To switch publishing on, a maintainer does these steps in order:
+| `ANDROID_PUBLISH` | `ANDROID_SIGNING` | A push to `master` in `mudler/LocalAI` |
+|---|---|---|
+| not `true` | any | Builds a debug APK as a workflow artifact. Nothing goes to a release. |
+| `true` | not `true` | Builds the `dev` release APK (`arm64-v8a`) signed with a debug key made on the runner, and attaches `LocalAI-Android-dev-debug-key.apk` and its `.sha256` to `dev-master`. No update manifest. |
+| `true` | `true` | Builds the `dev` release APK signed with the development key and attaches `LocalAI-Android-dev.apk`, its `.sha256` and `android-update-dev.json` to `dev-master`. A `vX.Y.Z` tag also gets the signed `stable` APK. |
+
+The debug key changes on every CI run, and Android installs an update only
+when its signer matches the installed app. So a debug-key APK never updates
+over another one: to move to a newer one, uninstall the app first (this
+removes its servers and sign-ins). CI publishes no manifest for it, because
+the in-app updater would download the APK and then refuse it. The app treats
+the missing manifest as "no update". Each mode removes the other mode's files
+from `dev-master`.
+
+To switch on the debug-key dev APK, set `ANDROID_PUBLISH` to `true`.
+
+To switch on signed publishing, a maintainer does these steps in order:
 
 1. Make two keystores: a release key for the `stable` app and a separate key
    for the `dev` app. Keep an offline backup of the release key in two
@@ -210,9 +223,13 @@ To switch publishing on, a maintainer does these steps in order:
    `ANDROID_DEV_CERT_SHA256`: the SHA-256 digest of each signing certificate,
    in hex. Colons are ignored. A build signed by another certificate fails
    before upload.
-5. Set the repository variable `ANDROID_PUBLISH` to `true`.
+5. Set the repository variables `ANDROID_PUBLISH` and `ANDROID_SIGNING` to
+   `true`.
 
-With `ANDROID_PUBLISH` set to `true`:
+An app installed from a debug-key APK cannot update to a signed one. Its
+users uninstall it and install the signed APK once.
+
+With both variables set to `true`:
 
 - A push to `master` in `mudler/LocalAI` builds `assembleDevRelease` with
   `-PlocalaiRequireSigning=true`, checks the certificate, and writes the
