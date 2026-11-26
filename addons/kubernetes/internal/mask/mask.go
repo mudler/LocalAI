@@ -26,7 +26,9 @@ import (
 // Hidden replaces an inline env value.
 const Hidden = "***"
 
-const lastApplied = "kubectl.kubernetes.io/last-applied-configuration"
+// LastApplied is the annotation kubectl keeps the last applied manifest in.
+// On a Secret it holds the values, so the masking drops it.
+const LastApplied = "kubectl.kubernetes.io/last-applied-configuration"
 
 // safeAnnotations are annotations of a Secret that Kubernetes writes and that
 // name an object instead of holding a value.
@@ -34,6 +36,9 @@ var safeAnnotations = map[string]bool{
 	"kubernetes.io/service-account.name": true,
 	"kubernetes.io/service-account.uid":  true,
 }
+
+// SafeAnnotation reports an annotation of a Secret that the masking shows.
+func SafeAnnotation(k string) bool { return safeAnnotations[k] }
 
 var secretName = regexp.MustCompile(`(?i)(TOKEN|PASSWORD|SECRET|KEY)`)
 
@@ -68,7 +73,7 @@ func Secret(u *unstructured.Unstructured) {
 		u.Object[f] = out
 	}
 	if a := u.GetAnnotations(); a != nil {
-		delete(a, lastApplied)
+		delete(a, LastApplied)
 		for k, v := range a {
 			if !safeAnnotations[k] {
 				a[k] = describe(len(v))
@@ -143,9 +148,11 @@ func PodEnv(u *unstructured.Unstructured) {
 
 // EnvPair masks the env of the live object and of the result of a write, and
 // marks a hidden value that the write changes, so the card shows a change
-// that the masking would otherwise hide. An env var is matched by its place
-// in the list and its name: two vars of one name in one container stay apart,
-// and a change to either of them shows.
+// that the masking would otherwise hide. A container is matched by the path
+// of its list, its name and how many containers of that name come before it
+// in the list; an env var by its name and how many vars of that name come
+// before it. So an entry added before another does not mark the other as
+// changed, and two vars of one name stay apart.
 func EnvPair(live, next *unstructured.Unstructured) {
 	old := map[string]any{}
 	if live != nil {
@@ -171,16 +178,16 @@ func EnvPair(live, next *unstructured.Unstructured) {
 }
 
 // HiddenEnv returns the env vars whose inline value the masking hides, each
-// as the name of its container and its own name. A server-side apply that
-// sets one of them again can tell, by a conflict, whether a guess of the
-// value is right.
+// as the name of its container list, the name of its container and its own
+// name. A server-side apply that sets one of them again can tell, by a
+// conflict, whether a guess of the value is right. An init container and a
+// container of one name are two containers.
 func HiddenEnv(u *unstructured.Unstructured) map[string]bool {
 	out := map[string]bool{}
 	if u == nil {
 		return out
 	}
-	containers(u.Object, "", func(_ string, c map[string]any) {
-		cname, _ := c["name"].(string)
+	walk(u.Object, "", func(_, list, cname string, _ int, c map[string]any) {
 		env, _ := c["env"].([]any)
 		for _, e := range env {
 			m, ok := e.(map[string]any)
@@ -189,7 +196,7 @@ func HiddenEnv(u *unstructured.Unstructured) map[string]bool {
 			}
 			name, _ := m["name"].(string)
 			if _, has := m["value"]; has && secretName.MatchString(name) {
-				out[cname+"/"+name] = true
+				out[list+"/"+cname+"/"+name] = true
 			}
 		}
 	})
@@ -197,25 +204,33 @@ func HiddenEnv(u *unstructured.Unstructured) map[string]bool {
 }
 
 // containers calls fn for each container of any container list at any
-// depth. at names the place of the container: the path of its list and its
-// name.
+// depth. at names the place of the container: the path of its list, its name
+// and the count of containers of that name before it in the list.
 func containers(v any, path string, fn func(at string, c map[string]any)) {
+	walk(v, path, func(path, list, name string, nth int, c map[string]any) {
+		fn(fmt.Sprintf("%s/%s/%s#%d", path, list, name, nth), c)
+	})
+}
+
+func walk(v any, path string, fn func(path, list, name string, nth int, c map[string]any)) {
 	switch x := v.(type) {
 	case map[string]any:
 		for k, e := range x {
 			if list, ok := e.([]any); ok && containerLists[k] {
-				for i, c := range list {
+				seen := map[string]int{}
+				for _, c := range list {
 					if cm, ok := c.(map[string]any); ok {
 						name, _ := cm["name"].(string)
-						fn(fmt.Sprintf("%s/%s/%d:%s", path, k, i, name), cm)
+						fn(path, k, name, seen[name], cm)
+						seen[name]++
 					}
 				}
 			}
-			containers(e, path+"/"+k, fn)
+			walk(e, path+"/"+k, fn)
 		}
 	case []any:
 		for i, e := range x {
-			containers(e, fmt.Sprintf("%s/%d", path, i), fn)
+			walk(e, fmt.Sprintf("%s/%d", path, i), fn)
 		}
 	}
 }
@@ -224,38 +239,40 @@ func containers(v any, path string, fn func(at string, c map[string]any)) {
 // secret, keyed by envKey.
 func secretEnv(container map[string]any) map[string]any {
 	out := map[string]any{}
-	env, _ := container["env"].([]any)
-	for i, e := range env {
-		m, ok := e.(map[string]any)
-		if !ok {
-			continue
-		}
-		name, _ := m["name"].(string)
-		if v, has := m["value"]; has && secretName.MatchString(name) {
-			out[envKey(i, name)] = v
-		}
-	}
+	eachSecretEnv(container, func(k string, m map[string]any) { out[k] = m["value"] })
 	return out
 }
 
-// envKey is the place of an env var in its list and its name.
-func envKey(i int, name string) string { return fmt.Sprintf("%d:%s", i, name) }
-
-func hideEnv(container map[string]any, changed map[string]bool) {
+// eachSecretEnv calls fn for each env var whose name looks secret and that
+// has an inline value, with its envKey.
+func eachSecretEnv(container map[string]any, fn func(k string, m map[string]any)) {
 	env, _ := container["env"].([]any)
-	for i, e := range env {
+	seen := map[string]int{}
+	for _, e := range env {
 		m, ok := e.(map[string]any)
 		if !ok {
 			continue
 		}
 		name, _ := m["name"].(string)
+		nth := seen[name]
+		seen[name]++
 		if _, has := m["value"]; has && secretName.MatchString(name) {
-			m["value"] = Hidden
-			if changed[envKey(i, name)] {
-				m["value"] = Hidden + " (new value)"
-			}
+			fn(envKey(name, nth), m)
 		}
 	}
+}
+
+// envKey is the name of an env var and how many vars of that name come
+// before it in its list.
+func envKey(name string, nth int) string { return fmt.Sprintf("%s#%d", name, nth) }
+
+func hideEnv(container map[string]any, changed map[string]bool) {
+	eachSecretEnv(container, func(k string, m map[string]any) {
+		m["value"] = Hidden
+		if changed[k] {
+			m["value"] = Hidden + " (new value)"
+		}
+	})
 }
 
 // Apply masks an object as the policy says.

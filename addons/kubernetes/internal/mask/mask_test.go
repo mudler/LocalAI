@@ -158,8 +158,27 @@ var _ = Describe("masking", func() {
 		Expect(string(ab)).NotTo(ContainSubstring("(new value)"))
 	})
 
-	It("lists the hidden env vars by container and name", func() {
-		Expect(mask.HiddenEnv(widget())).To(Equal(map[string]bool{"init/github_token": true, "app/DB_PASSWORD": true, "app/Api_Key": true, "app/CLIENT_SECRET": true}))
+	It("lists the hidden env vars by container list, container and name", func() {
+		Expect(mask.HiddenEnv(widget())).To(Equal(map[string]bool{"initContainers/init/github_token": true, "containers/app/DB_PASSWORD": true,
+			"containers/app/Api_Key": true, "containers/app/CLIENT_SECRET": true}))
 		Expect(mask.HiddenEnv(nil)).To(BeEmpty())
+		pod := func(list string) *unstructured.Unstructured {
+			return &unstructured.Unstructured{Object: map[string]any{"spec": map[string]any{list: []any{
+				map[string]any{"name": "app", "env": []any{env("API_TOKEN", "x")}}}}}}
+		}
+		Expect(mask.HiddenEnv(pod("containers"))).To(Equal(map[string]bool{"containers/app/API_TOKEN": true}))
+		Expect(mask.HiddenEnv(pod("initContainers"))).To(Equal(map[string]bool{"initContainers/app/API_TOKEN": true}),
+			"an init container of the same name is another container")
+	})
+
+	It("does not mark a hidden env value as new when an entry or a container is added before it", func() {
+		live := &unstructured.Unstructured{Object: map[string]any{"spec": map[string]any{"containers": []any{
+			map[string]any{"name": "app", "env": []any{env("API_TOKEN", "same"), env("API_TOKEN", "second")}}}}}}
+		next := &unstructured.Unstructured{Object: map[string]any{"spec": map[string]any{"containers": []any{
+			map[string]any{"name": "sidecar", "env": []any{env("MODE", "x")}},
+			map[string]any{"name": "app", "env": []any{env("MODE", "dev"), env("API_TOKEN", "same"), env("OTHER", "y"), env("API_TOKEN", "second")}}}}}}
+		mask.EnvPair(live, next)
+		b, _ := next.MarshalJSON()
+		Expect(string(b)).NotTo(ContainSubstring("(new value)"))
 	})
 })
