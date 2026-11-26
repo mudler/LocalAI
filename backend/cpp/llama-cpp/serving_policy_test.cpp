@@ -132,6 +132,21 @@ static void test_pick_victim() {
     EXPECT(pick_victim(mix) == 0, "old resumable before young non-resumable");
 }
 
+static void test_unique_cells() {
+    EXPECT(unique_cells({}) == 0, "empty");
+    EXPECT(unique_cells({{100}, {50}}) == 150, "no sharing");
+    // A child copied 80 cells of its parent's prompt, then added 20 of its own.
+    EXPECT(unique_cells({{80}, {100, 0, 80}}) == 100, "shared prefix counted once");
+    // Two children of the same parent.
+    EXPECT(unique_cells({{80}, {100, 0, 80}, {90, 0, 80}}) == 110, "two children");
+    // The parent was cleared (preempted, released): the child owns the cells now.
+    EXPECT(unique_cells({{0}, {100, 0, 80}}) == 100, "source gone");
+    // The parent kept only part of the prefix.
+    EXPECT(unique_cells({{30}, {100, 0, 80}}) == 100, "source shrank");
+    EXPECT(unique_cells({{50, 0, 50}}) == 50, "a slot never shares with itself");
+    EXPECT(unique_cells({{50, 7, 50}}) == 50, "out of range source is ignored");
+}
+
 static void test_checks() {
     EXPECT(check_paged_options(true, false, true).empty(), "defaults are fine");
     EXPECT(check_paged_options(false, false, true).find("kv_unified") != std::string::npos, "kv_unified:false is an error");
@@ -148,6 +163,7 @@ int main() {
     test_demand();
     test_pick_victim();
     test_checks();
+    test_unique_cells();
     if (failures > 0) {
         std::fprintf(stderr, "%d serving policy check(s) failed\n", failures);
         return 1;

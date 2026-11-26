@@ -29,7 +29,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
  #include <atomic>
  #include <thread>
  #include "base64.hpp"
-@@ -373,6 +374,11 @@ struct server_slot {
+@@ -373,6 +374,13 @@ struct server_slot {
      // state
      slot_state state = SLOT_STATE_IDLE;
  
@@ -37,11 +37,13 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +    bool         paged_wait = false;
 +    llama_tokens paged_resume;
 +    bool         paged_cache_load = false; // load the RAM prompt cache at admission, not at launch
++    int          paged_src   = -1;            // slot this one copied its prompt from
++    int64_t      paged_src_n = 0;             // cells copied from it
 +
      server_prompt prompt;
  
      bool prompt_save(server_prompt_cache & prompt_cache) const {
-@@ -511,6 +517,10 @@ struct server_slot {
+@@ -511,6 +519,12 @@ struct server_slot {
          audio_commit_rows.clear();
          inp_embd.clear();
          rt.reset();
@@ -49,10 +51,30 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +        paged_wait = false;
 +        paged_resume.clear();
 +        paged_cache_load = false;
++        paged_src        = -1;
++        paged_src_n      = 0;
      }
  
      void init_sampler() const {
-@@ -1941,6 +1951,172 @@ private:
+@@ -897,6 +911,8 @@ struct server_slot {
+         mem.seq_cp(id, other.id, -1, -1);
+ 
+         other.prompt = prompt.clone();
++        other.paged_src   = id;
++        other.paged_src_n = prompt.n_tokens();
+     }
+ 
+     void copy_state_to(server_slot & other) const {
+@@ -910,6 +926,8 @@ struct server_slot {
+         other.stats = stats;
+ 
+         other.prompt = prompt.clone();
++        other.paged_src   = id;
++        other.paged_src_n = prompt.n_tokens();
+         other.init_sampler();
+     }
+ };
+@@ -1941,6 +1959,188 @@ private:
          return res;
      }
  
@@ -65,6 +87,23 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +        const llama_pos p0 = llama_memory_seq_pos_min(llama_get_memory(ctx_tgt), slot.id);
 +        const llama_pos p1 = llama_memory_seq_pos_max(llama_get_memory(ctx_tgt), slot.id);
 +        return std::max<int64_t>(p0 < 0 ? 0 : p1 - p0 + 1, slot.prompt.n_tokens());
++    }
++
++    // cells in use by every slot but id_skip, each shared cell counted once
++    int64_t paged_used(int id_skip) const {
++        std::vector<serving_policy::slot_cells> c(slots.size());
++        for (size_t i = 0; i < slots.size(); i++) {
++            const auto & s = slots[i];
++            c[i].cells = s.id == id_skip ? 0 : paged_n_cells(s);
++            // a copied prefix stays shared while the source still runs the parent task
++            const bool live = s.task && s.paged_src >= 0 && s.paged_src < (int) slots.size() &&
++                              slots[s.paged_src].task && slots[s.paged_src].task->id == s.task->id_parent;
++            if (live) {
++                c[i].src    = s.paged_src;
++                c[i].shared = s.paged_src_n;
++            }
++        }
++        return serving_policy::unique_cells(c);
 +    }
 +
 +    int64_t paged_prompt_left(const server_slot & slot) const {
@@ -116,11 +155,11 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +        while (true) {
 +            serving_policy::pool_view v;
 +            v.n_pool = llama_n_ctx(ctx_tgt);
++            v.n_used = paged_used(slot.id); // its own cells are reused or freed by the prompt fill
 +            for (const auto & other : slots) {
 +                if (other.id == slot.id) {
-+                    continue; // its own cells are reused or freed by the prompt fill
++                    continue;
 +                }
-+                v.n_used     += paged_n_cells(other);
 +                v.idle_cells |= paged_purgeable(other);
 +                if (paged_running(other)) {
 +                    v.n_active++;
@@ -158,11 +197,10 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +    // drop idle or waiting cells first, then, with paged_preempt, preempt the youngest slot
 +    void paged_preempt_pass() {
 +        while (true) {
-+            int64_t n_used = 0;
++            const int64_t n_used = paged_used(-1);
 +            int64_t n_demand = 0;
 +            std::vector<serving_policy::victim_candidate> cands;
 +            for (auto & slot : slots) {
-+                n_used += paged_n_cells(slot);
 +                if (!paged_running(slot) || slot.state == SLOT_STATE_DONE_PROMPT) {
 +                    continue;
 +                }
@@ -225,7 +263,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
      std::vector<common_adapter_lora_info> construct_lora_list(const std::map<int, float> & config) const {
          std::vector<common_adapter_lora_info> output = params_base.lora_adapters; // copy
          for (size_t i = 0; i < output.size(); ++i) {
-@@ -3299,7 +3475,15 @@ private:
+@@ -3299,7 +3499,15 @@ private:
  
                      // the task is not deferred past this point
                      if (plan.update_cache && prompt_cache) {
@@ -242,7 +280,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      }
  
                      if (task.is_parent()) {
-@@ -4071,6 +4255,11 @@ private:
+@@ -4071,6 +4279,11 @@ private:
          // start populating the batch for this iteration
          batch.clear();
  
@@ -254,7 +292,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
          // track if given slot can be batched with slots already in the batch
          auto & slot_batched = batch.slot_batched;
  
-@@ -4216,12 +4405,16 @@ private:
+@@ -4216,12 +4429,16 @@ private:
          auto & alora_scale       = batch.alora_scale;
          auto & alora_disabled_id = batch.alora_disabled_id;
  
@@ -272,7 +310,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      return; // batch is full, skip remaining slots
                  }
  
-@@ -4248,6 +4441,19 @@ private:
+@@ -4248,6 +4465,19 @@ private:
  
                  // this slot still has a prompt to be processed
                  if (slot.state == SLOT_STATE_PROCESSING_PROMPT || slot.state == SLOT_STATE_STARTED) {
@@ -292,7 +330,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      const auto & input_tokens = slot.task->tokens;
  
                      // used to determine the number of tokens added to the batch for the current slot
-@@ -4694,7 +4900,8 @@ private:
+@@ -4694,7 +4924,8 @@ private:
                      const int32_t n_decision_first = slot.task->type == SERVER_TASK_TYPE_DECISION ? slot.task->decision.pos_first() : -1;
  
                      // add prompt tokens for processing in the current batch

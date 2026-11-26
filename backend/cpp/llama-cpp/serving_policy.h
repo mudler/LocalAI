@@ -139,6 +139,32 @@ inline int pick_victim(const std::vector<victim_candidate> & c) {
     return best;
 }
 
+// Cells of one slot for the pool count, and where they came from: a slot that
+// copied another slot's prompt (parallel completions, a shared prompt prefix)
+// shares its first `shared` cells with slot `src` instead of owning them.
+struct slot_cells {
+    int64_t cells  = 0;
+    int     src    = -1; // index of the slot it copied from, -1 if none
+    int64_t shared = 0;  // cells copied from src
+};
+
+// Cells in use, each counted once. A shared cell is counted for the source
+// slot only, and only while both slots still hold it.
+inline int64_t unique_cells(const std::vector<slot_cells> & s) {
+    int64_t n = 0;
+    for (const auto & x : s) {
+        n += std::max((int64_t) 0, x.cells);
+    }
+    for (int i = 0; i < (int) s.size(); i++) {
+        const int src = s[i].src;
+        if (src < 0 || src >= (int) s.size() || src == i) {
+            continue;
+        }
+        n -= std::max((int64_t) 0, std::min({ s[i].shared, s[i].cells, s[src].cells }));
+    }
+    return n;
+}
+
 // Slot count when paged_kv is on and neither the model options nor the
 // environment set parallel: with one slot the pool has a single user and
 // the mode does nothing.
