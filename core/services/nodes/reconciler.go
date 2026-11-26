@@ -918,6 +918,10 @@ func (rc *ReplicaReconciler) reconcile(ctx context.Context) {
 		}
 		rc.reconcileModel(ctx, cfg)
 	}
+
+	// The cluster memory settings: see reconciler_sweeps.go.
+	rc.sweepIdle(ctx)
+	rc.sweepMemoryPressure(ctx)
 }
 
 // observeSchedulableNodes records the healthy backend nodes of this tick. When a
@@ -1341,7 +1345,7 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 	// low indexes via NextFreeReplicaIndex, keeping slot allocation compact
 	// and matching the worker supervisor's port-recycling behavior.
 	selector := parseSelector(cfg.NodeSelector)
-	cutoff := time.Now().Add(-rc.scaleDownDelay)
+	cutoff := time.Now().Add(-rc.idleDelay())
 	var idleModels []NodeModel
 	currentModelRevision(rc.registry.db.WithContext(ctx)).
 		Scopes(onNodesMatching(selector)).

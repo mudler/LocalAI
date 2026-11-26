@@ -334,26 +334,37 @@ func (r *NodeRegistry) ResetNodeLimits(ctx context.Context, nodeID string) error
 // refreshing the stored effective budget when the worker's or the cluster's
 // value changed since it was written. A heartbeat calls it before it caps
 // the free VRAM the worker reports.
-func (r *NodeRegistry) vramCeiling(ctx context.Context, nodeID string) (ceiling, total uint64) {
+func (r *NodeRegistry) vramCeiling(ctx context.Context, nodeID string) (ceiling, total, headroom uint64) {
 	var row BackendNode
 	if err := r.db.WithContext(ctx).Model(&BackendNode{}).
-		Select([]string{ColVRAMBudget, ColVRAMBudgetBytes, "vram_budget_manually_set", ColTotalVRAM, ColLimitsWorker}).
+		Select([]string{ColVRAMBudget, ColVRAMBudgetBytes, "vram_budget_manually_set", ColTotalVRAM, ColLimitsWorker, ColLimitsOverride, "unified_memory"}).
 		Where("id = ?", nodeID).Take(&row).Error; err != nil {
 		xlog.Debug("Could not read the VRAM budget of a node", "node", nodeID, "error", err)
-		return 0, 0
+		return 0, 0, 0
 	}
-	if row.VRAMBudgetManuallySet {
-		return row.VRAMBudgetBytes, row.TotalVRAM
-	}
-	budget := r.effectiveVRAMBudget(&BackendNode{LimitsWorker: row.LimitsWorker, VRAMBudget: row.VRAMBudget})
-	ceiling = r.resolveVRAMBudgetBytes(budget, row.TotalVRAM)
-	if budget != row.VRAMBudget || ceiling != row.VRAMBudgetBytes {
-		if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
-			Updates(map[string]any{ColVRAMBudget: budget, ColVRAMBudgetBytes: ceiling}).Error; err != nil {
-			xlog.Warn("Failed to refresh the VRAM budget of a node", "node", nodeID, "error", err)
+	if !row.VRAMBudgetManuallySet {
+		budget := r.effectiveVRAMBudget(&BackendNode{LimitsWorker: row.LimitsWorker, VRAMBudget: row.VRAMBudget})
+		ceiling := r.resolveVRAMBudgetBytes(budget, row.TotalVRAM)
+		if budget != row.VRAMBudget || ceiling != row.VRAMBudgetBytes {
+			if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+				Updates(map[string]any{ColVRAMBudget: budget, ColVRAMBudgetBytes: ceiling}).Error; err != nil {
+				xlog.Warn("Failed to refresh the VRAM budget of a node", "node", nodeID, "error", err)
+			}
 		}
+		row.VRAMBudget, row.VRAMBudgetBytes = budget, ceiling
 	}
-	return ceiling, row.TotalVRAM
+	return row.VRAMBudgetBytes, row.TotalVRAM, r.headroomVRAM(&row)
+}
+
+// headroomVRAM is the GPU memory the memory reclaimer of node n keeps free
+// when a model is placed: (1 - threshold) of the memory the node may use,
+// while its reclaimer is on.
+func (r *NodeRegistry) headroomVRAM(n *BackendNode) uint64 {
+	p := r.NodePolicy(n)
+	if !p.ReclaimerEnabled || p.ReclaimerThreshold <= 0 || p.ReclaimerThreshold >= 1 {
+		return 0
+	}
+	return uint64((1 - p.ReclaimerThreshold) * float64(nodeMemoryCeiling(n)))
 }
 
 // uncapAvailable is the inverse of capAvailable for a stored free VRAM

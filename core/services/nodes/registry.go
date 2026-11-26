@@ -131,6 +131,11 @@ type BackendNode struct {
 	// UnifiedMemory is reported by a worker whose GPU shares the system
 	// memory (for example a GB10 or Apple silicon).
 	UnifiedMemory bool `gorm:"column:unified_memory;default:false" json:"unified_memory,omitempty"`
+	// HeadroomVRAM is the GPU memory the memory reclaimer of this node keeps
+	// free when a model is placed: (1 - threshold) of its memory while the
+	// reclaimer is on, else 0. Refreshed on each heartbeat; the placement
+	// queries subtract it from the free VRAM.
+	HeadroomVRAM uint64 `gorm:"column:headroom_vram;default:0" json:"headroom_vram,omitempty"`
 	// Version is the LocalAI build version reported by the worker at
 	// registration. Empty for workers registered before this field existed.
 	Version string `gorm:"column:version;size:64" json:"version,omitempty"`
@@ -202,6 +207,7 @@ const (
 	ColVRAMBudgetBytes     = "vram_budget_bytes"
 	ColLimitsWorker        = "limits_worker"
 	ColLimitsOverride      = "limits_override"
+	ColHeadroomVRAM        = "headroom_vram"
 )
 
 var (
@@ -1102,7 +1108,7 @@ func (r *NodeRegistry) FindNodeWithVRAM(ctx context.Context, minBytes uint64) (*
 	// Try idle nodes with enough effectively-free VRAM first, prefer the one
 	// with most free VRAM (after deducting the in-tick reservation).
 	var node BackendNode
-	err := db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram) >= ? AND id NOT IN (?)",
+	err := db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram - headroom_vram) >= ? AND id NOT IN (?)",
 		StatusHealthy, NodeTypeBackend, minBytes, loadedModels).
 		Scopes(r.weightTail(ctx, "(available_vram - reserved_vram) DESC")).
 		First(&node).Error
@@ -1111,7 +1117,7 @@ func (r *NodeRegistry) FindNodeWithVRAM(ctx context.Context, minBytes uint64) (*
 	}
 
 	// Fall back to least-loaded nodes with enough effectively-free VRAM
-	err = db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram) >= ?",
+	err = db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram - headroom_vram) >= ?",
 		StatusHealthy, NodeTypeBackend, minBytes).
 		Joins("LEFT JOIN (?) AS load ON load.node_id = backend_nodes.id", subquery).
 		Scopes(r.weightTail(ctx, "COALESCE(load.total_inflight, 0) ASC, (backend_nodes.available_vram - backend_nodes.reserved_vram) DESC")).
@@ -1439,11 +1445,13 @@ func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *Hea
 			// Cap the reported available against the node's resolved budget
 			// ceiling (0 = none) so the SQL scheduler only ever sees budgeted
 			// capacity. TotalVRAM stays raw (written below).
-			ceiling, total = r.vramCeiling(ctx, nodeID)
+			var headroom uint64
+			ceiling, total, headroom = r.vramCeiling(ctx, nodeID)
 			if update.TotalVRAM != nil {
 				total = *update.TotalVRAM
 			}
 			updates[ColAvailableVRAM] = capAvailable(*update.AvailableVRAM, ceiling, total)
+			updates[ColHeadroomVRAM] = headroom
 			// The worker is the source of truth for actual free VRAM.
 			// Whenever it sends us a fresh reading, the in-tick soft
 			// reservation is no longer needed — clear it. (See ReserveVRAM.)
@@ -2634,7 +2642,7 @@ func (r *NodeRegistry) FindNodeWithVRAMFromSet(ctx context.Context, minBytes uin
 
 	// Try idle nodes with enough effectively-free VRAM first.
 	var node BackendNode
-	err := db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram) >= ? AND id NOT IN (?) AND id IN ?",
+	err := db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram - headroom_vram) >= ? AND id NOT IN (?) AND id IN ?",
 		StatusHealthy, NodeTypeBackend, minBytes, loadedModels, nodeIDs).
 		Scopes(r.weightTail(ctx, "(available_vram - reserved_vram) DESC")).
 		First(&node).Error
@@ -2643,7 +2651,7 @@ func (r *NodeRegistry) FindNodeWithVRAMFromSet(ctx context.Context, minBytes uin
 	}
 
 	// Fall back to least-loaded nodes with enough effectively-free VRAM
-	err = db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram) >= ? AND backend_nodes.id IN ?",
+	err = db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram - headroom_vram) >= ? AND backend_nodes.id IN ?",
 		StatusHealthy, NodeTypeBackend, minBytes, nodeIDs).
 		Joins("LEFT JOIN (?) AS load ON load.node_id = backend_nodes.id", subquery).
 		Scopes(r.weightTail(ctx, "COALESCE(load.total_inflight, 0) ASC, (backend_nodes.available_vram - backend_nodes.reserved_vram) DESC")).

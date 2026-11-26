@@ -37,10 +37,10 @@ func nodeMemoryCeiling(n *BackendNode) uint64 {
 
 // freeVRAM is the GPU memory the scheduler may still hand out on a node.
 func freeVRAM(n *BackendNode) uint64 {
-	if n.ReservedVRAM >= n.AvailableVRAM {
+	if n.ReservedVRAM+n.HeadroomVRAM >= n.AvailableVRAM {
 		return 0
 	}
-	return n.AvailableVRAM - n.ReservedVRAM
+	return n.AvailableVRAM - n.ReservedVRAM - n.HeadroomVRAM
 }
 
 // planMemoryFit finds the candidate node where evicting idle models frees

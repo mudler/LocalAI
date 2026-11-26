@@ -1,0 +1,173 @@
+package nodes
+
+import (
+	"context"
+	"runtime"
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/mudler/LocalAI/core/services/testutil"
+	"gorm.io/gorm"
+)
+
+// The reconciler applies the idle unload and the memory reclaimer of the
+// cluster memory settings to the replicas on the workers.
+var _ = Describe("Reconciler memory sweeps", func() {
+	const gib = uint64(1) << 30
+	var (
+		ctx      context.Context
+		db       *gorm.DB
+		registry *NodeRegistry
+		unloader *fakeUnloader
+		pinned   *fakePinnedResolver
+		policy   MemoryPolicy
+		rc       *ReplicaReconciler
+	)
+
+	BeforeEach(func() {
+		if runtime.GOOS == "darwin" {
+			Skip("testcontainers requires Docker, not available on macOS CI")
+		}
+		ctx = context.Background()
+		db = testutil.SetupTestDB()
+		var err error
+		registry, err = NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		policy = DefaultMemoryPolicy()
+		registry.SetMemoryPolicy(func() MemoryPolicy { return policy })
+		unloader = &fakeUnloader{}
+		pinned = &fakePinnedResolver{}
+		rc = NewReplicaReconciler(ReplicaReconcilerOptions{Registry: registry, Unloader: unloader, DB: db, PinnedResolver: pinned})
+	})
+
+	register := func(name string, total, available uint64) *BackendNode {
+		n := &BackendNode{Name: name, NodeType: NodeTypeBackend, Address: name + ":50051", MaxReplicasPerModel: 4, TotalVRAM: total, AvailableVRAM: available}
+		Expect(registry.Register(ctx, n, true)).To(Succeed())
+		got, err := registry.GetByName(ctx, name)
+		Expect(err).ToNot(HaveOccurred())
+		return got
+	}
+
+	loaded := func(node *BackendNode, name string, replica int, idle time.Duration) {
+		Expect(registry.SetNodeModel(ctx, node.ID, name, replica, "loaded", "", 0)).To(Succeed())
+		Expect(db.Model(&NodeModel{}).Where("node_id = ? AND model_name = ? AND replica_index = ?", node.ID, name, replica).
+			Update("last_used", time.Now().Add(-idle)).Error).To(Succeed())
+	}
+
+	count := func(name string) int64 {
+		var n int64
+		Expect(db.Model(&NodeModel{}).Where("model_name = ?", name).Count(&n).Error).To(Succeed())
+		return n
+	}
+
+	Describe("idle unload", func() {
+		BeforeEach(func() {
+			policy.IdleEnabled = true
+			policy.IdleTimeout = 10 * time.Minute
+		})
+
+		It("unloads idle models with no rule, and keeps recent ones", func() {
+			n := register("node-a", 0, 0)
+			loaded(n, "stale", 0, time.Hour)
+			loaded(n, "fresh", 0, time.Minute)
+
+			rc.sweepIdle(ctx)
+
+			Expect(count("stale")).To(BeZero())
+			Expect(count("fresh")).To(BeNumerically("==", 1))
+		})
+
+		It("keeps the min_replicas of a rule, pinned models and does nothing when off", func() {
+			n := register("node-a", 0, 0)
+			m := register("node-b", 0, 0)
+			Expect(registry.SetModelScheduling(ctx, &ModelSchedulingConfig{ModelName: "ruled", MinReplicas: 1, MaxReplicas: 2})).To(Succeed())
+			loaded(n, "ruled", 0, time.Hour)
+			loaded(m, "ruled", 0, time.Hour)
+			loaded(n, "pinned", 0, time.Hour)
+			pinned.names = []string{"pinned"}
+
+			rc.sweepIdle(ctx)
+
+			Expect(count("ruled")).To(BeNumerically("==", 1))
+			Expect(count("pinned")).To(BeNumerically("==", 1))
+
+			policy.IdleEnabled = false
+			loaded(n, "later", 0, time.Hour)
+			rc.sweepIdle(ctx)
+			Expect(count("later")).To(BeNumerically("==", 1))
+		})
+	})
+
+	Describe("memory reclaimer", func() {
+		It("unloads one idle replica on a node above its threshold", func() {
+			policy.ReclaimerEnabled = true
+			policy.ReclaimerThreshold = 0.8
+			hot := register("node-hot", 48*gib, 4*gib)
+			cool := register("node-cool", 48*gib, 40*gib)
+			loaded(hot, "older", 0, time.Hour)
+			loaded(hot, "newer", 0, time.Minute)
+			loaded(cool, "kept", 0, time.Hour)
+
+			rc.sweepMemoryPressure(ctx)
+
+			Expect(count("older")).To(BeZero())
+			Expect(count("newer")).To(BeNumerically("==", 1))
+			Expect(count("kept")).To(BeNumerically("==", 1))
+		})
+
+		It("reclaims on a unified-memory node at 0.90 when the cluster names no reclaimer", func() {
+			n := &BackendNode{Name: "spark", NodeType: NodeTypeBackend, Address: "spark:50051", MaxReplicasPerModel: 4,
+				TotalVRAM: 100 * gib, AvailableVRAM: 5 * gib, UnifiedMemory: true}
+			Expect(registry.Register(ctx, n, true)).To(Succeed())
+			spark, err := registry.GetByName(ctx, "spark")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(spark.UnifiedMemory).To(BeTrue())
+			loaded(spark, "big", 0, time.Hour)
+
+			rc.sweepMemoryPressure(ctx)
+
+			Expect(count("big")).To(BeZero())
+		})
+	})
+})
+
+var _ = Describe("Reclaimer headroom in placement", func() {
+	const gb = uint64(1000 * 1000 * 1000)
+	var (
+		ctx      context.Context
+		registry *NodeRegistry
+		policy   MemoryPolicy
+	)
+
+	BeforeEach(func() {
+		if runtime.GOOS == "darwin" {
+			Skip("testcontainers requires Docker, not available on macOS CI")
+		}
+		ctx = context.Background()
+		var err error
+		registry, err = NewNodeRegistry(testutil.SetupTestDB())
+		Expect(err).ToNot(HaveOccurred())
+		policy = DefaultMemoryPolicy()
+		registry.SetMemoryPolicy(func() MemoryPolicy { return policy })
+	})
+
+	It("keeps (1 - threshold) of the node free when the reclaimer is on", func() {
+		n := &BackendNode{Name: "node-a", NodeType: NodeTypeBackend, Address: "node-a:50051", TotalVRAM: 20 * gb, AvailableVRAM: 20 * gb}
+		Expect(registry.Register(ctx, n, true)).To(Succeed())
+		avail := 10 * gb
+
+		Expect(registry.Heartbeat(ctx, n.ID, &HeartbeatUpdate{AvailableVRAM: &avail})).To(Succeed())
+		_, err := registry.FindNodeWithVRAM(ctx, 9*gb)
+		Expect(err).ToNot(HaveOccurred(), "reclaimer off: 10 GB free holds 9 GB")
+
+		policy.ReclaimerEnabled = true
+		policy.ReclaimerThreshold = 0.9
+		Expect(registry.Heartbeat(ctx, n.ID, &HeartbeatUpdate{AvailableVRAM: &avail})).To(Succeed())
+		_, err = registry.FindNodeWithVRAM(ctx, 9*gb)
+		Expect(err).To(HaveOccurred(), "2 GB of headroom leaves 8 GB")
+		_, err = registry.FindNodeWithVRAM(ctx, 7*gb)
+		Expect(err).ToNot(HaveOccurred())
+	})
+})
