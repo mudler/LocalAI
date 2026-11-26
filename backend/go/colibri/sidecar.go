@@ -127,6 +127,7 @@ func startSidecar(ctx context.Context, c loadConfig, stateDir string) (*sidecar,
 		client:  &http.Client{},
 		done:    make(chan struct{}),
 	}
+	// #nosec G204 -- prog is the packaged coli (or the coli_path/python model options an admin sets); argv is passed without a shell
 	cmd := exec.Command(prog, argv...)
 	cmd.Env = childEnv(c, key, stateDir)
 	cmd.Dir = c.modelDir

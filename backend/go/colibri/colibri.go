@@ -118,6 +118,7 @@ func importGGUF(ctx context.Context, c loadConfig) error {
 	_ = os.RemoveAll(partial)
 	xlog.Info("colibri: importing GGUF (once)", "gguf", c.gguf, "into", c.modelDir)
 	prog, argv := c.command("import", c.gguf, "--out", partial)
+	// #nosec G204 -- prog is the packaged coli (or the coli_path/python model options an admin sets); argv is passed without a shell
 	cmd := exec.CommandContext(ctx, prog, argv...)
 	cmd.Env = append(append(baseEnv(), "PYTHONDONTWRITEBYTECODE=1"), c.env...)
 	var out bytes.Buffer
