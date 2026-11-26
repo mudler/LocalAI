@@ -16,7 +16,7 @@ if [ "$(id -u)" = "0" ] && [ "${LOCALAI_RUN_AS_ROOT:-false}" != "true" ]; then
 	run_gid="${LOCALAI_GID:-10001}"
 	# LOCALAI_DATA_DIRS and LOCALAI_DEVICE_PATHS exist for the entrypoint test.
 	# shellcheck disable=SC2086
-	for dir in ${LOCALAI_DATA_DIRS:-/models /backends /configuration /data /tmp/generated}; do
+	for dir in ${LOCALAI_DATA_DIRS:-/models /backends /configuration /data}; do
 		[ -d "$dir" ] || continue
 		if [ "$(stat -c %u "$dir")" != "$run_uid" ]; then
 			echo "Handing $dir over to uid $run_uid (first start with the unprivileged user)"

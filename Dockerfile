@@ -457,6 +457,12 @@ ENV HOME=/data/home
 # in-flight downloads in the data volume instead of the RAM-backed /tmp.
 ENV LOCALAI_DOWNLOAD_STAGING_PATH=/data/downloading
 
+# Generated images, audio and video, and the files of the files API, default
+# to the temp folder, which a container loses on restart and which is not
+# writable with a read-only root. Keep them in the data volume.
+ENV LOCALAI_GENERATED_CONTENT_PATH=/data/generated
+ENV LOCALAI_UPLOAD_PATH=/data/upload
+
 # Define the health check command.
 #
 # --start-period is the knob for slow starts, not --timeout/--retries. Since
