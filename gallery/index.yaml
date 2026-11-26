@@ -29859,7 +29859,55 @@
     AvatarForcing talking-head model for the avatarforcing-cpp backend (C++/ggml port). It turns a portrait image and
     speech audio into a lip-synced 512x512 video at 25 fps, returned as an mp4 with the speech as its audio track. The
     portrait should show one face near the centre; other sizes are cropped to a square and scaled. Runs on CPU and
-    NVIDIA CUDA. float32 GGUF, about 1.2 GB.
+    NVIDIA CUDA.
+
+    This is the float16 GGUF, about 700 MB. Other builds of the same weights: avatarforcing-f32 (float32, about
+    1.2 GB, the reference precision) and avatarforcing-q8_0 (Q8_0, about 490 MB, smaller but lower fidelity).
+
+    Non-commercial use only: the weights are licensed under CC BY-NC 4.0.
+  license: cc-by-nc-4.0
+  urls:
+    - https://huggingface.co/mudler/avatarforcing-cpp-gguf
+    - https://github.com/mudler/avatarforcing.cpp
+  tags:
+    - audio-to-video
+    - image-to-video
+    - avatar-generation
+    - talking-head
+    - avatarforcing-cpp
+    - gguf
+    - ggml
+    - cpu
+    - cuda
+  files:
+    - filename: avatarforcing-cpp/avatarforcing-f16.gguf
+      sha256: 273d16016b099627c24153e3f25b02e27669d4f92e0d75762d24607df08a0a1d
+      uri: huggingface://mudler/avatarforcing-cpp-gguf/avatarforcing-f16.gguf
+  overrides:
+    backend: avatarforcing-cpp
+    known_input_modalities:
+      - image
+      - audio
+    known_output_modalities:
+      - video
+    known_usecases:
+      - video
+    name: avatarforcing
+    parameters:
+      model: avatarforcing-cpp/avatarforcing-f16.gguf
+  variants:
+    - model: avatarforcing-f32
+    - model: avatarforcing-q8_0
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: avatarforcing-f32
+  description: |
+    AvatarForcing talking-head model for the avatarforcing-cpp backend (C++/ggml port). It turns a portrait image and
+    speech audio into a lip-synced 512x512 video at 25 fps, returned as an mp4 with the speech as its audio track. The
+    portrait should show one face near the centre; other sizes are cropped to a square and scaled. Runs on CPU and
+    NVIDIA CUDA.
+
+    This is the float32 GGUF, about 1.2 GB: the reference precision of the port. The float16 build (avatarforcing)
+    is half the size.
 
     Non-commercial use only: the weights are licensed under CC BY-NC 4.0.
   license: cc-by-nc-4.0
@@ -29889,9 +29937,51 @@
       - video
     known_usecases:
       - video
-    name: avatarforcing
+    name: avatarforcing-f32
     parameters:
       model: avatarforcing-cpp/avatarforcing-f32.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: avatarforcing-q8_0
+  description: |
+    AvatarForcing talking-head model for the avatarforcing-cpp backend (C++/ggml port). It turns a portrait image and
+    speech audio into a lip-synced 512x512 video at 25 fps, returned as an mp4 with the speech as its audio track. The
+    portrait should show one face near the centre; other sizes are cropped to a square and scaled. Runs on CPU and
+    NVIDIA CUDA.
+
+    This is the Q8_0 GGUF, about 490 MB: the smallest build, with lower fidelity. Its motion drifts from the float32
+    build over the length of a clip. Use avatarforcing (float16) when it fits.
+
+    Non-commercial use only: the weights are licensed under CC BY-NC 4.0.
+  license: cc-by-nc-4.0
+  urls:
+    - https://huggingface.co/mudler/avatarforcing-cpp-gguf
+    - https://github.com/mudler/avatarforcing.cpp
+  tags:
+    - audio-to-video
+    - image-to-video
+    - avatar-generation
+    - talking-head
+    - avatarforcing-cpp
+    - gguf
+    - ggml
+    - cpu
+    - cuda
+  files:
+    - filename: avatarforcing-cpp/avatarforcing-q8_0.gguf
+      sha256: 3fc8f4755cbcc667b8bb2be014b07b66beead25eabd9d9459d015fad78e62891
+      uri: huggingface://mudler/avatarforcing-cpp-gguf/avatarforcing-q8_0.gguf
+  overrides:
+    backend: avatarforcing-cpp
+    known_input_modalities:
+      - image
+      - audio
+    known_output_modalities:
+      - video
+    known_usecases:
+      - video
+    name: avatarforcing-q8_0
+    parameters:
+      model: avatarforcing-cpp/avatarforcing-q8_0.gguf
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: qwen3.8-27b-exl3-vllm-cpp
   description: |
