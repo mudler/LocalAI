@@ -1,0 +1,74 @@
+LocalAI paged serving hooks for llama.cpp's server.
+
+Admission, preemption with resume by recompute, and a decode-first prefill
+budget over the unified KV cache. The policy is in serving_policy.h, which
+prepare.sh copies next to server-context.cpp. Every hook runs only when
+common_params::paged_serving is set, or prefill_budget > 0 for the budget.
+See backend/cpp/llama-cpp/PATCHES.md before re-porting this patch.
+
+diff --git a/common/common.h b/common/common.h
+--- a/common/common.h
++++ b/common/common.h
+@@ -663,6 +663,10 @@ struct common_params {
+     bool    cache_idle_slots    = true;  // save and clear idle slots upon starting a new task
+     int32_t n_ctx_checkpoints   = 32;    // max number of context checkpoints per slot
+     int32_t kv_unified_per_slot = 0;     // max context per parallel slot; 0 = unset
++    bool    paged_serving       = false; // LocalAI: admission and pool accounting over the unified KV cache
++    bool    paged_preempt       = false; // LocalAI: preempt the youngest request when the pool is short
++    int32_t kv_output_reserve   = 256;   // LocalAI: free cells a request needs beyond its prompt to start
++    int32_t prefill_budget      = 0;     // LocalAI: decode-first prompt tokens per step, 0 = off
+     int32_t checkpoint_min_step = 8192;  // minimum spacing between context checkpoints
+     int32_t cache_ram_mib       = 8192;  // -1 = no limit, 0 - disable, 1 = 1 MiB, etc.
+     bool    cache_ram_explicit  = false; // set by --cache-ram, decision models disable the cache otherwise
+diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
+--- a/tools/server/server-context.cpp
++++ b/tools/server/server-context.cpp
+@@ -1,4 +1,5 @@
+ #include "server-context.h"
++#include "serving_policy.h" // LocalAI paged serving, see backend/cpp/llama-cpp/PATCHES.md in LocalAI
+ #include <atomic>
+ #include <thread>
+ #include "base64.hpp"
+@@ -1941,6 +1942,14 @@ private:
+         return res;
+     }
+ 
++    // LocalAI paged serving: pool accounting over the unified KV cache, the policy is in serving_policy.h
++    // cells of one slot, an estimate that counts cells shared with other slots once per slot
++    int64_t paged_n_cells(const server_slot & slot) const {
++        const llama_pos p0 = llama_memory_seq_pos_min(llama_get_memory(ctx_tgt), slot.id);
++        const llama_pos p1 = llama_memory_seq_pos_max(llama_get_memory(ctx_tgt), slot.id);
++        return std::max<int64_t>(p0 < 0 ? 0 : p1 - p0 + 1, slot.prompt.n_tokens());
++    }
++
+     std::vector<common_adapter_lora_info> construct_lora_list(const std::map<int, float> & config) const {
+         std::vector<common_adapter_lora_info> output = params_base.lora_adapters; // copy
+         for (size_t i = 0; i < output.size(); ++i) {
+@@ -4216,12 +4225,16 @@ private:
+         auto & alora_scale       = batch.alora_scale;
+         auto & alora_disabled_id = batch.alora_disabled_id;
+ 
++        // LocalAI paged serving: decode-first prompt budget, n_batch when off
++        const int32_t n_fill_max = params_base.prefill_budget <= 0 ? n_batch :
++            std::min(n_batch, batch.size() + serving_policy::prefill_tokens_this_step(params_base.prefill_budget, batch.size(), n_batch));
++
+         // next, batch any pending prompts without exceeding n_batch
+         if (params_base.cont_batching || batch.size() == 0) {
+             bool add_ok = true; // false means the batch is full, skip remaining slots
+ 
+             iterate(slots, [&](server_slot & slot) {
+-                if (!add_ok || batch.size() >= n_batch) {
++                if (!add_ok || batch.size() >= n_fill_max) {
+                     return; // batch is full, skip remaining slots
+                 }
+ 
+@@ -4694,7 +4707,8 @@ private:
+                     const int32_t n_decision_first = slot.task->type == SERVER_TASK_TYPE_DECISION ? slot.task->decision.pos_first() : -1;
+ 
+                     // add prompt tokens for processing in the current batch
+-                    while (slot.prompt.n_tokens() < slot.task->n_tokens() && batch.size() < n_batch) {
++                    const int32_t n_fill_slot = slot.can_split() ? n_fill_max : n_batch;
++                    while (slot.prompt.n_tokens() < slot.task->n_tokens() && batch.size() < n_fill_slot) {
+                         // get next token to process
+                         llama_token cur_tok = input_tokens[slot.prompt.n_tokens()];
+                         if (cur_tok == LLAMA_TOKEN_NULL) {
