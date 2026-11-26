@@ -891,7 +891,8 @@ func convertORToolsToFunctions(input *schema.OpenResponsesRequest, cfg *config.M
 		case map[string]any:
 			if tcType, ok := tc["type"].(string); ok && tcType == "function" {
 				if name, ok := tc["name"].(string); ok {
-					cfg.SetFunctionCallNameString(name)
+					namespace, _ := tc["namespace"].(string)
+					cfg.SetFunctionCallNameString(responsesToolName(namespace, name))
 				}
 			}
 		}
@@ -936,7 +937,7 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 
 		// Populate openAIReq fields for ComputeChoices
 		openAIReq.Tools = convertORToolsToOpenAIFormat(input.Tools)
-		openAIReq.ToolsChoice = input.ToolChoice
+		openAIReq.ToolsChoice = toolChoiceForModel(input.ToolChoice)
 		if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
 			openAIReq.TopLogprobs = input.TopLogprobs
 			openAIReq.Logprobs = schema.LogprobsValue{Enabled: true}
@@ -1121,7 +1122,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 	toolNames := namespacedToolNames(input.Tools)
 	// Populate openAIReq fields for ComputeChoices
 	openAIReq.Tools = convertORToolsToOpenAIFormat(input.Tools)
-	openAIReq.ToolsChoice = input.ToolChoice
+	openAIReq.ToolsChoice = toolChoiceForModel(input.ToolChoice)
 	if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
 		openAIReq.TopLogprobs = input.TopLogprobs
 		openAIReq.Logprobs = schema.LogprobsValue{Enabled: true}
@@ -1434,7 +1435,7 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 	}
 	// Populate openAIReq fields for ComputeChoices
 	openAIReq.Tools = convertORToolsToOpenAIFormat(input.Tools)
-	openAIReq.ToolsChoice = input.ToolChoice
+	openAIReq.ToolsChoice = toolChoiceForModel(input.ToolChoice)
 	if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
 		openAIReq.TopLogprobs = input.TopLogprobs
 		openAIReq.Logprobs = schema.LogprobsValue{Enabled: true}
@@ -1739,7 +1740,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 	// Populate openAIReq fields for ComputeChoices
 	openAIReq.Tools = convertORToolsToOpenAIFormat(input.Tools)
-	openAIReq.ToolsChoice = input.ToolChoice
+	openAIReq.ToolsChoice = toolChoiceForModel(input.ToolChoice)
 	if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
 		openAIReq.TopLogprobs = input.TopLogprobs
 		openAIReq.Logprobs = schema.LogprobsValue{Enabled: true}
@@ -3150,6 +3151,29 @@ func restoreToolNamespace(item *schema.ORItemField, names map[string]namespacedT
 	if tool, ok := names[item.Name]; ok {
 		item.Namespace, item.Name = tool.Namespace, tool.Name
 	}
+}
+
+// toolChoiceForModel rewrites a tool_choice that names a namespaced function
+// to the flattened name the model was offered. Any other value is returned as
+// it is.
+func toolChoiceForModel(toolChoice any) any {
+	tc, ok := toolChoice.(map[string]any)
+	if !ok {
+		return toolChoice
+	}
+	namespace, _ := tc["namespace"].(string)
+	name, _ := tc["name"].(string)
+	if namespace == "" || name == "" {
+		return toolChoice
+	}
+	rewritten := make(map[string]any, len(tc))
+	for k, v := range tc {
+		if k != "namespace" {
+			rewritten[k] = v
+		}
+	}
+	rewritten["name"] = responsesToolName(namespace, name)
+	return rewritten
 }
 
 // convertORToolsToOpenAIFormat converts only tools that have an equivalent in

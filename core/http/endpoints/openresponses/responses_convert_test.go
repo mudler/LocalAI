@@ -252,6 +252,21 @@ var _ = Describe("namespace tool names", func() {
 		Expect(converted).To(HaveLen(1))
 		Expect(converted[0].Function.Name).To(Equal("ns_mcp__docs___search"))
 	})
+
+	It("forces the flattened name when tool_choice names a namespaced function", func() {
+		cfg := &config.ModelConfig{}
+		input := &schema.OpenResponsesRequest{
+			Tools:      []schema.ORFunctionTool{namespaceTool("mcp__docs", "search")},
+			ToolChoice: map[string]any{"type": "function", "namespace": "mcp__docs", "name": "search"},
+		}
+		funcs, _ := convertORToolsToFunctions(input, cfg)
+		Expect(funcs).To(HaveLen(1))
+		Expect(cfg.FunctionToCall()).To(Equal("ns_mcp__docs___search"))
+
+		Expect(toolChoiceForModel(input.ToolChoice)).To(Equal(map[string]any{"type": "function", "name": "ns_mcp__docs___search"}))
+		Expect(input.ToolChoice).To(HaveKeyWithValue("namespace", "mcp__docs"), "the request echoed to the client keeps its tool_choice")
+		Expect(toolChoiceForModel("auto")).To(Equal("auto"))
+	})
 })
 
 var _ = Describe("resolvePreviousResponseMessages", func() {
