@@ -172,6 +172,49 @@ var _ = Describe("Memory fit of a cold load", func() {
 		Expect(node.ID).To(Equal(cpuOnly.ID))
 	})
 
+	// The eviction a placement plans runs only once this replica owns the
+	// load of the model on that node. A claim another frontend won, or a model
+	// that became ready in the meantime, leaves the idle models alone.
+	It("evicts nothing when the claim on the chosen node is lost", func() {
+		setupFull()
+		stolen := &claimHookRegistry{NodeRegistry: registry}
+		stolen.beforeClaim = func(ctx context.Context, key, nodeID string) {
+			_, won, err := registry.ClaimLoadJobOn(ctx, key, nodeID, "another-frontend")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(won).To(BeTrue())
+		}
+		r := newRouter()
+		r.registry = stolen
+
+		_, err := r.ScheduleAndLoadModel(ctx, model, nil)
+
+		Expect(err).To(MatchError(ErrLoadInProgress))
+		Expect(unloader.unloadCalls).To(BeEmpty())
+		Expect(replicasOf("model-small-1")).To(BeNumerically("==", 1))
+		Expect(replicasOf("model-small-2")).To(BeNumerically("==", 1))
+		Expect(installedOn()).To(BeEmpty())
+	})
+
+	It("evicts nothing when the model is ready after the claim", func() {
+		setupFull()
+		hooked := &claimHookRegistry{NodeRegistry: registry}
+		hooked.afterClaim = func(ctx context.Context, key, _ string) {
+			// Another node finished a load of the model just as this claim won.
+			Expect(registry.SetNodeModel(ctx, nodeB.ID, key, 0, "loaded", "127.0.0.1:9002", 0)).To(Succeed())
+		}
+		r := newRouter()
+		r.registry = hooked
+
+		result, err := r.Route(ctx, model, "models/x.gguf", "llama-cpp", "", &pb.ModelOptions{Model: "models/x.gguf"}, false)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Node.ID).To(Equal(nodeB.ID))
+		Expect(unloader.unloadCalls).To(BeEmpty())
+		Expect(replicasOf("model-small-1")).To(BeNumerically("==", 1))
+		Expect(replicasOf("model-small-2")).To(BeNumerically("==", 1))
+		Expect(installedOn()).To(BeEmpty())
+	})
+
 	It("keeps the old placement when the model has no size estimate", func() {
 		setupFull()
 		estimate = 0
@@ -183,3 +226,22 @@ var _ = Describe("Memory fit of a cold load", func() {
 		Expect(node.ID).To(Equal(nodeB.ID))
 	})
 })
+
+// claimHookRegistry runs a hook around the load-job claim, so a spec can lose
+// the claim to another frontend or change the cluster right after it.
+type claimHookRegistry struct {
+	*NodeRegistry
+	beforeClaim func(ctx context.Context, key, nodeID string)
+	afterClaim  func(ctx context.Context, key, nodeID string)
+}
+
+func (c *claimHookRegistry) ClaimLoadJobOn(ctx context.Context, key, nodeID, owner string) (*ModelLoadJob, bool, error) {
+	if c.beforeClaim != nil {
+		c.beforeClaim(ctx, key, nodeID)
+	}
+	job, won, err := c.NodeRegistry.ClaimLoadJobOn(ctx, key, nodeID, owner)
+	if err == nil && won && c.afterClaim != nil {
+		c.afterClaim(ctx, key, nodeID)
+	}
+	return job, won, err
+}

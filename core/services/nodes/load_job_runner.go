@@ -131,6 +131,14 @@ func (r *SmartRouter) joinOrStartLoad(ctx context.Context, att *routeAttempt) (L
 			_ = r.finishLoadJob(ctx, job.Ref()) // already logged; the warm result stands
 			return LoadJobRef{}, result, nil
 		}
+		// The placement evicts only now, when this load is ours and still
+		// needed. A failure releases the claim instead of failing the job:
+		// a node that has no room this second is not a failed load, and a
+		// failed row would hold the node for its report window.
+		if err := r.makeRoom(ctx, att.trackingKey, placed); err != nil {
+			_ = r.finishLoadJob(ctx, job.Ref())
+			return LoadJobRef{}, nil, err
+		}
 		r.startLoadJob(ctx, att, job.Ref(), placed)
 	case job.State == LoadJobStateFailed:
 		// Inside the failure grace window of that node: report the real cause

@@ -760,6 +760,11 @@ func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string
 	if !claimed {
 		return nil, fmt.Errorf("model %s on node %s (job state %s): %w", modelName, placed.node.Name, job.State, ErrLoadInProgress)
 	}
+	// Evict only now that this load is ours: a lost claim must cost nothing.
+	if err := r.makeRoom(ctx, modelName, placed); err != nil {
+		_ = r.finishLoadJob(ctx, job.Ref()) // release the claim; already logged
+		return nil, err
+	}
 
 	var node *BackendNode
 	err = r.runLoadOwner(ctx, job.Ref(), func(ownerCtx context.Context) error {
@@ -1294,6 +1299,24 @@ type replicaPlacement struct {
 	replicaIdx    int
 	estimatedVRAM uint64
 	sched         *ModelSchedulingConfig
+	// room is the eviction the node needs before the load can go there. It is
+	// only a plan: makeRoom runs it after the caller owns the load. Evicting
+	// while choosing the node cost idle models their place for a load that
+	// another frontend then claimed, or that a replica ready elsewhere made
+	// unnecessary.
+	room roomPlan
+}
+
+// roomPlan is the eviction a placement needs on its node.
+type roomPlan struct {
+	// memory lists the idle replicas on the node to evict for GPU memory.
+	memory []NodeModel
+	// lru is the idle replica on the node to evict for capacity when no node
+	// was free, or for a replica slot.
+	lru *NodeModel
+	// slotPending means the node had no free replica slot for the model, so
+	// the slot is chosen after the eviction.
+	slotPending bool
 }
 
 // scheduleNewModel places a new replica (placeNewReplica) and installs its
@@ -1310,6 +1333,9 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	if err != nil {
 		return nil, "", 0, err
 	}
+	if err := r.makeRoom(ctx, modelID, p); err != nil {
+		return nil, "", 0, err
+	}
 	addr, err := r.installPlacement(ctx, p, backendType, modelID, modelOpts)
 	if err != nil {
 		return nil, "", 0, err
@@ -1318,7 +1344,9 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 }
 
 // placeNewReplica picks the best node for a new replica and allocates the
-// replica slot. It runs nothing on the node.
+// replica slot. It runs nothing on the node and evicts nothing: when the node
+// needs room, the eviction is returned as a plan (replicaPlacement.room), and
+// the caller runs it with makeRoom once it has claimed the load.
 // Strategy: filter to nodes with a free slot for this model → VRAM-aware →
 // idle-first → least-loaded → eviction.
 //
@@ -1412,11 +1440,15 @@ func (r *SmartRouter) placeNewReplica(ctx context.Context, modelID string, model
 	// memoryShort records that a model with a size estimate found no node with
 	// room, so the generic eviction below must not place it anyway.
 	memoryShort := false
+	// memoryEvict is the eviction that makes room on the node selectNode
+	// returned, when it chose a node only because evicting frees enough memory.
+	var memoryEvict []NodeModel
 	selectNode := func(candidateNodeIDs []string) *BackendNode {
 		var candidate *BackendNode
 		var selErr error
 		selectErr = nil
 		memoryShort = false
+		memoryEvict = nil
 		if estimatedVRAM > 0 {
 			// With a size estimate the model goes only where it fits: a node
 			// with that much free GPU memory now, a node where evicting idle
@@ -1436,8 +1468,13 @@ func (r *SmartRouter) placeNewReplica(ctx context.Context, modelID string, model
 				selectErr = selErr
 				return nil
 			}
-			if node := r.fitByEviction(ctx, modelID, estimatedVRAM, candidateNodeIDs); node != nil {
-				return node
+			plan, perr := r.planMemoryFit(ctx, estimatedVRAM, candidateNodeIDs)
+			if perr != nil {
+				xlog.Warn("Could not plan an eviction to make room for a model", "model", modelID, "error", perr)
+			} else if plan != nil {
+				memoryEvict = plan.evict
+				node := plan.node
+				return &node
 			}
 			unknown, uerr := r.memoryUnknownNodes(ctx, candidateNodeIDs)
 			if uerr != nil {
@@ -1508,19 +1545,22 @@ func (r *SmartRouter) placeNewReplica(ctx context.Context, modelID string, model
 		return nil, insufficientMemoryError(modelID, estimatedVRAM)
 	}
 
-	// 4. Preemptive eviction: if no suitable node found, evict the LRU model
-	// with zero in-flight. A model with a size estimate already tried the
-	// memory-aware eviction above and only reaches here for nodes that report
-	// no GPU memory.
+	room := roomPlan{memory: memoryEvict}
+
+	// 4. Preemptive eviction: if no suitable node found, plan to evict the LRU
+	// model with zero in-flight, and place the replica on its node. A model
+	// with a size estimate already tried the memory-aware eviction above and
+	// only reaches here for nodes that report no GPU memory.
 	if node == nil {
-		evictedNode, evictErr := r.evictLRUAndFreeNodeFrom(ctx, candidateNodeIDs)
+		lru, lruNode, evictErr := r.planLRUEviction(ctx, candidateNodeIDs)
 		if evictErr != nil {
 			if errors.Is(evictErr, ErrEvictionBusy) {
 				return nil, fmt.Errorf("no healthy nodes available: %w", errors.Join(evictErr, ErrNoAvailableNodes))
 			}
 			return nil, fmt.Errorf("no healthy nodes available and eviction failed: %w", errors.Join(evictErr, ErrNoAvailableNodes))
 		}
-		node = evictedNode
+		node = lruNode
+		room = roomPlan{lru: lru}
 	}
 
 	// Allocate the replica slot before sending backend.install so the worker
@@ -1544,26 +1584,28 @@ func (r *SmartRouter) placeNewReplica(ctx context.Context, modelID string, model
 		// All slots on this node are taken — fall back to eviction. This is
 		// rare in practice because FindNodesWithFreeSlot already filtered;
 		// it can race with another concurrent scheduler.
-		xlog.Warn("Chosen node has no free replica slot, evicting LRU",
+		xlog.Warn("Chosen node has no free replica slot, planning to evict LRU",
 			"node", node.Name, "model", modelID, "max_slots", maxSlots)
 		// A model with a size estimate stays on the node chosen for its memory:
-		// evicting anywhere else could move it to a node without room.
+		// evicting anywhere else could move it to a node without room. A
+		// memory eviction planned there is kept and runs too.
 		evictFrom := candidateNodeIDs
 		if estimatedVRAM > 0 {
 			evictFrom = []string{node.ID}
 		}
-		evictedNode, evictErr := r.evictLRUAndFreeNodeFrom(ctx, evictFrom)
+		lru, lruNode, evictErr := r.planLRUEviction(ctx, evictFrom)
 		if evictErr != nil {
 			return nil, fmt.Errorf("no replica slot on %s and eviction failed: %w", node.Name, evictErr)
 		}
-		node = evictedNode
-		replicaIdx, slotErr = r.registry.NextFreeReplicaIndex(ctx, node.ID, modelID, node.MaxReplicasPerModel)
-		if slotErr != nil {
-			return nil, fmt.Errorf("no replica slot on %s after eviction: %w", node.Name, slotErr)
+		if lruNode.ID != node.ID {
+			room.memory = nil
 		}
+		node = lruNode
+		room.lru = lru
+		room.slotPending = true
 	}
 
-	return &replicaPlacement{node: node, replicaIdx: replicaIdx, estimatedVRAM: estimatedVRAM, sched: sched}, nil
+	return &replicaPlacement{node: node, replicaIdx: replicaIdx, estimatedVRAM: estimatedVRAM, sched: sched, room: room}, nil
 }
 
 // installPlacement reserves the estimated VRAM on the placed node and sends
@@ -2601,6 +2643,45 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 	}
 
 	return nil, ErrEvictionBusy
+}
+
+// planLRUEviction finds the least-recently-used idle replica on one of
+// candidateNodeIDs (any healthy node when nil) and its node, without evicting
+// it. It waits briefly for one to become idle, like evictLRUAndFreeNodeFrom,
+// and returns ErrEvictionBusy when none does. makeRoom evicts it later, after
+// the load is claimed, and checks again that it is still evictable.
+func (r *SmartRouter) planLRUEviction(ctx context.Context, candidateNodeIDs []string) (*NodeModel, *BackendNode, error) {
+	const maxEvictionRetries = 5
+	const evictionRetryInterval = 500 * time.Millisecond
+
+	if r.db == nil {
+		return nil, nil, ErrEvictionBusy // no DB means no row-level locking for safe eviction
+	}
+	for attempt := range maxEvictionRetries {
+		var lru NodeModel
+		err := r.evictableReplicas(r.db.WithContext(ctx).Model(&NodeModel{}), candidateNodeIDs).
+			Order("node_models.last_used ASC").
+			First(&lru).Error
+		if err == nil {
+			node, nodeErr := r.registry.Get(ctx, lru.NodeID)
+			if nodeErr != nil {
+				return nil, nil, fmt.Errorf("node %s of the eviction candidate: %w", lru.NodeID, nodeErr)
+			}
+			return &lru, node, nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil, fmt.Errorf("finding a model to evict: %w", err)
+		}
+		if attempt == 0 {
+			xlog.Info("No evictable model (all busy or pinned), waiting for capacity")
+		}
+		select {
+		case <-ctx.Done():
+			return nil, nil, fmt.Errorf("context cancelled while waiting for eviction")
+		case <-time.After(evictionRetryInterval):
+		}
+	}
+	return nil, nil, ErrEvictionBusy
 }
 
 // evictableReplicas narrows a node_models query to the replicas that automatic

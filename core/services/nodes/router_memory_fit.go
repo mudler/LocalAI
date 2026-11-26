@@ -131,37 +131,77 @@ func (r *SmartRouter) planMemoryFit(ctx context.Context, need uint64, candidateN
 	return best, nil
 }
 
-// fitByEviction makes room for a model of `need` bytes on one candidate node by
-// evicting idle replicas there, and returns that node. It returns nil when no
-// node can make room, or when a replica in the plan stopped being evictable
-// before it was removed (it took a request, for example).
-func (r *SmartRouter) fitByEviction(ctx context.Context, modelID string, need uint64, candidateNodeIDs []string) *BackendNode {
-	plan, err := r.planMemoryFit(ctx, need, candidateNodeIDs)
-	if err != nil {
-		xlog.Warn("Could not plan an eviction to make room for a model", "model", modelID, "error", err)
-		return nil
-	}
-	if plan == nil {
-		return nil
-	}
-	for _, nm := range plan.evict {
-		if !r.evictReplica(ctx, nm) {
-			xlog.Info("A replica chosen for eviction is no longer idle; not placing the model on a node without room",
-				"model", modelID, "node", plan.node.Name, "replica_of", nm.ModelName)
-			return nil
+// makeRoom runs the eviction that p planned on its node, if it is still
+// needed, and settles the replica slot. The caller runs it only once it owns
+// the load of the model on that node, so a lost claim evicts nothing and two
+// frontends never evict for the same load.
+//
+// It fails with a retryable error when a replica in the plan stopped being
+// evictable (it took a request, for example): the node then has no room, and
+// placing the model there anyway would fail on the worker or push out a model
+// that is serving.
+func (r *SmartRouter) makeRoom(ctx context.Context, modelID string, p *replicaPlacement) error {
+	room := p.room
+	p.room = roomPlan{}
+	if len(room.memory) > 0 && r.stillShortOfMemory(ctx, p) {
+		for _, nm := range room.memory {
+			if !r.evictReplica(ctx, nm) {
+				xlog.Info("A replica chosen for eviction is no longer idle; not placing the model on a node without room",
+					"model", modelID, "node", p.node.Name, "replica_of", nm.ModelName)
+				return insufficientMemoryError(modelID, p.estimatedVRAM)
+			}
 		}
-	}
-	if len(plan.evict) > 0 {
-		evicted := make([]string, 0, len(plan.evict))
-		for _, nm := range plan.evict {
+		evicted := make([]string, 0, len(room.memory))
+		for _, nm := range room.memory {
 			evicted = append(evicted, nm.ModelName)
 		}
-		xlog.Info("Evicted idle models to make room for a model", "model", modelID, "node", plan.node.Name,
-			"required_vram", vram.FormatBytes(need), "free_vram", vram.FormatBytes(freeVRAM(&plan.node)),
+		xlog.Info("Evicted idle models to make room for a model", "model", modelID, "node", p.node.Name,
+			"required_vram", vram.FormatBytes(p.estimatedVRAM), "free_vram", vram.FormatBytes(freeVRAM(p.node)),
 			"evicted", slices.Compact(slices.Sorted(slices.Values(evicted))))
 	}
-	node := plan.node
-	return &node
+	if room.lru == nil {
+		return nil
+	}
+	maxSlots := max(p.node.MaxReplicasPerModel, 1)
+	if room.slotPending {
+		// A slot may have come free since the plan.
+		idx, err := r.registry.NextFreeReplicaIndex(ctx, p.node.ID, modelID, maxSlots)
+		if err == nil {
+			p.replicaIdx = idx
+			return nil
+		}
+		if !errors.Is(err, ErrNoFreeSlot) {
+			return fmt.Errorf("determining free replica slot on %s: %w", p.node.Name, err)
+		}
+	}
+	if !r.evictReplica(ctx, *room.lru) {
+		// The planned replica took a request or is gone. Another idle one on
+		// the same node will do; the load is claimed for this node.
+		if _, err := r.evictLRUAndFreeNodeFrom(ctx, []string{p.node.ID}); err != nil {
+			return fmt.Errorf("no room on %s for %s and eviction failed: %w", p.node.Name, modelID, errors.Join(err, ErrNoAvailableNodes))
+		}
+	} else {
+		xlog.Info("Evicted LRU model to free capacity",
+			"node", room.lru.NodeID, "model", room.lru.ModelName, "lastUsed", room.lru.LastUsed, "for", modelID)
+	}
+	if room.slotPending {
+		idx, err := r.registry.NextFreeReplicaIndex(ctx, p.node.ID, modelID, maxSlots)
+		if err != nil {
+			return fmt.Errorf("no replica slot on %s after eviction: %w", p.node.Name, err)
+		}
+		p.replicaIdx = idx
+	}
+	return nil
+}
+
+// stillShortOfMemory reads the node again and reports whether it still lacks
+// the memory p needs. A read that fails keeps the plan.
+func (r *SmartRouter) stillShortOfMemory(ctx context.Context, p *replicaPlacement) bool {
+	node, err := r.registry.Get(ctx, p.node.ID)
+	if err != nil || node == nil {
+		return true
+	}
+	return freeVRAM(node) < p.estimatedVRAM
 }
 
 // evictReplica removes one replica if it is still evictable, and unloads it
