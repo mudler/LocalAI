@@ -1,0 +1,7 @@
+sources/
+build/
+package/
+avatarforcing-cpp-grpc
+# Staged by the Makefile from the avatarforcing.cpp build.
+libavatarforcing.so
+avatarforcing.h
