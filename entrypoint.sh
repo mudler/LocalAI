@@ -65,9 +65,13 @@ if [ "$(id -u)" = "0" ] && [ "${LOCALAI_RUN_AS_ROOT:-false}" != "true" ]; then
 	done
 	# The groups that own the devices the user needs (/dev/kvm for the sandbox,
 	# the render nodes of the GPUs). Group 0 is never added.
+	# The Docker socket is there for the agent worker and MCP servers that
+	# start containers. Its group is joined only when the operator mounts the
+	# socket, and access to it is equal to root on the host: mount it only
+	# into a container that needs it.
 	groups=""
 	# shellcheck disable=SC2086
-	for dev in ${LOCALAI_DEVICE_PATHS:-/dev/kvm /dev/kfd /dev/dri/*}; do
+	for dev in ${LOCALAI_DEVICE_PATHS:-/dev/kvm /dev/kfd /dev/dri/* /var/run/docker.sock}; do
 		[ -e "$dev" ] || continue
 		gid="$(stat -c %g "$dev")"
 		case ",$groups," in *",$gid,"*) continue ;; esac

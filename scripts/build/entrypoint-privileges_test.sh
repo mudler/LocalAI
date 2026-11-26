@@ -18,6 +18,7 @@
 #      (bind mounts of the host user) make LocalAI run as that user, and they
 #      keep their owner. Root-owned or mixed folders keep the default user.
 #   9. A user that the image does not know gets a passwd and a group entry.
+#  10. A mounted Docker socket adds its group, and only when it is mounted.
 set -euo pipefail
 
 WORK=$(mktemp -d)
@@ -26,7 +27,7 @@ REPO_ROOT=$(dirname "$(dirname "$(dirname "$(realpath "$0")")")")
 
 mkdir -p "$WORK/bin" "$WORK/owned" "$WORK/foreign" "$WORK/dev" "$WORK/home" "$WORK/ro" "$WORK/datahome" \
 	"$WORK/hostdata" "$WORK/hostmodels" "$WORK/rootdir"
-touch "$WORK/dev/kvm" "$WORK/dev/render" "$WORK/dev/rootdev"
+touch "$WORK/dev/kvm" "$WORK/dev/render" "$WORK/dev/rootdev" "$WORK/dev/docker.sock"
 
 cat >"$WORK/bin/id" <<'SH'
 #!/bin/sh
@@ -41,6 +42,7 @@ case "$3" in
 */dev/kvm) echo 108 ;;
 */dev/render) echo 108 ;;
 */dev/rootdev) echo 0 ;;
+*/dev/docker.sock) echo 999 ;;
 */home) echo 10001 ;;
 */newhome) echo 0 ;;
 */hostdata) echo 1000 ;;
@@ -71,10 +73,10 @@ run() { # run <uid> [env...]
 	# Not as root, the script reaches ./local-ai, which is missing, and stops.
 	env LOCALAI_HOME_DIR="$WORK/home" LOCALAI_DATA_DIRS="$WORK/owned $WORK/foreign" \
 		LOCALAI_OWNER_DIRS="$WORK/owned $WORK/foreign" \
+		LOCALAI_DEVICE_PATHS="$WORK/dev/kvm $WORK/dev/render $WORK/dev/rootdev $WORK/dev/missing" \
 		LOCALAI_PASSWD_FILE="$WORK/passwd" LOCALAI_GROUP_FILE="$WORK/group" \
 		"$@" FAKE_UID="$uid" FAKE_LOG="$WORK/log" PATH="$WORK/bin:$PATH" \
 		LOCALAI_HOME_FALLBACK="$WORK/datahome" \
-		LOCALAI_DEVICE_PATHS="$WORK/dev/kvm $WORK/dev/render $WORK/dev/rootdev $WORK/dev/missing" \
 		bash "$REPO_ROOT/entrypoint.sh" run >"$WORK/out" 2>&1 || true
 }
 
@@ -108,6 +110,12 @@ grep -q -- "setpriv --reuid=10001 --regid=10001" "$WORK/log" || fail "root-owned
 
 run 0 LOCALAI_OWNER_DIRS="$host" LOCALAI_UID=2000 LOCALAI_GID=2000
 grep -q -- "setpriv --reuid=2000 --regid=2000" "$WORK/log" || fail "LOCALAI_UID did not win over the host user"
+
+run 0 LOCALAI_DEVICE_PATHS="$WORK/dev/kvm $WORK/dev/docker.sock"
+grep -q -- "setpriv --reuid=10001 --regid=10001 --groups=108,999 -- " "$WORK/log" || fail "a mounted Docker socket did not add its group"
+
+run 0 LOCALAI_DEVICE_PATHS="$WORK/dev/kvm $WORK/dev/no-docker.sock"
+grep -q -- "--groups=108 -- " "$WORK/log" || fail "a missing Docker socket changed the groups"
 
 run 0 LOCALAI_RUN_AS_ROOT=true
 grep -q setpriv "$WORK/log" && fail "LOCALAI_RUN_AS_ROOT=true still dropped root"
