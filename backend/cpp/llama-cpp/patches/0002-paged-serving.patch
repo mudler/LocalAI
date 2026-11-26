@@ -48,7 +48,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
      }
  
      void init_sampler() const {
-@@ -1941,6 +1947,85 @@ private:
+@@ -1941,6 +1947,132 @@ private:
          return res;
      }
  
@@ -131,10 +131,69 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +        }
 +    }
 +
++    // make room for this step's decode and for the rest of the admitted prompts:
++    // drop idle or waiting cells first, then, with paged_preempt, preempt the youngest slot
++    void paged_preempt_pass() {
++        while (true) {
++            int64_t n_used = 0;
++            int64_t n_demand = 0;
++            std::vector<serving_policy::victim_candidate> cands;
++            for (auto & slot : slots) {
++                n_used += paged_n_cells(slot);
++                if (!paged_running(slot) || slot.state == SLOT_STATE_DONE_PROMPT) {
++                    continue;
++                }
++                const bool gen = slot.state == SLOT_STATE_GENERATING;
++                n_demand += serving_policy::slot_demand(gen, gen && slot.can_speculate() ? std::min(slot.get_n_draft_max(), 64) : 0, paged_prompt_left(slot));
++                const auto type = slot.task->type;
++                if (type != SERVER_TASK_TYPE_TTS && type != SERVER_TASK_TYPE_REALTIME && type != SERVER_TASK_TYPE_TRANSCRIBE_RT) {
++                    cands.push_back({ slot.id, slot.task->id, false });
++                }
++            }
++            if (!serving_policy::pool_short(llama_n_ctx(ctx_tgt), n_used, n_demand)) {
++                return;
++            }
++            if (paged_purge(-1)) {
++                continue;
++            }
++            if (!params_base.paged_preempt) {
++                return; // admission only, the decode path handles a full pool as before
++            }
++            const int i = serving_policy::pick_victim(cands);
++            if (i < 0) {
++                return; // one request left, the decode path handles it as before
++            }
++            paged_preempt(slots[cands[i].id_slot], cands[i].resumable);
++        }
++    }
++
++    void paged_preempt(server_slot & slot, bool resumable) {
++        if (!resumable) {
++            SLT_WRN(slot, "paged: KV pool full, aborting a request that cannot be resumed (last resort, aborts = %" PRId64 ")\n", ++n_paged_abort);
++            send_error(slot, "KV pool full, preempted; retry the request", ERROR_TYPE_UNAVAILABLE);
++            slot.release();
++            slot.prompt_clear();
++            return;
++        }
++        GGML_ABORT("resume by recompute is not implemented");
++    }
++
      std::vector<common_adapter_lora_info> construct_lora_list(const std::map<int, float> & config) const {
          std::vector<common_adapter_lora_info> output = params_base.lora_adapters; // copy
          for (size_t i = 0; i < output.size(); ++i) {
-@@ -4216,12 +4301,16 @@ private:
+@@ -4071,6 +4203,11 @@ private:
+         // start populating the batch for this iteration
+         batch.clear();
+ 
++        // LocalAI paged serving: make room before the batch takes the decode tokens
++        if (params_base.paged_serving) {
++            paged_preempt_pass();
++        }
++
+         // track if given slot can be batched with slots already in the batch
+         auto & slot_batched = batch.slot_batched;
+ 
+@@ -4216,12 +4353,16 @@ private:
          auto & alora_scale       = batch.alora_scale;
          auto & alora_disabled_id = batch.alora_disabled_id;
  
@@ -152,7 +211,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      return; // batch is full, skip remaining slots
                  }
  
-@@ -4248,6 +4337,12 @@ private:
+@@ -4248,6 +4389,12 @@ private:
  
                  // this slot still has a prompt to be processed
                  if (slot.state == SLOT_STATE_PROCESSING_PROMPT || slot.state == SLOT_STATE_STARTED) {
@@ -165,7 +224,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      const auto & input_tokens = slot.task->tokens;
  
                      // used to determine the number of tokens added to the batch for the current slot
-@@ -4694,7 +4789,8 @@ private:
+@@ -4694,7 +4841,8 @@ private:
                      const int32_t n_decision_first = slot.task->type == SERVER_TASK_TYPE_DECISION ? slot.task->decision.pos_first() : -1;
  
                      // add prompt tokens for processing in the current batch
