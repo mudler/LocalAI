@@ -115,6 +115,13 @@ func (r *SmartRouter) joinOrStartLoad(ctx context.Context, att *routeAttempt) (L
 		if held := heldLoadJob(jobs, now); held != nil {
 			return LoadJobRef{}, nil, NewLoadHeldError(held)
 		}
+		if errors.Is(perr, ErrLoadInProgress) {
+			// Every node the model may use loads it already, but none of
+			// those loads is one this request can wait on (the rule changed
+			// under it, for example). Nothing failed: the HTTP layer answers
+			// 503 with Retry-After for ErrNoAvailableNodes, not 500.
+			return LoadJobRef{}, nil, fmt.Errorf("%w: %w", perr, ErrNoAvailableNodes)
+		}
 		return LoadJobRef{}, nil, perr
 	}
 
