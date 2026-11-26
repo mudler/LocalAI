@@ -11,6 +11,22 @@
 // confirmed it or not.
 package tools
 
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"slices"
+	"sync"
+	"time"
+
+	"github.com/mudler/LocalAI/addons/internal/journal"
+	"github.com/mudler/LocalAI/addons/kubernetes/internal/kubeapi"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/idle"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+)
+
 // The tools of the manifest.
 const (
 	ToolList         = "list"
@@ -65,4 +81,130 @@ func PageTools() []string { return []string{ToolGetPolicy, ToolSetPolicy} }
 // Declared is everything the manifest lists under capabilities.tools.
 func Declared() []string {
 	return append(append(ReadTools(), WriteTools()...), PageTools()...)
+}
+// Admin tells whether the user of a request is an administrator. The host
+// answers; the add-on never decides it.
+type Admin interface {
+	IsAdmin(ctx context.Context, operationID string) bool
+}
+
+// Runtime serves the tools.
+type Runtime struct {
+	idle.Runtime
+	Factory kubeapi.Factory
+	// Admin may be nil: the policy can then not be changed.
+	Admin Admin
+	// Now is the clock; a test fixes it.
+	Now func() time.Time
+
+	applyMu sync.Mutex
+	jmu     sync.Mutex
+	jrnl    *journal.Journal
+	dir     string
+}
+
+// New returns a runtime. Receipts of changes live in memory until WithDataDir
+// gives it a directory.
+func New(f kubeapi.Factory) *Runtime { return &Runtime{Factory: f} }
+
+// WithDataDir keeps the journal of changes in dir.
+func (r *Runtime) WithDataDir(dir string) *Runtime { r.dir = dir; return r }
+
+func (r *Runtime) journal() *journal.Journal {
+	r.jmu.Lock()
+	defer r.jmu.Unlock()
+	if r.jrnl == nil {
+		r.jrnl = journal.Open(r.dir)
+	}
+	return r.jrnl
+}
+
+func (r *Runtime) now() time.Time {
+	if r.Now != nil {
+		return r.Now()
+	}
+	return time.Now()
+}
+
+var _ contract.Runtime = (*Runtime)(nil)
+
+// MaxPayload bounds the JSON of one result.
+const MaxPayload = 512 << 10
+
+type wrapped struct {
+	Source    string   `json:"source"`
+	Untrusted bool     `json:"untrusted"`
+	Notice    string   `json:"notice"`
+	Warnings  []string `json:"warnings,omitempty"`
+	Data      any      `json:"data"`
+}
+
+// finish wraps data as untrusted and checks the size.
+func finish(data any, warnings []string) (contract.Result, error) {
+	b := plainJSON(wrapped{Source: SourceName, Untrusted: true, Notice: Notice, Warnings: warnings, Data: data})
+	if len(b) > MaxPayload {
+		return contract.Result{}, bad("the result is too large: narrow the call")
+	}
+	return contract.Result{Payload: b}, nil
+}
+
+func splitArgs(env contract.Envelope) (string, map[string]json.RawMessage, error) {
+	var args map[string]json.RawMessage
+	if json.Unmarshal(env.Request.Arguments, &args) != nil {
+		return "", nil, bad("the arguments are not an object")
+	}
+	var tool string
+	if json.Unmarshal(args["tool"], &tool) != nil {
+		return "", nil, bad("no tool")
+	}
+	delete(args, "tool")
+	return tool, args, nil
+}
+
+// clusterOf reads the cluster argument without consuming the others.
+func clusterOf(args map[string]json.RawMessage) string {
+	var s string
+	_ = json.Unmarshal(args[ResourceArg], &s)
+	return s
+}
+
+// Read serves a read tool and the tools of the page.
+func (r *Runtime) Read(ctx context.Context, env contract.Envelope) (contract.Result, error) {
+	tool, args, err := splitArgs(env)
+	if err != nil {
+		return contract.Result{}, err
+	}
+	if !slices.Contains(ReadTools(), tool) {
+		return contract.Result{}, bad("unknown tool")
+	}
+	c, err := r.newCall(ctx, env, clusterOf(args))
+	if err != nil {
+		return contract.Result{}, err
+	}
+	var data any
+	switch tool {
+	case ToolCheck:
+		data, err = c.check(args)
+	default:
+		return contract.Result{}, bad("unknown tool")
+	}
+	if err != nil {
+		return contract.Result{}, translate(err)
+	}
+	return finish(data, c.warnings)
+}
+
+// translate maps an error to what the protocol sends. An error of the API
+// server keeps its status, reason and message, so the model can act on it.
+func translate(err error) error {
+	var st apierrors.APIStatus
+	switch {
+	case errors.As(err, &st):
+		return kubeapi.Describe(err)
+	case errors.Is(err, protocol.ErrBadRequest), errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		return err
+	case errors.Is(err, kubeapi.ErrNoMetrics):
+		return bad("%s", err.Error())
+	}
+	return bad("the cluster did not answer: %s", kubeapi.Short(err.Error()))
 }

@@ -84,10 +84,12 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.45.0
 	google.golang.org/grpc v1.85.0
 	google.golang.org/protobuf v1.36.12
+	gopkg.in/evanphx/json-patch.v4 v4.13.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
+	k8s.io/api v0.37.3
 	k8s.io/apimachinery v0.37.3
 	k8s.io/client-go v0.37.3
 	modernc.org/sqlite v1.23.1
@@ -122,14 +124,17 @@ require (
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/coder/websocket v1.8.15 // indirect
 	github.com/edsrzf/mmap-go v1.1.0 // indirect
+	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.1 // indirect
 	github.com/go-llsqlite/adapter v0.0.0-20230927005056-7f5ce7f0c916 // indirect
 	github.com/go-llsqlite/crawshaw v0.5.6-0.20250312230104-194977a03421 // indirect
 	github.com/go-openapi/swag/pools v0.27.1 // indirect
+	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/mikelolasagasti/xz v1.0.1 // indirect
 	github.com/minio/minlz v1.0.1 // indirect
+	github.com/moby/spdystream v0.5.1 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
 	github.com/nwaples/rardecode/v2 v2.2.0 // indirect
 	github.com/protolambda/ctxlock v0.1.0 // indirect
@@ -144,6 +149,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260721132016-d427ff9ee9ad // indirect
+	k8s.io/streaming v0.37.3 // indirect
 	k8s.io/utils v0.0.0-20260626114624-be93311217bd // indirect
 	lukechampine.com/uint128 v1.2.0 // indirect
 	modernc.org/cc/v3 v3.40.0 // indirect

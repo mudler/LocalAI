@@ -24,3 +24,9 @@ func Cap(s string, max int) (string, bool) {
 	}
 	return s[:n], true
 }
+
+// Short cuts a message for an error to 300 bytes.
+func Short(s string) string {
+	out, _ := Cap(s, 300)
+	return out
+}
