@@ -97,6 +97,17 @@ the signed-in user's own session; the core keeps both routes. The page uses the 
 that the person added in the browser, the same list as Chat. The words are the `talk` locale
 files of the add-on, in every language of the web UI.
 
+### The Talking Head add-on
+
+The Talking Head add-on (`talking-head`) is a packaged add-on. Install it from **Find
+add-ons** with **Install**. It adds the page `/app/addons/talking-head/talking-head` (main
+page) for users with the `addons` feature. The page calls `/v1/audio/transcriptions`,
+`/v1/chat/completions`, `/tts` and `/video` with the signed-in user's own session, and reads
+the models from `/api/models/capabilities` and `/api/pipeline-models`. It declares a model
+action for video models (`FLAG_VIDEO`), so **Open** on a video model offers it next to
+Studio. The portraits and the settings stay in the browser. The words are the `head` locale
+files of the add-on, in every language of the web UI. See [Talking Head]({{% relref "/addons/catalogue/models-and-media/talking-head" %}}).
+
 ### The Voice add-on
 
 The Voice add-on (`voice`) is a packaged add-on. It is not shipped with LocalAI: install it

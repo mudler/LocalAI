@@ -48,6 +48,7 @@ Pick an add-on below. An administrator installs it, and anyone with the `addons`
 |---|---|
 | [Studio]({{% relref "/addons/catalogue/models-and-media/studio" %}}) | A page to make images, video, 3D, speech and sound, and keep what you make. |
 | [Talk]({{% relref "/addons/catalogue/models-and-media/talk" %}}) | A spoken conversation with a model. |
+| [Talking Head]({{% relref "/addons/catalogue/models-and-media/talking-head" %}}) | A conversation with a portrait that answers in lip-synced video clips. |
 | [Voice]({{% relref "/addons/catalogue/models-and-media/voice" %}}) | Voice recognition, the voice library and text to speech. |
 | [Face]({{% relref "/addons/catalogue/models-and-media/face" %}}) | Identify a face in a photo, or check whether two photos show the same person. |
 | [Fine-tuning]({{% relref "/addons/catalogue/models-and-media/fine-tuning" %}}) | The Fine-Tune page and chat tools for fine-tuning jobs. |

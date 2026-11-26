@@ -390,6 +390,10 @@ parameters:
 | `ffmpeg` | `ffmpeg` on `PATH` | The ffmpeg program to use |
 | `nfe`, `cfg_scale`, `seed`, `audio_mode`, `max_seconds` | as above | Defaults for every request |
 
+### Talk to a face
+
+The [Talking Head add-on]({{% relref "/addons/catalogue/models-and-media/talking-head" %}}) puts this model in a conversation. You speak or type, a chat model writes the reply, a text-to-speech model speaks it, and the page plays the clip of the portrait saying it.
+
 ### avatarforcing.cpp troubleshooting
 
 - **HTTP 400, needs speech audio (audio)** or **needs a portrait (start_image)**: send both inputs.

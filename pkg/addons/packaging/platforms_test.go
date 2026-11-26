@@ -34,7 +34,7 @@ var nativeChecked = map[string]bool{"linux/amd64": true, "linux/arm64": true, "d
 // shows its native check passing.
 var unsupported = map[string]map[string]bool{"sandbox": {"darwin/amd64": true, "windows/amd64": true}}
 
-var packagedAddons = []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "office", "sandbox", "web"}
+var packagedAddons = []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "talking-head", "office", "sandbox", "web"}
 
 var _ = Describe("the packaged add-ons", func() {
 	for _, id := range packagedAddons {
