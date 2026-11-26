@@ -105,8 +105,15 @@ class SmokeTest {
     /** The Capacitor WebView that runs the app's own UI (the WebUI view is a plain WebView). */
     private fun shell(): WebInteraction<Void> = onWebView(isAssignableFrom(CapacitorWebView::class.java))
 
-    /** Runs a function body in the app's UI and returns its value. */
-    private fun js(body: String): Any? = shell().perform(Atoms.script(body)).get().value
+    /**
+     * Runs a function body in the app's UI and returns its value.
+     *
+     * The body goes in as a function definition. Espresso-Web passes a bare body
+     * as a string that the page compiles with `new Function`, and the app's CSP
+     * (`script-src 'self'`, android/index.html) refuses that as eval. A function
+     * definition is inlined into the injected script, so the CSP does not apply.
+     */
+    private fun js(body: String): Any? = shell().perform(Atoms.script("function() {\n$body\n}")).get().value
 
     private fun click(testId: String) {
         shell().withElement(findElement(Locator.CSS_SELECTOR, "[data-testid=\"$testId\"]")).perform(webClick())
