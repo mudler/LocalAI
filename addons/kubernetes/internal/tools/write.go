@@ -151,17 +151,13 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 
 // begin checks the journal, checks the write again against the revision of
 // the preview and notes the start. A nil op means Apply answers with rc and
-// err and writes nothing.
+// err and writes nothing. The lock is not held while the cluster answers the
+// checks, so a slow cluster does not hold up the writes to other clusters;
+// the journal is checked again under the lock before the start is noted.
 func (r *Runtime) begin(ctx context.Context, env contract.Envelope, rev contract.Revision) (writeOp, *call, contract.Receipt, error) {
 	opID := env.Request.OperationID
-	r.applyMu.Lock()
-	defer r.applyMu.Unlock()
-	j := r.journal()
-	if rc, ok := j.Receipt(opID); ok {
+	if rc, done := r.settled(opID, rev); done {
 		return nil, nil, rc, nil
-	}
-	if _, started := j.Started(opID); started {
-		return nil, nil, contract.Receipt{OperationID: opID, State: contract.ReceiptUnknown, Revision: rev}, nil
 	}
 	op, c, err := r.parseWrite(ctx, env)
 	if err != nil {
@@ -171,6 +167,12 @@ func (r *Runtime) begin(ctx context.Context, env contract.Envelope, rev contract
 	if err != nil {
 		return nil, nil, contract.Receipt{}, translate(err)
 	}
+	r.applyMu.Lock()
+	defer r.applyMu.Unlock()
+	if rc, done := r.settledLocked(opID, rev); done {
+		return nil, nil, rc, nil
+	}
+	j := r.journal()
 	if now != rev.Data {
 		rc := contract.Receipt{OperationID: opID, State: contract.ReceiptRejected, Revision: rev,
 			Result: contract.Result{Payload: smallResult(map[string]any{"stale": true, "note": "The object or the policy changed after the preview. Nothing was changed."})}}
@@ -180,6 +182,25 @@ func (r *Runtime) begin(ctx context.Context, env contract.Envelope, rev contract
 		return nil, nil, contract.Receipt{}, err
 	}
 	return op, c, contract.Receipt{}, nil
+}
+
+// settled answers an operation the journal already knows: its receipt, or
+// unknown when it was started and has none.
+func (r *Runtime) settled(opID string, rev contract.Revision) (contract.Receipt, bool) {
+	r.applyMu.Lock()
+	defer r.applyMu.Unlock()
+	return r.settledLocked(opID, rev)
+}
+
+func (r *Runtime) settledLocked(opID string, rev contract.Revision) (contract.Receipt, bool) {
+	j := r.journal()
+	if rc, ok := j.Receipt(opID); ok {
+		return rc, true
+	}
+	if _, started := j.Started(opID); started {
+		return contract.Receipt{OperationID: opID, State: contract.ReceiptUnknown, Revision: rev}, true
+	}
+	return contract.Receipt{}, false
 }
 
 func smallResult(data map[string]any) json.RawMessage {

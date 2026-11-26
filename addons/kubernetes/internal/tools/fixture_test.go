@@ -116,6 +116,13 @@ func (g *rig) mustRead(tool string, args map[string]any) map[string]any {
 	return r.Data
 }
 
+// mustPolicy is the policy of the rig's cluster now.
+func (g *rig) mustPolicy() policy.Policy {
+	p, err := g.pol.Get(key)
+	Expect(err).NotTo(HaveOccurred())
+	return p
+}
+
 // setPolicy stores the policy of the rig's cluster.
 func (g *rig) setPolicy(p policy.Policy) {
 	_, err := g.pol.Set(key, p)
