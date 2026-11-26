@@ -50,7 +50,7 @@ class FakeEngine : P2PEngine {
     val alwaysFail = mutableSetOf<String>()
     var emitReady = true
 
-    override fun version() = "p2pmobile/2"
+    override fun version() = "p2pmobile/3"
     override fun pairJson(identityPath: String, link: String, deviceName: String, allowOpenRelay: Boolean) = """{"ok":true,"result":{}}"""
     override fun peerId(identityPath: String) = "12D3KooWExample"
 
@@ -166,6 +166,17 @@ class ForwarderSupervisorTest {
         assertTrue(stateOf("a")!!.contains("failed"))
         assertTrue(stateOf("b")!!.contains("ready"))
         sched.advance(10_000)
+        assertEquals(0, engine.starts[0].stops)
+    }
+
+    @Test
+    fun routesLinesPassOnAndKeepTheLastState() {
+        sup.setForwards(listOf(a))
+        engine.starts[0].onState("""{"state":"up","path":"direct"}""")
+        val routes = """{"state":"routes","addrs":["/ip4/203.0.113.9/tcp/4001"],"relays":[],"hints":[]}"""
+        engine.starts[0].onState(routes)
+        assertTrue(lines.contains("a" to routes))
+        assertEquals("""{"state":"up","path":"direct"}""", stateOf("a"))
         assertEquals(0, engine.starts[0].stops)
     }
 

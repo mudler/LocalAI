@@ -260,6 +260,12 @@ class ForwarderSupervisor(
 
     private fun onLine(id: String, gen: Long, line: String) {
         val current = synchronized(lock) { slots[id]?.takeIf { it.generation == gen } } ?: return
+        if (stateOfLine(line) == "routes") {
+            // The routes of the server are no state: pass them on and keep
+            // the last state, which says whether the forwarder listens.
+            onState(id, line)
+            return
+        }
         if (stateOfLine(line) != "closed") {
             record(id, line, gen)
             return

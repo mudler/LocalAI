@@ -25,7 +25,11 @@ import (
 // Version names the library and its API revision. The app calls it first to
 // prove that the native library loaded; bump the number when the exported
 // API changes.
-func Version() string { return "p2pmobile/2" }
+//
+// p2pmobile/3 adds the routes state line of StartForward; the exports and
+// their arguments are those of p2pmobile/2, so a caller of p2pmobile/2 works
+// unchanged if it ignores state lines it does not know.
+func Version() string { return "p2pmobile/3" }
 
 // StateCallback receives one JSON object per state change of a forward.
 type StateCallback interface {
@@ -169,7 +173,48 @@ type Forwarder struct {
 	cancel context.CancelFunc
 	host   *p2pnet.Host
 	fwd    *p2pnet.Forwarder
+	routes *pairclient.RouteWatcher
 	addr   string
+}
+
+// routesInterval is how often a forward that stays up asks the server for
+// its routes again; a variable for the tests.
+var routesInterval = pairclient.RoutesInterval
+
+// routesLine is the state line of the routes of the server: the lists the
+// app stores in place of the ones of the invite. The lists are never null.
+type routesLine struct {
+	State  string   `json:"state"`
+	Addrs  []string `json:"addrs"`
+	Relays []string `json:"relays"`
+	Hints  []string `json:"hints"`
+}
+
+func newRoutesLine(r pairclient.Routes) routesLine {
+	l := routesLine{State: "routes", Addrs: r.Addrs, Relays: r.Relays, Hints: r.Hints}
+	for _, p := range []*[]string{&l.Addrs, &l.Relays, &l.Hints} {
+		if *p == nil {
+			*p = []string{}
+		}
+	}
+	return l
+}
+
+// serialCallback passes the lines of the forwarder and of the route watcher,
+// which come from different goroutines, to cb one at a time.
+type serialCallback struct {
+	mu sync.Mutex
+	cb StateCallback
+}
+
+func (s *serialCallback) emit(v any) {
+	if s.cb == nil {
+		return
+	}
+	b, _ := json.Marshal(v)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cb.OnState(string(b))
 }
 
 type stateLine struct {
@@ -198,14 +243,6 @@ func forwardLine(st p2pnet.ForwardStatus) stateLine {
 	return l
 }
 
-func emit(cb StateCallback, l stateLine) {
-	if cb == nil {
-		return
-	}
-	b, _ := json.Marshal(l)
-	cb.OnState(string(b))
-}
-
 func parseList(s string) ([]string, error) {
 	if s == "" {
 		return nil, nil
@@ -221,6 +258,12 @@ func parseList(s string) ([]string, error) {
 // peer. relays, addrs and hints are JSON arrays of multiaddrs, or empty.
 // hints are the public relays of the invite (key h): they only help a hole
 // punch and never carry data.
+//
+// cb gets the state lines: ready, up, down and closed, and a routes line
+// {"state":"routes","addrs":[...],"relays":[...],"hints":[...]} after each
+// connection that opens and every 10 minutes while the forward stays up.
+// The routes line has the current routes of the server; the caller stores
+// them and passes them to the next StartForward.
 func StartForward(identityPath, peerID, listenAddr, relays, addrs, hints string, cb StateCallback) (*Forwarder, error) {
 	pid, err := p2pnet.ParsePeerID(peerID)
 	if err != nil {
@@ -269,16 +312,27 @@ func StartForward(identityPath, peerID, listenAddr, relays, addrs, hints string,
 		cancel()
 		return nil, err
 	}
+	out := &serialCallback{cb: cb}
+	client := h.HTTPClient(pid, dial...)
+	routes := pairclient.WatchRoutes(ctx,
+		func(ctx context.Context) (pairclient.Routes, error) { return pairclient.FetchRoutes(ctx, client, pid) },
+		routesInterval,
+		func(r pairclient.Routes) { out.emit(newRoutesLine(r)) },
+		nil)
 	f, err := h.Forward(ctx, pid, p2pnet.ProtoHTTP, listenAddr,
 		p2pnet.WithDialOptions(dial...),
-		p2pnet.WithStatus(func(st p2pnet.ForwardStatus) { emit(cb, forwardLine(st)) }))
+		p2pnet.WithStatus(func(st p2pnet.ForwardStatus) {
+			out.emit(forwardLine(st))
+			routes.Connected(st.State == p2pnet.ForwardUp)
+		}))
 	if err != nil {
+		routes.Stop()
 		_ = h.Close()
 		cancel()
 		return nil, err
 	}
-	fw := &Forwarder{cancel: cancel, host: h, fwd: f, addr: f.Addr().String()}
-	emit(cb, stateLine{State: "ready", Addr: fw.addr})
+	fw := &Forwarder{cancel: cancel, host: h, fwd: f, routes: routes, addr: f.Addr().String()}
+	out.emit(stateLine{State: "ready", Addr: fw.addr})
 	return fw, nil
 }
 
@@ -293,6 +347,7 @@ func (f *Forwarder) Stop() {
 	if f.host == nil {
 		return
 	}
+	f.routes.Stop()
 	_ = f.fwd.Close()
 	_ = f.host.Close()
 	f.cancel()

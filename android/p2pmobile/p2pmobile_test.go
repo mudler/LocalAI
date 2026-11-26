@@ -7,10 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -90,7 +93,7 @@ func states(lines []string) []string {
 
 var _ = Describe("Version", func() {
 	It("names the library and its API revision", func() {
-		Expect(Version()).To(Equal("p2pmobile/2"))
+		Expect(Version()).To(Equal("p2pmobile/3"))
 	})
 })
 
@@ -253,5 +256,122 @@ var _ = Describe("StartForward", func() {
 
 		_, err = net.DialTimeout("tcp", addr, time.Second)
 		Expect(err).To(HaveOccurred(), "listener still open after Stop")
+	})
+})
+
+// routesServer is a paired server: a host that admits the device and serves
+// GET /api/p2p/routes over P2P, counting the requests.
+func routesServer(device string, answer func(server string) string) (*p2pnet.Host, *atomic.Int32) {
+	GinkgoHelper()
+	dev, err := p2pnet.ParsePeerID(device)
+	Expect(err).ToNot(HaveOccurred())
+	h, err := p2pnet.New(context.Background(), p2pnet.Config{
+		IdentityPath: filepath.Join(GinkgoT().TempDir(), "server.key"),
+		ListenAddrs:  []string{"/ip4/127.0.0.1/tcp/0"},
+		Gate:         p2pnet.NewAllowlist(dev),
+	})
+	Expect(err).ToNot(HaveOccurred())
+	DeferCleanup(h.Close)
+	ln, err := h.Listen(p2pnet.ProtoHTTP, nil)
+	Expect(err).ToNot(HaveOccurred())
+	var calls atomic.Int32
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET "+pairclient.RoutesPath, func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		_, _ = io.WriteString(w, answer(h.ID().String()))
+	})
+	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, "main") })
+	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+	go func() { _ = srv.Serve(ln) }()
+	DeferCleanup(srv.Close)
+	return h, &calls
+}
+
+// routesOf returns the routes lines among lines.
+func routesOf(lines []string) []routesLine {
+	var out []routesLine
+	for _, l := range lines {
+		var r routesLine
+		ExpectWithOffset(1, json.Unmarshal([]byte(l), &r)).To(Succeed())
+		if r.State == "routes" {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+var _ = Describe("StartForward routes", func() {
+	var id, device string
+
+	BeforeEach(func() {
+		id = filepath.Join(GinkgoT().TempDir(), "identity.key")
+		_, err := p2pnet.LoadOrCreateIdentity(id)
+		Expect(err).ToNot(HaveOccurred())
+		device, err = PeerID(id)
+		Expect(err).ToNot(HaveOccurred())
+		old := routesInterval
+		routesInterval = 300 * time.Millisecond
+		DeferCleanup(func() { routesInterval = old })
+	})
+
+	addrsOf := func(h *p2pnet.Host) string {
+		var addrs []string
+		for _, a := range h.Libp2p().Addrs() {
+			addrs = append(addrs, a.String())
+		}
+		b, _ := json.Marshal(addrs)
+		return string(b)
+	}
+
+	get := func(addr string) {
+		resp, err := (&http.Client{Timeout: 20 * time.Second}).Get("http://" + addr + "/")
+		Expect(err).ToNot(HaveOccurred())
+		body, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		Expect(string(body)).To(Equal("main"))
+	}
+
+	It("asks for the routes when a connection opens, then while up, and sends a routes line", func() {
+		hint := "/ip4/192.0.2.10/tcp/4001/p2p/" + newPeerID()
+		server, calls := routesServer(device, func(srv string) string {
+			return `{"server":"` + srv + `","addrs":["/ip4/203.0.113.9/tcp/4001","not an address"],"relays":[],"hints":["` + hint + `"]}`
+		})
+		r := &rec{}
+		f, err := StartForward(id, server.ID().String(), "127.0.0.1:0", "", addrsOf(server), "", r)
+		Expect(err).ToNot(HaveOccurred())
+		defer f.Stop()
+
+		Consistently(func() int32 { return calls.Load() }, 500*time.Millisecond).Should(BeZero(), "no request before a connection opens")
+		get(f.Addr())
+
+		Eventually(func() []routesLine { return routesOf(r.snapshot()) }, 10*time.Second).ShouldNot(BeEmpty())
+		got := routesOf(r.snapshot())[0]
+		Expect(got.Addrs).To(Equal([]string{"/ip4/203.0.113.9/tcp/4001"}), "an entry that does not parse is dropped")
+		Expect(got.Relays).To(Equal([]string{}))
+		Expect(got.Hints).To(Equal([]string{hint}))
+		Expect(states(r.snapshot())).To(ContainElements("ready", "up", "routes"))
+
+		By("asking again while the forward stays up")
+		Eventually(func() int32 { return calls.Load() }, 10*time.Second).Should(BeNumerically(">=", 2))
+	})
+
+	It("sends no routes line for an answer of another server", func() {
+		other := newPeerID()
+		server, calls := routesServer(device, func(string) string {
+			return `{"server":"` + other + `","addrs":[],"relays":[],"hints":[]}`
+		})
+		r := &rec{}
+		f, err := StartForward(id, server.ID().String(), "127.0.0.1:0", "", addrsOf(server), "", r)
+		Expect(err).ToNot(HaveOccurred())
+		defer f.Stop()
+		get(f.Addr())
+		Eventually(func() int32 { return calls.Load() }, 10*time.Second).Should(BeNumerically(">=", 1))
+		Consistently(func() []routesLine { return routesOf(r.snapshot()) }, time.Second).Should(BeEmpty())
+	})
+
+	It("writes the routes line with empty lists, never null", func() {
+		b, err := json.Marshal(newRoutesLine(pairclient.Routes{}))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(b)).To(Equal(`{"state":"routes","addrs":[],"relays":[],"hints":[]}`))
 	})
 })
