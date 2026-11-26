@@ -3,6 +3,8 @@ package cosignverify
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -65,13 +67,47 @@ var _ = Describe("loading the Sigstore trusted root", func() {
 		Expect(calls).To(HaveLen(3))
 	})
 
-	It("keeps a cache path the caller chose and does not fall back", func() {
-		denied := errors.New("permission denied")
+	It("keeps the error of a writable cache path the caller chose", func() {
+		denied := errors.New("tuf mirror refused the metadata")
 		fake(denied)
-		v := verifier(Policy{TUFRootURL: "https://tuf.invalid/explicit", TUFCachePath: "/chosen/cache"})
+		chosen := GinkgoT().TempDir()
+		v := verifier(Policy{TUFRootURL: "https://tuf.invalid/explicit", TUFCachePath: chosen})
 		_, err := v.loadTrustedMaterial()
 		Expect(err).To(MatchError(denied))
 		Expect(calls).To(HaveLen(1))
-		Expect(calls[0].CachePath).To(Equal("/chosen/cache"))
+		Expect(calls[0].CachePath).To(Equal(chosen))
+	})
+
+	It("reads the root without a disk cache when the chosen cache path is not writable", func() {
+		// A data volume that the LocalAI user cannot write must not refuse
+		// every signed install.
+		parent := GinkgoT().TempDir()
+		Expect(os.Chmod(parent, 0o500)).To(Succeed())
+		DeferCleanup(func() { _ = os.Chmod(parent, 0o700) })
+		chosen := filepath.Join(parent, "sigstore")
+		if dirWritable(chosen) {
+			Skip("the test runs as a user that can write a read-only folder (root)")
+		}
+		fake(errors.New("mkdir: permission denied"), nil)
+		v := verifier(Policy{TUFRootURL: "https://tuf.invalid/unwritable", TUFCachePath: chosen})
+		material, err := v.loadTrustedMaterial()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(material).To(HaveLen(1))
+		Expect(calls).To(HaveLen(2))
+		Expect(calls[0].CachePath).To(Equal(chosen))
+		Expect(calls[1].DisableLocalCache).To(BeTrue())
+	})
+
+	It("uses the process default cache path when the policy sets none", func() {
+		dir := GinkgoT().TempDir()
+		SetDefaultTUFCachePath(dir)
+		DeferCleanup(func() { SetDefaultTUFCachePath("") })
+		fake(nil)
+		v := verifier(Policy{TUFRootURL: "https://tuf.invalid/default-path"})
+		_, err := v.loadTrustedMaterial()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(calls).To(HaveLen(1))
+		Expect(calls[0].CachePath).To(Equal(dir))
+		Expect(calls[0].DisableLocalCache).To(BeFalse())
 	})
 })

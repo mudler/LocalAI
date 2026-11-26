@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -82,7 +83,8 @@ type Policy struct {
 	TUFRootURL string
 
 	// TUFCachePath overrides the on-disk cache directory for the TUF
-	// metadata. Leave empty for the sigstore-go default.
+	// metadata. Leave empty for the process default (SetDefaultTUFCachePath),
+	// or the sigstore-go default ($HOME/.sigstore) when that is not set.
 	TUFCachePath string
 
 	// RequireTLog requires an inclusion proof from the Rekor transparency
@@ -211,6 +213,46 @@ type trustedMaterialEntry struct {
 
 var trustedMaterialCache sync.Map // map[trustedMaterialCacheKey]*trustedMaterialEntry
 
+var (
+	defaultTUFCachePathMu sync.RWMutex
+	defaultTUFCachePath   string
+)
+
+// SetDefaultTUFCachePath sets the TUF cache directory of every policy that
+// does not set TUFCachePath. The server sets it to a folder of its data path,
+// so the trust data survives a container that is recreated and does not
+// depend on a writable home folder. Empty restores the sigstore-go default.
+func SetDefaultTUFCachePath(path string) {
+	defaultTUFCachePathMu.Lock()
+	defer defaultTUFCachePathMu.Unlock()
+	defaultTUFCachePath = path
+}
+
+func (v *Verifier) tufCachePath() string {
+	if v.policy.TUFCachePath != "" {
+		return v.policy.TUFCachePath
+	}
+	defaultTUFCachePathMu.RLock()
+	defer defaultTUFCachePathMu.RUnlock()
+	return defaultTUFCachePath
+}
+
+// dirWritable reports whether this process can create files in dir, making
+// the folder first when it is missing.
+func dirWritable(dir string) bool {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return false
+	}
+	f, err := os.CreateTemp(dir, ".write-probe-*")
+	if err != nil {
+		return false
+	}
+	name := f.Name()
+	_ = f.Close()
+	_ = os.Remove(name)
+	return true
+}
+
 // fetchTrustedRoot reads trusted_root.json through a TUF client. A test
 // replaces it to run without the network.
 var fetchTrustedRoot = func(opts *tuf.Options) (*root.TrustedRoot, error) {
@@ -233,7 +275,8 @@ func (v *Verifier) loadTrustedMaterial() (root.TrustedMaterialCollection, error)
 	if v.trusted != nil {
 		return root.TrustedMaterialCollection{v.trusted}, nil
 	}
-	key := trustedMaterialCacheKey{URL: v.policy.TUFRootURL, Path: v.policy.TUFCachePath}
+	cachePath := v.tufCachePath()
+	key := trustedMaterialCacheKey{URL: v.policy.TUFRootURL, Path: cachePath}
 	val, _ := trustedMaterialCache.LoadOrStore(key, &trustedMaterialEntry{})
 	entry := val.(*trustedMaterialEntry)
 	entry.mu.Lock()
@@ -245,17 +288,18 @@ func (v *Verifier) loadTrustedMaterial() (root.TrustedMaterialCollection, error)
 	if v.policy.TUFRootURL != "" {
 		opts.RepositoryBaseURL = v.policy.TUFRootURL
 	}
-	if v.policy.TUFCachePath != "" {
-		opts.CachePath = v.policy.TUFCachePath
+	if cachePath != "" {
+		opts.CachePath = cachePath
 	}
 	tr, err := fetchTrustedRoot(opts)
-	if err != nil && v.policy.TUFCachePath == "" {
-		// The default cache is $HOME/.sigstore. A process whose home it cannot
-		// write (a container started with another user ID, a read-only home)
-		// cannot create it, and every signed install would fail. The cache only
-		// saves downloads: the client still starts from the root embedded in
-		// sigstore-go and checks the online metadata, so reading it into
-		// memory keeps the same trust.
+	if err != nil && (cachePath == "" || !dirWritable(opts.CachePath)) {
+		// The default cache is $HOME/.sigstore. A process that cannot write
+		// the cache folder (a container started with another user ID, a
+		// read-only home or data volume) cannot create it, and every signed
+		// install would fail. The cache only saves downloads: the client still
+		// starts from the root embedded in sigstore-go and checks the online
+		// metadata, so reading it into memory keeps the same trust. A cache
+		// folder that is writable keeps its error: the cause is elsewhere.
 		xlog.Warn("Sigstore trust could not use its disk cache; reading it without a cache", "cachePath", opts.CachePath, "error", err)
 		noCache := *opts
 		noCache.DisableLocalCache = true

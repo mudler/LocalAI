@@ -32,6 +32,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/fsperm"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
+	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/vram"
 
@@ -178,6 +179,11 @@ func New(opts ...config.AppOption) (*Application, error) {
 		if options.DynamicConfigsDir != "" && options.DataPath != options.DynamicConfigsDir {
 			migrateDataFiles(options.DynamicConfigsDir, options.DataPath)
 		}
+		// Keep the Sigstore trust data that verifies signed add-ons and
+		// backends with the other persistent data. The default is under
+		// $HOME, which a container may not be able to write and loses when
+		// it is recreated.
+		cosignverify.SetDefaultTUFCachePath(filepath.Join(options.DataPath, "cache", "sigstore"))
 	}
 	// Initialize auth database if auth is enabled
 	if options.Auth.Enabled {

@@ -33,11 +33,12 @@ if [ "$(id -u)" = "0" ] && [ "${LOCALAI_RUN_AS_ROOT:-false}" != "true" ]; then
 		case ",$groups," in *",$gid,"*) continue ;; esac
 		[ "$gid" = "0" ] || groups="${groups:+$groups,}$gid"
 	done
-	# The home of the user keeps caches that LocalAI writes, such as the
-	# Sigstore trust that verifies signed add-ons and backends. The image makes
-	# it for uid 10001, so a LOCALAI_UID that is another id gets it too.
+	# The home of the user keeps caches that LocalAI and the backends write
+	# (Python, torch and compiler caches). The image sets HOME=/data/home so
+	# they live in the data volume and survive a recreated container.
 	# LOCALAI_HOME_DIR exists for the entrypoint test.
-	export HOME="${LOCALAI_HOME_DIR:-/home/localai}"
+	export HOME="${LOCALAI_HOME_DIR:-${HOME:-/data/home}}"
+	mkdir -p "$HOME" || echo "warning: could not create the home folder $HOME"
 	if [ -d "$HOME" ] && [ "$(stat -c %u "$HOME")" != "$run_uid" ]; then
 		chown -R "$run_uid:$run_gid" "$HOME" || echo "warning: could not change the owner of $HOME; LocalAI may not be able to keep its caches there"
 	fi
@@ -45,6 +46,22 @@ if [ "$(id -u)" = "0" ] && [ "${LOCALAI_RUN_AS_ROOT:-false}" != "true" ]; then
 		exec setpriv --reuid="$run_uid" --regid="$run_gid" --groups="$groups" -- "$0" "$@"
 	fi
 	exec setpriv --reuid="$run_uid" --regid="$run_gid" --clear-groups -- "$0" "$@"
+fi
+
+# A container started as another user (docker --user, Kubernetes runAsUser)
+# may get a HOME that it cannot write, such as / for a user ID with no passwd
+# entry. Python and the backends keep caches there, so use the data volume, or
+# the temp folder when the data volume is not writable either.
+# LOCALAI_HOME_FALLBACK exists for the entrypoint test.
+home_usable() { [ -n "$1" ] && mkdir -p "$1" 2>/dev/null && [ -w "$1" ]; }
+if ! home_usable "${HOME:-}"; then
+	for candidate in "${LOCALAI_HOME_FALLBACK:-/data/home}" "${TMPDIR:-/tmp}/localai-home-$(id -u)"; do
+		if home_usable "$candidate"; then
+			echo "HOME (${HOME:-unset}) is not writable; using $candidate"
+			export HOME="$candidate"
+			break
+		fi
+	done
 fi
 
 # If we have set EXTRA_BACKENDS, then we need to prepare the backends

@@ -11,13 +11,16 @@
 #   4. A process that is not root is left alone: setpriv is not called.
 #   5. The home folder goes to a LOCALAI_UID that is not 10001, so LocalAI can
 #      keep its caches there (the Sigstore trust of signed add-ons).
+#   6. As root a missing home folder is made and handed to the user.
+#   7. Not as root, a HOME that cannot be written is replaced by the data
+#      volume folder, and a writable HOME is kept.
 set -euo pipefail
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 REPO_ROOT=$(dirname "$(dirname "$(dirname "$(realpath "$0")")")")
 
-mkdir -p "$WORK/bin" "$WORK/owned" "$WORK/foreign" "$WORK/dev" "$WORK/home"
+mkdir -p "$WORK/bin" "$WORK/owned" "$WORK/foreign" "$WORK/dev" "$WORK/home" "$WORK/ro" "$WORK/datahome"
 touch "$WORK/dev/kvm" "$WORK/dev/render" "$WORK/dev/rootdev"
 
 cat >"$WORK/bin/id" <<'SH'
@@ -34,6 +37,7 @@ case "$3" in
 */dev/render) echo 108 ;;
 */dev/rootdev) echo 0 ;;
 */home) echo 10001 ;;
+*/newhome) echo 0 ;;
 *) echo 0 ;;
 esac
 SH
@@ -55,8 +59,9 @@ run() { # run <uid> [env...]
 	shift
 	: >"$WORK/log"
 	# setpriv is faked and exits, so the script never reaches ./local-ai.
-	env "$@" FAKE_UID="$uid" FAKE_LOG="$WORK/log" PATH="$WORK/bin:$PATH" \
-		LOCALAI_DATA_DIRS="$WORK/owned $WORK/foreign" LOCALAI_HOME_DIR="$WORK/home" \
+	# Not as root, the script reaches ./local-ai, which is missing, and stops.
+	env LOCALAI_HOME_DIR="$WORK/home" "$@" FAKE_UID="$uid" FAKE_LOG="$WORK/log" PATH="$WORK/bin:$PATH" \
+		LOCALAI_DATA_DIRS="$WORK/owned $WORK/foreign" LOCALAI_HOME_FALLBACK="$WORK/datahome" \
 		LOCALAI_DEVICE_PATHS="$WORK/dev/kvm $WORK/dev/render $WORK/dev/rootdev $WORK/dev/missing" \
 		bash "$REPO_ROOT/entrypoint.sh" run >"$WORK/out" 2>&1 || true
 }
@@ -76,5 +81,22 @@ grep -q setpriv "$WORK/log" && fail "LOCALAI_RUN_AS_ROOT=true still dropped root
 
 run 10001
 grep -q setpriv "$WORK/log" && fail "a process that is not root was re-run"
+
+run 0 LOCALAI_HOME_DIR="$WORK/newhome"
+[ -d "$WORK/newhome" ] || fail "a missing home folder was not made"
+grep -q "chown -R 10001:10001 $WORK/newhome" "$WORK/log" || fail "a new home folder was not handed to the user"
+
+if [ "$(command id -u)" != "0" ]; then
+	chmod 500 "$WORK/ro"
+	run 1234 HOME="$WORK/ro/home"
+	grep -q "using $WORK/datahome" "$WORK/out" || fail "an unwritable HOME was not replaced by the data folder"
+	chmod 700 "$WORK/ro"
+
+	run 1234 HOME=
+	grep -q "using $WORK/datahome" "$WORK/out" || fail "an empty HOME was not replaced by the data folder"
+
+	run 1234 HOME="$WORK/home"
+	grep -q "is not writable" "$WORK/out" && fail "a writable HOME was replaced"
+fi
 
 echo "entrypoint privilege tests passed"
