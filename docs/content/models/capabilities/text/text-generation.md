@@ -380,6 +380,17 @@ curl http://localhost:8080/v1/responses \
   }'
 ```
 
+A string `input` is a user chat message, not a raw text-completion prefix.
+
+For models configured with `template.use_tokenizer_template: true`, LocalAI
+sends the input messages, instructions, history and tools to the backend as
+structured messages, and the backend applies the model's native chat template.
+This applies to buffered and streaming responses. The same routing applies to
+`/v1/chat/completions`, `/v1/messages` and the Ollama `/api/chat` endpoint.
+Some backends (vLLM, SGLang, transformers and MLX) apply the chat template only
+when the prompt is empty. If LocalAI sent them a flattened prompt, they would
+continue the input text instead of answering it.
+
 #### Streaming responses
 
 Set `"stream": true` to receive Server-Sent Events. Each `response.output_item.added` event assigns an `output_index` to an item.
