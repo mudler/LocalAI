@@ -62,6 +62,16 @@ func ggufFileToMeta(f *gguf.GGUFFile) *GGUFMeta {
 		KeyLength:            arch.AttentionKeyLength,
 		ValueLength:          arch.AttentionValueLength,
 		VocabSize:            arch.VocabularyLength,
+		SlidingWindow:        arch.AttentionSlidingWindow,
+		KeyLengthSWA:         arch.AttentionKeyLengthSWA,
+		ValueLengthSWA:       arch.AttentionValueLengthSWA,
+	}
+	if arch.AttentionSlidingWindow > 0 {
+		for _, swa := range arch.AttentionSlidingWindowLayers {
+			if swa {
+				meta.SlidingWindowLayers++
+			}
+		}
 	}
 	if meta.HeadCountKV == 0 {
 		meta.HeadCountKV = meta.HeadCount

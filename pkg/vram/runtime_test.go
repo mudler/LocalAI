@@ -87,12 +87,72 @@ var _ = Describe("EstimateRuntime", func() {
 	})
 })
 
-var _ = Describe("KVQuantBits", func() {
-	It("is the rounded mean of the two types", func() {
-		Expect(KVQuantBits("", "")).To(Equal(16))
-		Expect(KVQuantBits("q8_0", "q8_0")).To(Equal(9))
-		Expect(KVQuantBits("q4_0", "q4_0")).To(Equal(5))
-		Expect(KVQuantBits("f16", "q8_0")).To(Equal(12))
+// Known layouts, from their GGUF headers. The expected values are worked out
+// by hand: layers x KV heads x (key length + value length) x bytes a value.
+var (
+	// Qwen2.5-7B: grouped-query attention, 28 heads sharing 4 KV heads. The
+	// file states no head size: 3584 / 28 = 128.
+	qwen25_7B = &GGUFMeta{BlockCount: 28, EmbeddingLength: 3584, HeadCount: 28, HeadCountKV: 4}
+	// Qwen3-30B-A3B: a MoE with 128 experts. Its heads are 128 wide although
+	// 2048 / 32 is 64, so the stated key and value lengths must win.
+	qwen3_30BA3B = &GGUFMeta{BlockCount: 48, EmbeddingLength: 2048, HeadCount: 32, HeadCountKV: 4,
+		KeyLength: 128, ValueLength: 128, ExpertCount: 128, VocabSize: 151936}
+)
+
+var _ = Describe("The main VRAM formula on known layouts", func() {
+	files := []FileInput{{URI: "http://a/model.gguf"}}
+	total := func(meta *GGUFMeta, size int64, ctx uint32, opts EstimateOptions) uint64 {
+		files[0].Size = size
+		res, err := EstimateMultiContext(context.Background(), files, []uint32{ctx}, opts, nil, fakeGGUFReader{"http://a/model.gguf": meta})
+		Expect(err).ToNot(HaveOccurred())
+		return res.VRAMForContext(ctx)
+	}
+	// weights + 2% of twice the weights + 150 MB of overhead.
+	base := func(size uint64) uint64 { return size + uint64(0.04*float64(size)) + 150_000_000 }
+
+	It("Llama-3-8B: 32 layers x 8 KV heads x 256 values x 2 bytes = 128 KiB a token", func() {
+		Expect(total(llama8B, 4_920_000_000, 8192, EstimateOptions{})).
+			To(BeNumerically("~", base(4_920_000_000)+131072*8192, 1))
+	})
+
+	It("Qwen2.5-7B (GQA): 28 x 4 x 256 x 2 = 56 KiB a token", func() {
+		Expect(total(qwen25_7B, 4_680_000_000, 32768, EstimateOptions{})).
+			To(BeNumerically("~", base(4_680_000_000)+57344*32768, 1))
+	})
+
+	It("Qwen3-30B-A3B (MoE): 48 x 4 x 256 x 2 = 96 KiB a token, and 51 KiB with q8_0", func() {
+		Expect(total(qwen3_30BA3B, 18_600_000_000, 8192, EstimateOptions{})).
+			To(BeNumerically("~", base(18_600_000_000)+98304*8192, 1))
+		// q8_0 stores 32 values in 34 bytes: 98304 x 17 / 32 = 52224 bytes a token.
+		Expect(total(qwen3_30BA3B, 18_600_000_000, 8192, EstimateOptions{CacheTypeK: "q8_0", CacheTypeV: "q8_0"})).
+			To(BeNumerically("~", base(18_600_000_000)+52224*8192, 1))
+		// kv_quant_bits 8 is q8_0 too.
+		Expect(total(qwen3_30BA3B, 18_600_000_000, 8192, EstimateOptions{KVQuantBits: 8})).
+			To(BeNumerically("~", base(18_600_000_000)+52224*8192, 1))
+	})
+
+	It("Gemma-3-12B (sliding window): 40 of 48 layers keep only 1024 tokens", func() {
+		gemma := &GGUFMeta{BlockCount: 48, EmbeddingLength: 3840, HeadCount: 16, HeadCountKV: 8,
+			KeyLength: 256, ValueLength: 256, SlidingWindow: 1024, SlidingWindowLayers: 40}
+		// One layer: 8 heads x (256 + 256) values x 2 bytes = 8 KiB a token.
+		// 8 full layers x 32768 tokens + 40 window layers x 1024 tokens.
+		want := uint64(8*8192*32768 + 40*8192*1024)
+		Expect(total(gemma, 7_300_000_000, 32768, EstimateOptions{})).To(BeNumerically("~", base(7_300_000_000)+want, 1))
+		// Below the window every layer holds the whole context.
+		Expect(total(gemma, 7_300_000_000, 512, EstimateOptions{})).To(BeNumerically("~", base(7_300_000_000)+48*8192*512, 1))
+	})
+
+	It("keeps the size rule of thumb when the header has no layout", func() {
+		Expect(total(nil, 4_000_000_000, 8192, EstimateOptions{})).To(Equal(uint64(4_000_000_000 + 2048*8192)))
+	})
+
+	It("has the KV term of the runtime breakdown, so the two agree", func() {
+		for _, m := range []*GGUFMeta{llama8B, qwen25_7B, qwen3_30BA3B} {
+			for _, t := range []string{"f16", "q8_0", "q4_0"} {
+				got := total(m, 4_000_000_000, 16384, EstimateOptions{CacheTypeK: t, CacheTypeV: t}) - base(4_000_000_000)
+				Expect(got).To(BeNumerically("~", EstimateRuntime(m, RuntimeOptions{ContextSize: 16384, CacheTypeK: t, CacheTypeV: t}).KVCacheBytes, 1), t)
+			}
+		}
 	})
 })
 

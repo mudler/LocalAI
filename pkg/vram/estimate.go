@@ -74,45 +74,21 @@ func (p modelProfile) hasArchitecture() bool {
 // computeVRAM is pure arithmetic — no I/O. Returns VRAM bytes for a given
 // model profile and context length.
 func computeVRAM(p modelProfile, ctxLen uint32, opts EstimateOptions) uint64 {
-	kvQuantBits := opts.KVQuantBits
-	if kvQuantBits <= 0 {
-		kvQuantBits = 16
-	}
-
 	if p.ggufSize > 0 {
 		meta := p.meta
 		if meta != nil && (meta.BlockCount > 0 || meta.EmbeddingLength > 0) {
-			nLayers := meta.BlockCount
-			if nLayers == 0 {
-				nLayers = 32
-			}
-			dModel := meta.EmbeddingLength
-			if dModel == 0 {
-				dModel = 4096
-			}
-			headCountKV := meta.HeadCountKV
-			if headCountKV == 0 {
-				headCountKV = meta.HeadCount
-			}
-			if headCountKV == 0 {
-				headCountKV = 8
-			}
-			gpuLayers := opts.GPULayers
-			if gpuLayers <= 0 {
-				gpuLayers = int(nLayers)
-			}
-			// In bits, then bytes: a 4-bit cache is half of an 8-bit one.
-			// Integer bytes made it 0, which fell back to 4 bytes (f32).
+			bitsK, bitsV := opts.kvBits()
 			M_model := p.ggufSize
-			M_KV := uint64(kvQuantBits) * uint64(dModel) * uint64(headCountKV) * uint64(ctxLen) / 8
+			M_KV, _ := kvCacheBytes(meta, ctxLen, bitsK, bitsV)
 			P := M_model * 2
 			M_overhead := uint64(0.02*float64(P) + 0.15*1e9)
-			vramBytes := M_model + M_KV + M_overhead
-			if nLayers > 0 && gpuLayers < int(nLayers) {
+			nLayers := meta.BlockCount
+			gpuLayers := opts.GPULayers
+			if nLayers > 0 && gpuLayers > 0 && gpuLayers < int(nLayers) {
 				layerRatio := float64(gpuLayers) / float64(nLayers)
-				vramBytes = uint64(layerRatio*float64(M_model)) + M_KV + M_overhead
+				return uint64(layerRatio*float64(M_model)) + M_KV + M_overhead
 			}
-			return vramBytes
+			return M_model + M_KV + M_overhead
 		}
 		return sizeOnlyVRAM(p.ggufSize, ctxLen)
 	}

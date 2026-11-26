@@ -102,8 +102,10 @@ func EstimateVRAM(ctx context.Context, req VRAMRequest, cl *config.ModelConfigLo
 		GPULayers:   req.GPULayers,
 		KVQuantBits: req.KVQuantBits,
 	}
+	// With no kv_quant_bits, the total sizes the KV cache from the same cache
+	// types as the runtime breakdown, so the two agree.
 	if opts.KVQuantBits == 0 {
-		opts.KVQuantBits = vram.KVQuantBits(runtimeOpts.CacheTypeK, runtimeOpts.CacheTypeV)
+		opts.CacheTypeK, opts.CacheTypeV = runtimeOpts.CacheTypeK, runtimeOpts.CacheTypeV
 	}
 
 	subCtx, cancel := context.WithTimeout(ctx, 10*time.Second)

@@ -101,23 +101,9 @@ func EstimateRuntime(meta *GGUFMeta, opts RuntimeOptions) RuntimeBreakdown {
 		CacheTypeV:    cacheTypeOrDefault(opts.CacheTypeV),
 		UBatch:        opts.UBatch,
 	}
-	bitsK := kvCacheTypeBits[out.CacheTypeK]
-	bitsV := kvCacheTypeBits[out.CacheTypeV]
-	ctx := float64(opts.ContextSize)
-
-	var keyLen, valLen uint32
-	if meta != nil && meta.BlockCount > 0 && meta.HeadCountKV > 0 {
-		keyLen = headLength(meta.KeyLength, meta.EmbeddingLength, meta.HeadCount)
-		valLen = headLength(meta.ValueLength, meta.EmbeddingLength, meta.HeadCount)
-	}
-	if keyLen > 0 && valLen > 0 {
-		perTokenBits := float64(meta.BlockCount) * float64(meta.HeadCountKV) * (float64(keyLen)*bitsK + float64(valLen)*bitsV)
-		out.KVCacheBytes = uint64(math.Ceil(perTokenBits * ctx / 8))
-	} else {
-		// The rule of thumb is for f16 keys and values: 16 bits each.
-		out.KVCacheBytes = uint64(math.Ceil(approximateKVBytesPerToken * ctx * (bitsK + bitsV) / 32))
-		out.Approximate = true
-	}
+	var exact bool
+	out.KVCacheBytes, exact = kvCacheBytes(meta, opts.ContextSize, kvCacheTypeBits[out.CacheTypeK], kvCacheTypeBits[out.CacheTypeV])
+	out.Approximate = !exact
 
 	tokens := uint64(opts.UBatch)
 	if tokens > uint64(opts.ContextSize) {
@@ -133,11 +119,72 @@ func EstimateRuntime(meta *GGUFMeta, opts RuntimeOptions) RuntimeBreakdown {
 	return out
 }
 
-// KVQuantBits is the whole number of bits per value that the legacy VRAM
-// estimate (EstimateOptions.KVQuantBits) uses for a pair of cache types: the
-// mean of the two, rounded.
-func KVQuantBits(cacheTypeK, cacheTypeV string) int {
-	k := kvCacheTypeBits[cacheTypeOrDefault(cacheTypeK)]
-	v := kvCacheTypeBits[cacheTypeOrDefault(cacheTypeV)]
-	return int(math.Round((k + v) / 2))
+// kvCacheBytes is the size of the KV cache of a model at a context length,
+// with keys and values stored at bitsK and bitsV bits each. It is the one KV
+// formula of the package: the total of computeVRAM and the KV part of
+// EstimateRuntime both use it, so they agree.
+//
+// With the layout of a GGUF header it counts, for every layer and every KV
+// head, one key and one value of each token: layers x kv_heads x (key_length
+// x bitsK + value_length x bitsV) / 8 bytes a token. A sliding-window layer
+// counts only the tokens of its window. exact is false when the
+// header does not give the layers or the KV heads; the size is then the rule
+// of thumb of 2 KiB a token at f16, scaled to the bits.
+func kvCacheBytes(meta *GGUFMeta, ctx uint32, bitsK, bitsV float64) (bytes uint64, exact bool) {
+	var keyLen, valLen uint32
+	if meta != nil && meta.BlockCount > 0 && meta.HeadCountKV > 0 {
+		keyLen = headLength(meta.KeyLength, meta.EmbeddingLength, meta.HeadCount)
+		valLen = headLength(meta.ValueLength, meta.EmbeddingLength, meta.HeadCount)
+	}
+	if keyLen > 0 && valLen > 0 {
+		heads := float64(meta.HeadCountKV)
+		full := meta.BlockCount
+		bits := 0.0
+		// A sliding-window layer keeps the window, not the whole context
+		// (llama.cpp's default, swa_full off).
+		if swa := meta.SlidingWindowLayers; swa > 0 && swa <= full && meta.SlidingWindow > 0 {
+			full -= swa
+			cells := math.Min(float64(ctx), float64(meta.SlidingWindow))
+			k, v := keyLen, valLen
+			if meta.KeyLengthSWA > 0 {
+				k = meta.KeyLengthSWA
+			}
+			if meta.ValueLengthSWA > 0 {
+				v = meta.ValueLengthSWA
+			}
+			bits += float64(swa) * heads * (float64(k)*bitsK + float64(v)*bitsV) * cells
+		}
+		bits += float64(full) * heads * (float64(keyLen)*bitsK + float64(valLen)*bitsV) * float64(ctx)
+		return uint64(math.Ceil(bits / 8)), true
+	}
+	return uint64(math.Ceil(approximateKVBytesPerToken * float64(ctx) * (bitsK + bitsV) / 32)), false
+}
+
+// legacyKVBits maps the kv_quant_bits of an estimate request to the bits a
+// value of the matching llama.cpp cache type takes: 8 is q8_0 (8.5 bits with
+// its block scale), 4 is q4_0 (4.5), 5 is q5_0 (5.5). Other values are taken
+// as they are.
+func legacyKVBits(n int) float64 {
+	switch n {
+	case 4:
+		return kvCacheTypeBits["q4_0"]
+	case 5:
+		return kvCacheTypeBits["q5_0"]
+	case 8:
+		return kvCacheTypeBits["q8_0"]
+	}
+	return float64(n)
+}
+
+// kvBits returns the bits of a K and a V value for estimate options: the
+// cache types when set, else kv_quant_bits for both, else f16.
+func (o EstimateOptions) kvBits() (float64, float64) {
+	if o.CacheTypeK != "" || o.CacheTypeV != "" {
+		return kvCacheTypeBits[cacheTypeOrDefault(o.CacheTypeK)], kvCacheTypeBits[cacheTypeOrDefault(o.CacheTypeV)]
+	}
+	if o.KVQuantBits > 0 {
+		b := legacyKVBits(o.KVQuantBits)
+		return b, b
+	}
+	return 16, 16
 }

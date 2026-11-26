@@ -32,6 +32,15 @@ type GGUFMeta struct {
 	ValueLength uint32 `json:",omitempty"`
 	// VocabSize is the number of tokens of the vocabulary, zero when unknown.
 	VocabSize uint64 `json:",omitempty"`
+	// SlidingWindow is the attention window of the sliding-window layers and
+	// SlidingWindowLayers how many of the layers use it (Gemma 3 and
+	// others). Those layers keep only the window in the KV cache, not the
+	// whole context. KeyLengthSWA and ValueLengthSWA are their head sizes
+	// when they differ.
+	SlidingWindow       uint64 `json:",omitempty"`
+	SlidingWindowLayers uint32 `json:",omitempty"`
+	KeyLengthSWA        uint32 `json:",omitempty"`
+	ValueLengthSWA      uint32 `json:",omitempty"`
 }
 
 // GGUFMetadataReader reads GGUF metadata from a URI (e.g. via HTTP Range).
@@ -40,10 +49,15 @@ type GGUFMetadataReader interface {
 }
 
 // EstimateOptions configures VRAM/size estimation.
-// GPULayers and KVQuantBits apply uniformly across all context sizes.
+// GPULayers and the KV cache bits apply uniformly across all context sizes.
 type EstimateOptions struct {
-	GPULayers   int
+	GPULayers int
+	// KVQuantBits is the bits of a KV cache value for both K and V (4, 8,
+	// 16...). CacheTypeK and CacheTypeV, when set, take its place.
 	KVQuantBits int
+	// CacheTypeK and CacheTypeV are llama.cpp KV cache types (f16, q8_0...).
+	CacheTypeK string
+	CacheTypeV string
 }
 
 // VRAMAt holds the VRAM estimate at a specific context size.
