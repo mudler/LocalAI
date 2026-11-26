@@ -30,3 +30,18 @@ func Short(s string) string {
 	out, _ := Cap(s, 300)
 	return out
 }
+
+// CapTail is Cap that keeps the end of s: the newest lines of a log.
+func CapTail(s string, max int) (string, bool) {
+	if !utf8.ValidString(s) {
+		s = strings.ToValidUTF8(s, "�")
+	}
+	if len(s) <= max {
+		return s, false
+	}
+	n := len(s) - max
+	for n < len(s) && !utf8.RuneStart(s[n]) {
+		n++
+	}
+	return s[n:], true
+}

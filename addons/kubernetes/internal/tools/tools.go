@@ -207,6 +207,14 @@ func (r *Runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 		data, err = c.get(args)
 	case ToolAPIResources:
 		data, err = c.apiResources(args)
+	case ToolDescribe:
+		data, err = c.describe(args)
+	case ToolEvents:
+		data, err = c.events(args)
+	case ToolLogs:
+		data, err = c.logs(args)
+	case ToolTop:
+		data, err = c.top(args)
 	default:
 		return contract.Result{}, bad("unknown tool")
 	}
