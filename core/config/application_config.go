@@ -388,6 +388,10 @@ type ApplicationConfig struct {
 	// ChatsAutoResume makes the server go on by itself with a chat turn that
 	// a restart interrupted (LOCALAI_CHATS_AUTO_RESUME). Read at startup.
 	ChatsAutoResume bool
+	// ChatsModelLoadWait is how long a chat turn waits, in total, for a model
+	// that is still loading (LOCALAI_CHATS_MODEL_LOAD_WAIT). Zero is the
+	// default of the chats. Read at startup.
+	ChatsModelLoadWait time.Duration
 	// ChatsToolProviders pins, for a built-in chat tool or skill that several
 	// add-ons replace, the add-on that serves it (tool or skill name -> add-on
 	// ID). Tool and skill names never overlap.
@@ -1593,6 +1597,12 @@ const (
 	DefaultAgentJobRetentionDays = 30
 	DefaultMCPCIJobTimeout       = 10 * time.Minute
 )
+
+// WithChatsModelLoadWait sets how long a chat turn waits for a model that is
+// still loading.
+func WithChatsModelLoadWait(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) { o.ChatsModelLoadWait = d }
+}
 
 // WithChatsAutoResume sets whether the server resumes interrupted chat turns
 // by itself.

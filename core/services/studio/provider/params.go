@@ -45,6 +45,9 @@ type Params struct {
 	// OnUsage, when set, is called once for each model request that reports
 	// token counts. It asks the route for stream usage and timings.
 	OnUsage func(Usage)
+	// OnLoading, when set, is called each time a request finds the model
+	// still loading, before the client waits and asks again.
+	OnLoading func(Loading)
 	// TakeVideos, when set, is asked for each chat request. The data: URIs it
 	// returns are added to the last user message as video_url parts. The agent
 	// harness drops audio and video parts, so videos go in here, once, with
@@ -91,7 +94,7 @@ type Usage struct {
 // LLMWith is LLM with the chat's own settings added to every request.
 func (p *Provider) LLMWith(user *auth.User, model string, params Params) cogito.LLM {
 	llm := clients.NewLocalAILLM(model, "", baseURL)
-	client := p.transport.Client(user)
+	client := p.transport.ClientOnLoading(user, params.OnLoading)
 	if params.isZero() {
 		llm.SetHTTPClient(client)
 		return llm

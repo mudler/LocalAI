@@ -179,6 +179,8 @@ type RunCMD struct {
 	Incognito             string `env:"LOCALAI_INCOGNITO" default:"" enum:",allow,forbid" help:"Whether web UI sessions may start incognito conversations: allow or forbid. Empty: allow. It can be changed in the runtime settings" group:"assistant"`
 	IncognitoMaxLevel     string `env:"LOCALAI_INCOGNITO_MAX_LEVEL" default:"" enum:",memory-off,zero-retention" help:"The highest incognito level the server honours: memory-off (no long-term memory, logs and traces stay) or zero-retention (no persisted content, usage counters only). Empty: zero-retention" group:"assistant"`
 
+	ChatsModelLoadWait time.Duration `env:"LOCALAI_CHATS_MODEL_LOAD_WAIT" default:"15m" help:"How long a chat turn waits, in total, for its model while the model is still loading, before the turn stops with a 'still loading' error. 0 means the default (15m)" group:"assistant"`
+
 	// Removed agent, job and skill options: accepted and ignored.
 	RemovedAgentOptions `embed:""`
 	// The removed LocalAI Assistant switch: accepted, ignored, and warned about.
@@ -788,6 +790,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 	if r.ChatsAutoResume {
 		opts = append(opts, config.WithChatsAutoResume(true))
+	}
+	if r.ChatsModelLoadWait > 0 {
+		opts = append(opts, config.WithChatsModelLoadWait(r.ChatsModelLoadWait))
 	}
 	if r.CollectionsStateDir != "" {
 		opts = append(opts, config.WithCollectionsStateDir(r.CollectionsStateDir))

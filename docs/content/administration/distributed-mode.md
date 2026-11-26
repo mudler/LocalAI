@@ -239,6 +239,8 @@ The `error` envelope keeps OpenAI clients working unchanged; `loading` is additi
 
 The chat UI renders this state inline and retries automatically once the model reports ready. Poll `GET /api/models/{id}/load-status` for the same `loading` object at any time.
 
+An agent chat turn (the chats and agents of the web UI, triggers, jobs and connectors) waits for the load as well. Each `503` with `model_loading`, and each `503` or `429` with a `Retry-After` header, makes the turn wait for the `Retry-After` time (at least 1 second, at most 60 seconds, 5 seconds when the header is absent) and send the request again. These answers do not count as model failures. A spent quota (`429` with `quota_exceeded`) and a model held after a failed load still end the turn at once. The turn waits at most `LOCALAI_CHATS_MODEL_LOAD_WAIT` in total (default `15m`). After that it ends with the reason "the model is still loading", and you can try again later. Other `5xx` answers still count as failures, and four in a row end the turn.
+
 {{% callout style="note" %}}
 A frontend replica that dies mid-load does not wedge the model: the job row carries a lease, and a job whose lease ran out is failed and then released. The lease is renewed on a timer, not on byte progress, because a checkpoint load legitimately transfers zero bytes for many minutes.
 {{% /callout %}}

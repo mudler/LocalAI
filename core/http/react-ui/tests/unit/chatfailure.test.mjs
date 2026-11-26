@@ -37,6 +37,13 @@ test('chat failure: a model in cooldown says when to retry', () => {
   assert.equal(view.hint, 'Try again in 8 seconds.')
 })
 
+test('chat failure: a model that is still loading says so and asks to try again later', () => {
+  const view = failureView(en, { code: 'model_loading', model: 'test' })
+  assert.equal(view.reason, 'The model "test" is still loading.')
+  assert.match(view.hint, /few minutes/)
+  assert.equal(failureView(en, { code: 'model_loading' }).reason, 'The model is still loading.')
+})
+
 test('chat failure: a model the server did not name gets the wording without a name', () => {
   assert.equal(failureView(en, { code: 'model_not_found', model: '' }).reason, 'The model was not found.')
 })

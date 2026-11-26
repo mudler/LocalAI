@@ -3,6 +3,8 @@ package provider_test
 import (
 	"context"
 	"net/http"
+	"sync/atomic"
+	"time"
 
 	"github.com/mudler/cogito"
 	. "github.com/onsi/ginkgo/v2"
@@ -97,13 +99,19 @@ var _ = Describe("refused and failing model requests", func() {
 	})
 
 	It("still retries an overloaded model", func() {
+		var calls atomic.Int32
 		tr := provider.NewTransport()
 		tr.SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Retry-After", "2")
-			w.WriteHeader(http.StatusServiceUnavailable)
+			if calls.Add(1) == 1 {
+				w.Header().Set("Retry-After", "2")
+				w.WriteHeader(http.StatusServiceUnavailable)
+			}
 		}))
+		provider.SetSleep(tr, func(ctx context.Context, _ time.Duration) error { return ctx.Err() })
 		resp, err := get(tr.Client(nil), context.Background(), "http://studio.invalid/v1/chat/completions")
 		Expect(err).ToNot(HaveOccurred(), "a plain 503 became an error")
 		_ = resp.Body.Close()
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		Expect(calls.Load()).To(Equal(int32(2)))
 	})
 })

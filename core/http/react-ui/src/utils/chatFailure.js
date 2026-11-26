@@ -11,6 +11,7 @@ const REASON = {
   model_backend_missing: 'error.reason.model_backend_missing',
   model_cooldown: 'error.reason.model_cooldown',
   model_load_failed: 'error.reason.model_load_failed',
+  model_loading: 'error.reason.model_loading',
   model_not_found: 'error.reason.model_not_found',
   model_backend_outdated: 'error.reason.model_backend_outdated',
   upstream_key: 'error.reason.upstream_key',
@@ -24,12 +25,13 @@ const REASON = {
   interrupted: 'error.reason.interrupted',
 }
 
-const ABOUT_MODEL = new Set(['model_backend_missing', 'model_cooldown', 'model_load_failed', 'model_not_found', 'model_backend_outdated'])
+const ABOUT_MODEL = new Set(['model_backend_missing', 'model_cooldown', 'model_load_failed', 'model_loading', 'model_not_found', 'model_backend_outdated'])
 
 const HINT = {
   model_backend_missing: 'error.hint.model_backend_missing',
   model_cooldown: 'error.hint.model_cooldown',
   model_load_failed: 'error.hint.model_load_failed',
+  model_loading: 'error.hint.model_loading',
   model_not_found: 'error.hint.model_not_found',
   model_backend_outdated: 'error.hint.model_backend_outdated',
   upstream_key: 'error.hint.upstream_key',

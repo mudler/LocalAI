@@ -1982,7 +1982,13 @@ func (s *Service) llmFor(a workspace.Actor) (nibharness.Model, error) {
 	}
 	params := provider.Params{
 		Temperature: set.Temperature, TopP: set.TopP, TopK: set.TopK, ReasoningEffort: set.ReasoningEffort,
-		OnUsage:    func(u provider.Usage) { s.reportUsage(a, u, rec.Model, limit) },
+		OnUsage: func(u provider.Usage) { s.reportUsage(a, u, rec.Model, limit) },
+		// A turn has no event for a model that is loading: it only waits, and
+		// the log says why the turn is slow.
+		OnLoading: func(l provider.Loading) {
+			s.log.Info("studio: the chat's model is loading, waiting", "chat", a.ChatID, "model", rec.Model,
+				"state", l.State, "node", l.Node, "progress", l.Progress, "retry_after", l.RetryAfter, "waited", l.Waited)
+		},
 		TakeVideos: func() []string { return s.takeVideos(a.Principal, a.ChatID) },
 		// An image goes to the model with its message, not with every later one.
 		OnlyLastImages: true,

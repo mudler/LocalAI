@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/mudler/cogito"
 
@@ -28,6 +29,10 @@ import (
 type Transport struct {
 	mu sync.RWMutex
 	h  http.Handler
+	// loadWait is how long one turn may wait for a model that is loading.
+	loadWait time.Duration
+	// sleep waits for a loading model. Tests replace it.
+	sleep func(context.Context, time.Duration) error
 }
 
 // NewTransport returns a Transport with no handler. Requests fail until
@@ -48,10 +53,38 @@ func (t *Transport) handler() http.Handler {
 	return t.h
 }
 
+// SetLoadWait sets how long one turn waits, in total, for a model that is
+// still loading. Zero or less is DefaultLoadWait.
+func (t *Transport) SetLoadWait(d time.Duration) {
+	t.mu.Lock()
+	t.loadWait = d
+	t.mu.Unlock()
+}
+
+func (t *Transport) loadSettings() (time.Duration, func(context.Context, time.Duration) error) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	wait, sleep := t.loadWait, t.sleep
+	if wait <= 0 {
+		wait = DefaultLoadWait
+	}
+	if sleep == nil {
+		sleep = sleepCtx
+	}
+	return wait, sleep
+}
+
 // Client returns an http.Client that sends its requests through t as user. A
 // nil user sends them with no identity, which works when auth is off.
 func (t *Transport) Client(user *auth.User) *http.Client {
-	return &http.Client{Transport: userTransport{t: t, user: user, fails: new(atomic.Int32)}}
+	return t.ClientOnLoading(user, nil)
+}
+
+// ClientOnLoading is Client, and calls onLoading each time a request finds its
+// model still loading, before the client waits and asks again. A nil
+// onLoading is allowed.
+func (t *Transport) ClientOnLoading(user *auth.User, onLoading func(Loading)) *http.Client {
+	return &http.Client{Transport: userTransport{t: t, user: user, fails: new(atomic.Int32), waited: new(atomic.Int64), onLoading: onLoading}}
 }
 
 // MaxModelFailures is how many requests of one client may fail in a row before
@@ -66,6 +99,10 @@ type userTransport struct {
 	// fails counts the failed requests since the last success. One client
 	// serves one turn.
 	fails *atomic.Int32
+	// waited is how long the turn has waited for a loading model, in
+	// nanoseconds.
+	waited    *atomic.Int64
+	onLoading func(Loading)
 }
 
 func (u userTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -76,7 +113,49 @@ func (u userTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		req = req.Clone(auth.WithInternalUser(req.Context(), u.user))
 	}
 	req = dedupeTools(req)
-	resp, err := u.t.RoundTrip(req)
+	for {
+		resp, err := u.t.RoundTrip(req)
+		if err != nil || !isLoading(resp) {
+			return u.answer(req, resp, err)
+		}
+		next, ok := rewind(req)
+		if !ok {
+			// The body cannot be sent again: the loop above retries instead.
+			return u.answer(req, resp, err)
+		}
+		if err := u.waitForLoad(req.Context(), resp); err != nil {
+			return nil, err
+		}
+		req = next
+	}
+}
+
+// waitForLoad waits for a model that answered that it is loading, within what
+// is left of the turn's budget. It closes resp. It returns a permanent error
+// when the budget is spent, and the context's error when the turn stops.
+func (u userTransport) waitForLoad(ctx context.Context, resp *http.Response) error {
+	l := readLoading(resp)
+	_ = resp.Body.Close()
+	budget, sleep := u.t.loadSettings()
+	waited := time.Duration(u.waited.Load())
+	if waited >= budget {
+		return stillLoading(l.Model, budget)
+	}
+	d := min(l.RetryAfter, budget-waited)
+	l.Waited = waited
+	if u.onLoading != nil {
+		u.onLoading(l)
+	}
+	if err := sleep(ctx, d); err != nil {
+		return err
+	}
+	u.waited.Add(int64(d))
+	return nil
+}
+
+// answer turns a response that is not a loading model into what the caller
+// gets: the response, an error the loop retries, or a permanent error.
+func (u userTransport) answer(req *http.Request, resp *http.Response, err error) (*http.Response, error) {
 	if err != nil {
 		if req.Context().Err() != nil {
 			return resp, err // the caller stopped; the model did not fail

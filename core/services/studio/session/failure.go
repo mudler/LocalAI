@@ -21,6 +21,7 @@ const (
 	CodeCooldown        = "model_cooldown"         // a recent load failed and the model rests
 	CodeLoadFailed      = "model_load_failed"      // the model's backend did not start
 	CodeModelNotFound   = "model_not_found"        // no such model
+	CodeModelLoading    = "model_loading"          // the model was still loading when the turn's wait ran out
 	CodeUpstream        = "upstream"               // the provider or proxy behind the model failed
 	CodeUpstreamKey     = "upstream_key"           // the upstream refused the key
 	CodeUpstreamPath    = "upstream_path"          // the upstream has no such endpoint at that address
@@ -48,6 +49,9 @@ const (
 	// upstream answered 401 or 403, or 404 or 405.
 	MarkUpstreamKey  = "[studio:upstream-key]"
 	MarkUpstreamPath = "[studio:upstream-path]"
+	// MarkStillLoading says that the model was still loading when the turn
+	// had waited as long as it may.
+	MarkStillLoading = "[studio:still-loading]"
 )
 
 // Failure is why a turn ended, in a form that is safe to show to the user.
@@ -121,6 +125,10 @@ func Classify(err error) Failure {
 		f.Code, f.Reason = CodeNotAllowed, ReasonNotAllowed
 	case strings.Contains(msg, MarkQuota):
 		f.Code, f.Reason = CodeQuota, ReasonQuota
+	case strings.Contains(msg, MarkStillLoading):
+		f.Code = CodeModelLoading
+		f.Model = firstModel(quotedModelRe.FindStringSubmatch(msg))
+		f.Reason = namedModel("The model", f.Model, " is still loading, so the turn was stopped. A large model can take many minutes to load: try again later.")
 	case isLoadFailure(lower):
 		f = loadFailure(f, msg, lower)
 	case strings.Contains(msg, MarkUpstreamKey):
