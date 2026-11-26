@@ -29,26 +29,28 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
  #include <atomic>
  #include <thread>
  #include "base64.hpp"
-@@ -373,6 +374,9 @@ struct server_slot {
+@@ -373,6 +374,10 @@ struct server_slot {
      // state
      slot_state state = SLOT_STATE_IDLE;
  
-+    // LocalAI paged serving: waits for admission
++    // LocalAI paged serving: waits for admission, and the tokens to recompute after a preemption
 +    bool         paged_wait = false;
++    llama_tokens paged_resume;
 +
      server_prompt prompt;
  
      bool prompt_save(server_prompt_cache & prompt_cache) const {
-@@ -511,6 +515,8 @@ struct server_slot {
+@@ -511,6 +516,9 @@ struct server_slot {
          audio_commit_rows.clear();
          inp_embd.clear();
          rt.reset();
 +
 +        paged_wait = false;
++        paged_resume.clear();
      }
  
      void init_sampler() const {
-@@ -1941,6 +1947,132 @@ private:
+@@ -1941,6 +1949,164 @@ private:
          return res;
      }
  
@@ -64,6 +66,9 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +    }
 +
 +    int64_t paged_prompt_left(const server_slot & slot) const {
++        if (!slot.paged_resume.empty()) {
++            return (int64_t) slot.paged_resume.size() - slot.prompt.n_tokens();
++        }
 +        return slot.state == SLOT_STATE_GENERATING ? 0 : slot.task->n_tokens() - slot.prompt.n_tokens();
 +    }
 +
@@ -74,6 +79,14 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +    // admitted and running: holds cells now or will in this step
 +    bool paged_running(const server_slot & slot) const {
 +        return slot.is_processing() && !slot.paged_wait && slot.state != SLOT_STATE_STARTED && slot.state != SLOT_STATE_WAIT_OTHER;
++    }
++
++    // a slot whose state is only its text tokens and its sampler can be rebuilt by decoding them again
++    bool paged_resumable(const server_slot & slot) const {
++        return slot.task->type == SERVER_TASK_TYPE_COMPLETION && !slot.can_speculate() && !slot.task->tokens.has_mtmd &&
++               !slot.prompt.tokens.has_mtmd && !slot.task->is_parent() && !slot.task->is_child() &&
++               slot.task->n_tokens_shared == 0 && slot.inp_embd.empty() && !lora_all_alora(slot.lora) &&
++               ctx_tgt_seq_rm_type == COMMON_CONTEXT_SEQ_RM_TYPE_PART;
 +    }
 +
 +    // a slot that waits for admission may still hold the cells of its previous task
@@ -147,7 +160,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +                n_demand += serving_policy::slot_demand(gen, gen && slot.can_speculate() ? std::min(slot.get_n_draft_max(), 64) : 0, paged_prompt_left(slot));
 +                const auto type = slot.task->type;
 +                if (type != SERVER_TASK_TYPE_TTS && type != SERVER_TASK_TYPE_REALTIME && type != SERVER_TASK_TYPE_TRANSCRIBE_RT) {
-+                    cands.push_back({ slot.id, slot.task->id, false });
++                    cands.push_back({ slot.id, slot.task->id, paged_resumable(slot) });
 +                }
 +            }
 +            if (!serving_policy::pool_short(llama_n_ctx(ctx_tgt), n_used, n_demand)) {
@@ -175,13 +188,34 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +            slot.prompt_clear();
 +            return;
 +        }
-+        GGML_ABORT("resume by recompute is not implemented");
++        SLT_INF(slot, "paged: KV pool full, preempting %d tokens for recompute (preemptions = %" PRId64 ")\n", slot.prompt.n_tokens(), ++n_paged_preempt);
++        if (slot.state == SLOT_STATE_GENERATING) {
++            // keep every decoded token, the sampler and the grammar keep their state
++            slot.paged_resume = slot.prompt.tokens.get_text_tokens();
++            slot.state = SLOT_STATE_PROCESSING_PROMPT;
++        }
++        slot.prompt_clear();
++        slot.i_batch    = -1;
++        slot.paged_wait = true;
++    }
++
++    // decode the tokens of a preempted slot again, then let it generate from where it stopped
++    void paged_resume_fill(server_slot & slot, int32_t n_fill_max) {
++        while (slot.prompt.n_tokens() < (int32_t) slot.paged_resume.size() && batch.size() < n_fill_max) {
++            const llama_token tok = slot.paged_resume[slot.prompt.n_tokens()];
++            GGML_ASSERT(batch.add(slot.id, tok, slot.prompt.tokens.pos_next(), false, false));
++            slot.prompt.tokens.push_back(tok);
++        }
++        if (slot.prompt.n_tokens() == (int32_t) slot.paged_resume.size()) {
++            slot.paged_resume.clear();
++            slot.state = SLOT_STATE_GENERATING;
++        }
 +    }
 +
      std::vector<common_adapter_lora_info> construct_lora_list(const std::map<int, float> & config) const {
          std::vector<common_adapter_lora_info> output = params_base.lora_adapters; // copy
          for (size_t i = 0; i < output.size(); ++i) {
-@@ -4071,6 +4203,11 @@ private:
+@@ -4071,6 +4237,11 @@ private:
          // start populating the batch for this iteration
          batch.clear();
  
@@ -193,7 +227,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
          // track if given slot can be batched with slots already in the batch
          auto & slot_batched = batch.slot_batched;
  
-@@ -4216,12 +4353,16 @@ private:
+@@ -4216,12 +4387,16 @@ private:
          auto & alora_scale       = batch.alora_scale;
          auto & alora_disabled_id = batch.alora_disabled_id;
  
@@ -211,20 +245,27 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      return; // batch is full, skip remaining slots
                  }
  
-@@ -4248,6 +4389,12 @@ private:
+@@ -4248,6 +4423,19 @@ private:
  
                  // this slot still has a prompt to be processed
                  if (slot.state == SLOT_STATE_PROCESSING_PROMPT || slot.state == SLOT_STATE_STARTED) {
-+                    // LocalAI paged serving: admission
-+                    if (params_base.paged_serving && (slot.state == SLOT_STATE_STARTED || slot.paged_wait) &&
-+                        slot.task->n_tokens() < slot.n_ctx && !paged_admit(slot, slot.task->n_tokens())) {
-+                        return;
++                    // LocalAI paged serving: admission, then the recompute of a preempted slot
++                    if (params_base.paged_serving) {
++                        const int64_t n_need = slot.paged_resume.empty() ? slot.task->n_tokens() : (int64_t) slot.paged_resume.size();
++                        if ((slot.state == SLOT_STATE_STARTED || slot.paged_wait) && n_need < slot.n_ctx && !paged_admit(slot, n_need)) {
++                            return;
++                        }
++                        if (!slot.paged_resume.empty()) {
++                            paged_resume_fill(slot, n_fill_max);
++                            slot_batched = slot_batched ? slot_batched : &slot;
++                            return;
++                        }
 +                    }
 +
                      const auto & input_tokens = slot.task->tokens;
  
                      // used to determine the number of tokens added to the batch for the current slot
-@@ -4694,7 +4841,8 @@ private:
+@@ -4694,7 +4882,8 @@ private:
                      const int32_t n_decision_first = slot.task->type == SERVER_TASK_TYPE_DECISION ? slot.task->decision.pos_first() : -1;
  
                      // add prompt tokens for processing in the current batch
