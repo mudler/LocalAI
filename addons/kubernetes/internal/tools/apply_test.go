@@ -93,6 +93,15 @@ var _ = Describe("apply and patch", func() {
 		}
 		_, err := g.preview("op", tools.ToolApply, map[string]any{"manifest": configMap("team-a", "a", "1") + "---\n"})
 		Expect(err).NotTo(HaveOccurred(), "a trailing separator is one object")
+		for _, m := range []string{
+			"apiVersion: v1\nkind: List\nmetadata:\n  name: x\nitems: []\n",
+			"apiVersion: v1\nkind: ConfigMapList\nmetadata:\n  name: x\nitems: []\n",
+		} {
+			_, err = g.preview("op", tools.ToolApply, map[string]any{"manifest": m})
+			Expect(err).To(HaveOccurred(), m)
+		}
+		_, err = g.preview("op", tools.ToolApply, map[string]any{"manifest": "apiVersion: example.com/v1\nkind: IPAllowList\nmetadata:\n  name: office\n  namespace: team-a\nspec:\n  cidrs: [192.0.2.0/24]\n"})
+		Expect(err).NotTo(HaveOccurred(), "a custom kind whose name ends in List is one object")
 		_, err = g.preview("op", tools.ToolApply, map[string]any{"manifest": strings.Repeat("#", 16<<10+1)})
 		Expect(err).To(MatchError(ContainSubstring("at most")))
 	})

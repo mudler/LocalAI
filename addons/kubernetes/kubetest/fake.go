@@ -90,7 +90,9 @@ var Resources = []*metav1.APIResourceList{
 	{GroupVersion: "rbac.authorization.k8s.io/v1", APIResources: []metav1.APIResource{
 		res("clusterroles", "ClusterRole", false, all), res("roles", "Role", true, all)}},
 	{GroupVersion: "apiextensions.k8s.io/v1", APIResources: []metav1.APIResource{res("customresourcedefinitions", "CustomResourceDefinition", false, all, "crd", "crds")}},
-	{GroupVersion: "example.com/v1", APIResources: []metav1.APIResource{res("widgets", "Widget", true, all, "wd")}},
+	{GroupVersion: "example.com/v1", APIResources: []metav1.APIResource{res("widgets", "Widget", true, all, "wd"),
+		// A custom kind whose name ends in List, as some network add-ons have.
+		res("ipallowlists", "IPAllowList", true, all)}},
 }
 
 var listKinds = map[schema.GroupVersionResource]string{
@@ -104,6 +106,7 @@ var listKinds = map[schema.GroupVersionResource]string{
 	{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterroles"}: "ClusterRoleList",
 	{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "roles"}:        "RoleList",
 	{Group: "example.com", Version: "v1", Resource: "widgets"}:                    "WidgetList",
+	{Group: "example.com", Version: "v1", Resource: "ipallowlists"}:               "IPAllowListList",
 }
 
 // New returns a cluster with the objects in it.

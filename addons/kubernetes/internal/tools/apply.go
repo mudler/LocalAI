@@ -150,7 +150,11 @@ func readManifest(text string) (*unstructured.Unstructured, error) {
 		}
 	}
 	u := &unstructured.Unstructured{Object: first}
-	if u.IsList() || strings.HasSuffix(u.GetKind(), "List") {
+	// A list is kind List, or a list kind of a type (ConfigMapList), which
+	// holds its objects in items. A custom kind whose name only ends in List
+	// (IPAllowList) is one object; a list kind that the cluster does not
+	// serve is refused when it is mapped.
+	if u.GetKind() == "List" || (strings.HasSuffix(u.GetKind(), "List") && u.IsList()) {
 		return nil, bad("the manifest is a list: apply one object at a time")
 	}
 	if u.GetAPIVersion() == "" || u.GetKind() == "" || u.GetName() == "" {
