@@ -185,8 +185,17 @@ describe('check', () => {
     expect(lastUpdateCheck(store.get())).toBe(NOW)
   })
 
-  it('a 404 on the dev manifest is an error (the dev release always exists)', async () => {
-    const { u } = await rig({ self: devSelf })
+  it('a 404 on the dev manifest means no update, not an error (debug-key dev builds have no manifest)', async () => {
+    const { u, plugin } = await rig({ self: devSelf })
+    await u.check(NOW)
+    expect(u.status()).toEqual({ phase: 'idle' })
+    expect(u.offer()).toBeUndefined()
+    expect(plugin.count('fetchText')).toBe(1)
+  })
+
+  it('another HTTP error on the manifest is still an error', async () => {
+    const { u, plugin } = await rig({ self: devSelf })
+    plugin.texts.set(`${DEV_APP_URL.slice(0, DEV_APP_URL.lastIndexOf('/'))}/android-update-dev.json`, { status: 500, text: '' })
     await u.check(NOW)
     expect(u.status().phase).toBe('error')
   })

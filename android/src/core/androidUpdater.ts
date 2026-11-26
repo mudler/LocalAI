@@ -164,8 +164,11 @@ export function createAndroidUpdater(p: { plugin: UpdaterPlugin; store: ConfigSt
     const urls = feedUrls(self)
     try {
       const r = await plugin.fetchText({ url: urls.manifest, maxBytes: MAX_FEED_BYTES })
-      // GitHub's `latest` has no Android manifest until the first stable APK is released.
-      if (r.status === 404 && self.channel === 'stable') {
+      // No manifest means no update to offer. GitHub's `latest` has none until the
+      // first stable APK is released, and `dev-master` has none while CI publishes
+      // the dev APK signed with a throwaway debug key, which no installed app
+      // could update to (see .github/workflows/android-client.yaml).
+      if (r.status === 404) {
         current = undefined
         file = undefined
         set({ phase: 'idle' })
