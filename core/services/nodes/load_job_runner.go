@@ -505,8 +505,10 @@ func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, ref LoadJobR
 				}
 				// The tracker is keyed by model. Several loads of one model
 				// may run on several nodes, so only the one on this job's
-				// node is this job's progress.
-				if st := r.stagingTracker.Get(trackingKey); st != nil && (u.NodeName == "" || st.NodeName == u.NodeName) {
+				// node is this job's progress. A job with no node yet has
+				// none: another node's bytes would move its progress time and
+				// hide a stall.
+				if st := r.stagingTracker.Get(trackingKey); st != nil && u.NodeName != "" && st.NodeName == u.NodeName {
 					u.BytesSent, u.TotalBytes = st.BytesSent, st.TotalBytes
 					u.FileIndex, u.TotalFiles = st.FileIndex, st.TotalFiles
 					if u.BytesSent > 0 && startedAt.IsZero() {

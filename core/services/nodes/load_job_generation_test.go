@@ -271,6 +271,32 @@ var _ = Describe("Load job generation fencing", func() {
 			return next.Ref()
 		}
 
+		// The staging tracker is keyed by model. A job that has no node yet
+		// must not take the progress of a load of the same model on another
+		// node: it would look like it moved, and its stall would be hidden.
+		It("copies no staging progress into a job that has no node", func() {
+			job, _, err := registry.ClaimLoadJobOn(ctx, "no-node-yet", "", "frontend-a")
+			Expect(err).ToNot(HaveOccurred())
+			router.stagingTracker.Start("no-node-yet", "another-node", 1)
+			router.stagingTracker.UpdateFile("no-node-yet", "model.gguf", 1, 40, 100, "1 MB/s")
+
+			release := make(chan struct{})
+			done := make(chan error, 1)
+			go func() {
+				defer GinkgoRecover()
+				done <- router.runLoadOwner(ctx, job.Ref(), func(context.Context) error { <-release; return nil })
+			}()
+			// Several heartbeats pass while the work runs.
+			Consistently(func() int64 {
+				row, err := registry.GetLoadJobByRef(ctx, job.Ref())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(row).ToNot(BeNil())
+				return row.BytesSent
+			}, 3*loadJobHeartbeatInterval, 100*time.Millisecond).Should(BeZero())
+			close(release)
+			Eventually(done, 10*time.Second).Should(Receive(BeNil()))
+		})
+
 		It("cancels the work when another generation took the model, and leaves that generation alone", func() {
 			job, _, err := registry.ClaimLoadJob(ctx, "stale-owner", "frontend-a")
 			Expect(err).ToNot(HaveOccurred())
