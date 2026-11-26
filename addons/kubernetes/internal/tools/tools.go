@@ -103,6 +103,7 @@ type Runtime struct {
 	Sleep func(ctx context.Context, d time.Duration) error
 
 	applyMu sync.Mutex
+	busy    sync.Map // namespace/pod -> struct{}: one exec per pod at a time
 	jmu     sync.Mutex
 	jrnl    *journal.Journal
 	dir     string

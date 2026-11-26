@@ -75,6 +75,8 @@ func (c *call) parseOp(tool string, args map[string]json.RawMessage) (writeOp, e
 		return c.parseApply(args)
 	case ToolPatch:
 		return c.parsePatch(args)
+	case ToolExec:
+		return c.parseExec(args)
 	}
 	return nil, bad("unknown tool")
 }
@@ -117,35 +119,18 @@ func (r *Runtime) Receipt(_ context.Context, op string) (contract.Receipt, error
 
 // Apply makes the write once. It keeps a "started" note before it writes and
 // never writes an operation twice: an operation that was started and has no
-// receipt is unknown, and a person decides.
+// receipt is unknown, and a person decides. The lock covers the bookkeeping
+// only, so a long exec or drain does not hold up the writes of other people.
 func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract.Revision) (contract.Receipt, error) {
 	opID := env.Request.OperationID
+	op, c, rc, err := r.begin(ctx, env, rev)
+	if op == nil {
+		return rc, err
+	}
+	out, err := op.apply(c)
 	r.applyMu.Lock()
 	defer r.applyMu.Unlock()
 	j := r.journal()
-	if rc, ok := j.Receipt(opID); ok {
-		return rc, nil
-	}
-	if _, started := j.Started(opID); started {
-		return contract.Receipt{OperationID: opID, State: contract.ReceiptUnknown, Revision: rev}, nil
-	}
-	op, c, err := r.parseWrite(ctx, env)
-	if err != nil {
-		return contract.Receipt{}, translate(err)
-	}
-	_, now, err := op.inspect(c)
-	if err != nil {
-		return contract.Receipt{}, translate(err)
-	}
-	if now != rev.Data {
-		rc := contract.Receipt{OperationID: opID, State: contract.ReceiptRejected, Revision: rev,
-			Result: contract.Result{Payload: smallResult(map[string]any{"stale": true, "note": "The object or the policy changed after the preview. Nothing was changed."})}}
-		return rc, j.Commit(rc)
-	}
-	if err := j.Begin(opID, r.now()); err != nil {
-		return contract.Receipt{}, err
-	}
-	out, err := op.apply(c)
 	switch {
 	case err == nil:
 	case definite(err):
@@ -160,8 +145,41 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	if len(payload) > MaxPayload {
 		payload = smallResult(map[string]any{"note": "done; the result was too large to show"})
 	}
-	rc := contract.Receipt{OperationID: opID, State: contract.ReceiptCommitted, Revision: rev, Result: contract.Result{Payload: payload}}
+	rc = contract.Receipt{OperationID: opID, State: contract.ReceiptCommitted, Revision: rev, Result: contract.Result{Payload: payload}}
 	return rc, j.Commit(rc)
+}
+
+// begin checks the journal, checks the write again against the revision of
+// the preview and notes the start. A nil op means Apply answers with rc and
+// err and writes nothing.
+func (r *Runtime) begin(ctx context.Context, env contract.Envelope, rev contract.Revision) (writeOp, *call, contract.Receipt, error) {
+	opID := env.Request.OperationID
+	r.applyMu.Lock()
+	defer r.applyMu.Unlock()
+	j := r.journal()
+	if rc, ok := j.Receipt(opID); ok {
+		return nil, nil, rc, nil
+	}
+	if _, started := j.Started(opID); started {
+		return nil, nil, contract.Receipt{OperationID: opID, State: contract.ReceiptUnknown, Revision: rev}, nil
+	}
+	op, c, err := r.parseWrite(ctx, env)
+	if err != nil {
+		return nil, nil, contract.Receipt{}, translate(err)
+	}
+	_, now, err := op.inspect(c)
+	if err != nil {
+		return nil, nil, contract.Receipt{}, translate(err)
+	}
+	if now != rev.Data {
+		rc := contract.Receipt{OperationID: opID, State: contract.ReceiptRejected, Revision: rev,
+			Result: contract.Result{Payload: smallResult(map[string]any{"stale": true, "note": "The object or the policy changed after the preview. Nothing was changed."})}}
+		return nil, nil, rc, j.Commit(rc)
+	}
+	if err := j.Begin(opID, r.now()); err != nil {
+		return nil, nil, contract.Receipt{}, err
+	}
+	return op, c, contract.Receipt{}, nil
 }
 
 func smallResult(data map[string]any) json.RawMessage {
