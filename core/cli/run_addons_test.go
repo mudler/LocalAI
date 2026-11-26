@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/alecthomas/kong"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
@@ -87,6 +88,9 @@ var _ = Describe("Add-on owner flags", Serial, func() {
 	// docker --user with a data volume of another owner: the start must go on
 	// without add-ons instead of stopping on the add-on folder.
 	It("turns add-ons off when the add-on folder cannot be written", func() {
+		if runtime.GOOS == "windows" {
+			Skip("Windows ignores the read-only mode of a folder")
+		}
 		if os.Getuid() == 0 {
 			Skip("root writes a read-only folder; this needs an unprivileged user")
 		}
