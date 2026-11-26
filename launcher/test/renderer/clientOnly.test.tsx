@@ -240,6 +240,19 @@ describe('first connect', () => {
     expect(screen.getByText('P2P is not available in this build of the app.')).toBeTruthy()
     expect(screen.queryByText(/Install it first/)).toBeNull()
   })
+
+  it('says the server needs a relay when no direct connection could open', async () => {
+    const b = fakeClientBridge(baseState())
+    b.addServerByInvite = async () => ({ ok: false, reason: 'needs-relay', detail: '' })
+    render(<App bridge={b} now={NOW} />)
+    await settle()
+    fireEvent.click(screen.getByTestId('first-connect-invite'))
+    await settle()
+    fireEvent.change(screen.getByLabelText('Invite link'), { target: { value: INVITE } })
+    fireEvent.click(screen.getByTestId('invite-submit'))
+    await settle()
+    expect(screen.getByText(/Cannot connect directly to this server\..*local-ai p2p relay.*Then scan a new invite\./)).toBeTruthy()
+  })
 })
 
 describe('the bar', () => {

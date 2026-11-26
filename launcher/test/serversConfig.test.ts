@@ -138,6 +138,17 @@ describe('servers over P2P on a loopback host of their own', () => {
     expect(remotes(r2.config).map((x) => x.url)).toEqual(['http://127.0.0.2:41001', 'http://127.0.0.3:41001'])
   })
 
+  it('keeps the hints of a saved server, and saves none when there are none', () => {
+    const hint = '/ip4/192.0.2.7/udp/4001/quic-v1/p2p/12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGo'
+    expect(parseP2PTarget(target({ hints: [hint] }))).toEqual({ peer: PEER, port: 41001, addrs: [], relays: [], hints: [hint] })
+    expect(parseP2PTarget(target({ hints: [] }))).toEqual({ peer: PEER, port: 41001, addrs: [], relays: [] })
+    expect(parseP2PTarget(target({ hints: [hint, hint, hint] }))).toBeNull()
+    expect(parseP2PTarget(target({ hints: ['not an address'] }))).toBeNull()
+    const r = addP2PRemote(cfg(), { name: 'Studio', target: target({ host: '127.0.0.2', hints: [hint] }) }, () => 'srv_00000001')
+    if (!r.ok) throw new Error(r.reason)
+    expect(remotes(r.config)[0]?.p2p?.hints).toEqual([hint])
+  })
+
   it('drops a stored server whose address does not match its host', () => {
     const c = cfg({ remotes: [{ id: 'srv_00000001', name: 'Studio', url: 'http://127.0.0.1:41001', p2p: target({ host: '127.0.0.2' }) }] })
     expect(remotes(c)).toEqual([])

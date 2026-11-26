@@ -157,6 +157,7 @@ const PORT_IN_USE = /address already in use|EADDRINUSE/i
  */
 export function tunnelLine(t: TunnelStatusView): string {
   const state = S.invite.tunnel[t.state] ?? t.state
+  if (t.code === 'needs_relay') return `${state}: ${S.invite.needsRelay}`
   if (!t.error) return state
   return `${state}: ${PORT_IN_USE.test(t.error) ? S.invite.portInUse : t.error}`
 }

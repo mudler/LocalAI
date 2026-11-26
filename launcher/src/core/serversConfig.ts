@@ -33,12 +33,15 @@ export function parseP2PTarget(v: unknown): P2PTarget | null {
   const o = v as Record<string, unknown>
   const addrs = strings(o.addrs, 2)
   const relays = strings(o.relays, 3)
+  const hints = strings(o.hints, 2)
   if (typeof o.peer !== 'string' || !P2P_PEER_RE.test(o.peer)) return null
   if (typeof o.port !== 'number' || !Number.isInteger(o.port) || o.port < 1024 || o.port > 65535) return null
-  if (!addrs || !relays) return null
-  if (o.host === undefined) return { peer: o.peer, port: o.port, addrs, relays }
+  if (!addrs || !relays || !hints) return null
+  // An empty hint list is not saved: a target from before hints reads back the same.
+  const t: P2PTarget = { peer: o.peer, port: o.port, addrs, relays, ...(hints.length > 0 ? { hints } : {}) }
+  if (o.host === undefined) return t
   if (!isP2PHost(o.host)) return null
-  return { peer: o.peer, port: o.port, addrs, relays, host: o.host }
+  return { ...t, host: o.host }
 }
 
 // No leading zeros: the URL parser reads them otherwise, and the origin would differ.

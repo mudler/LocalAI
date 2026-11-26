@@ -595,6 +595,7 @@ export type InviteFailReason =
   | 'open-relay'
   | 'no-binary'
   | 'pair-failed'
+  | 'needs-relay'
 
 export type AddServerByInviteResult =
   | { ok: true; view: ServersView; id: string; phrase: string; opened: boolean }
@@ -606,6 +607,8 @@ export interface TunnelStatusView {
   /** direct, hole_punched or relayed. */
   path?: string
   error?: string
+  /** A stable error code: `needs_relay` when only a relay can reach the server. */
+  code?: string
 }
 
 export interface UpdateServerInput {

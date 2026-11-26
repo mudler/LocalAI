@@ -67,7 +67,12 @@ export interface PairResult {
   peer: string
 }
 
-export type PairFail = 'pair-failed' | 'no-binary'
+/**
+ * Why a pairing failed. `needs-relay`: the device reached the server only
+ * through a public relay of the link and no hole punch opened a direct path;
+ * the code was not sent, so the invite stays pending.
+ */
+export type PairFail = 'pair-failed' | 'no-binary' | 'needs-relay'
 
 /** What a pairing gives: the result, or why it failed in the words of the pairing tool. */
 export type PairOutcome = { ok: true; result: PairResult } | { ok: false; reason: PairFail; detail: string }
@@ -110,6 +115,8 @@ export interface TunnelStatus {
   /** direct, hole_punched or relayed, after the first forwarded connection. */
   path?: string
   error?: string
+  /** A stable error code of a `down` line: `needs_relay`. */
+  code?: string
 }
 
 /** Delay before the n-th restart (n from 0): 1 s doubling up to 60 s. */
@@ -124,8 +131,8 @@ export function backoffMs(n: number): number {
  */
 export function parseForwardState(
   line: string,
-): { state: 'ready' } | { state: 'up'; path?: string } | { state: 'down'; error?: string } | undefined {
-  let j: { state?: unknown; path?: unknown; error?: unknown }
+): { state: 'ready' } | { state: 'up'; path?: string } | { state: 'down'; error?: string; code?: string } | undefined {
+  let j: { state?: unknown; path?: unknown; error?: unknown; code?: unknown }
   try {
     j = JSON.parse(line) as typeof j
   } catch {
@@ -139,7 +146,11 @@ export function parseForwardState(
     case 'up':
       return typeof j.path === 'string' && j.path !== '' && j.path !== 'none' ? { state: 'up', path: j.path } : { state: 'up' }
     case 'down':
-      return typeof j.error === 'string' && j.error !== '' ? { state: 'down', error: j.error } : { state: 'down' }
+      return {
+        state: 'down',
+        ...(typeof j.error === 'string' && j.error !== '' ? { error: j.error } : {}),
+        ...(typeof j.code === 'string' && j.code !== '' ? { code: j.code } : {}),
+      }
   }
   return undefined
 }

@@ -98,6 +98,8 @@ describe('invite parsing and the server list', () => {
     expect(parseForwardState('{"state":"listening"}')).toEqual({ state: 'ready' })
     expect(parseForwardState('{"state":"up","path":"none"}')).toEqual({ state: 'up' })
     expect(parseForwardState('{"state":"down","error":"x"}')).toEqual({ state: 'down', error: 'x' })
+    expect(parseForwardState('{"state":"down","error":"x","code":"needs_relay"}')).toEqual({ state: 'down', error: 'x', code: 'needs_relay' })
+    expect(parseForwardState('{"state":"down"}')).toEqual({ state: 'down' })
     expect(parseForwardState('not json')).toBeUndefined()
   })
 })

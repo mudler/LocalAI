@@ -150,6 +150,16 @@ describe('RemoteServers with no local server', () => {
     expect(saved.url).toBe('http://127.0.0.1:41234')
   })
 
+  it('saves the hints of the invite with the server and starts the forwarder with them', async () => {
+    const r = await rig()
+    const hint = '/ip4/192.0.2.7/udp/4001/quic-v1/p2p/12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGo'
+    const res = await r.servers.addServerByInvite({ link: `${invite()}&h=${encodeURIComponent(hint)}` })
+    expect(res.ok).toBe(true)
+    const saved = remotes(r.store.get())[0]
+    expect(saved.p2p?.hints).toEqual([hint])
+    expect(r.p2p.starts[0]?.target.hints).toEqual([hint])
+  })
+
   it('startTunnels does nothing while P2P is not available', async () => {
     const r = await rig()
     await r.servers.addServerByInvite({ link: invite() })
