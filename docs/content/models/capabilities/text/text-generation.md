@@ -716,6 +716,8 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 | `n_ctx_checkpoints` or `ctx_checkpoints` | integer | Maximum number of context checkpoints per slot (used for partial-prefix recovery, e.g. SWA). Default: `32`. | `ctx_checkpoints:16` |
 | `checkpoint_min_step` or `checkpoint_min_spacing` (aliases: `checkpoint_every_nt`, `checkpoint_every_n_tokens`) | integer | Minimum spacing in tokens between context checkpoints. `0` disables the minimum-spacing gate. Default: `256`. (Renamed upstream from `checkpoint_every_nt`; semantics shifted from a fixed cadence to a minimum spacing.) | `checkpoint_min_step:1024` |
 | `split_mode` or `sm` | string | How to split the model across multiple GPUs: `none` (single GPU only), `layer` (default - split layers and KV across GPUs), `row` (deprecated upstream; use `tensor`), `tensor` (experimental tensor parallelism: each layer is split across all GPUs for lower token latency). `tensor` needs flash attention (`flash_attention: "on"`, or `"auto"`, which llama.cpp turns on in this mode), `fit_params:false` and a `context_size` you set yourself, and it is not implemented for every architecture. Quantized KV cache (`cache_type_k`/`cache_type_v`) works with it on the bundled llama.cpp ([#23792](https://github.com/ggml-org/llama.cpp/pull/23792)); `f16` is the safe choice. The NVIDIA CUDA backends ship NCCL for the GPU-to-GPU reductions. See the [tensor split configuration]({{%relref "/models/gpu-acceleration#llama-cpp-tensor-split" %}}). | `split_mode:tensor` |
+| `backend_sampling` or `gpu_sampling` | string | Where tokens are sampled: `off` (default, on the CPU), `on` (on the device that holds the output, such as the GPU) or `auto` (decided per request). `true`/`false` and `1`/`0` also work. See [Backend sampling](#backend-sampling) below. | `backend_sampling:auto` |
+| `backend_sampling_min_slots` | integer | With `backend_sampling:auto`, the number of requests that must run at the same time before a request samples on the GPU. Default: `4`. | `backend_sampling_min_slots:8` |
 
 **Example configuration with options:**
 
@@ -738,6 +740,18 @@ options:
 **Note:** The `parallel` option can also be set via the `LLAMACPP_PARALLEL` environment variable, and `grpc_servers` can be set via the `LLAMACPP_GRPC_SERVERS` environment variable. Options specified in the YAML file take precedence over environment variables.
 
 An explicit `parallel: 1` (or `n_parallel: 1`) in the model options takes precedence over `LLAMACPP_PARALLEL`, like any other value. The environment variable is only used when neither option is set; if it is missing or not a number, the backend uses one slot.
+
+##### Backend sampling
+
+By default llama.cpp copies the logits of every slot to the host after each decode step and samples the slots one after the other on the CPU. With backend sampling (upstream `--backend-sampling`, [ggml-org/llama.cpp#25532](https://github.com/ggml-org/llama.cpp/pull/25532)) the sampler chain runs on the device that holds the output, so the copy goes away and the slots are sampled in parallel. The gain grows with the number of slots that decode together: one stream gains little, many concurrent streams gain the most. The feature is experimental upstream and is off by default.
+
+- `backend_sampling:on` asks for backend sampling on every request.
+- `backend_sampling:auto` decides per request. A request samples on the backend only when all of these hold: the model is offloaded to a GPU (a GPU device is present and `gpu_layers` is not `0`), `split_mode` is not `tensor`, the request has no grammar (no JSON schema, no `response_format` grammar, no tool-call grammar), no reasoning-budget sampler and no `logprobs`, and at least `backend_sampling_min_slots` requests (default `4`) are running, this one included. The decision is made when the request starts and holds for its whole generation.
+- `backend_sampling:off` keeps sampling on the CPU. A raw `--backend-sampling` flag in `options` still turns it on.
+
+llama.cpp turns backend sampling off for a request by itself when the request uses a grammar, a reasoning budget (thinking models with tool calls) or logprobs taken before sampling, and for text-to-speech; `auto` leaves those requests on the CPU from the start. Only a prefix of the sampler chain made of top-k, top-p, min-p, temperature, penalties, logit bias and the final draw runs on the device; other samplers (typical-p, XTC, mirostat, DRY) run on the CPU.
+
+Known upstream issues at the time of writing: [#32141](https://github.com/ggml-org/llama.cpp/issues/32141) (`min_keep` and `min_p` handling), [#31840](https://github.com/ggml-org/llama.cpp/issues/31840) (pinned host buffers are allocated again each time a request ends) and [#32637](https://github.com/ggml-org/llama.cpp/issues/32637) (an invalid token on Metal with a small vocabulary). Test greedy output against `off` before you turn it on for a model.
 
 ##### Hardware auto-tuning (and how to override it)
 
