@@ -537,6 +537,8 @@ export interface ServerRowView {
   checkedAt?: number
   /** Set for a server over P2P: the state of its forwarder. */
   p2p?: TunnelStatusView
+  /** Set for a server over P2P: its peer ID, so an invite of a saved server is recognised. */
+  peer?: string
 }
 
 /** The switch to another server is under way (the calm "Opening X" card). */
@@ -598,7 +600,12 @@ export type InviteFailReason =
   | 'needs-relay'
 
 export type AddServerByInviteResult =
-  | { ok: true; view: ServersView; id: string; phrase: string; opened: boolean }
+  /**
+   * `routesUpdated`: the invite names a server that is already saved. The
+   * code was not used (`phrase` is empty); the routes of the link replaced
+   * the saved ones. The invite stays pending until its owner cancels it.
+   */
+  | { ok: true; view: ServersView; id: string; phrase: string; opened: boolean; routesUpdated?: boolean }
   | { ok: false; reason: InviteFailReason | ServerFailReason; detail?: string }
 
 /** The forwarder of a server over P2P. */

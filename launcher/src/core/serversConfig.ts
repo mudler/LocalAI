@@ -4,7 +4,7 @@
 // `extra`.
 import type { LauncherConfig } from './configTypes'
 import { validateRemoteOrigin } from './webuiPolicy'
-import type { P2PTarget } from './p2pInvite'
+import type { P2PRoutes, P2PTarget } from './p2pInvite'
 
 export interface RemoteServer {
   id: string
@@ -239,6 +239,30 @@ export function updateRemote(c: LauncherConfig, id: string, patch: { name?: stri
   }
   const remote: RemoteServer = cur.p2p ? { id, name, url, p2p: cur.p2p } : { id, name, url }
   return { ok: true, config: withRemotes(c, list.map((r) => (r.id === id ? remote : r))), remote }
+}
+
+/**
+ * Replaces the routes of a saved server over P2P with fresher ones: a routes
+ * line of its forwarder, or an invite of the same server. The peer, port and
+ * host stay, so the origin and the sign-in stay. `changed` is false when the
+ * routes are the same.
+ */
+export function withP2PRoutes(
+  c: LauncherConfig,
+  id: string,
+  routes: P2PRoutes,
+): { ok: true; config: LauncherConfig; remote: RemoteServer; changed: boolean } | { ok: false; reason: 'not-found' | 'invalid-url' } {
+  const list = remotes(c)
+  const cur = list.find((r) => r.id === id)
+  if (!cur?.p2p) return { ok: false, reason: 'not-found' }
+  const { peer, port, host } = cur.p2p
+  const target = parseP2PTarget({ peer, port, ...(host !== undefined ? { host } : {}), addrs: routes.addrs, relays: routes.relays, hints: routes.hints })
+  if (!target) return { ok: false, reason: 'invalid-url' }
+  const same = (a: string[] = [], b: string[] = []) => a.length === b.length && a.every((x, i) => x === b[i])
+  const changed = !same(cur.p2p.addrs, target.addrs) || !same(cur.p2p.relays, target.relays) || !same(cur.p2p.hints, target.hints)
+  if (!changed) return { ok: true, config: c, remote: cur, changed: false }
+  const remote: RemoteServer = { ...cur, p2p: target }
+  return { ok: true, config: withRemotes(c, list.map((r) => (r.id === id ? remote : r))), remote, changed: true }
 }
 
 /** Removes a server. When it was the default, the default falls back to This computer. */

@@ -26,7 +26,7 @@ import type {
 } from '../shared/types'
 import type { ConfigStore } from './configStore'
 import type { LauncherConfig } from './configTypes'
-import { linkRoutes, readInvite, type P2PTarget, type PairOutcome } from './p2pInvite'
+import { linkRoutes, readInvite, type P2PRoutes, type P2PTarget, type PairOutcome } from './p2pInvite'
 import { RemoteMonitor, REMOTE_RETRY_MS } from './remoteMonitor'
 import {
   addP2PRemote,
@@ -39,6 +39,7 @@ import {
   remotes,
   updateRemote,
   withDefaultTarget,
+  withP2PRoutes,
   type RemoteServer,
 } from './serversConfig'
 import { isInsecureRemote, type TestResult } from './testClassify'
@@ -173,6 +174,7 @@ export class RemoteServers {
           status: k?.status ?? (current ? 'connected' : 'not-tested'),
           checkedAt: k?.at,
           p2p: r.p2p ? this.tunnelStatus(r.id) : undefined,
+          ...(r.p2p ? { peer: r.p2p.peer } : {}),
         }
       }),
     ]
@@ -371,7 +373,8 @@ export class RemoteServers {
     const inv = readInvite(input.link, this.d.now())
     if (!inv.ok) return { ok: false, reason: inv.reason }
     if (inv.info.openRelay && !input.allowOpenRelay) return { ok: false, reason: 'open-relay' }
-    if (remotes(this.d.store.get()).some((r) => r.p2p?.peer === inv.info.peer)) return { ok: false, reason: 'duplicate' }
+    const known = remotes(this.d.store.get()).find((r) => r.p2p?.peer === inv.info.peer)
+    if (known) return this.updateRoutesByInvite(known, input.link)
     if (!this.d.p2p.available()) return { ok: false, reason: 'no-binary' }
     this.d.log('servers: pairing with a server over P2P')
     const paired = await this.d.p2p.pair({
@@ -410,6 +413,51 @@ export class RemoteServers {
     }
     this.emit()
     return { ok: true, view: this.serversView(), id: added.id, phrase, opened: false }
+  }
+
+  /**
+   * An invite of a server that is already saved: this device is paired, so
+   * the code is not redeemed. The routes of the link replace the saved ones
+   * (the way back when every saved route is out of date) and the forwarder
+   * starts again with them. The invite stays pending on the server, so the
+   * person asks its owner to cancel it.
+   */
+  private async updateRoutesByInvite(known: RemoteServer, link: string): Promise<AddServerByInviteResult> {
+    let updated: RemoteServer | undefined
+    let changed = false
+    await this.d.store.update((c) => {
+      const r = withP2PRoutes(c, known.id, linkRoutes(link))
+      if (!r.ok) return c
+      updated = r.remote
+      changed = r.changed
+      return r.config
+    })
+    if (!updated) return { ok: false, reason: 'duplicate' }
+    this.d.log(`servers: routes of a server over P2P ${changed ? 'updated from an invite' : 'unchanged by an invite'}; the invite was not used`)
+    if (changed && this.tunnelIds.has(known.id)) {
+      this.stopTunnel(known.id)
+      this.startTunnel(updated)
+    }
+    this.emit()
+    return { ok: true, view: this.serversView(), id: known.id, phrase: '', opened: false, routesUpdated: true }
+  }
+
+  /**
+   * The forwarder of a saved server reported the routes the server gives
+   * now. They replace the saved ones, so the next start dials what the
+   * server has today (a relay reservation moves now and then). The running
+   * forwarder is left alone: it works. Resolves true when something changed.
+   */
+  async updateP2PRoutes(id: string, routes: P2PRoutes): Promise<boolean> {
+    let changed = false
+    await this.d.store.update((c) => {
+      const r = withP2PRoutes(c, id, routes)
+      if (!r.ok || !r.changed) return c
+      changed = true
+      return r.config
+    })
+    if (changed) this.d.log('servers: routes of a server over P2P updated')
+    return changed
   }
 
   async removeServer(id: string): Promise<ServerChangeResult> {

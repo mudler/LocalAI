@@ -132,7 +132,7 @@ import { resolveLink, type NotifyTarget } from '../core/notifications'
 import type { LoginItemResult } from './loginItem'
 import { WebuiModel, type WebuiEffect, type WebuiEvent, type WebuiInputs } from '../core/webuiState'
 import { RemoteServers, type P2PTunnels } from '../core/remoteServers'
-import { freePort, pair, runCommand, TunnelSupervisor, type P2PTarget, type RunCommand, type SpawnFn, type TunnelStatus } from './p2pRemote'
+import { freePort, pair, runCommand, TunnelSupervisor, type P2PRoutes, type P2PTarget, type RunCommand, type SpawnFn, type TunnelStatus } from './p2pRemote'
 import {
   defaultTarget,
   devChannelConfirmed,
@@ -608,6 +608,9 @@ export class LauncherCore {
     t.on('status', (st: TunnelStatus) => {
       this.hub?.write('launcher', `servers: P2P tunnel of ${name}: ${st.state}${st.path ? ` (${st.path})` : ''}${st.error ? `: ${st.error}` : ''}`, st.state === 'failed' ? 'warn' : 'info')
       this.emitServers()
+    })
+    t.on('routes', (r: P2PRoutes) => {
+      void this.servers.updateP2PRoutes(id, r).catch((e: unknown) => this.hub?.write('launcher', `servers: could not save the routes of ${name}: ${String(e)}`, 'warn'))
     })
     this.tunnels.set(id, t)
     t.start()

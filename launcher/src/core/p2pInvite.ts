@@ -98,14 +98,53 @@ export function parsePairJson(text: string): PairResult | undefined {
   }
 }
 
+/** The routes to a server over P2P: what a saved server keeps besides its peer ID and port. */
+export interface P2PRoutes {
+  addrs: string[]
+  relays: string[]
+  hints: string[]
+}
+
+/** How many of each route a saved server keeps. */
+const ROUTE_LIMITS = { addrs: 2, relays: 3, hints: 2 } as const
+
 /**
  * Reads the relays, relay hints and addresses of a link, as the pair command
  * saved them. Hints (key `h`, at most 2) stay apart from relays: a hint is
  * never a carrier relay and never an open one.
  */
-export function linkRoutes(link: string): { addrs: string[]; relays: string[]; hints: string[] } {
+export function linkRoutes(link: string): P2PRoutes {
   const q = new URLSearchParams(link.trim().slice(INVITE_PREFIX.length))
-  return { addrs: q.getAll('a').slice(0, 2), relays: q.getAll('r').slice(0, 3), hints: q.getAll('h').slice(0, 2) }
+  return { addrs: q.getAll('a').slice(0, ROUTE_LIMITS.addrs), relays: q.getAll('r').slice(0, ROUTE_LIMITS.relays), hints: q.getAll('h').slice(0, ROUTE_LIMITS.hints) }
+}
+
+function routeList(v: unknown, max: number): string[] | undefined {
+  if (!Array.isArray(v)) return undefined
+  return v.filter((x): x is string => typeof x === 'string' && x.startsWith('/') && x.length <= 300).slice(0, max)
+}
+
+/**
+ * Reads a `routes` state line of a forwarder:
+ * `{"state":"routes","addrs":[...],"relays":[...],"hints":[...]}`, the
+ * current routes the server gave while connected. Undefined for any other
+ * line, a line with a list missing, or a line with no route at all: an empty
+ * answer never replaces routes that work. Entries that are not multiaddrs are
+ * dropped, and each list is cut to what a saved server keeps.
+ */
+export function parseRoutesLine(line: string): P2PRoutes | undefined {
+  let j: { state?: unknown; addrs?: unknown; relays?: unknown; hints?: unknown }
+  try {
+    j = JSON.parse(line) as typeof j
+  } catch {
+    return undefined
+  }
+  if (typeof j !== 'object' || j === null || j.state !== 'routes') return undefined
+  const addrs = routeList(j.addrs, ROUTE_LIMITS.addrs)
+  const relays = routeList(j.relays, ROUTE_LIMITS.relays)
+  const hints = routeList(j.hints, ROUTE_LIMITS.hints)
+  if (!addrs || !relays || !hints) return undefined
+  if (addrs.length + relays.length + hints.length === 0) return undefined
+  return { addrs, relays, hints }
 }
 
 export type TunnelState = 'starting' | 'ready' | 'up' | 'down' | 'stopped' | 'failed'

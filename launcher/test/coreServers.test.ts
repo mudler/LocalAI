@@ -483,7 +483,10 @@ describe('a server added by invite link', () => {
     expect(row?.p2p?.state).toBe('starting')
     expect(row?.insecure).toBe(false)
 
-    expect(await r.core.addServerByInvite({ link: invite() })).toEqual({ ok: false, reason: 'duplicate' })
+    // The same server again: its routes are updated and nothing is paired.
+    expect(await r.core.addServerByInvite({ link: invite() })).toMatchObject({ ok: true, id: row!.id, phrase: '', routesUpdated: true })
+    expect(runs).toHaveLength(1)
+    expect(cfg(r).remotes).toHaveLength(1)
     expect(await r.core.removeServer(row!.id)).toMatchObject({ ok: true })
     expect(r.core.serversView().rows.some((x) => x.p2p)).toBe(false)
   })

@@ -574,6 +574,13 @@ export const S = {
     phrase: 'Confirmation phrase',
     phraseNote: 'The server shows four words too. Check that they are the same. If they differ, remove this server and tell the server owner.',
     done: 'Done',
+    /** An invite of a server that is already saved: no pairing, only its routes. */
+    knownTitle: (name: string) => `You already have this server: ${name}`,
+    knownNote: 'This device is already paired with it. Update routes saves the addresses and relays of this invite, so the app finds the server again. The invite is not used.',
+    updateRoutes: 'Update routes',
+    updatingRoutes: 'Saving the routes…',
+    routesTitle: 'Routes updated',
+    routesNote: 'The invite was not used. Ask the server owner to cancel it: on the server, open Cluster, then Sharing, and cancel the pending invite.',
     p2pBadge: 'P2P',
     tunnel: {
       starting: 'Starting the P2P connection',

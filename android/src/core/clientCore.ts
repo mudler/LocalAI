@@ -104,6 +104,9 @@ export class ClientCore {
         this.regate()
       },
       onKeepChange: (on) => this.emit({ kind: 'p2pKeep', on }),
+      onRoutes: (id, routes) => {
+        void this.servers.updateP2PRoutes(id, routes).catch((e: unknown) => this.log(`servers: could not save the routes of a server: ${String(e)}`, 'warn'))
+      },
       log: (m, level) => this.log(m, level),
     })
     this.servers = new RemoteServers({

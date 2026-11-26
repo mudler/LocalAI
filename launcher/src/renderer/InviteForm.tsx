@@ -5,12 +5,13 @@
 // a link that arrives from outside or from a scan only fills the field.
 import { useEffect, useId, useRef, useState } from 'react'
 import { Button, Callout, Icon } from '@localai/ui-kit'
+import type { ServerRowView } from '../shared/types'
 import { hasLocal, useBridge } from './bridge'
 import { cleanInviteText, invitePreview, isInviteText, scanErrorMessage, type InvitePreviewView } from './invitePreview'
 import { S } from './strings'
 import { clockTime } from './viewModel'
 
-type Phase = { kind: 'idle' } | { kind: 'pairing' } | { kind: 'paired'; phrase: string }
+type Phase = { kind: 'idle' } | { kind: 'pairing' } | { kind: 'paired'; phrase: string } | { kind: 'routes' }
 
 export interface InviteFormProps {
   /** The first run: the paired server becomes the default and opens. */
@@ -25,6 +26,8 @@ export interface InviteFormProps {
   onScan?: () => Promise<string | undefined>
   /** A fixed clock (tests). Without it the countdown follows the real time. */
   now?: number
+  /** The saved servers: an invite of one of them updates its routes instead of pairing. */
+  servers?: ServerRowView[]
 }
 
 /** When the invite expires, in words: "today at 14:15", or the day as well. */
@@ -86,6 +89,7 @@ export function InviteForm(p: InviteFormProps) {
     return () => clearInterval(t)
   }, [ticking])
 
+  const known = ok ? p.servers?.find((r) => r.peer !== undefined && r.peer === ok.peer) : undefined
   const open = !!ok?.openRelay
   const usable = !!ok && (!open || allowOpen) && name.trim().length <= 60
 
@@ -103,13 +107,13 @@ export function InviteForm(p: InviteFormProps) {
     setPhase({ kind: 'pairing' })
     const r = await b.addServerByInvite?.({
       link: link.trim(),
-      ...(name.trim() ? { name: name.trim() } : {}),
+      ...(name.trim() && !known ? { name: name.trim() } : {}),
       ...(allowOpen ? { allowOpenRelay: true } : {}),
       ...(p.makeDefault ? { makeDefault: true } : {}),
     })
     if (token.current !== mine || !r) return
     if (r.ok) {
-      setPhase({ kind: 'paired', phrase: r.phrase })
+      setPhase(r.routesUpdated ? { kind: 'routes' } : { kind: 'paired', phrase: r.phrase })
       return
     }
     setPhase({ kind: 'idle' })
@@ -144,6 +148,24 @@ export function InviteForm(p: InviteFormProps) {
   const linkId = `${ids}-link`
   const nameId = `${ids}-name`
   const openId = `${ids}-open`
+
+  if (phase.kind === 'routes') {
+    return (
+      <section className="dk-card lnr-card lnr-form__card" aria-label={S.invite.routesTitle} data-testid="invite-routes">
+        <div className="lnr-result lnr-result--ok" role="status">
+          <Icon name="check-circle" className="lnr-result__icon" />
+          <div className="lnr-grow">
+            <strong>{S.invite.routesTitle}</strong>
+            <p className="lnr-result__p">{S.invite.routesNote}</p>
+          </div>
+        </div>
+        <div className="lnr-row lnr-dialog__actions">
+          <span className="lnr-grow" />
+          <Button variant="primary" onClick={p.onDone} data-testid="invite-done">{S.invite.done}</Button>
+        </div>
+      </section>
+    )
+  }
 
   if (phase.kind === 'paired') {
     return (
@@ -198,6 +220,12 @@ export function InviteForm(p: InviteFormProps) {
 
       {ok && <PreviewCard v={ok} now={at} />}
 
+      {known && (
+        <Callout title={S.invite.knownTitle(known.name)} testId="invite-known" className="lnr-ipreview__relay">
+          <span className="lnr-form__note lnr-ipreview__relaynote">{S.invite.knownNote}</span>
+        </Callout>
+      )}
+
       {open && (
         <Callout tone="warn" title={S.invitePreview.openRelayTitle} testId="invite-open-relay" className="lnr-ipreview__relay">
           <span className="lnr-form__note lnr-ipreview__relaynote">{S.invite.openRelayNote}</span>
@@ -208,27 +236,31 @@ export function InviteForm(p: InviteFormProps) {
         </Callout>
       )}
 
-      <label className="lnr-form__label" htmlFor={nameId}>{S.invite.name}</label>
-      <div className="lnr-form__input">
-        <input
-          id={nameId}
-          className="dk-input"
-          value={name}
-          maxLength={60}
-          autoComplete="off"
-          placeholder={ok?.label ? S.invitePreview.namePlaceholder(ok.label) : undefined}
-          disabled={pairing}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
-      <p className="lnr-form__note">{S.invite.nameNote}</p>
+      {!known && (
+        <>
+          <label className="lnr-form__label" htmlFor={nameId}>{S.invite.name}</label>
+          <div className="lnr-form__input">
+            <input
+              id={nameId}
+              className="dk-input"
+              value={name}
+              maxLength={60}
+              autoComplete="off"
+              placeholder={ok?.label ? S.invitePreview.namePlaceholder(ok.label) : undefined}
+              disabled={pairing}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <p className="lnr-form__note">{S.invite.nameNote}</p>
+        </>
+      )}
 
       {pairing && (
         <div className="lnr-result lnr-result--busy" role="status" data-testid="invite-pairing">
           <Icon name="spinner" spin className="lnr-result__icon" />
           <div className="lnr-grow">
-            <strong>{S.invite.pairing}</strong>
-            <p className="lnr-result__p dk-muted">{S.invite.pairingNote}</p>
+            <strong>{known ? S.invite.updatingRoutes : S.invite.pairing}</strong>
+            {!known && <p className="lnr-result__p dk-muted">{S.invite.pairingNote}</p>}
           </div>
         </div>
       )}
@@ -238,7 +270,7 @@ export function InviteForm(p: InviteFormProps) {
         <button type="button" className="lnr-link" onClick={p.onUseAddress} disabled={pairing}>{S.invite.useAddress}</button>
         <span className="lnr-grow" />
         <Button onClick={p.onCancel} disabled={pairing}>{S.servers.cancel}</Button>
-        <Button variant="primary" disabled={!usable} busy={pairing} onClick={() => void submit()} data-testid="invite-submit">{S.invite.pair}</Button>
+        <Button variant="primary" disabled={!usable} busy={pairing} onClick={() => void submit()} data-testid="invite-submit">{known ? S.invite.updateRoutes : S.invite.pair}</Button>
       </div>
     </div>
   )

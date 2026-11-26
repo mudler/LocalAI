@@ -15,7 +15,7 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import net from 'node:net'
 
-import { backoffMs, parseForwardState, parsePairJson, type P2PTarget, type PairOutcome, type TunnelStatus } from '../core/p2pInvite'
+import { backoffMs, parseForwardState, parsePairJson, parseRoutesLine, type P2PTarget, type PairOutcome, type TunnelStatus } from '../core/p2pInvite'
 
 export {
   INVITE_PREFIX,
@@ -26,6 +26,7 @@ export {
   readInvite,
   type InviteInfo,
   type InviteProblem,
+  type P2PRoutes,
   type P2PTarget,
   type PairFail,
   type PairOutcome,
@@ -104,7 +105,8 @@ const defaultSpawn: SpawnFn = (cmd, args) => spawn(cmd, args, { stdio: ['ignore'
 
 /**
  * Keeps one `local-ai p2p forward` running for a saved server. It reads the
- * JSON status lines the command prints on stderr and emits 'status'. When the
+ * JSON status lines the command prints on stderr and emits 'status', and
+ * 'routes' with the routes the server gave while connected. When the
  * command exits it starts it again after a growing delay; a run that reached
  * "ready" resets the delay.
  */
@@ -133,6 +135,7 @@ export class TunnelSupervisor extends EventEmitter {
     const a = ['p2p', 'forward', '--peer', this.target.peer, '--listen', `127.0.0.1:${this.target.port}`, '--identity', this.identity, '--json']
     for (const r of this.target.relays) a.push('--relay', r)
     for (const x of this.target.addrs) a.push('--addr', x)
+    for (const x of this.target.hints ?? []) a.push('--hint', x)
     return a
   }
 
@@ -200,6 +203,12 @@ export class TunnelSupervisor extends EventEmitter {
   }
 
   private onLine(line: string): void {
+    // The routes the server gives now: the owner of the saved server keeps them.
+    const routes = parseRoutesLine(line)
+    if (routes) {
+      this.emit('routes', routes)
+      return
+    }
     const s = parseForwardState(line)
     if (!s) return
     if (s.state === 'ready') this.restarts = 0

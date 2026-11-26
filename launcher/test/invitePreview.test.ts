@@ -27,6 +27,7 @@ describe('invitePreview', () => {
       expiresAt: (Math.floor(NOW / 1000) + 581) * 1000,
       secondsLeft: 581,
       openRelay: false,
+      peer: PEER,
       peerShort: '12D3KooWQ6…JGm',
       routes: { addrs: 2, relays: 1 },
     })

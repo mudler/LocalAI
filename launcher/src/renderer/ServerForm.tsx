@@ -252,6 +252,7 @@ export function ServerForm(p: ServerFormProps) {
       initialLink={p.initialInvite}
       onScan={p.onScan}
       now={p.now}
+      servers={p.servers}
       onDone={p.onDone}
       onCancel={p.onCancel}
       onUseAddress={() => setByInvite(false)}

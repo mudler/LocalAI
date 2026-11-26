@@ -16,6 +16,8 @@ export interface InvitePreviewView {
   expiresAt: number
   secondsLeft: number
   openRelay: boolean
+  /** The server peer ID, to recognise a server that is already saved. */
+  peer: string
   /** The server peer ID as `first10…last3`. */
   peerShort: string
   /** The routes the pairing uses (the same cut the pair step saves). */
@@ -35,6 +37,7 @@ export function invitePreview(link: string, now: number): InvitePreviewView | { 
     expiresAt: info.expires,
     secondsLeft: Math.max(0, Math.ceil((info.expires - now) / 1000)),
     openRelay: info.openRelay,
+    peer: info.peer,
     peerShort: info.peer.length > 13 ? `${info.peer.slice(0, 10)}…${info.peer.slice(-3)}` : info.peer,
     routes: { addrs: routes.addrs.length, relays: routes.relays.length },
   }

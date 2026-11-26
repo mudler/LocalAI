@@ -192,6 +192,39 @@ describe('RemoteServers with no local server', () => {
     expect(r.p2p.stops).toEqual([res.id])
   })
 
+  it('an invite of a saved server updates its routes, restarts its forwarder and does not pair', async () => {
+    const r = await rig()
+    const first = await r.servers.addServerByInvite({ link: invite() })
+    if (!first.ok) throw new Error('pairing failed')
+    expect(r.servers.serversView().rows[0].peer).toBe(PEER)
+    const relay = `/ip4/198.51.100.1/tcp/4001/p2p/${PEER}`
+    const res = await r.servers.addServerByInvite({ link: `${invite()}&r=${encodeURIComponent(relay)}` })
+    expect(res).toMatchObject({ ok: true, id: first.id, phrase: '', opened: false, routesUpdated: true })
+    expect(r.p2p.pairs).toHaveLength(1)
+    expect(remotes(r.store.get())).toHaveLength(1)
+    expect(remotes(r.store.get())[0].p2p?.relays).toEqual([relay])
+    expect(r.p2p.stops).toEqual([first.id])
+    expect(r.p2p.starts.map((x) => x.target.relays)).toEqual([[], [relay]])
+
+    // The same routes again: saved as they are, the forwarder keeps running.
+    const again = await r.servers.addServerByInvite({ link: `${invite()}&r=${encodeURIComponent(relay)}` })
+    expect(again).toMatchObject({ ok: true, routesUpdated: true })
+    expect(r.p2p.starts).toHaveLength(2)
+  })
+
+  it('the routes a forwarder reports replace the saved ones, without a restart', async () => {
+    const r = await rig()
+    const first = await r.servers.addServerByInvite({ link: invite() })
+    if (!first.ok) throw new Error('pairing failed')
+    const routes = { addrs: ['/ip4/203.0.113.9/tcp/4001'], relays: [], hints: [] }
+    expect(await r.servers.updateP2PRoutes(first.id, routes)).toBe(true)
+    expect(remotes(r.store.get())[0].p2p?.addrs).toEqual(routes.addrs)
+    expect(await r.servers.updateP2PRoutes(first.id, routes)).toBe(false)
+    expect(await r.servers.updateP2PRoutes('srv_missing0', routes)).toBe(false)
+    expect(r.p2p.stops).toEqual([])
+    expect(r.p2p.starts).toHaveLength(1)
+  })
+
   it('stopAll stops a forwarder whose start threw', async () => {
     const r = await rig()
     r.p2p.start = (id, name, target) => {

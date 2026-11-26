@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { localRow, remoteRow, serversView } from '../../src/renderer/dev/fakeBridge'
 import { called, NOW, renderShell, screen, settle } from './render'
 
 const bar = () => within(screen.getByRole('contentinfo', { name: 'LocalAI status bar' }))
@@ -579,6 +580,27 @@ describe('invite preview', () => {
     expect((screen.getByTestId('invite-submit') as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(screen.getByRole('checkbox', { name: 'Connect through the open relay that the link names' }))
     expect((screen.getByTestId('invite-submit') as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('an invite of a saved server offers Update routes and says to cancel the unused invite', async () => {
+    const b = await renderShell('ready', {
+      edit: (s) => {
+        s.servers = serversView({ rows: [localRow(), remoteRow('srv_p2p00001', 'Studio', 'http://127.0.0.2:41001', { peer: PEER, p2p: { state: 'up' } })] })
+      },
+    })
+    await openInviteSheet()
+    type('Invite link', invite())
+    expect(within(screen.getByTestId('invite-known')).getByText('You already have this server: Studio')).toBeTruthy()
+    expect(screen.queryByLabelText('Name')).toBeNull()
+    const submit = screen.getByTestId('invite-submit')
+    expect(submit.textContent).toContain('Update routes')
+    fireEvent.click(submit)
+    await settle()
+    expect(called(b, 'addServerByInvite')).toHaveLength(1)
+    const done = screen.getByTestId('invite-routes')
+    expect(within(done).getByText('Routes updated')).toBeTruthy()
+    expect(done.textContent).toContain('cancel the pending invite')
+    expect(screen.queryByTestId('invite-phrase')).toBeNull()
   })
 
   it('an expired link shows the problem, no card, and Pair stays off', async () => {

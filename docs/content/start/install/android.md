@@ -68,6 +68,8 @@ When the app pairs, it shows a four-word **confirmation phrase**. The server sho
 
 After pairing, the app reaches the server at a local address on the phone, for example `http://127.0.0.2:41001`. Each P2P server has its own local address, so each server keeps its own sign-in. The server list shows **P2P** and how the app reaches the server: direct, hole punched, or through a relay.
 
+While the app is connected to a P2P server, it asks the server for its current routes (its addresses and relays) when the connection opens and every 10 minutes after, and saves them. So the app still finds the server after the server's relays or addresses change.
+
 ## Sign in
 
 The app does not save passwords or API keys. If the server asks you to sign in, you sign in on the server's own page, in the app. The app keeps the sign-in of each server separate from the others, and keeps it after a restart. Android does not copy the sign-ins to a backup or to a new phone.
@@ -177,6 +179,8 @@ Then select **Retry**, or choose another server.
 ### A P2P server does not connect
 
 When a P2P connection fails, the app tries again by itself, after 1 second, then after longer waits, up to 1 minute. Make sure that P2P sharing is still on at the server, and that the server owner did not revoke this device. If the device was revoked, remove the server in the app and pair again.
+
+If the phone was away from the server for a long time, the saved routes can be out of date. Ask the server owner for a new invite and scan or paste it. The app sees that the server is already saved and shows **Update routes** instead of **Pair**. It saves the routes of the invite and does not use the invite code. Then ask the server owner to cancel the unused invite on the server: **Cluster**, then **Sharing**.
 
 ### The server page does not open
 

@@ -9,14 +9,20 @@
 // sign-in cookie, per server.
 import type { PluginListenerHandle } from '@capacitor/core'
 import type { LauncherConfig } from '@launcher/core/configTypes'
-import { parseForwardState, parsePairJson, type PairOutcome } from '@launcher/core/p2pInvite'
+import { parseForwardState, parsePairJson, parseRoutesLine, type P2PRoutes, type PairOutcome } from '@launcher/core/p2pInvite'
 import type { P2PTunnels } from '@launcher/core/remoteServers'
 import { isP2PHost, remotes } from '@launcher/core/serversConfig'
 import type { TunnelStatusView } from '@launcher/shared/types'
 import type { P2PForwardInput, P2PPlugin } from '../plugins/definitions'
 
 /** What `P2P.version()` answers when the native library loaded. */
-export const P2P_LIBRARY_VERSION = 'p2pmobile/2'
+export const P2P_LIBRARY_VERSION = 'p2pmobile/3'
+
+/**
+ * The library versions this app works with. p2pmobile/3 adds the routes
+ * state line; with p2pmobile/2 the saved routes only change by an invite.
+ */
+const KNOWN_LIBRARY_VERSIONS = new Set([P2P_LIBRARY_VERSION, 'p2pmobile/2'])
 
 /** The host of a server over P2P saved without one (the desktop's). */
 const DEFAULT_HOST = '127.0.0.1'
@@ -70,6 +76,8 @@ export interface AndroidTunnelsOptions {
   onChange(): void
   /** The "keep P2P in the background" setting changed natively (the notification's Disconnect). */
   onKeepChange?(on: boolean): void
+  /** The forwarder of a saved server sent the routes the server gives now: the caller saves them. */
+  onRoutes?(id: string, routes: P2PRoutes): void
   log?(message: string, level?: 'info' | 'warn'): void
   /** How long `init` waits for the plugin to say whether the library loaded. */
   initTimeoutMs?: number
@@ -144,6 +152,12 @@ export function androidP2PTunnels(o: AndroidTunnelsOptions): AndroidTunnels {
   }
 
   const onLine = (id: string, line: string, notify: boolean) => {
+    // A routes line is no state: the forwarder still listens as before.
+    const routes = parseRoutesLine(line)
+    if (routes) {
+      if (notify && active.has(id)) o.onRoutes?.(id, routes)
+      return
+    }
     const s = mapForwardLine(line)
     if (!s) return
     setState(id, s)
@@ -287,7 +301,7 @@ export function androidP2PTunnels(o: AndroidTunnelsOptions): AndroidTunnels {
     async init() {
       try {
         const v = await withTimeout(plugin.version(), o.initTimeoutMs ?? INIT_TIMEOUT_MS)
-        available = v.version === P2P_LIBRARY_VERSION
+        available = KNOWN_LIBRARY_VERSIONS.has(v.version)
         if (!available) log(`servers: unknown P2P library ${v.version}`, 'warn')
       } catch (e) {
         available = false

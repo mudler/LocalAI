@@ -372,6 +372,10 @@ export function fakeBridge(state: FakeState, opts: { extras?: boolean | Optional
     addServerByInvite: async (input) => {
       const link = input.link.trim()
       if (!link.startsWith('localai://pair?')) return rec('addServerByInvite', { ok: false as const, reason: 'invite-invalid' as const } as AddServerByInviteResult, input)
+      // An invite of a saved server only updates its routes.
+      const peer = new URLSearchParams(link.slice('localai://pair?'.length)).get('p')
+      const known = servers().rows.find((r) => r.peer !== undefined && r.peer === peer)
+      if (known) return rec('addServerByInvite', { ok: true as const, view: servers(), id: known.id, phrase: '', opened: false, routesUpdated: true } as AddServerByInviteResult, input)
       const port = 41231 + servers().rows.length
       const origin = `http://127.0.0.1:${port}`
       const id = `srv_${String(servers().rows.length).padStart(8, '0')}`
