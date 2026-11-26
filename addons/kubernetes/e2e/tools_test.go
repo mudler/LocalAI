@@ -22,8 +22,8 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -340,6 +340,27 @@ var _ = Describe("the tools against a real API server", Ordered, func() {
 			"patch": `[{"op":"copy","from":"/data/password","path":"/metadata/annotations/leak"}]`})
 		Expect(err).To(MatchError(ContainSubstring("(readSecretValues)")))
 		Expect(must(adm.CoreV1().Secrets("team-a").Get(bg, "db", metav1.GetOptions{})).Annotations).NotTo(HaveKey("leak"))
+	})
+
+	It("an apply that guesses a hidden Secret value owned by another field manager is refused before the dry run", func() {
+		sec := corev1ac.Secret("guarded", "team-a").WithStringData(map[string]string{"password": "secret-value"})
+		must(adm.CoreV1().Secrets("team-a").Apply(bg, sec, metav1.ApplyOptions{FieldManager: "other-team", Force: true}))
+		for _, guess := range []string{"secret-value", "wrong"} {
+			manifest := "apiVersion: v1\nkind: Secret\nmetadata:\n  name: guarded\n  namespace: team-a\nstringData:\n  password: " + guess + "\n"
+			_, err := rt.Preview(bg, env(cred, tools.ToolApply, map[string]any{"manifest": manifest}))
+			Expect(err).To(MatchError(ContainSubstring("(readSecretValues)")), "a right and a wrong guess get the same answer")
+			Expect(err.Error()).NotTo(ContainSubstring("409"))
+		}
+		_, _, _, err := write(tools.ToolApply, map[string]any{"manifest": "apiVersion: v1\nkind: Secret\nmetadata:\n  name: guarded\n  namespace: team-a\nstringData:\n  other: x\n"})
+		Expect(err).NotTo(HaveOccurred(), "a new key can still be applied")
+		got := must(adm.CoreV1().Secrets("team-a").Get(bg, "guarded", metav1.GetOptions{}))
+		Expect(string(got.Data["password"])).To(Equal("secret-value"))
+	})
+
+	It("a json patch that tests an env value of a Deployment is refused while values are hidden", func() {
+		_, _, _, err := write(tools.ToolPatch, map[string]any{"kind": "deploy", "namespace": "team-a", "name": "web", "patchType": "json",
+			"patch": `[{"op":"test","path":"/spec/template/spec/containers/0/env/0/value","value":"x"}]`})
+		Expect(err).To(MatchError(ContainSubstring("(readSecretValues)")))
 	})
 
 	It("patch merge previews and applies", func() {

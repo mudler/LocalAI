@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/kubeapi"
@@ -223,6 +224,9 @@ func (o *applyOp) look(c *call) (map[string]any, uint64, error) {
 	if err != nil {
 		return nil, 0, err
 	}
+	if err := o.resetsHidden(c, live); err != nil {
+		return nil, 0, err
+	}
 	dry, err := c.c.Writer.Apply(c.ctx, o.t.GVR, o.obj.GetNamespace(), o.obj.DeepCopy(), true)
 	if err != nil {
 		return nil, 0, err
@@ -235,6 +239,43 @@ func (o *applyOp) look(c *call) (map[string]any, uint64, error) {
 	s := map[string]any{"tool": ToolApply, "kind": o.t.Kind, "namespace": o.obj.GetNamespace(), "name": o.obj.GetName(),
 		"change": change(live, o.diff), "diff": o.diff, "diffCut": o.cut}
 	return s, c.revision(ToolApply, o.t.GVR.String(), o.obj.GetNamespace(), o.obj.GetName(), hashText(o.Manifest), stateHash(live, dry), uid), nil
+}
+
+// resetsHidden refuses, while the policy hides values, a manifest that sets
+// a hidden value the live object already has: a Secret key under data or
+// stringData, or the inline value of an env var whose name looks secret. The
+// add-on applies without force, so when another field manager owns the
+// value, a wrong guess comes back as a conflict and the right one does not:
+// the dry run would tell the model whether a guess is right.
+func (o *applyOp) resetsHidden(c *call, live *unstructured.Unstructured) error {
+	if c.pol.ReadSecretValues || live == nil {
+		return nil
+	}
+	var again []string
+	if mask.IsSecret(o.t) {
+		have, _ := live.Object["data"].(map[string]any)
+		for _, f := range []string{"data", "stringData"} {
+			m, _ := o.obj.Object[f].(map[string]any)
+			for k := range m {
+				if _, ok := have[k]; ok {
+					again = append(again, k)
+				}
+			}
+		}
+	} else {
+		have := mask.HiddenEnv(live)
+		for k := range mask.HiddenEnv(o.obj) {
+			if have[k] {
+				again = append(again, k)
+			}
+		}
+	}
+	if len(again) == 0 {
+		return nil
+	}
+	slices.Sort(again)
+	again = slices.Compact(again)
+	return policy.Refuse(policy.RuleReadSecretValues, "the policy hides Secret values, and the manifest sets %s again; an apply of a hidden value that another field manager owns tells whether a guess is right, so it is refused. Leave those values out of the manifest, set them with patch (a strategic or merge patch that replaces the whole value), or ask an administrator", strings.Join(again, ", "))
 }
 
 func (o *applyOp) apply(c *call) (map[string]any, error) {
@@ -303,8 +344,8 @@ func (c *call) parsePatch(raw map[string]json.RawMessage) (writeOp, error) {
 	if err := c.allow(o.Namespace); err != nil {
 		return nil, err
 	}
-	if pt == types.JSONPatchType && c.hidesValues(t) {
-		if err := secretSafeOps(data); err != nil {
+	if pt == types.JSONPatchType && !c.pol.ReadSecretValues {
+		if err := hiddenSafeOps(data, mask.IsSecret(t)); err != nil {
 			return nil, err
 		}
 	}
@@ -317,19 +358,22 @@ func (c *call) hidesValues(t kubeapi.Target) bool {
 	return !c.pol.ReadSecretValues && mask.IsSecret(t)
 }
 
-// secretSafeOps refuses a json patch of a Secret that could bring a hidden
-// value back to the model. copy and move can put a value where the masking
-// does not look, and test answers yes or no about a value, so none of them
-// may run on a Secret. Any other op that names the data, or the whole object,
-// is refused as well. Keys are compared without case, so an op the API
-// server would read differently is refused too.
-func secretSafeOps(data []byte) error {
+// hiddenSafeOps refuses a json patch that could bring a hidden value back to
+// the model while the policy hides values. It runs on every kind, since an
+// env value of a pod template is hidden too. copy and move can put a value
+// where the masking does not look, and test answers yes or no about a value,
+// so none of them may run. An op that names an env list, or a place under
+// one, is refused as well: renaming an env var would show its value. On a
+// Secret, an op that names the data, or the whole object, is refused. Keys
+// and names are compared without case, so an op the API server would read
+// differently is refused too.
+func hiddenSafeOps(data []byte, secret bool) error {
 	var ops []map[string]json.RawMessage
 	if json.Unmarshal(data, &ops) != nil {
 		return bad("a json patch is a list of operations")
 	}
 	refuse := func() error {
-		return policy.Refuse(policy.RuleReadSecretValues, "the policy hides Secret values, so a json patch of a Secret may not copy, move or test, and may not name data or stringData; use a merge patch, or ask an administrator")
+		return policy.Refuse(policy.RuleReadSecretValues, "the policy hides Secret values, so a json patch may not copy, move or test, may not name an env list, and on a Secret may not name data or stringData; use a strategic or merge patch, or ask an administrator")
 	}
 	for _, op := range ops {
 		for k, v := range op {
@@ -342,7 +386,7 @@ func secretSafeOps(data []byte) error {
 					return refuse()
 				}
 			case "path", "from":
-				if json.Unmarshal(v, &s) != nil || touchesData(s) {
+				if json.Unmarshal(v, &s) != nil || touchesEnv(s) || (secret && touchesData(s)) {
 					return refuse()
 				}
 			}
@@ -351,15 +395,34 @@ func secretSafeOps(data []byte) error {
 	return nil
 }
 
+// pointer splits a JSON pointer into its unescaped tokens.
+func pointer(p string) []string {
+	parts := strings.Split(strings.TrimPrefix(p, "/"), "/")
+	for i, t := range parts {
+		parts[i] = strings.ReplaceAll(strings.ReplaceAll(t, "~1", "/"), "~0", "~")
+	}
+	return parts
+}
+
 // touchesData reports whether a JSON pointer names the whole object or a
 // place under data or stringData.
-func touchesData(pointer string) bool {
-	if pointer == "" || pointer == "/" {
+func touchesData(p string) bool {
+	if p == "" || p == "/" {
 		return true
 	}
-	first, _, _ := strings.Cut(strings.TrimPrefix(pointer, "/"), "/")
-	first = strings.ReplaceAll(strings.ReplaceAll(first, "~1", "/"), "~0", "~")
+	first := pointer(p)[0]
 	return strings.EqualFold(first, "data") || strings.EqualFold(first, "stringData")
+}
+
+// touchesEnv reports whether a JSON pointer names an env list or a place
+// under one, at any depth.
+func touchesEnv(p string) bool {
+	for _, t := range pointer(p) {
+		if strings.EqualFold(t, "env") {
+			return true
+		}
+	}
+	return false
 }
 
 func (o *patchOp) inspect(c *call) (map[string]any, uint64, error) {

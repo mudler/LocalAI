@@ -4,12 +4,15 @@ package tools_test
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/policy"
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -59,20 +62,22 @@ var _ = Describe("Secret values", func() {
 		clean("deployment", res.Payload)
 		Expect(string(res.Payload)).To(ContainSubstring("secretKeyRef"))
 
-		for _, op := range []string{"apply-1", "apply-2"} {
-			p, err := g.preview(op, tools.ToolApply, map[string]any{"manifest": secretManifest})
-			Expect(err).NotTo(HaveOccurred())
-			clean("apply preview", p.Summary)
-			rc, err := g.apply(op, tools.ToolApply, map[string]any{"manifest": secretManifest}, p)
-			Expect(err).NotTo(HaveOccurred())
-			clean("apply result", rc.Result.Payload)
-		}
+		fresh := strings.Replace(secretManifest, "name: db", "name: fresh", 1)
+		p, err := g.preview("apply-1", tools.ToolApply, map[string]any{"manifest": fresh})
+		Expect(err).NotTo(HaveOccurred())
+		clean("apply preview", p.Summary)
+		rc, err := g.apply("apply-1", tools.ToolApply, map[string]any{"manifest": fresh}, p)
+		Expect(err).NotTo(HaveOccurred())
+		clean("apply result", rc.Result.Payload)
+		_, err = g.preview("apply-2", tools.ToolApply, map[string]any{"manifest": fresh})
+		Expect(err).To(MatchError(ContainSubstring("(readSecretValues)")), "the keys now exist, so a second apply could test a guess")
+		clean("apply refusal", []byte(err.Error()))
 		args := map[string]any{"kind": "secrets", "namespace": "team-a", "name": "db", "patchType": "merge", "patch": `{"data":{"token":"c2VjcmV0LXZhbHVl","more":"c2VjcmV0LXZhbHVl"}}`}
-		p, err := g.preview("patch", tools.ToolPatch, args)
+		p, err = g.preview("patch", tools.ToolPatch, args)
 		Expect(err).NotTo(HaveOccurred())
 		clean("patch preview", p.Summary)
 		Expect(sampleOf(p)["diff"]).To(ContainSubstring("(new value)"))
-		rc, err := g.apply("patch", tools.ToolPatch, args, p)
+		rc, err = g.apply("patch", tools.ToolPatch, args, p)
 		Expect(err).NotTo(HaveOccurred())
 		clean("patch result", rc.Result.Payload)
 	})
@@ -100,6 +105,8 @@ var _ = Describe("Secret values", func() {
 			"replace a value":    `[{"op":"replace","path":"/data/password","value":"eA=="}]`,
 			"upper-case keys":    `[{"OP":"COPY","FROM":"/data/password","PATH":"/metadata/annotations/leak"}]`,
 			"escaped pointer":    `[{"op":"add","path":"/dat\u0061/x","value":"eA=="}]`,
+			"upper-case data":    `[{"op":"add","path":"/Data/x","value":"eA=="}]`,
+			"~1 in a data key":   `[{"op":"replace","path":"/data/a~1b","value":"eA=="}]`,
 		} {
 			args := map[string]any{"kind": "secrets", "namespace": "team-a", "name": "db", "patchType": "json", "patch": patch}
 			_, err := g.preview("op-"+name, tools.ToolPatch, args)
@@ -114,6 +121,83 @@ var _ = Describe("Secret values", func() {
 			"patch": `[{"op":"add","path":"/metadata/labels","value":{"team":"a"}}]`}
 		_, err := g.preview("op-label", tools.ToolPatch, ok)
 		Expect(err).NotTo(HaveOccurred(), "a json patch of the metadata stays possible")
+	})
+
+	It("refuses a json patch of any kind that copies, moves or tests, or names an env list, while values are hidden", func() {
+		g := newRig(deployment("team-a", "web", 1), &corev1.ConfigMap{ObjectMeta: meta("team-a", "cfg", time.Hour), Data: map[string]string{"a": "b"}})
+		const value = "/spec/template/spec/containers/0/env/0/value"
+		for name, c := range map[string]struct{ kind, patch string }{
+			"env copy to a label":  {"deploy", `[{"op":"add","path":"/metadata/labels","value":{}},{"op":"copy","from":"` + value + `","path":"/metadata/labels/leak"}]`},
+			"env move":             {"deploy", `[{"op":"move","from":"` + value + `","path":"/metadata/labels/leak"}]`},
+			"env test right value": {"deploy", `[{"op":"test","path":"` + value + `","value":"inline-token-value"}]`},
+			"env test wrong value": {"deploy", `[{"op":"test","path":"` + value + `","value":"wrong"}]`},
+			"test of metadata":     {"deploy", `[{"op":"test","path":"/metadata/name","value":"web"}]`},
+			"copy of a config map": {"configmaps", `[{"op":"copy","from":"/data/a","path":"/metadata/labels/a"}]`},
+			"env rename":           {"deploy", `[{"op":"replace","path":"/spec/template/spec/containers/0/env/0/name","value":"PLAIN"}]`},
+			"env add":              {"deploy", `[{"op":"add","path":"/spec/template/spec/containers/0/env/-","value":{"name":"A","value":"b"}}]`},
+			"env with upper case":  {"deploy", `[{"op":"replace","path":"/spec/template/spec/containers/0/ENV/0/name","value":"PLAIN"}]`},
+			"env escaped":          {"deploy", `[{"op":"replace","path":"/spec/template/spec/containers/0/e\u006ev/0/name","value":"PLAIN"}]`},
+			"env of an init list":  {"deploy", `[{"op":"remove","path":"/spec/template/spec/initContainers/0/env"}]`},
+			"upper-case op keys":   {"deploy", `[{"OP":"TEST","PATH":"` + value + `","VALUE":"x"}]`},
+		} {
+			args := map[string]any{"kind": c.kind, "namespace": "team-a", "name": map[string]string{"deploy": "web", "configmaps": "cfg"}[c.kind], "patchType": "json", "patch": c.patch}
+			_, err := g.preview("op-"+name, tools.ToolPatch, args)
+			Expect(err).To(MatchError(ContainSubstring("(readSecretValues)")), name)
+			clean(name, []byte(err.Error()))
+			_, err = g.apply("op-"+name, tools.ToolPatch, args, contract.Preview{})
+			Expect(err).To(MatchError(ContainSubstring("(readSecretValues)")), name)
+		}
+		Expect(g.k.Writes()).To(BeZero())
+		out := g.mustRead(tools.ToolGet, map[string]any{"kind": "deploy", "namespace": "team-a", "name": "web"})
+		Expect(out["yaml"]).NotTo(ContainSubstring("leak"))
+
+		for name, patch := range map[string]string{
+			"replicas":          `[{"op":"replace","path":"/spec/replicas","value":3}]`,
+			"~1 in a label key": `[{"op":"add","path":"/metadata/labels","value":{}},{"op":"add","path":"/metadata/labels/example.com~1team","value":"a"}]`,
+			"environment label": `[{"op":"add","path":"/metadata/labels","value":{}},{"op":"add","path":"/metadata/labels/envoy","value":"a"}]`,
+		} {
+			_, err := g.preview("ok-"+name, tools.ToolPatch, map[string]any{"kind": "deploy", "namespace": "team-a", "name": "web", "patchType": "json", "patch": patch})
+			Expect(err).NotTo(HaveOccurred(), name)
+		}
+	})
+
+	It("allows a json patch that copies or tests an env value when the policy shows values", func() {
+		g := newRig(deployment("team-a", "web", 1))
+		g.setPolicy(policy.Policy{Namespaces: []string{"*"}, WriteTools: writes, ReadSecretValues: true})
+		_, err := g.preview("op", tools.ToolPatch, map[string]any{"kind": "deploy", "namespace": "team-a", "name": "web", "patchType": "json",
+			"patch": `[{"op":"test","path":"/spec/template/spec/containers/0/env/0/value","value":"inline-token-value"}]`})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("refuses a server-side apply that sets a hidden value again while values are hidden", func() {
+		g := newRig(secret("team-a", "db"), deployment("team-a", "web", 1))
+		for name, manifest := range map[string]string{
+			"data key":       "apiVersion: v1\nkind: Secret\nmetadata:\n  name: db\n  namespace: team-a\ndata:\n  password: d3Jvbmc=\n",
+			"stringData key": "apiVersion: v1\nkind: Secret\nmetadata:\n  name: db\n  namespace: team-a\nstringData:\n  password: wrong\n",
+			"env value":      "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web\n  namespace: team-a\nspec:\n  template:\n    spec:\n      containers:\n      - name: app\n        env:\n        - name: API_TOKEN\n          value: wrong\n",
+		} {
+			args := map[string]any{"manifest": manifest}
+			_, err := g.preview("op-"+name, tools.ToolApply, args)
+			Expect(err).To(MatchError(ContainSubstring("(readSecretValues)")), name)
+			Expect(err.Error()).To(ContainSubstring("patch"), name)
+			_, err = g.apply("op-"+name, tools.ToolApply, args, contract.Preview{})
+			Expect(err).To(MatchError(ContainSubstring("(readSecretValues)")), name)
+		}
+		Expect(g.k.Writes()).To(BeZero())
+
+		for name, manifest := range map[string]string{
+			"new data key":  "apiVersion: v1\nkind: Secret\nmetadata:\n  name: db\n  namespace: team-a\ndata:\n  other: eA==\n",
+			"new Secret":    "apiVersion: v1\nkind: Secret\nmetadata:\n  name: fresh\n  namespace: team-a\nstringData:\n  password: x\n",
+			"plain env":     "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web\n  namespace: team-a\nspec:\n  template:\n    spec:\n      containers:\n      - name: app\n        env:\n        - name: MODE\n          value: dev\n",
+			"only metadata": "apiVersion: v1\nkind: Secret\nmetadata:\n  name: db\n  namespace: team-a\n  labels:\n    a: b\n",
+		} {
+			_, err := g.preview("ok-"+name, tools.ToolApply, map[string]any{"manifest": manifest})
+			Expect(err).NotTo(HaveOccurred(), name)
+		}
+
+		g.setPolicy(policy.Policy{Namespaces: []string{"*"}, WriteTools: writes, ReadSecretValues: true})
+		_, err := g.preview("shown", tools.ToolApply, map[string]any{"manifest": "apiVersion: v1\nkind: Secret\nmetadata:\n  name: db\n  namespace: team-a\nstringData:\n  password: x\n"})
+		Expect(err).NotTo(HaveOccurred(), "the check applies only while values are hidden")
 	})
 
 	It("allows a json patch that copies a Secret value when the policy shows values", func() {

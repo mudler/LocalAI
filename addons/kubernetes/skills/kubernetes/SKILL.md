@@ -42,7 +42,7 @@ A cluster that no administrator configured allows reads and no write. If every w
 
 By default you see Secret values. Quote one only when the person asked for it, and never copy one into a write they did not ask for.
 
-An administrator can hide them for a cluster. Then the read tools and the write diffs show the keys and the length of each value, and the annotations of a Secret show only their length. Inline environment values whose name looks secret show `***`; a changed one shows `*** (new value)`. A `json` patch of a Secret may not copy, move or test a value: use a `merge` patch to change one.
+An administrator can hide them for a cluster. Then the read tools and the write diffs show the keys and the length of each value, and the annotations of a Secret show only their length. Inline environment values whose name looks secret show `***`; a changed one shows `*** (new value)`. A `json` patch may not copy, move or test, and may not name an `env` list; `apply` may not set a Secret key or a hidden environment value that the object already has. Use a `merge` patch to change one.
 
 The hiding does not cover workloads, `exec` or logs. When values are hidden, never use them to read one: do not create a pod that mounts or prints a Secret, and do not print one with `exec`. If the person needs a value, tell them to read it themselves.
 

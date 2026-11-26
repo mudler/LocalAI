@@ -124,14 +124,16 @@ With `readSecretValues` off, "hidden" means that the read tools (`get`, `describ
 - A Secret shows its keys, its type and the length of each value, never the value. Its `last-applied-configuration` annotation is removed, and its other annotations show only their length, except `kubernetes.io/service-account.name` and `kubernetes.io/service-account.uid`.
 - An environment variable whose name holds `TOKEN`, `PASSWORD`, `SECRET` or `KEY` (in any case) shows `***` instead of an inline value. This covers every container list (`containers`, `initContainers`, `ephemeralContainers`) at any depth of any object: pods, the pod templates of Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs and the `jobTemplate` of CronJobs, and custom resources that use the same field names. A `secretKeyRef` stays visible: it names a Secret and a key, and holds no value.
 - The diff of `apply` or `patch` marks a Secret key, a Secret annotation or a hidden environment value that the write changes as `(new value)`, without the value.
-- A `json` patch of a Secret may not use `copy`, `move` or `test`, and may not name `data`, `stringData` or the whole object. Those operations could copy a value to a place that is shown, or answer yes or no about a value. Use a `merge` or `strategic` patch.
+- A `json` patch of any kind may not use `copy`, `move` or `test`, and may not name an `env` list or a place under one. On a Secret it may also not name `data`, `stringData` or the whole object. Those operations could copy a value to a place that is shown, rename an environment variable so that its value shows, or answer yes or no about a value. Use a `merge` or `strategic` patch.
+- `apply` may not set a Secret key under `data` or `stringData` that the live Secret already has, or the inline value of an environment variable with a secret-looking name that the live object already has. The add-on applies without force, so when another field manager owns the value, a wrong value comes back as a conflict and the right one does not. Leave those values out of the manifest, change them with a `merge` or `strategic` patch that replaces the whole value, or ask an administrator. A new Secret, and new keys of an existing one, can still be applied.
 - An API error about a Secret keeps only its status code and reason, because the API server can quote a value in the message.
 
 "Hidden" does not cover:
 
 - the `args` and `command` of a container, environment values whose name does not look secret, and other fields of custom resources;
 - what a workload shows. A pod that a chat creates with `apply` can mount a Secret or print it, and its `logs` then show the value. `exec` output is not filtered: a command can print a Secret that the container holds;
-- what the cluster itself puts in events or in the status of an object.
+- what the cluster itself puts in events or in the status of an object;
+- the diff of a `merge` or `strategic` patch that sets a hidden value. It says "no change" when the new value equals the live one and `(new value)` when it differs, so a chat that may patch can test a guess of a value, one guess per preview. Leave `patch` off for a cluster where that matters.
 
 To keep a chat from reading Secret values through a workload as well, turn `readSecretValues` off and leave `apply`, `patch` and `exec` off for that cluster, or limit the RBAC of the credential. Out of the box every write tool is off.
 
