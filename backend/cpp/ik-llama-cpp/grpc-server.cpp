@@ -21,6 +21,7 @@
 #include "backend.grpc.pb.h"
 #include "utils.hpp"
 #include "sampling.h"
+#include "flash_attn_mode.h"
 // include std::regex
 #include <cstddef>
 #include <thread>
@@ -2365,7 +2366,11 @@ static void params_parse(const backend::ModelOptions* request,
     }
     params.use_mlock = request->mlock();
     params.use_mmap = request->mmap();
-    params.flash_attn = (request->flashattention() == "true" || request->flashattention() == "1");
+    if (const auto flash_attn = ik_grpc::parse_flash_attn(request->flashattention())) {
+        params.flash_attn = *flash_attn;
+    } else if (!request->flashattention().empty()) {
+        LOG_WARNING("unknown flash_attention value, keeping the default", {{"value", request->flashattention()}});
+    }
     params.no_kv_offload = request->nokvoffload();
     params.ctx_shift = false; // We control context-shifting in any case (and we disable it as it could just lead to infinite loops)
 

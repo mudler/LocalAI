@@ -15,6 +15,7 @@ set -e
 cp -r CMakeLists.txt llama.cpp/examples/grpc-server/
 cp -r grpc-server.cpp llama.cpp/examples/grpc-server/
 cp -r utils.hpp llama.cpp/examples/grpc-server/
+cp -r flash_attn_mode.h llama.cpp/examples/grpc-server/
 cp -rfv llama.cpp/vendor/nlohmann/json.hpp llama.cpp/examples/grpc-server/
 
 ## Multimodal support is provided by the `mtmd` library target (examples/mtmd/),

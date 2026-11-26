@@ -857,6 +857,8 @@ parameters:
 
 The aliases `ik-llama` and `ik_llama` are also accepted.
 
+Flash attention is on by default, as in ik_llama.cpp itself. ik_llama.cpp has no automatic mode, so `flash_attention: auto` (the value LocalAI uses when the key is not set) and `on` turn it on, and `off` turns it off. A quantized V cache (`cache_type_v`) needs it on.
+
 #### Reference
 
 - [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp)
