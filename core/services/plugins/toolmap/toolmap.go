@@ -3,20 +3,19 @@
 // 11.2). Agent tool lists, hook matchers, hook payloads and updatedInput go
 // through it.
 //
-// nib's claudeplugin.ToolMap maps names only. LocalAI owns the argument map,
-// because the argument shapes are LocalAI's.
-//
-// TODO(nib N1): once a nib release has plugin/claudeplugin, read the format's
-// tool names (claudeplugin.ClaudeTools) and the rule parser
-// (claudeplugin.ToolName) from there, and give claudeplugin.ToolMap the
-// name table of LocalNames. This package keeps its own copy until then so
-// that it builds against the released nib.
+// The format's tool names (claudeplugin.ClaudeTools) and the rule parser
+// (claudeplugin.ToolName) come from nib. nib's claudeplugin.ToolMap maps one
+// name to one name; LocalAI keeps its own name table because a format Bash
+// call gives two LocalAI tools, and owns the argument map because the
+// argument shapes are LocalAI's.
 //
 // Mode (see .agents/distributed-state.md): stateless, fixed tables only.
 package toolmap
 
 import (
 	"strings"
+
+	"github.com/mudler/nib/plugin/claudeplugin"
 )
 
 // LocalAI's tool names.
@@ -57,25 +56,20 @@ var localNames = map[string][]string{
 
 // formatTools are the built-in tool names of the format. A name in this set
 // without an entry in localNames has no LocalAI tool and is dropped.
-var formatTools = map[string]bool{
-	"Bash": true, "BashOutput": true, "KillShell": true, "KillBash": true,
-	"Read": true, "Write": true, "Edit": true, "MultiEdit": true,
-	"NotebookEdit": true, "NotebookRead": true, "Glob": true, "Grep": true, "LS": true,
-	"WebFetch": true, "WebSearch": true, "Task": true, "Agent": true, "Skill": true,
-	"TodoWrite": true, "TodoRead": true, "SlashCommand": true, "ExitPlanMode": true,
-	"AskUserQuestion": true, "LSP": true, "Monitor": true,
-}
+// KillBash is the older name of KillShell, which nib does not list.
+var formatTools = func() map[string]bool {
+	out := map[string]bool{"KillBash": true}
+	for _, n := range claudeplugin.ClaudeTools {
+		out[n] = true
+	}
+	return out
+}()
 
 func isMCP(name string) bool { return strings.HasPrefix(name, "mcp__") }
 
 // ToolName returns the tool name of a tool rule: "Bash(git add:*)" gives
 // "Bash".
-func ToolName(rule string) string {
-	if i := strings.IndexByte(rule, '('); i > 0 {
-		return strings.TrimSpace(rule[:i])
-	}
-	return strings.TrimSpace(rule)
-}
+func ToolName(rule string) string { return claudeplugin.ToolName(rule) }
 
 // LocalNames maps the tool rules of an agent's tools list to LocalAI tool
 // names, without duplicates and in first-seen order. The argument part of a
