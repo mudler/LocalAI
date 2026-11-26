@@ -340,6 +340,9 @@ func pairError(err error) error {
 		msg, reason = "The server saw too many wrong codes from this server. Wait a while and try again.", remotes.ErrInviteRateLimited
 	case errors.Is(err, pairclient.ErrWrongServer):
 		msg = "Another server answered than the one of the invite. Do not use this invite."
+	case errors.Is(err, pairclient.ErrNeedsRelay):
+		xlog.Warn("P2P pairing: no direct connection to the server of the invite", "error", err)
+		msg, reason = "This server and the server of the invite cannot connect directly: their networks block it. The server of the invite needs a relay. Ask its admin to add one, or to run one with 'local-ai p2p relay', then ask for a new invite.", remotes.ErrInviteUnreachable
 	case errors.Is(err, pairclient.ErrNoRoute):
 		xlog.Warn("P2P pairing: the invite names no address and no relay", "error", err)
 		msg, reason = "The invite has no address and no relay, so the server cannot be found from here. Ask for a new invite from a server that has a public address, a relay, or a local network address.", remotes.ErrInviteUnreachable

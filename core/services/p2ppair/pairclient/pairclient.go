@@ -47,6 +47,13 @@ var (
 	// address and no relay: the device can find the server only by local
 	// network discovery, which a device in connect mode does not run.
 	ErrNoRoute = errors.New("the invite names no address and no relay")
+	// ErrNeedsRelay is wrapped with ErrUnreachable when the device reached
+	// the server only through a public relay of the link (a hint) and no
+	// hole punch opened a direct connection. The code was not sent, so the
+	// invite stays pending.
+	ErrNeedsRelay = errors.New("this device and the server cannot connect directly: " +
+		"their networks block hole punching. The server needs a relay: its admin must add one " +
+		"or run one with 'local-ai p2p relay', then send a new invite")
 	// ErrWrongServer means another peer than the one of the link answered.
 	ErrWrongServer = errors.New("the answering server is not the one of the invite: do not trust this pairing")
 )
@@ -86,15 +93,24 @@ type Result struct {
 	ClientKey *ClientKey `json:"client_key,omitempty"`
 }
 
+// punchWait is how long Redeem waits for a hole punch through a hint. Tests
+// shorten it.
+var punchWait = p2pnet.DefaultPunchWait
+
 // DialOptions returns the dial options that reach the server of the link:
-// its direct addresses and its relays. A dial to the server after the
-// pairing uses the same options.
+// its direct addresses, its relays and its hint relays. A dial to the
+// server after the pairing uses the same options.
 func DialOptions(l *p2ppair.Link) []p2pnet.DialOption {
-	return []p2pnet.DialOption{p2pnet.WithRelays(l.Relays...), p2pnet.WithAddrs(l.Addrs...)}
+	return []p2pnet.DialOption{p2pnet.WithRelays(l.Relays...), p2pnet.WithAddrs(l.Addrs...), p2pnet.WithHints(l.Hints...)}
 }
 
 // Redeem redeems the link on host h. The identity of h is the identity the
 // server admits from now on, so h must use the identity the device keeps.
+//
+// When the server can be reached only through a hint relay, Redeem sends the
+// code only after a hole punch opened a direct connection, so ctx must
+// allow about 2*p2pnet.DefaultPunchWait. When the punch fails, it returns
+// ErrNeedsRelay and the invite stays pending.
 func Redeem(ctx context.Context, h *p2pnet.Host, l *p2ppair.Link, req Request) (*Result, error) {
 	if l.Expired(time.Now()) {
 		return nil, ErrExpired
@@ -114,11 +130,14 @@ func Redeem(ctx context.Context, h *p2pnet.Host, l *p2ppair.Link, req Request) (
 		return nil, err
 	}
 	hr.Header.Set("Content-Type", "application/json")
-	client := h.HTTPClient(l.Peer, DialOptions(l)...)
+	client := h.HTTPClient(l.Peer, append(DialOptions(l), p2pnet.WithPunchWait(punchWait))...)
 	defer client.CloseIdleConnections()
 	resp, err := client.Do(hr)
 	if err != nil {
-		if len(l.Addrs) == 0 && len(l.Relays) == 0 {
+		if errors.Is(err, p2pnet.ErrNoDirectPath) {
+			return nil, fmt.Errorf("%w: %w: %w", ErrUnreachable, ErrNeedsRelay, err)
+		}
+		if len(l.Addrs) == 0 && len(l.Relays) == 0 && len(l.Hints) == 0 {
 			return nil, fmt.Errorf("%w: %w: %w", ErrUnreachable, ErrNoRoute, err)
 		}
 		return nil, fmt.Errorf("%w: %w", ErrUnreachable, err)
