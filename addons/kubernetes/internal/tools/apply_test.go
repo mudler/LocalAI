@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stesting "k8s.io/client-go/testing"
 )
@@ -148,5 +149,33 @@ var _ = Describe("apply and patch", func() {
 		s := sampleOf(p)
 		Expect(s["diffCut"]).To(BeTrue())
 		Expect(len(s["diff"].(string))).To(BeNumerically("<=", 10<<10))
+	})
+
+	It("marks a changed masked env value on the card and does not call it no change", func() {
+		g := newRig(deployment("team-a", "web", 2))
+		patch := `{"spec":{"template":{"spec":{"containers":[{"name":"app","env":[{"name":"API_TOKEN","value":"rotated-value"}]}]}}}}`
+		args := map[string]any{"kind": "deploy", "namespace": "team-a", "name": "web", "patchType": "strategic", "patch": patch}
+		p, err := g.preview("op", tools.ToolPatch, args)
+		Expect(err).NotTo(HaveOccurred())
+		s := sampleOf(p)
+		Expect(s["change"]).To(Equal("update"))
+		Expect(s["diff"]).To(ContainSubstring("*** (new value)"))
+		Expect(string(p.Summary)).NotTo(ContainSubstring("rotated-value"))
+		Expect(string(p.Summary)).NotTo(ContainSubstring("inline-token-value"))
+	})
+
+	It("makes the preview stale when only a masked env value changed", func() {
+		g := newRig(deployment("team-a", "web", 2))
+		patch := `{"spec":{"template":{"spec":{"containers":[{"name":"app","env":[{"name":"API_TOKEN","value":"rotated-value"}]}]}}}}`
+		args := map[string]any{"kind": "deploy", "namespace": "team-a", "name": "web", "patchType": "strategic", "patch": patch}
+		p, err := g.preview("op", tools.ToolPatch, args)
+		Expect(err).NotTo(HaveOccurred())
+		d := g.deploy("team-a", "web")
+		d.Spec.Template.Spec.Containers[0].Env[0].Value = "changed-elsewhere"
+		_, err = g.k.Typed.AppsV1().Deployments("team-a").Update(ctx, d, metav1.UpdateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		rc, err := g.apply("op", tools.ToolPatch, args, p)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rc.State).To(Equal(contract.ReceiptRejected))
 	})
 })

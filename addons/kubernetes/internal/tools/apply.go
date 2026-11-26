@@ -35,23 +35,32 @@ const (
 	maxDiff     = 10 << 10
 )
 
+// objText is the YAML of an object without the fields that change on every
+// write.
+func objText(u *unstructured.Unstructured) string {
+	if u == nil {
+		return ""
+	}
+	u = u.DeepCopy()
+	clean(u)
+	for _, f := range []string{"resourceVersion", "generation", "uid", "creationTimestamp", "selfLink"} {
+		unstructured.RemoveNestedField(u.Object, "metadata", f)
+	}
+	unstructured.RemoveNestedField(u.Object, "status")
+	b, _ := yaml.Marshal(u.Object)
+	return string(b)
+}
+
+// stateHash hashes both sides of a diff before masking, so a change the
+// masked diff hides still makes the preview stale.
+func stateHash(live, next *unstructured.Unstructured) string {
+	return hashText(objText(live) + "\x00" + objText(next))
+}
+
 // diffYAML is a unified diff of two objects after the fields that change on
 // every write are dropped. A missing live object diffs against nothing.
 func diffYAML(live, next *unstructured.Unstructured) (string, bool) {
-	text := func(u *unstructured.Unstructured) string {
-		if u == nil {
-			return ""
-		}
-		u = u.DeepCopy()
-		clean(u)
-		for _, f := range []string{"resourceVersion", "generation", "uid", "creationTimestamp", "selfLink"} {
-			unstructured.RemoveNestedField(u.Object, "metadata", f)
-		}
-		unstructured.RemoveNestedField(u.Object, "status")
-		b, _ := yaml.Marshal(u.Object)
-		return string(b)
-	}
-	a, b := text(live), text(next)
+	a, b := objText(live), objText(next)
 	if a == b {
 		return "", false
 	}
@@ -86,10 +95,11 @@ func (c *call) shown(u *unstructured.Unstructured, t kubeapi.Target) *unstructur
 	return u
 }
 
-// shownPair masks the two sides of a diff. For a Secret it marks the keys
-// whose value changes, since equal lengths would otherwise hide the change.
+// shownPair masks the two sides of a diff. It marks the Secret keys and the
+// hidden env values that change, since the masking would otherwise hide the
+// change.
 func (c *call) shownPair(live, next *unstructured.Unstructured, t kubeapi.Target) (*unstructured.Unstructured, *unstructured.Unstructured) {
-	if c.pol.ReadSecretValues || !mask.IsSecret(t) {
+	if c.pol.ReadSecretValues {
 		return c.shown(live, t), c.shown(next, t)
 	}
 	var l, n *unstructured.Unstructured
@@ -101,7 +111,11 @@ func (c *call) shownPair(live, next *unstructured.Unstructured, t kubeapi.Target
 		n = next.DeepCopy()
 		clean(n)
 	}
-	mask.SecretPair(l, n)
+	if mask.IsSecret(t) {
+		mask.SecretPair(l, n)
+	} else {
+		mask.EnvPair(l, n)
+	}
 	return l, n
 }
 
@@ -216,7 +230,7 @@ func (o *applyOp) look(c *call) (map[string]any, uint64, error) {
 	}
 	s := map[string]any{"tool": ToolApply, "kind": o.t.Kind, "namespace": o.obj.GetNamespace(), "name": o.obj.GetName(),
 		"change": change(live, o.diff), "diff": o.diff, "diffCut": o.cut}
-	return s, c.revision(ToolApply, o.t.GVR.String(), o.obj.GetNamespace(), o.obj.GetName(), hashText(o.Manifest), hashText(o.diff), uid), nil
+	return s, c.revision(ToolApply, o.t.GVR.String(), o.obj.GetNamespace(), o.obj.GetName(), hashText(o.Manifest), stateHash(live, dry), uid), nil
 }
 
 func (o *applyOp) apply(c *call) (map[string]any, error) {
@@ -361,7 +375,7 @@ func (o *patchOp) look(c *call) (map[string]any, uint64, error) {
 	o.diff, o.cut = diffYAML(c.shownPair(live, dry, o.t))
 	s := map[string]any{"tool": ToolPatch, "kind": o.t.Kind, "namespace": o.Namespace, "name": o.Name, "patchType": o.PatchType,
 		"change": change(live, o.diff), "diff": o.diff, "diffCut": o.cut}
-	return s, c.revision(ToolPatch, o.t.GVR.String(), o.Namespace, o.Name, o.PatchType, hashText(string(o.data)), hashText(o.diff), string(live.GetUID())), nil
+	return s, c.revision(ToolPatch, o.t.GVR.String(), o.Namespace, o.Name, o.PatchType, hashText(string(o.data)), stateHash(live, dry), string(live.GetUID())), nil
 }
 
 func (o *patchOp) apply(c *call) (map[string]any, error) {

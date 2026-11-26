@@ -134,31 +134,83 @@ func SecretPair(live, next *unstructured.Unstructured) {
 var containerLists = map[string]bool{"containers": true, "initContainers": true, "ephemeralContainers": true}
 
 // PodEnv hides the inline value of every env var whose name looks secret, in
-// any container list at any depth, so the pod templates of custom resources
-// are covered too.
-func PodEnv(u *unstructured.Unstructured) { walk(u.Object) }
+// any container list at any depth, so the pod templates of every workload
+// kind (a CronJob's jobTemplate too) and of custom resources are covered.
+// args, command and the other fields of a container are not scanned.
+func PodEnv(u *unstructured.Unstructured) {
+	containers(u.Object, "", func(_ string, c map[string]any) { hideEnv(c, nil) })
+}
 
-func walk(v any) {
+// EnvPair masks the env of the live object and of the result of a write, and
+// marks a hidden value that the write changes, so the card shows a change
+// that the masking would otherwise hide.
+func EnvPair(live, next *unstructured.Unstructured) {
+	old := map[string]any{}
+	if live != nil {
+		containers(live.Object, "", func(at string, c map[string]any) {
+			for name, v := range secretEnv(c) {
+				old[at+"\x00"+name] = v
+			}
+		})
+		PodEnv(live)
+	}
+	if next == nil {
+		return
+	}
+	containers(next.Object, "", func(at string, c map[string]any) {
+		changed := map[string]bool{}
+		for name, v := range secretEnv(c) {
+			if was, ok := old[at+"\x00"+name]; !ok || was != v {
+				changed[name] = true
+			}
+		}
+		hideEnv(c, changed)
+	})
+}
+
+// containers calls fn for each container of any container list at any
+// depth. at names the place of the container: the path of its list and its
+// name.
+func containers(v any, path string, fn func(at string, c map[string]any)) {
 	switch x := v.(type) {
 	case map[string]any:
 		for k, e := range x {
 			if list, ok := e.([]any); ok && containerLists[k] {
-				for _, c := range list {
+				for i, c := range list {
 					if cm, ok := c.(map[string]any); ok {
-						hideEnv(cm)
+						name, _ := cm["name"].(string)
+						fn(fmt.Sprintf("%s/%s/%d:%s", path, k, i, name), cm)
 					}
 				}
 			}
-			walk(e)
+			containers(e, path+"/"+k, fn)
 		}
 	case []any:
-		for _, e := range x {
-			walk(e)
+		for i, e := range x {
+			containers(e, fmt.Sprintf("%s/%d", path, i), fn)
 		}
 	}
 }
 
-func hideEnv(container map[string]any) {
+// secretEnv returns the inline values of the env vars whose name looks
+// secret.
+func secretEnv(container map[string]any) map[string]any {
+	out := map[string]any{}
+	env, _ := container["env"].([]any)
+	for _, e := range env {
+		m, ok := e.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _ := m["name"].(string)
+		if v, has := m["value"]; has && secretName.MatchString(name) {
+			out[name] = v
+		}
+	}
+	return out
+}
+
+func hideEnv(container map[string]any, changed map[string]bool) {
 	env, _ := container["env"].([]any)
 	for _, e := range env {
 		m, ok := e.(map[string]any)
@@ -168,6 +220,9 @@ func hideEnv(container map[string]any) {
 		name, _ := m["name"].(string)
 		if _, has := m["value"]; has && secretName.MatchString(name) {
 			m["value"] = Hidden
+			if changed[name] {
+				m["value"] = Hidden + " (new value)"
+			}
 		}
 	}
 }

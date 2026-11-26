@@ -97,4 +97,44 @@ var _ = Describe("masking", func() {
 		Expect(next.Object["data"]).To(Equal(map[string]any{"password": "<15 bytes> (new value)", "extra": "<1 bytes> (new value)"}))
 		Expect(next.Object["stringData"]).To(Equal(map[string]any{"user": "<5 bytes>"}))
 	})
+
+	It("masks the env of a CronJob's jobTemplate and of every workload kind", func() {
+		podSpec := func() map[string]any {
+			return map[string]any{"template": map[string]any{"spec": map[string]any{"containers": []any{
+				map[string]any{"name": "app", "env": []any{env("API_TOKEN", "tok-1"), env("MODE", "x")}}}}}}
+		}
+		kinds := map[string]*unstructured.Unstructured{
+			"CronJob":     {Object: map[string]any{"kind": "CronJob", "spec": map[string]any{"jobTemplate": map[string]any{"spec": podSpec()}}}},
+			"Job":         {Object: map[string]any{"kind": "Job", "spec": podSpec()}},
+			"Deployment":  {Object: map[string]any{"kind": "Deployment", "spec": podSpec()}},
+			"StatefulSet": {Object: map[string]any{"kind": "StatefulSet", "spec": podSpec()}},
+			"DaemonSet":   {Object: map[string]any{"kind": "DaemonSet", "spec": podSpec()}},
+			"ReplicaSet":  {Object: map[string]any{"kind": "ReplicaSet", "spec": podSpec()}},
+			"Pod":         {Object: map[string]any{"kind": "Pod", "spec": map[string]any{"containers": []any{map[string]any{"name": "app", "env": []any{env("API_TOKEN", "tok-1")}}}}}},
+		}
+		for kind, u := range kinds {
+			mask.Apply(u, widgets, policy.Defaults())
+			b, _ := u.MarshalJSON()
+			Expect(string(b)).NotTo(ContainSubstring("tok-1"), kind)
+			Expect(string(b)).To(ContainSubstring(mask.Hidden), kind)
+		}
+	})
+
+	It("marks a hidden env value that a write changes", func() {
+		mk := func(v string) *unstructured.Unstructured {
+			return &unstructured.Unstructured{Object: map[string]any{"spec": map[string]any{"containers": []any{
+				map[string]any{"name": "app", "env": []any{env("API_TOKEN", v), env("DB_PASSWORD", "same")}}}}}}
+		}
+		live, next := mk("old"), mk("new")
+		mask.EnvPair(live, next)
+		b, _ := next.MarshalJSON()
+		Expect(string(b)).To(ContainSubstring(`"name":"API_TOKEN","value":"*** (new value)"`))
+		Expect(string(b)).To(ContainSubstring(`"name":"DB_PASSWORD","value":"***"`))
+		lb, _ := live.MarshalJSON()
+		Expect(string(lb)).NotTo(ContainSubstring("old"))
+		created := mk("v")
+		mask.EnvPair(nil, created)
+		cb, _ := created.MarshalJSON()
+		Expect(string(cb)).To(ContainSubstring("*** (new value)"))
+	})
 })
