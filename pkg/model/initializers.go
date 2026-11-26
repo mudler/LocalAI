@@ -370,12 +370,23 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 	}
 	model, err := ml.LoadModelWithFile(o.modelID, o.model, modelFileName, ml.grpcModel(backend, o))
 	if err != nil {
-		// Defensive cleanup: the model usually wasn't registered yet (LoadModel
-		// failed before that), so StopGRPC reporting "model not found" is the
-		// expected case, not an error. The outer Failed-to-load log below
-		// carries the real reason.
-		if stopErr := ml.StopGRPC(only(o.modelID)); stopErr != nil {
-			xlog.Debug("cleanup stop after failed load", "error", stopErr, "model", o.modelID)
+		// Defensive cleanup applies only to local cold loads. In distributed
+		// mode Load() calls backendLoader on every request and SmartRouter
+		// owns failed-load cleanup on workers; calling StopGRPC here runs
+		// ShutdownModel -> UnloadRemoteModelContext and stops healthy replicas
+		// across all nodes (both when a local stub is present and when
+		// DistributedModelStore.Range reports cluster-resident replicas on a
+		// cold frontend). For an already-resident local model, a refused load
+		// must not tear down the running entry.
+		if coldLoad {
+			ml.mu.Lock()
+			distributed := ml.modelRouter != nil
+			ml.mu.Unlock()
+			if !distributed {
+				if stopErr := ml.StopGRPC(only(o.modelID)); stopErr != nil {
+					xlog.Debug("cleanup stop after failed load", "error", stopErr, "model", o.modelID)
+				}
+			}
 		}
 		// A model held by a failed distributed load, or still loading, is an
 		// answer to retry later, not a fault of this request.
