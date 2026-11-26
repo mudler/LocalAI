@@ -55,15 +55,12 @@ func ApplyGenericDefaults(cfg *ModelConfig) {
 		cfg.TFZ = &defaultTFZ
 	}
 
-	if cfg.MMap == nil {
-		// MMap is enabled by default
-
-		// Only exception is for Intel GPUs
-		if os.Getenv("XPU") != "" {
-			cfg.MMap = &falseV
-		} else {
-			cfg.MMap = &trueV
-		}
+	// MMap stays unset on purpose: the backend options then send mmap=true
+	// (the historic default) together with MMapManaged, so llama.cpp can pick
+	// its load mode and skip mmap on integrated GPUs where it hangs. Intel
+	// GPUs are the exception and always load without mmap.
+	if cfg.MMap == nil && os.Getenv("XPU") != "" {
+		cfg.MMap = &falseV
 	}
 
 	if cfg.MMlock == nil {

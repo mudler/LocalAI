@@ -1567,6 +1567,13 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         // mmap (llama-model-loader.cpp maps only MMAP, MMAP_MLOCK and AUTO).
         // Keep mmap with mlock unless mmap is switched off on purpose.
         params.load_mode = request->mmap() ? LLAMA_LOAD_MODE_MMAP_MLOCK : LLAMA_LOAD_MODE_MLOCK;
+#if LOCALAI_HAS_LOAD_MODE_AUTO
+    } else if (request->mmapmanaged()) {
+        // The model config leaves mmap unset: let llama.cpp decide. AUTO maps
+        // the file unless a device lacks mmap support, as on integrated GPUs
+        // where mmap loads can hang (ggml-org/llama.cpp#19482).
+        params.load_mode = LLAMA_LOAD_MODE_AUTO;
+#endif
     } else if (request->mmap()) {
         params.load_mode = LLAMA_LOAD_MODE_MMAP;
     } else {

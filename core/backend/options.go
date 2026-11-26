@@ -440,17 +440,17 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		reranking = *c.Reranking
 	}
 
-	mmap := false
-	if c.MMap != nil {
-		mmap = *c.MMap
-	}
+	// An unset mmap goes out as true, the historic default, so backends that
+	// do not read MMapManaged load as before; llama-cpp reads MMapManaged and
+	// lets llama.cpp choose the load mode instead.
+	mmap, mmapManaged := mmapOption(c)
 
 	// Intel SYCL backend has issues with mmap enabled
 	// See: https://github.com/mudler/LocalAI/issues/9012
 	// Automatically disable mmap for Intel SYCL backends
 	if c.Backend != "" {
 		if strings.Contains(strings.ToLower(c.Backend), "intel") || strings.Contains(strings.ToLower(c.Backend), "sycl") {
-			mmap = false
+			mmap, mmapManaged = false, false
 			xlog.Info("Auto-disabling mmap for Intel SYCL backend", "backend", c.Backend)
 		}
 	}
@@ -549,6 +549,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		LowVRAM:             lowVRAM,
 		NGPULayers:          int32(nGPULayers),
 		MMap:                mmap,
+		MMapManaged:         mmapManaged,
 		MainGPU:             c.MainGPU,
 		Threads:             int32(*c.Threads),
 		TensorSplit:         c.TensorSplit,
@@ -735,7 +736,7 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 		IgnoreEOS:           c.IgnoreEOS,
 		Seed:                getSeed(c),
 		MLock:               *c.MMlock,
-		MMap:                *c.MMap,
+		MMap:                mmapEnabled(c),
 		MainGPU:             c.MainGPU,
 		TensorSplit:         c.TensorSplit,
 		TailFreeSamplingZ:   float32(*c.TFZ),
@@ -779,4 +780,18 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 
 	// Logprobs and TopLogprobs are set by the caller if provided
 	return pbOpts
+}
+
+// mmapOption returns the mmap value to send to a backend and whether LocalAI
+// chose it (the model config leaves mmap unset) rather than the user.
+func mmapOption(c config.ModelConfig) (mmap, managed bool) {
+	if c.MMap == nil {
+		return true, true
+	}
+	return *c.MMap, false
+}
+
+func mmapEnabled(c config.ModelConfig) bool {
+	mmap, _ := mmapOption(c)
+	return mmap
 }

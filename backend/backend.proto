@@ -557,6 +557,14 @@ message ModelOptions {
   // explicit `batch:` must reach the backend unchanged, even when it equals
   // one of the managed values.
   bool BatchManaged = 78;
+
+  // MMapManaged is true when the model config leaves `mmap` unset. MMap then
+  // carries LocalAI's historic default (true) for backends that do not know
+  // this field, while backends that do may pick the load mode themselves:
+  // llama.cpp's LLAMA_LOAD_MODE_AUTO avoids mmap on devices without mmap
+  // support, such as integrated GPUs where mmap loads can hang
+  // (ggml-org/llama.cpp#19482). An explicit `mmap:` keeps this false.
+  bool MMapManaged = 79;
 }
 
 // ProxyOptions configures the cloud-proxy backend. UpstreamURL and

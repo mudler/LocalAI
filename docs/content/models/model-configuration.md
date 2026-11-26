@@ -276,8 +276,8 @@ These settings apply to most LLM backends (llama.cpp, vLLM, etc.):
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `mmap` | bool | `true` | Use memory mapping for model loading (faster, less RAM) |
-| `mmlock` | bool | `false` | Lock model in memory (prevents swapping). With `llama-cpp`, `mmlock` together with `mmap` (the default) maps the file and locks it (`mmap+mlock`); with `mmap: false` the model is read into locked memory instead. |
+| `mmap` | bool | unset | Use memory mapping for model loading (faster, less RAM). When unset, `llama-cpp` lets llama.cpp choose: it maps the file unless a device has no mmap support, as on integrated GPUs (APUs), where mmap loads can hang ([ggml-org/llama.cpp#19482](https://github.com/ggml-org/llama.cpp/issues/19482)). Other backends treat unset as `true`. Set `true` or `false` to force a choice. Intel SYCL backends always load without mmap |
+| `mmlock` | bool | `false` | Lock model in memory (prevents swapping). With `llama-cpp`, `mmlock` together with `mmap` (`true` or unset) maps the file and locks it (`mmap+mlock`); with `mmap: false` the model is read into locked memory instead. |
 | `low_vram` | bool | `false` | Use minimal VRAM mode |
 | `no_kv_offloading` | bool | `false` | Disable KV cache offloading |
 

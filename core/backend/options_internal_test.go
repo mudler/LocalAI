@@ -626,3 +626,48 @@ var _ = Describe("proxy remote key", func() {
 		})
 	})
 })
+
+// An unset mmap must reach llama-cpp as "managed" so llama.cpp can choose the
+// load mode, while MMap keeps the historic true for backends that ignore the
+// new field. An explicit value, or the SYCL override, is never managed.
+var _ = Describe("grpcModelOpts mmap", func() {
+	threads := 1
+	ctx := 4096
+	base := func(backend string, mmap *bool) config.ModelConfig {
+		cfg := config.ModelConfig{Threads: &threads, Backend: backend, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+		cfg.MMap = mmap
+		return cfg
+	}
+	yes, no := true, false
+
+	It("sends an unset mmap as true and managed", func() {
+		opts := grpcModelOpts(base("llama-cpp", nil), "/tmp/models")
+		Expect(opts.MMap).To(BeTrue())
+		Expect(opts.MMapManaged).To(BeTrue())
+	})
+
+	It("keeps an explicit mmap: true", func() {
+		opts := grpcModelOpts(base("llama-cpp", &yes), "/tmp/models")
+		Expect(opts.MMap).To(BeTrue())
+		Expect(opts.MMapManaged).To(BeFalse())
+	})
+
+	It("keeps an explicit mmap: false", func() {
+		opts := grpcModelOpts(base("llama-cpp", &no), "/tmp/models")
+		Expect(opts.MMap).To(BeFalse())
+		Expect(opts.MMapManaged).To(BeFalse())
+	})
+
+	It("forces mmap off for SYCL backends, even when unset", func() {
+		opts := grpcModelOpts(base("intel-sycl-f16-llama-cpp", nil), "/tmp/models")
+		Expect(opts.MMap).To(BeFalse())
+		Expect(opts.MMapManaged).To(BeFalse())
+	})
+
+	It("does not panic on an unset mmap in the predict options", func() {
+		cfg := config.ModelConfig{}
+		cfg.SetDefaults()
+		Expect(cfg.MMap).To(BeNil())
+		Expect(gRPCPredictOpts(cfg, "/tmp/models").MMap).To(BeTrue())
+	})
+})

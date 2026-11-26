@@ -210,7 +210,7 @@ iommu=pt amdgpu.gttsize=126976 ttm.pages_limit=32505856
 > rather than just restarting it. `docker compose restart` preserves the old container environment
 > and will not pick up updated env vars from the image.
 
-For llama.cpp models, enable flash attention (`--flash-attention`) and disable mmap (`--no-mmap`) for best performance on APU systems.
+For llama.cpp models, enable flash attention (`--flash-attention`) for best performance on APU systems. Leave `mmap` unset in the model configuration: llama.cpp then loads without mmap on devices that do not support it, such as APUs. Set `mmap: false` to force this on any device.
 
 ### Limitations
 

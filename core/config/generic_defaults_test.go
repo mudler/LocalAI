@@ -14,7 +14,8 @@ var _ = Describe("ApplyGenericDefaults (generic fallback tier)", func() {
 		Expect(*cfg.TopP).To(Equal(0.95))
 		Expect(*cfg.TopK).To(Equal(40))
 		Expect(*cfg.Temperature).To(Equal(0.9))
-		Expect(*cfg.MMap).To(BeTrue())
+		// mmap stays unset so the backend can pick the load mode.
+		Expect(cfg.MMap).To(BeNil())
 		Expect(*cfg.MMlock).To(BeFalse())
 		Expect(*cfg.PromptCacheAll).To(BeTrue())
 	})
@@ -28,6 +29,26 @@ var _ = Describe("ApplyGenericDefaults (generic fallback tier)", func() {
 		ApplyGenericDefaults(cfg)
 		Expect(*cfg.TopK).To(Equal(7))
 		Expect(*cfg.TopP).To(Equal(0.5))
+	})
+
+	It("disables mmap for Intel GPUs when unset", func() {
+		GinkgoT().Setenv("XPU", "1")
+		cfg := &ModelConfig{}
+		ApplyGenericDefaults(cfg)
+		Expect(cfg.MMap).To(HaveValue(BeFalse()))
+	})
+
+	It("keeps an explicit mmap value", func() {
+		for _, xpu := range []string{"", "1"} {
+			GinkgoT().Setenv("XPU", xpu)
+			for _, v := range []bool{true, false} {
+				mmap := v
+				cfg := &ModelConfig{}
+				cfg.MMap = &mmap
+				ApplyGenericDefaults(cfg)
+				Expect(cfg.MMap).To(HaveValue(Equal(v)))
+			}
+		}
 	})
 
 	It("no-ops on nil", func() {
