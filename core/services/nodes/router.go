@@ -1016,19 +1016,6 @@ func (r *SmartRouter) newColdLoadContext(parent context.Context) (context.Contex
 	return newLoadDeadlineContext(parent, r.modelLoadCeiling, r.stagingStallWindow, r.modelLoadAbsoluteMax)
 }
 
-// parseSelectorJSON decodes a JSON node selector string into a map.
-func parseSelectorJSON(selectorJSON string) map[string]string {
-	if selectorJSON == "" {
-		return nil
-	}
-	var selector map[string]string
-	if err := json.Unmarshal([]byte(selectorJSON), &selector); err != nil {
-		xlog.Warn("Failed to parse node selector", "selector", selectorJSON, "error", err)
-		return nil
-	}
-	return selector
-}
-
 func extractNodeIDs(nodes []BackendNode) []string {
 	ids := make([]string, len(nodes))
 	for i, n := range nodes {
@@ -1171,8 +1158,8 @@ func (r *SmartRouter) resolveSelectorCandidates(ctx context.Context, modelID str
 	if sched == nil || sched.NodeSelector == "" {
 		return nil, nil
 	}
-	var selector map[string]string
-	if err := json.Unmarshal([]byte(sched.NodeSelector), &selector); err != nil {
+	selector, err := decodeSelector(sched.NodeSelector)
+	if err != nil {
 		// A selector that cannot be parsed still means the operator wanted to
 		// restrict the model. Placing it on any node would ignore that.
 		return nil, fmt.Errorf("the node selector of the rule that governs %s cannot be parsed (%v): %w", modelID, err, ErrNoAvailableNodes)
@@ -1266,7 +1253,7 @@ func (r *SmartRouter) nodeMatchesScheduling(ctx context.Context, node *BackendNo
 		return true // no constraints
 	}
 
-	selector := parseSelectorJSON(sched.NodeSelector)
+	selector := parseSelector(sched.NodeSelector)
 	if len(selector) == 0 {
 		return true
 	}

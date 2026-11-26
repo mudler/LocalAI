@@ -1372,15 +1372,26 @@ func (rc *ReplicaReconciler) allReplicasBusy(ctx context.Context, modelName stri
 	return idleCount == 0
 }
 
-// parseSelector decodes a JSON node selector string into a map.
+// parseSelector decodes a JSON node selector string into a map. A selector
+// that cannot be decoded is logged and read as no selector; placement uses
+// decodeSelector instead, so that such a selector fails closed there.
 func parseSelector(selectorJSON string) map[string]string {
 	if selectorJSON == "" {
 		return nil
 	}
-	var selector map[string]string
-	if err := json.Unmarshal([]byte(selectorJSON), &selector); err != nil {
+	selector, err := decodeSelector(selectorJSON)
+	if err != nil {
 		xlog.Warn("Failed to parse node selector", "selector", selectorJSON, "error", err)
 		return nil
 	}
 	return selector
+}
+
+// decodeSelector decodes a JSON node selector string into a map.
+func decodeSelector(selectorJSON string) (map[string]string, error) {
+	var selector map[string]string
+	if err := json.Unmarshal([]byte(selectorJSON), &selector); err != nil {
+		return nil, err
+	}
+	return selector, nil
 }
