@@ -260,8 +260,9 @@ reads the answer for its own rules. The add-on does not store it and is not call
 ```
 
 A key is lowercase letters, digits and dashes, at most 40, and starts with a letter.
-A setting has 2 to 8 values of the same form, and a default that is one of them. An
-add-on declares at most 8 settings. A person who has not chosen has the default. The
+A setting has 2 to 8 values of the same form, and a default that is one of them. The
+number of settings an add-on declares has no cap of its own. A person who has not
+chosen has the default. The
 manifest fixes the allowed values and nothing else: the words on the page and the
 help text are the add-on's own.
 

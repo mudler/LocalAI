@@ -41,13 +41,16 @@ var _ = Describe("The user settings declaration", func() {
 		}
 	})
 
-	It("refuses a repeated key and too many settings", func() {
+	It("refuses a repeated key", func() {
 		Expect(ValidateManifest(with(good, good), compatible())).NotTo(Succeed())
+	})
+
+	It("accepts more than eight settings", func() {
 		var many []UserSetting
-		for i := range MaxUserSettings + 1 {
+		for i := range 12 {
 			many = append(many, UserSetting{Key: "k" + strings.Repeat("a", i), Values: []string{"a", "b"}, Default: "a"})
 		}
-		Expect(ValidateManifest(with(many...), compatible())).NotTo(Succeed())
+		Expect(ValidateManifest(with(many...), compatible())).To(Succeed())
 	})
 
 	It("fixes the values and the default of a role the host reads", func() {

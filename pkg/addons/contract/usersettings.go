@@ -7,10 +7,10 @@ import (
 	"slices"
 )
 
-// Limits of the per-user settings an add-on declares.
+// Limits of the per-user settings an add-on declares. The number of settings
+// has no cap of its own: an add-on that lets a person relax each write tool
+// needs one setting per tool, and the tool cap already bounds those.
 const (
-	// MaxUserSettings is the most settings one add-on declares.
-	MaxUserSettings = 8
 	// MaxUserSettingValues is the most values one setting allows.
 	MaxUserSettingValues = 8
 )
@@ -122,9 +122,6 @@ func UserSettingOf(list []UserSetting, key string) (UserSetting, bool) {
 func validateUserSettings(list []UserSetting) error {
 	if len(list) == 0 {
 		return nil
-	}
-	if len(list) > MaxUserSettings {
-		return fmt.Errorf("too many user settings: at most %d", MaxUserSettings)
 	}
 	seen, roles := map[string]bool{}, map[string]bool{}
 	for _, s := range list {
