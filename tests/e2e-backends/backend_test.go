@@ -116,14 +116,15 @@ import (
 //	                         "grammar_stress" does the same with a large tool set
 //	                         (BACKEND_TEST_GRAMMAR_STRESS_TOOLS tools, default 48)
 //	                         and reports the time per token.
-//	                         "paged_overcommit", "paged_parity" and "paged_budget"
-//	                         exercise the llama.cpp paged serving mode and need
-//	                         BACKEND_TEST_OPTIONS with paged_kv and parallel (see
-//	                         the test-extra-backend-llama-cpp-paged target):
+//	                         "paged_overcommit", "paged_parity", "paged_budget" and
+//	                         "paged_cache" exercise the llama.cpp paged serving mode
+//	                         and need BACKEND_TEST_OPTIONS with paged_kv and parallel
+//	                         (see the test-extra-backend-llama-cpp-paged target):
 //	                         more requests than the KV pool holds all complete,
 //	                         greedy output does not change when requests share
-//	                         the pool or are preempted, and decoding streams keep
-//	                         advancing while a long prompt is read.
+//	                         the pool or are preempted, decoding streams keep
+//	                         advancing while a long prompt is read, and the prompt
+//	                         cache still serves a repeated prompt.
 //	                         The "s2s" capability exercises AudioToAudioStream
 //	                         with BACKEND_TEST_AUDIO_* as the spoken input
 //	                         (a text turn with a tool, then its result).
@@ -162,6 +163,7 @@ const (
 	capPagedOver      = "paged_overcommit"
 	capPagedParity    = "paged_parity"
 	capPagedBudget    = "paged_budget"
+	capPagedCache     = "paged_cache"
 
 	defaultPrompt             = "The capital of France is"
 	streamPrompt              = "Once upon a time"
@@ -1663,6 +1665,36 @@ var _ = Describe("Backend container", Ordered, func() {
 			Expect(got).To(BeNumerically(">=", minSteps/2),
 				"decoding stalled during the long prompt: the prefill budget is not applied")
 		}
+	})
+
+	// With paged serving the RAM prompt cache is loaded when a request is
+	// admitted, not when it is assigned a slot (a waiting request holds no
+	// cells). The cache must still give a repeated prompt its cached prefix.
+	It("reuses the prompt cache when the cache load waits for admission", func() {
+		if !caps[capPagedCache] {
+			Skip("paged_cache capability not enabled")
+		}
+		ctxSize := int(envInt32("BACKEND_TEST_CTX_SIZE", 512))
+		predict := func(p string) *pb.Reply {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+			res, err := client.Predict(ctx, &pb.PredictOptions{
+				Prompt: p, Tokens: 4, Temperature: 0, TopK: 1, Seed: 1, PromptCacheAll: true,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			return res
+		}
+		long := pagedPrompt(400, ctxSize/3)
+		first := predict(long)
+		// Other prompts move the first one out of its slot into the RAM cache.
+		for i := 0; i < 4; i++ {
+			predict(pagedPrompt(500+i, 20))
+		}
+		again := predict(long)
+		GinkgoWriter.Printf("paged cache: prompt processing %.1f ms, then %.1f ms from the cache\n",
+			first.GetTimingPromptProcessing(), again.GetTimingPromptProcessing())
+		Expect(again.GetTimingPromptProcessing()).To(BeNumerically("<", first.GetTimingPromptProcessing()/2),
+			"the repeated prompt was read again instead of coming from the prompt cache")
 	})
 })
 
