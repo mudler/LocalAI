@@ -263,8 +263,16 @@ func ParallelSlotsForContext(g GPU, ctx int) int {
 // headroom for) concurrency at this context. Returns the possibly-extended
 // options. Shared by the single-host config path (ApplyHardwareDefaults) and
 // the distributed router (per selected node).
+//
+// On a known GPU without room for more slots it appends "parallel:1": the
+// llama.cpp backend's paged serving, on by default, raises an unset slot
+// count to 8, which would bring back the per-device OOM of issue #10485.
+// With no GPU (VRAM unknown, e.g. CPU) the backend default applies.
 func EnsureParallelOptionForContext(opts []string, gpu GPU, ctx int) []string {
-	if slots := ParallelSlotsForContext(gpu, ctx); slots > 1 && !hasParallelOption(opts) {
+	if hasParallelOption(opts) {
+		return opts
+	}
+	if slots := ParallelSlotsForContext(gpu, ctx); slots > 1 || gpu.VRAM > 0 {
 		return append(opts, fmt.Sprintf("parallel:%d", slots))
 	}
 	return opts

@@ -145,23 +145,29 @@ var _ = Describe("Hardware-driven config defaults", func() {
 			ApplyHardwareDefaults(cfg, GPU{ComputeCapability: "12.1", VRAM: 119 * gib})
 			Expect(cfg.Options).To(ContainElement("parallel:8"))
 		})
-		It("adds no parallel option when a large context already fills one device", func() {
+		It("pins one slot when a large context already fills one device", func() {
 			// Regression guard for issue #10485: 16 GiB card + ~200k context. The
 			// model barely fits; defaulting concurrency tips the tighter GPU into
-			// CUDA OOM during the final (MTP draft) KV allocation.
+			// CUDA OOM during the final (MTP draft) KV allocation. The explicit
+			// parallel:1 keeps the backend's paged serving default (8 slots) out.
 			ctx := 204800
 			cfg := &ModelConfig{LLMConfig: LLMConfig{ContextSize: &ctx}}
 			ApplyHardwareDefaults(cfg, GPU{ComputeCapability: "12.0", VRAM: 16 * gib})
-			Expect(cfg.Options).ToNot(ContainElement(ContainSubstring("parallel")))
+			Expect(cfg.Options).To(Equal([]string{"parallel:1"}))
 		})
 		It("scales the slot count down with VRAM", func() {
 			cfg := &ModelConfig{}
 			ApplyHardwareDefaults(cfg, GPU{VRAM: 24 * gib})
 			Expect(cfg.Options).To(ContainElement("parallel:4"))
 		})
-		It("adds no parallel option on small/unknown VRAM", func() {
+		It("pins one slot on a small GPU", func() {
 			cfg := &ModelConfig{}
 			ApplyHardwareDefaults(cfg, GPU{VRAM: 2 * gib})
+			Expect(cfg.Options).To(Equal([]string{"parallel:1"}))
+		})
+		It("adds no parallel option when VRAM is unknown (CPU): the backend default applies", func() {
+			cfg := &ModelConfig{}
+			ApplyHardwareDefaults(cfg, GPU{})
 			Expect(cfg.Options).ToNot(ContainElement(ContainSubstring("parallel")))
 		})
 		It("never overrides an explicit parallel option", func() {

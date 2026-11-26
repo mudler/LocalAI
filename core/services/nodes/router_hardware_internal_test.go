@@ -49,12 +49,13 @@ var _ = Describe("applyNodeHardwareDefaults", func() {
 		Expect(opts.Options).To(ContainElement("parallel:8"))
 	})
 
-	It("adds no parallel option when a large context already fills the node device", func() {
+	It("pins one slot when a large context already fills the node device", func() {
 		// Regression guard for issue #10485: a 16 GiB node with a ~200k context
 		// is a tight single-model fit — the slot scratch would tip it into OOM.
+		// parallel:1 keeps the backend's paged serving default (8 slots) out.
 		opts := &pb.ModelOptions{NBatch: config.DefaultPhysicalBatch, BatchManaged: true, ContextSize: 204800}
 		applyNodeHardwareDefaults(opts, &BackendNode{GPUComputeCapability: "12.0", TotalVRAM: 16 << 30}, "llama-cpp")
-		Expect(opts.Options).ToNot(ContainElement(ContainSubstring("parallel")))
+		Expect(opts.Options).To(Equal([]string{"parallel:1"}))
 	})
 
 	It("never overrides an explicit parallel option on the node path", func() {
