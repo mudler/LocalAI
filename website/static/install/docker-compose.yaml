@@ -1,0 +1,100 @@
+# LocalAI with Docker Compose.
+#
+#   curl -fsSL https://localai.io/install/docker-compose.yaml -o docker-compose.yaml
+#   docker compose up -d
+#
+# Then open http://localhost:8080 and install a model from the gallery.
+#
+# Models, backends, settings and application data are kept in four named
+# volumes, so they survive `docker compose down`, image upgrades and
+# container recreation. `docker compose down -v` deletes them.
+#
+# Upgrade:  docker compose pull && docker compose up -d
+#
+# GPU: change the image tag and uncomment the block for your GPU below.
+# Documentation: https://localai.io/docs/start/install/containers/
+#
+# This file is also served at https://localai.io/install/docker-compose.yaml.
+# Keep the two copies identical (CI checks it). To build LocalAI from source,
+# use docker-compose.dev.yaml in the repository.
+
+services:
+  localai:
+    # CPU image. For a GPU, use one of these tags instead:
+    #   localai/localai:latest-gpu-nvidia-cuda-12   NVIDIA, CUDA 12 drivers
+    #   localai/localai:latest-gpu-nvidia-cuda-13   NVIDIA, CUDA 13 drivers
+    #   localai/localai:latest-gpu-hipblas          AMD (ROCm)
+    #   localai/localai:latest-gpu-intel            Intel (oneAPI/SYCL)
+    #   localai/localai:latest-gpu-vulkan           any GPU with a Vulkan driver
+    # Podman needs the registry in the name: docker.io/localai/localai:latest
+    image: localai/localai:latest
+    init: true
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    # environment:
+    #   # Require an API key on every request.
+    #   LOCALAI_API_KEY: "change-me"
+    #   # More log output: error, warn, info, debug or trace.
+    #   LOCALAI_LOG_LEVEL: debug
+    volumes:
+      - models:/models
+      - backends:/backends
+      - data:/data
+      - configuration:/configuration
+      # Bind mounts instead of named volumes: create the folders first as your
+      # own user (mkdir -p models backends data configuration), then replace
+      # the four lines above with these. See "Container user and permissions"
+      # in the documentation for who owns the files.
+      # - ./models:/models
+      # - ./backends:/backends
+      # - ./data:/data
+      # - ./configuration:/configuration
+
+    # --- NVIDIA (latest-gpu-nvidia-cuda-12 or -cuda-13) ---
+    # Needs the NVIDIA Container Toolkit on the host.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+    # --- AMD (latest-gpu-hipblas) ---
+    # devices:
+    #   - /dev/kfd
+    #   - /dev/dri
+
+    # --- Intel (latest-gpu-intel) or Vulkan (latest-gpu-vulkan) ---
+    # devices:
+    #   - /dev/dri
+
+    # The container starts as root, gives the data folders to uid 10001 and
+    # runs LocalAI as that user, with the groups of the GPU devices above.
+
+  ## PostgreSQL for the knowledge base (collections). Uncomment this service,
+  ## the postgres_data volume below, and these lines in `environment`:
+  ##   LOCALAI_COLLECTIONS_VECTOR_ENGINE: postgres
+  ##   LOCALAI_COLLECTIONS_DATABASE_URL: postgresql://localrecall:localrecall@postgres:5432/localrecall?sslmode=disable
+  # postgres:
+  #   image: quay.io/mudler/localrecall:v0.5.2-postgresql
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: localrecall
+  #     POSTGRES_USER: localrecall
+  #     POSTGRES_PASSWORD: localrecall
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U localrecall"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+volumes:
+  models:
+  backends:
+  data:
+  configuration:
+  # postgres_data:

@@ -138,6 +138,8 @@ services:
     volumes:
       - frontend_models:/models
       - frontend_data:/data
+      # API keys and runtime settings saved from the UI.
+      - frontend_configuration:/configuration
     depends_on:
       postgres:
         condition: service_healthy
@@ -182,6 +184,7 @@ services:
     volumes:
       - chat_worker_1_models:/models
       - chat_worker_1_data:/data
+      - chat_worker_1_configuration:/configuration
     depends_on:
       postgres:
         condition: service_healthy
@@ -219,7 +222,7 @@ services:
       LOCALAI_SERVE_ADDR: "0.0.0.0:50051"
       LOCALAI_ADVERTISE_ADDR: "worker-1:50051"
       LOCALAI_ADVERTISE_HTTP_ADDR: "worker-1:50050"
-      DEBUG: "true"
+      LOCALAI_LOG_LEVEL: "debug"
       LOCALAI_REGISTER_TO: "http://localai:8080"
       LOCALAI_NODE_NAME: "worker-1"
       LOCALAI_REGISTRATION_TOKEN: "changeme"  # Must match frontend token
@@ -229,6 +232,10 @@ services:
       MODELS_PATH: /models
     volumes:
       - worker_1_models:/models
+      # The backends the worker installs, so a recreated container does not
+      # download them again.
+      - worker_1_backends:/backends
+      - worker_1_data:/data
     depends_on:
       localai:
         condition: service_started
@@ -264,9 +271,11 @@ services:
   #       - shared_models:/models
   #       - frontend_data:/data
   #
-  #   backend-llama-cpp:
+  #   worker-1:
   #     volumes:
   #       - shared_models:/models
+  #       - worker_1_backends:/backends
+  #       - worker_1_data:/data
   #
   # Then add to the volumes section:
   #   shared_models:
@@ -303,6 +312,8 @@ services:
     # Install Docker CLI and start agent-worker.
     # The Docker socket is mounted from the host so that MCP stdio servers
     # using "docker run" commands can spawn containers on the host Docker.
+    # The entrypoint adds the group that owns the socket to the unprivileged
+    # user. Access to the socket is equal to root access on the host.
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -319,6 +330,9 @@ services:
       GODEBUG: "netdns=go"  # See note in localai service
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      # The agent worker keeps its own credential here, so a restart needs no
+      # new registration.
+      - agent_worker_1_data:/data
     depends_on:
       localai:
         condition: service_started
@@ -329,7 +343,12 @@ volumes:
   postgres_data:
   frontend_models:
   frontend_data:
+  frontend_configuration:
   worker_1_models:
+  worker_1_backends:
+  worker_1_data:
   garage_data:
   chat_worker_1_models:
   chat_worker_1_data:
+  chat_worker_1_configuration:
+  agent_worker_1_data:

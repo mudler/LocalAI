@@ -29,3 +29,20 @@ jobs:
           yamllint_comment: true
         env:
           GITHUB_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  compose:
+    name: 'Compose files'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout'
+        uses: actions/checkout@master
+      # The docs tell users to download website/static/install/docker-compose.yaml,
+      # and the repository root has the same file for people who clone it.
+      - name: 'The served compose file matches the repository one'
+        run: cmp docker-compose.yaml website/static/install/docker-compose.yaml
+      - name: 'docker compose config'
+        run: |
+          for f in docker-compose.yaml docker-compose.dev.yaml docker-compose.distributed.yaml; do
+            echo "checking $f"
+            docker compose -f "$f" config -q
+          done

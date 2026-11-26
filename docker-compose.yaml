@@ -1,79 +1,89 @@
+# LocalAI with Docker Compose.
+#
+#   curl -fsSL https://localai.io/install/docker-compose.yaml -o docker-compose.yaml
+#   docker compose up -d
+#
+# Then open http://localhost:8080 and install a model from the gallery.
+#
+# Models, backends, settings and application data are kept in four named
+# volumes, so they survive `docker compose down`, image upgrades and
+# container recreation. `docker compose down -v` deletes them.
+#
+# Upgrade:  docker compose pull && docker compose up -d
+#
+# GPU: change the image tag and uncomment the block for your GPU below.
+# Documentation: https://localai.io/docs/start/install/containers/
+#
+# This file is also served at https://localai.io/install/docker-compose.yaml.
+# Keep the two copies identical (CI checks it). To build LocalAI from source,
+# use docker-compose.dev.yaml in the repository.
+
 services:
-  api:
-    # See https://localai.io/basics/getting_started/#container-images for
-    # a list of available container images (or build your own with the provided Dockerfile)
-    # Available images with CUDA, ROCm, SYCL
-    # Image list (quay.io): https://quay.io/repository/go-skynet/local-ai?tab=tags
-    # Image list (dockerhub): https://hub.docker.com/r/localai/localai
-    image: quay.io/go-skynet/local-ai:master
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-      - IMAGE_TYPE=core
-      - BASE_IMAGE=ubuntu:24.04
+  localai:
+    # CPU image. For a GPU, use one of these tags instead:
+    #   localai/localai:latest-gpu-nvidia-cuda-12   NVIDIA, CUDA 12 drivers
+    #   localai/localai:latest-gpu-nvidia-cuda-13   NVIDIA, CUDA 13 drivers
+    #   localai/localai:latest-gpu-hipblas          AMD (ROCm)
+    #   localai/localai:latest-gpu-intel            Intel (oneAPI/SYCL)
+    #   localai/localai:latest-gpu-vulkan           any GPU with a Vulkan driver
+    # Podman needs the registry in the name: docker.io/localai/localai:latest
+    image: localai/localai:latest
+    init: true
+    restart: unless-stopped
     ports:
-      - 8080:8080
-    env_file:
-      - .env
-    environment:
-      - MODELS_PATH=/models
-      # Avoid probing remote gallery GGUF metadata during container startup.
-      # Remove this line or set a positive limit to opt back into cache warming.
-      - LOCALAI_VRAM_WARM_LIMIT=0
-    #  - DEBUG=true
-    ## Collections (the knowledge base) - https://localai.io/features/collections/
-    #  - LOCALAI_DISABLE_COLLECTIONS=false
-    ## Uncomment to use PostgreSQL for the knowledge base (requires the postgres service below)
-    #  - LOCALAI_COLLECTIONS_VECTOR_ENGINE=postgres
-    #  - LOCALAI_COLLECTIONS_DATABASE_URL=postgresql://localrecall:localrecall@postgres:5432/localrecall?sslmode=disable
+      - "8080:8080"
+    # environment:
+    #   # Require an API key on every request.
+    #   LOCALAI_API_KEY: "change-me"
+    #   # More log output: error, warn, info, debug or trace.
+    #   LOCALAI_LOG_LEVEL: debug
     volumes:
       - models:/models
-      - images:/tmp/generated/images/
-      - data:/data
       - backends:/backends
+      - data:/data
       - configuration:/configuration
-    command:
-    # Here we can specify a list of models to run (see quickstart https://localai.io/basics/getting_started/#running-models )
-    # or an URL pointing to a YAML configuration file, for example:
-    # - https://gist.githubusercontent.com/mudler/ad601a0488b497b69ec549150d9edd18/raw/a8a8869ef1bb7e3830bf5c0bae29a0cce991ff8d/phi-2.yaml
-    - phi-2-chat
-    # For NVIDIA GPU support with CDI (recommended for NVIDIA Container Toolkit 1.14+):
-    # Uncomment the following deploy section and use driver: nvidia.com/gpu.
-    # Include `utility` in capabilities so nvidia-smi / NVML are available —
-    # without it, free-VRAM reporting on discrete GPUs is unavailable and the
-    # Nodes UI will misreport memory usage.
-    # environment:
-    #   NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
-    # init: true   # avoids zombie-reap races that can make nvidia-smi flaky
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia.com/gpu
-    #           count: all
-    #           capabilities: [gpu, utility]
-    #
-    # For legacy NVIDIA driver (for older NVIDIA Container Toolkit):
-    # Request compute for CUDA libraries (libcuda.so.1) and utility for NVML.
-    # environment:
-    #   NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
-    # init: true
+      # Bind mounts instead of named volumes: create the folders first as your
+      # own user (mkdir -p models backends data configuration), then replace
+      # the four lines above with these. See "Container user and permissions"
+      # in the documentation for who owns the files.
+      # - ./models:/models
+      # - ./backends:/backends
+      # - ./data:/data
+      # - ./configuration:/configuration
+
+    # --- NVIDIA (latest-gpu-nvidia-cuda-12 or -cuda-13) ---
+    # Needs the NVIDIA Container Toolkit on the host.
     # deploy:
     #   resources:
     #     reservations:
     #       devices:
     #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu, compute, utility]
+    #           count: all
+    #           capabilities: [gpu]
 
-  ## Uncomment for PostgreSQL-backed knowledge base (see Agents docs)
+    # --- AMD (latest-gpu-hipblas) ---
+    # devices:
+    #   - /dev/kfd
+    #   - /dev/dri
+
+    # --- Intel (latest-gpu-intel) or Vulkan (latest-gpu-vulkan) ---
+    # devices:
+    #   - /dev/dri
+
+    # The container starts as root, gives the data folders to uid 10001 and
+    # runs LocalAI as that user, with the groups of the GPU devices above.
+
+  ## PostgreSQL for the knowledge base (collections). Uncomment this service,
+  ## the postgres_data volume below, and these lines in `environment`:
+  ##   LOCALAI_COLLECTIONS_VECTOR_ENGINE: postgres
+  ##   LOCALAI_COLLECTIONS_DATABASE_URL: postgresql://localrecall:localrecall@postgres:5432/localrecall?sslmode=disable
   # postgres:
   #   image: quay.io/mudler/localrecall:v0.5.2-postgresql
+  #   restart: unless-stopped
   #   environment:
-  #     - POSTGRES_DB=localrecall
-  #     - POSTGRES_USER=localrecall
-  #     - POSTGRES_PASSWORD=localrecall
+  #     POSTGRES_DB: localrecall
+  #     POSTGRES_USER: localrecall
+  #     POSTGRES_PASSWORD: localrecall
   #   volumes:
   #     - postgres_data:/var/lib/postgresql
   #   healthcheck:
@@ -84,8 +94,7 @@ services:
 
 volumes:
   models:
-  images:
+  backends:
   data:
   configuration:
-  backends:
   # postgres_data:

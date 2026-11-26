@@ -8,10 +8,10 @@
 # Everything lands in its own `local-ai` namespace, so removing it again is
 # `kubectl delete namespace local-ai` (which also deletes the volumes).
 #
-# Two volumes, because LocalAI downloads both parts on demand and you do not
-# want either of them fetched again on every restart:
+# Three volumes, so that nothing is lost when the pod restarts:
 #   /models    the model weights you install from the gallery
 #   /backends  the engine images pulled the first time a model asks for one
+#   /data      chats, files, collections, add-ons and settings
 #
 # For GPUs, add the vendor device plugin's resource to the container's
 # `resources.limits` (for example nvidia.com/gpu: 1) and switch the image to a
@@ -51,6 +51,20 @@ spec:
     requests:
       storage: 20Gi
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: local-ai-data
+  namespace: local-ai
+  labels:
+    app.kubernetes.io/name: local-ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -89,6 +103,8 @@ spec:
               value: /models
             - name: LOCALAI_BACKENDS_PATH
               value: /backends
+            - name: LOCALAI_DATA_PATH
+              value: /data
             - name: LOCALAI_ADDRESS
               value: ":8080"
             # Uncomment to require an API key on every request.
@@ -102,6 +118,8 @@ spec:
               mountPath: /models
             - name: backends
               mountPath: /backends
+            - name: data
+              mountPath: /data
           resources:
             requests:
               cpu: "1"
@@ -139,6 +157,9 @@ spec:
         - name: backends
           persistentVolumeClaim:
             claimName: local-ai-backends
+        - name: data
+          persistentVolumeClaim:
+            claimName: local-ai-data
 ---
 apiVersion: v1
 kind: Service

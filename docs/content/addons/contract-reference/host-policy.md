@@ -348,7 +348,7 @@ grants unless an explicit host-operations override is present.
 | Launcher or deployment | Host policy decision |
 | --- | --- |
 | Stock runtime `Dockerfile` | Ships and explicitly selects the reviewed file. |
-| `docker-compose.yaml`, `docker-compose.distributed.yaml` | Inherit the stock runtime image selection; custom images must select their own policy. Only the addon owner enforces grants in split mode. |
+| `docker-compose.yaml`, `docker-compose.dev.yaml`, `docker-compose.distributed.yaml` | Inherit the stock runtime image selection; custom images must select their own policy. Only the addon owner enforces grants in split mode. |
 | `website/static/install/kubernetes.yaml` | Inherits the stock image selection. A custom image must ship/select policy or mount an administrator file and select its absolute path. |
 | External Helm chart referenced by the Kubernetes guide | Not shipped here. Check the selected image and chart environment; custom images are unconfigured unless the operator selects policy. |
 | `.devcontainer/docker-compose-devcontainer.yml` | Uses the development target, not the stock runtime stage. A manually launched binary is unconfigured. |
