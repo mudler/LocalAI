@@ -172,7 +172,7 @@ COVERAGE_E2E_LABELS?=!real-models
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
 
 
-.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-unit test-i18n test-postgres test-distributed-fakebus test-p2p test-e2e-p2p test-e2e-distributed-p2p-worker test-e2e-distributed-join-token test-addons-suites addons-inventory addons-inventory-write test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
+.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-unit test-i18n test-postgres test-distributed-fakebus test-p2p test-e2e-p2p test-e2e-distributed-p2p-worker test-e2e-distributed-join-token test-e2e-distributed-worker-shutdown test-addons-suites addons-inventory addons-inventory-write test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
 
 all: help
 
@@ -428,6 +428,14 @@ test-e2e-distributed-join-token: protogen-go build-mock-backend
 	@echo 'Running the join token worker e2e (label JoinTokenWorker)'
 	LOCALAI_E2E_MOCK_BACKEND=$(abspath tests/e2e/mock-backend/mock-backend) \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='JoinTokenWorker' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
+
+## A worker that gets SIGTERM while it loads a model, with real processes:
+## PostgreSQL and NATS in containers, a frontend and two workers. The spec
+## carries the WorkerShutdown label.
+test-e2e-distributed-worker-shutdown: protogen-go build-mock-backend
+	@echo 'Running the worker shutdown e2e (label WorkerShutdown)'
+	LOCALAI_E2E_MOCK_BACKEND=$(abspath tests/e2e/mock-backend/mock-backend) \
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='WorkerShutdown' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
 
 # Platform e2e: MCP connectors and apps, collections, the process flags and the
 # permission of the new routes, against the real local-ai binary. The suite builds
