@@ -83,7 +83,7 @@ Available additional parameters: `top_p`, `top_k`, `max_tokens`, `service_tier` 
 
 Any caller can lower the priority of its own requests with `flex`. Only an administrator can use `priority`. For other callers, LocalAI changes `priority` to `default`. On a server without authentication (no user accounts and no API keys), every caller can use `priority`. An unknown value returns HTTP 400.
 
-The response includes the tier that LocalAI used in `service_tier`. For chat and text completions, only the non-streaming response includes it.
+The response includes the tier that LocalAI used in `service_tier`, in every chunk of a streamed chat or text completion too.
 
 LocalAI also sets the class of its own requests. A chat in the web UI and a chat from a connector are interactive. Sub-agents, jobs, triggers, pages and the indexing of collections are batch.
 

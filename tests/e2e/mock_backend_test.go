@@ -56,6 +56,31 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 				Expect(stream.Err()).ToNot(HaveOccurred())
 				Expect(hasContent).To(BeTrue())
 			})
+
+			It("echoes service_tier in every chunk, as OpenAI does", func() {
+				body := `{"model":"mock-model","messages":[{"role":"user","content":"Hello"}],"stream":true,` +
+					`"service_tier":"flex","stream_options":{"include_usage":true}}`
+				req, err := http.NewRequest("POST", apiURL+"/chat/completions", strings.NewReader(body))
+				Expect(err).ToNot(HaveOccurred())
+				req.Header.Set("Content-Type", "application/json")
+				resp, err := http.DefaultClient.Do(req)
+				Expect(err).ToNot(HaveOccurred())
+				defer func() { _ = resp.Body.Close() }()
+				data, err := io.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+				chunks := 0
+				for _, line := range strings.Split(string(data), "\n") {
+					payload, ok := strings.CutPrefix(line, "data: ")
+					if !ok || payload == "[DONE]" {
+						continue
+					}
+					var chunk map[string]any
+					Expect(json.Unmarshal([]byte(payload), &chunk)).To(Succeed(), payload)
+					Expect(chunk).To(HaveKeyWithValue("service_tier", "flex"), payload)
+					chunks++
+				}
+				Expect(chunks).To(BeNumerically(">=", 2))
+			})
 		})
 	})
 

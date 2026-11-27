@@ -129,7 +129,7 @@ var _ = Describe("streaming usage spec compliance", func() {
 			usage := schema.OpenAIUsage{
 				PromptTokens: 18, CompletionTokens: 14, TotalTokens: 32,
 			}
-			data := streamUsageTrailerJSON("req-1", "m", 1, usage)
+			data := streamUsageTrailerJSON("req-1", "m", 1, usage, "")
 
 			var raw map[string]any
 			Expect(json.Unmarshal(data, &raw)).To(Succeed(),
@@ -153,6 +153,17 @@ var _ = Describe("streaming usage spec compliance", func() {
 			Expect(u["prompt_tokens"]).To(BeNumerically("==", 18))
 			Expect(u["completion_tokens"]).To(BeNumerically("==", 14))
 			Expect(u["total_tokens"]).To(BeNumerically("==", 32))
+		})
+	})
+
+	Describe("streamUsageTrailerJSON with a service tier", func() {
+		It("echoes the tier, and leaves it out when there is none", func() {
+			var raw map[string]any
+			Expect(json.Unmarshal(streamUsageTrailerJSON("req-1", "m", 1, schema.OpenAIUsage{}, "flex"), &raw)).To(Succeed())
+			Expect(raw["service_tier"]).To(Equal("flex"))
+			raw = nil
+			Expect(json.Unmarshal(streamUsageTrailerJSON("req-1", "m", 1, schema.OpenAIUsage{}, ""), &raw)).To(Succeed())
+			Expect(raw).NotTo(HaveKey("service_tier"))
 		})
 	})
 

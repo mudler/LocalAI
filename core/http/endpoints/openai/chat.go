@@ -627,6 +627,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			c.Response().Header().Set("Cache-Control", "no-cache")
 			c.Response().Header().Set("Connection", "keep-alive")
 			c.Response().Header().Set("X-Correlation-ID", id)
+			// The tier that applied, which OpenAI echoes in every chunk.
+			serviceTier := priority.Of(input.Context).ServiceTier()
 
 			mcpStreamMaxIterations := 10
 			if config.Agent.MaxIterations > 0 {
@@ -711,6 +713,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					if (hasMCPToolsStream || config.FunctionsConfig.AutomaticToolParsingFallback || evidence != nil) && haveContent {
 						collectedContent.WriteString(rawContent)
 					}
+					// OpenAI echoes the tier that applied in every chunk.
+					ev.ServiceTier = serviceTier
 					respData, err := chunk.encode(ev)
 					if err != nil {
 						xlog.Debug("Failed to marshal response", "error", err)
@@ -900,7 +904,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 								},
 								Index: 0,
 							}},
-							Object: "chat.completion.chunk",
+							Object:      "chat.completion.chunk",
+							ServiceTier: serviceTier,
 						}
 						respData, _ := json.Marshal(toolCallMsg)
 						fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
@@ -914,11 +919,12 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				if !toolsCalled {
 					if note := evidence.suffix(collectedContent.String()); note != "" {
 						noteChunk := schema.OpenAIResponse{
-							ID:      id,
-							Created: created,
-							Model:   input.Model,
-							Choices: []schema.Choice{{Index: 0, Delta: &schema.Message{Content: &note}}},
-							Object:  "chat.completion.chunk",
+							ID:          id,
+							Created:     created,
+							Model:       input.Model,
+							Choices:     []schema.Choice{{Index: 0, Delta: &schema.Message{Content: &note}}},
+							Object:      "chat.completion.chunk",
+							ServiceTier: serviceTier,
 						}
 						noteData, _ := json.Marshal(noteChunk)
 						fmt.Fprintf(c.Response().Writer, "data: %s\n\n", noteData)
@@ -952,7 +958,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							Delta:        &schema.Message{},
 						},
 					},
-					Object: "chat.completion.chunk",
+					Object:      "chat.completion.chunk",
+					ServiceTier: serviceTier,
 				}
 				respData, _ := json.Marshal(resp)
 
@@ -973,7 +980,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				if input.StreamOptions != nil && input.StreamOptions.IncludeUsage {
 					trailerUsage := streamUsageFromTokenUsage(finalUsage, extraUsage)
 					trailerUsage.CompressionMeta = middleware.CompressionMetadata(c)
-					trailer := streamUsageTrailerJSON(id, input.Model, created, trailerUsage)
+					trailer := streamUsageTrailerJSON(id, input.Model, created, trailerUsage, serviceTier)
 					_, _ = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", trailer)
 				}
 

@@ -53,21 +53,23 @@ func streamUsageFromTokenUsage(usage backend.TokenUsage, extraUsage bool) schema
 // SDK and Continue's openai-adapter look for to recognise this as the usage
 // chunk rather than a content chunk. schema.OpenAIResponse has `omitempty`
 // on Choices, so we cannot reuse it for the trailer.
-func streamUsageTrailerJSON(id, model string, created int, usage schema.OpenAIUsage) []byte {
+func streamUsageTrailerJSON(id, model string, created int, usage schema.OpenAIUsage, serviceTier string) []byte {
 	trailer := struct {
-		ID      string             `json:"id"`
-		Created int                `json:"created"`
-		Model   string             `json:"model"`
-		Object  string             `json:"object"`
-		Choices []schema.Choice    `json:"choices"`
-		Usage   schema.OpenAIUsage `json:"usage"`
+		ID          string             `json:"id"`
+		Created     int                `json:"created"`
+		Model       string             `json:"model"`
+		Object      string             `json:"object"`
+		Choices     []schema.Choice    `json:"choices"`
+		Usage       schema.OpenAIUsage `json:"usage"`
+		ServiceTier string             `json:"service_tier,omitempty"`
 	}{
-		ID:      id,
-		Created: created,
-		Model:   model,
-		Object:  "chat.completion.chunk",
-		Choices: []schema.Choice{},
-		Usage:   usage,
+		ID:          id,
+		Created:     created,
+		Model:       model,
+		Object:      "chat.completion.chunk",
+		Choices:     []schema.Choice{},
+		Usage:       usage,
+		ServiceTier: serviceTier,
 	}
 	b, _ := json.Marshal(trailer)
 	return b
