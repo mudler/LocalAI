@@ -11,12 +11,18 @@ import (
 // benchMarker selects the load-test stream: the backend streams as fast as the
 // client reads, so the time and CPU a request costs are those of LocalAI.
 //
-//	MOCK_BENCH n=<tokens> reasoning=<tokens> tool=<0|1> deltas=<0|1>
+//	MOCK_BENCH n=<tokens> reasoning=<tokens> tool=<0|1> deltas=<0|1> calls=<0|1> msg=<0|1>
 //
 // n content tokens of fixed text follow reasoning tokens wrapped in
 // <think></think>. tool=1 ends the reply with a tool call streamed in small
 // pieces, as a model writes it. deltas=1 sends the text as ChatDeltas with an
-// empty message, as the llama.cpp autoparser does.
+// empty message, as the llama.cpp autoparser does. calls=1 with deltas=1 sends
+// the tool call as ToolCallDeltas, name first and then the arguments in
+// pieces, as the autoparser does for a call it recognised. With a tokenizer
+// msg=1 with deltas=1 also puts the content text in the message, as the
+// llama.cpp gRPC server does (it sends the content delta there and the
+// reasoning only in ChatDeltas). With a tokenizer
+// template the prompt is empty, and the marker is read from the last message.
 var benchMarker = regexp.MustCompile(`MOCK_BENCH((?:\s+[a-z]+=\d+)*)`)
 
 type benchSpec struct {
@@ -24,6 +30,15 @@ type benchSpec struct {
 	reasoning int
 	tool      bool
 	deltas    bool
+	calls     bool
+	msg       bool
+}
+
+func benchPrompt(in *pb.PredictOptions) string {
+	if in.Prompt != "" || len(in.Messages) == 0 {
+		return in.Prompt
+	}
+	return in.Messages[len(in.Messages)-1].Content
 }
 
 func parseBenchSpec(prompt string) (benchSpec, bool) {
@@ -44,10 +59,16 @@ func parseBenchSpec(prompt string) (benchSpec, bool) {
 			spec.tool = n != 0
 		case "deltas":
 			spec.deltas = n != 0
+		case "calls":
+			spec.calls = n != 0
+		case "msg":
+			spec.msg = n != 0
 		}
 	}
 	return spec, true
 }
+
+const benchToolArgs = `{"location": "San Francisco", "unit": "celsius", "days": 3}`
 
 const benchToolCall = `{"name": "get_weather", "arguments": {"location": "San Francisco", "unit": "celsius", "days": 3}}`
 
@@ -62,6 +83,9 @@ func streamBench(spec benchSpec, stream pb.Backend_PredictStreamServer) error {
 				d.ReasoningContent = text
 			} else {
 				d.Content = text
+				if spec.msg {
+					reply.Message = []byte(text)
+				}
 			}
 			reply.ChatDeltas = []*pb.ChatDelta{d}
 		} else {
@@ -91,6 +115,23 @@ func streamBench(spec benchSpec, stream pb.Backend_PredictStreamServer) error {
 		if err := send(" word", false); err != nil {
 			return err
 		}
+	}
+	if spec.tool && spec.deltas && spec.calls {
+		count++
+		if err := stream.Send(&pb.Reply{Tokens: count, PromptTokens: 12, ChatDeltas: []*pb.ChatDelta{{
+			ToolCalls: []*pb.ToolCallDelta{{Index: 0, Id: "call_bench", Name: "get_weather"}},
+		}}}); err != nil {
+			return err
+		}
+		for i := 0; i < len(benchToolArgs); i += 4 {
+			count++
+			if err := stream.Send(&pb.Reply{Tokens: count, PromptTokens: 12, ChatDeltas: []*pb.ChatDelta{{
+				ToolCalls: []*pb.ToolCallDelta{{Index: 0, Arguments: benchToolArgs[i:min(i+4, len(benchToolArgs))]}},
+			}}}); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	if spec.tool {
 		for i := 0; i < len(benchToolCall); i += 4 {
