@@ -91,6 +91,7 @@
             "options_cache_ram": "Memori cache prompt (MiB)",
             "options_mmproj_use_gpu": "Proyektor visi di GPU",
             "options_backend_sampling_min_slots": "Slot minimum untuk sampling GPU",
+            "options_grammar_engine": "Mesin tata bahasa",
             "options_context_shift": "Pergeseran konteks",
             "options_cont_batching": "Batching berkelanjutan",
             "options_kv_unified": "Cache KV terpadu",

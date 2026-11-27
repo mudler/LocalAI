@@ -572,6 +572,15 @@ var flags = []es.Flag{
 		Default: "request value, then model default", Group: GroupSampling,
 		Doc: "Drop tokens whose probability is below this fraction of the top token. 0 turns the filter off.",
 	},
+	// grammar_engine is read by LocalAI's llama.cpp backend. A build without
+	// llguidance uses GBNF whatever the value.
+	{
+		Key: "grammar_engine", Target: es.TargetOption, Path: "options", Option: "grammar_engine",
+		Type: es.TypeEnum, Enum: []string{"auto", "gbnf", "llguidance"}, Default: "auto", Group: GroupSampling, LocalAIOnly: true,
+		Doc: "Engine of the grammars LocalAI builds from a JSON schema (response_format and tool calls). " +
+			"auto: llguidance when the backend build has it, GBNF otherwise. gbnf: always llama.cpp's GBNF sampler. " +
+			"A grammar you write yourself always uses GBNF.",
+	},
 	{
 		Key: "override_tensor", Target: es.TargetOption, Path: "options", Option: "-ot",
 		CLI: []string{"-ot", "--override-tensor"}, Type: es.TypeString,

@@ -523,7 +523,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				fs := &functions.JSONFunctionStructure{
 					AnyOf: []functions.Item{d.JsonSchema.Schema},
 				}
-				g, err := fs.Grammar(config.FunctionsConfig.GrammarOptions()...)
+				g, err := config.SchemaGrammar(*fs)
 				if err == nil {
 					input.Grammar = g
 				} else {
@@ -557,7 +557,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			// Append the no action function
 			if !config.FunctionsConfig.DisableNoAction && !strictMode {
 				if require != nil {
-					g, err := config.FunctionsConfig.ToJSONStructure(funcs).Grammar(config.FunctionsConfig.GrammarOptions()...)
+					g, err := config.SchemaGrammar(config.FunctionsConfig.ToJSONStructure(funcs))
 					if err == nil {
 						require.grammar = g
 					} else {
@@ -574,7 +574,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			// Update input grammar or json_schema based on use_llama_grammar option
 			jsStruct := config.FunctionsConfig.ToJSONStructure(funcs)
-			g, err := jsStruct.Grammar(config.FunctionsConfig.GrammarOptions()...)
+			g, err := config.SchemaGrammar(jsStruct)
 			if err == nil {
 				config.Grammar = g
 			} else {
@@ -584,7 +584,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				require.clientGrammar = config.Grammar
 			}
 		case input.JSONFunctionGrammarObject != nil:
-			g, err := input.JSONFunctionGrammarObject.Grammar(config.FunctionsConfig.GrammarOptions()...)
+			g, err := config.SchemaGrammar(*input.JSONFunctionGrammarObject)
 			if err == nil {
 				config.Grammar = g
 			} else {

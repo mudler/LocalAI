@@ -761,7 +761,7 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 	// reaches every backend through these standalone string keys (Python backends
 	// read them directly). The reserved blob key is server-owned and skipped.
 	for k, v := range c.RequestMetadata {
-		if k == "chat_template_kwargs" {
+		if k == "chat_template_kwargs" || k == llguidanceGrammarMetadataKey {
 			continue
 		}
 		metadata[k] = v
@@ -776,11 +776,22 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 			metadata["chat_template_kwargs"] = string(b)
 		}
 	}
+	// The llguidance form of a grammar LocalAI built from a JSON schema. The
+	// llama.cpp backend uses it instead of the GBNF grammar when its build has
+	// llguidance and grammar_engine allows it; other backends ignore it. Set
+	// after chat_template_kwargs so it never enters the template variables.
+	if llg := c.LLGuidanceGrammar(); llg != "" {
+		metadata[llguidanceGrammarMetadataKey] = llg
+	}
 	pbOpts.Metadata = metadata
 
 	// Logprobs and TopLogprobs are set by the caller if provided
 	return pbOpts
 }
+
+// llguidanceGrammarMetadataKey is the PredictOptions metadata key of the
+// llguidance form of the grammar (backend/cpp/llama-cpp/grammar_engine.h).
+const llguidanceGrammarMetadataKey = "llguidance_grammar"
 
 // mmapOption returns the mmap value to send to a backend and whether LocalAI
 // chose it (the model config leaves mmap unset) rather than the user.

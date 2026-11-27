@@ -55,6 +55,7 @@
             "options_cache_ram": "提示词缓存内存 (MiB)",
             "options_mmproj_use_gpu": "视觉投影器使用 GPU",
             "options_backend_sampling_min_slots": "GPU 采样最少槽位",
+            "options_grammar_engine": "语法引擎",
             "options_context_shift": "上下文平移",
             "options_cont_batching": "连续批处理",
             "options_kv_unified": "统一 KV 缓存",

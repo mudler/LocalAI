@@ -397,7 +397,7 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, connectio
 		}
 
 		jsStruct := cfg.FunctionsConfig.ToJSONStructure(funcsWithNoAction)
-		g, err := jsStruct.Grammar(cfg.FunctionsConfig.GrammarOptions()...)
+		g, err := cfg.SchemaGrammar(jsStruct)
 		if err == nil {
 			cfg.Grammar = g
 		} else {

@@ -41,3 +41,18 @@ func NewSchemaConverter(opt grammars.GrammarOption) SchemaConverter {
 	}
 	return grammars.NewJSONSchemaConverter(opt.PropOrder)
 }
+
+// LLGuidanceGrammar returns the llguidance form of the grammar that Grammar
+// builds with the same options, or grammars.ErrLLGuidanceUnsupported when the
+// options need GBNF.
+func (j JSONFunctionStructure) LLGuidanceGrammar(options ...func(*grammars.GrammarOption)) (string, error) {
+	dat, err := json.Marshal(j)
+	if err != nil {
+		return "", err
+	}
+	var schema map[string]any
+	if err := json.Unmarshal(dat, &schema); err != nil {
+		return "", err
+	}
+	return grammars.LLGuidanceGrammar(schema, options...)
+}

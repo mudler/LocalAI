@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/functions"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/reasoning"
@@ -392,6 +393,25 @@ var _ = Describe("gRPCPredictOpts chat_template_kwargs metadata", func() {
 		var blob map[string]any
 		Expect(json.Unmarshal([]byte(opts.Metadata["chat_template_kwargs"]), &blob)).To(Succeed())
 		Expect(blob).To(HaveKeyWithValue("preserve_thinking", true))
+	})
+
+	It("sends the llguidance form of a schema grammar, and never one from the client", func() {
+		cfg := baseCfg()
+		g, err := cfg.SchemaGrammar(functions.JSONFunctionStructure{AnyOf: []functions.Item{{
+			Type: "object", Properties: map[string]any{"a": map[string]any{"type": "string"}},
+		}}})
+		Expect(err).ToNot(HaveOccurred())
+		cfg.Grammar = g
+		cfg.RequestMetadata = map[string]string{"llguidance_grammar": "%llguidance {}\nstart: \"x\""}
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		Expect(opts.Grammar).To(Equal(g))
+		Expect(opts.Metadata["llguidance_grammar"]).To(HavePrefix("%llguidance {}\nstart: %json "))
+		// It is not a chat template variable.
+		Expect(opts.Metadata).ToNot(HaveKey("chat_template_kwargs"))
+
+		cfg.Grammar = `root ::= "yes"`
+		opts = gRPCPredictOpts(cfg, "/tmp/models")
+		Expect(opts.Metadata).ToNot(HaveKey("llguidance_grammar"))
 	})
 
 	It("omits the blob when there is nothing to forward", func() {

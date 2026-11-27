@@ -121,6 +121,7 @@ with a warning.
 | Output reserve | `options: [kv_output_reserve:N]` (default 256) |
 | GPU sampling | `options: [backend_sampling:auto]` or `options: [backend_sampling:on]` |
 | GPU sampling minimum slots | `options: [backend_sampling_min_slots:N]` (default 4) |
+| Grammar engine | `options: [grammar_engine:auto]`, `gbnf` or `llguidance` (default auto) |
 | Recurrent state snapshots | `options: [n_rs_seq:N]` (also read as `rs_seq`) |
 
 A backend build without these features ignores the options.

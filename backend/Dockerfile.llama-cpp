@@ -144,8 +144,12 @@ COPY --from=cpu-variants /out/ /LocalAI/backend/cpp/llama-cpp/cpu-variants/
 # share the same cache mount id.
 #
 # The compile body is shared with builder-prebuilt via .docker/llama-cpp-compile.sh.
+# The rustup and cargo cache mounts keep the Rust toolchain and the crates that
+# llguidance needs between builds; the compile script installs them on a miss.
 RUN --mount=type=bind,source=.docker/llama-cpp-compile.sh,target=/usr/local/sbin/compile.sh \
     --mount=type=cache,target=/root/.ccache,id=llama-cpp-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
+    --mount=type=cache,target=/root/.rustup,id=llama-cpp-rustup-${TARGETARCH},sharing=locked \
+    --mount=type=cache,target=/root/.cargo,id=llama-cpp-cargo-${TARGETARCH},sharing=locked \
     bash /usr/local/sbin/compile.sh
 
 
@@ -196,6 +200,8 @@ COPY --from=cpu-variants /out/ /LocalAI/backend/cpp/llama-cpp/cpu-variants/
 
 RUN --mount=type=bind,source=.docker/llama-cpp-compile.sh,target=/usr/local/sbin/compile.sh \
     --mount=type=cache,target=/root/.ccache,id=llama-cpp-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
+    --mount=type=cache,target=/root/.rustup,id=llama-cpp-rustup-${TARGETARCH},sharing=locked \
+    --mount=type=cache,target=/root/.cargo,id=llama-cpp-cargo-${TARGETARCH},sharing=locked \
     bash /usr/local/sbin/compile.sh
 
 RUN make -BC /LocalAI/backend/cpp/llama-cpp package

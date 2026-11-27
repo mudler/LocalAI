@@ -27,6 +27,15 @@ ggml's CUDA backend links NCCL when CMake finds it (`GGML_CUDA_NCCL` is on by de
 - `package.sh` runs `scripts/build/check-nccl-bundle.sh`: it fails the build when an ELF needs `libnccl.so.2` that `lib/` lacks, or when the builder has NCCL but `libggml-cuda.so` does not link it. It also copies the NCCL license notice to `licenses/`.
 - A missing `libnccl.so.2` at run time would make ggml skip `libggml-cuda.so` (GPU silently lost), which is why the library is bundled and checked rather than left to the host.
 
+## llguidance (grammar_engine)
+
+The image builds link llguidance (`LLGUIDANCE=ON` in `.docker/llama-cpp-compile.sh`, `-DLLAMA_LLGUIDANCE=ON`). llama.cpp builds it with cargo, so the compile step installs a pinned Rust toolchain (`RUST_TOOLCHAIN`) into BuildKit cache mounts; nothing Rust ships in the image. `scripts/build/llama-cpp-darwin.sh` turns it on when the runner has cargo. The forks keep GBNF.
+
+- The Go side builds the GBNF grammar and, through `ModelConfig.SchemaGrammar`, its llguidance form (`pkg/functions/grammars/llguidance.go`). The form travels in `PredictOptions.Metadata["llguidance_grammar"]`, which a client cannot set.
+- `grpc-server.cpp` picks the form in `parse_options` with `select_grammar` (`grammar_engine.h`): llguidance only when the build has it and `grammar_engine` is not `gbnf`.
+- A grammar the user wrote, mixed mode, `schema_type: llama3.1` and the lazy grammars of the chat template stay GBNF. llama.cpp has no lazy triggers for llguidance.
+- With the flag on, upstream `json_schema_to_grammar()` returns an llguidance grammar unless `force_gbnf` is set. Check new callers of it after a llama.cpp bump.
+
 ## Architecture
 
 - **grpc-server.cpp**: gRPC server implementation, adapts HTTP server patterns to gRPC

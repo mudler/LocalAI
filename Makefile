@@ -878,6 +878,8 @@ test-extra-backend: protogen-go
 	BACKEND_TEST_TOOL_NAME="$$BACKEND_TEST_TOOL_NAME" \
 	BACKEND_TEST_CACHE_TYPE_K="$$BACKEND_TEST_CACHE_TYPE_K" \
 	BACKEND_TEST_CACHE_TYPE_V="$$BACKEND_TEST_CACHE_TYPE_V" \
+	BACKEND_TEST_GRAMMAR_ENGINE="$$BACKEND_TEST_GRAMMAR_ENGINE" \
+	BACKEND_TEST_GRAMMAR_STRESS_TOOLS="$$BACKEND_TEST_GRAMMAR_STRESS_TOOLS" \
 	BACKEND_TEST_FACE_IMAGE_1_URL="$$BACKEND_TEST_FACE_IMAGE_1_URL" \
 	BACKEND_TEST_FACE_IMAGE_1_FILE="$$BACKEND_TEST_FACE_IMAGE_1_FILE" \
 	BACKEND_TEST_FACE_IMAGE_2_URL="$$BACKEND_TEST_FACE_IMAGE_2_URL" \
@@ -917,6 +919,19 @@ test-extra-backend-llama-cpp-embeddings: docker-build-llama-cpp
 	BACKEND_TEST_OPTIONS=pooling:none \
 	BACKEND_TEST_EMBEDDING_LAYOUT=per_token \
 	$(MAKE) test-extra-backend
+
+## Grammars built from a JSON schema, once with each grammar engine. The image
+## is built with llguidance, so grammar_engine:llguidance must sample with the
+## llguidance form and grammar_engine:gbnf with the GBNF one.
+test-extra-backend-llama-cpp-grammar: docker-build-llama-cpp
+	for engine in gbnf llguidance; do \
+		BACKEND_IMAGE=local-ai-backend:llama-cpp \
+		BACKEND_TEST_CAPS=health,load,grammar,grammar_stress \
+		BACKEND_TEST_CTX_SIZE=4096 \
+		BACKEND_TEST_OPTIONS=grammar_engine:$$engine \
+		BACKEND_TEST_GRAMMAR_ENGINE=$$engine \
+		$(MAKE) test-extra-backend || exit 1; \
+	done
 
 ## RPC mode: llama-cpp-grpc loads the model and offloads it to llama-cpp-rpc-server,
 ## both started from the image through run.sh, as a LocalAI worker does.

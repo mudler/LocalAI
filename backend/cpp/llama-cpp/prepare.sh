@@ -77,6 +77,10 @@ cp -r parallel_params_test.cpp llama.cpp/tools/grpc-server/
 # regression test.
 cp -r backend_sampling.h llama.cpp/tools/grpc-server/
 cp -r backend_sampling_test.cpp llama.cpp/tools/grpc-server/
+# grammar_engine option parsing and the grammar choice, and their standalone
+# regression test.
+cp -r grammar_engine.h llama.cpp/tools/grpc-server/
+cp -r grammar_engine_test.cpp llama.cpp/tools/grpc-server/
 # moe_cache_mib option parsing and its standalone regression test.
 cp -r moe_cache_option.h llama.cpp/tools/grpc-server/
 # Value parsers for the reasoning, n_cpu_ffn and speculative draft options, and their test.

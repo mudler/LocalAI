@@ -107,6 +107,14 @@ import (
 //	                         Comma-separated words; the transcription spec asserts
 //	                         the text contains at least one (case-insensitive),
 //	                         e.g. "country" for the jfk.wav sample.
+//	                         "grammar" constrains Predict with a tool-call grammar
+//	                         built from a JSON schema, sent in GBNF and in the
+//	                         llguidance form, and checks the call. With
+//	                         BACKEND_TEST_GRAMMAR_ENGINE (gbnf or llguidance) it
+//	                         also checks which of the two forms the backend used.
+//	                         "grammar_stress" does the same with a large tool set
+//	                         (BACKEND_TEST_GRAMMAR_STRESS_TOOLS tools, default 48)
+//	                         and reports the time per token.
 //	                         The "s2s" capability exercises AudioToAudioStream
 //	                         with BACKEND_TEST_AUDIO_* as the spoken input
 //	                         (a text turn with a tool, then its result).
@@ -140,6 +148,8 @@ const (
 	capLogitBias      = "logit_bias"
 	capTokenize       = "tokenize"
 	capTokenClassify  = "token_classify"
+	capGrammar        = "grammar"
+	capGrammarStress  = "grammar_stress"
 
 	defaultPrompt             = "The capital of France is"
 	streamPrompt              = "Once upon a time"
@@ -823,6 +833,63 @@ var _ = Describe("Backend container", Ordered, func() {
 		}
 		Expect(matched).To(BeTrue(),
 			"Expected a tool call named %q in ChatDelta.tool_calls", toolName)
+	})
+
+	It("constrains Predict to a tool-call grammar built from a JSON schema", func() {
+		if !caps[capGrammar] {
+			Skip("grammar capability not enabled")
+		}
+		gbnf, llg := toolCallGrammars(weatherFunctions())
+		run := predictWithGrammar(client, "What is the weather in Paris, in celsius?", gbnf, llg, 128)
+		GinkgoWriter.Printf("Grammar: %q (tokens=%d, %.2f ms/token)\n", run.Output, run.Tokens, run.MsPerToken)
+		name, args := parseToolCall(run.Output)
+		Expect(name).To(Equal("get_weather"))
+		Expect(args).To(HaveKeyWithValue("city", BeAssignableToTypeOf("")))
+		Expect(args).To(HaveKeyWithValue("unit", BeElementOf("celsius", "fahrenheit")))
+	})
+
+	It("samples with the grammar engine that grammar_engine selects", func() {
+		if !caps[capGrammar] {
+			Skip("grammar capability not enabled")
+		}
+		engine := os.Getenv("BACKEND_TEST_GRAMMAR_ENGINE")
+		if engine == "" {
+			Skip("BACKEND_TEST_GRAMMAR_ENGINE not set")
+		}
+		// Two forms that cannot be confused: the output shows which one the
+		// backend sampled with.
+		run := predictWithGrammar(client, "Say a word.",
+			`root ::= "\"gbnf\""`, "%llguidance {}\nstart: \"\\\"llg\\\"\"\n", 8)
+		GinkgoWriter.Printf("Engine: %q\n", run.Output)
+		switch engine {
+		case "gbnf":
+			Expect(run.Output).To(Equal(`"gbnf"`))
+		case "llguidance":
+			Expect(run.Output).To(Equal(`"llg"`))
+		default:
+			Fail("BACKEND_TEST_GRAMMAR_ENGINE must be gbnf or llguidance, not " + engine)
+		}
+	})
+
+	It("constrains Predict to the grammar of a large tool set", func() {
+		if !caps[capGrammarStress] {
+			Skip("grammar_stress capability not enabled")
+		}
+		n := 48
+		if v := os.Getenv("BACKEND_TEST_GRAMMAR_STRESS_TOOLS"); v != "" {
+			_, err := fmt.Sscanf(v, "%d", &n)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		funcs := stressFunctions(n)
+		gbnf, llg := toolCallGrammars(funcs)
+		run := predictWithGrammar(client,
+			"Call tool_07 for item A-1 titled Report, count 3, ratio 0.5, enabled, high priority, owned by Ann (ann@example.com, core team).",
+			gbnf, llg, 384)
+		GinkgoWriter.Printf("Grammar stress: tools=%d gbnf_bytes=%d tokens=%d wall=%s %.2f ms/token\n%s\n",
+			n, len(gbnf), run.Tokens, run.Wall, run.MsPerToken, run.Output)
+		AddReportEntry("grammar_stress", fmt.Sprintf("tools=%d tokens=%d wall=%s ms_per_token=%.2f", n, run.Tokens, run.Wall, run.MsPerToken))
+		name, _ := parseToolCall(run.Output)
+		Expect(name).To(HavePrefix("tool_"))
 	})
 
 	It("transcribes audio via AudioTranscription", func() {

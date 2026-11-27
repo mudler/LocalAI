@@ -38,6 +38,22 @@ if [ "$BUILD_TARGET" = "llama-cpp-cpu-all" ]; then
 else
   set --
 fi
+# llguidance, the grammar engine of the grammar_engine model option, is a Rust
+# library that llama.cpp builds with cargo. The Rust toolchain is installed only
+# here, in the builder: the image ships the statically linked library, not Rust.
+# LLGUIDANCE=OFF builds without it, as before.
+LLGUIDANCE="${LLGUIDANCE:-ON}"
+if [ "$LLGUIDANCE" = "ON" ]; then
+  export RUSTUP_HOME=/root/.rustup CARGO_HOME=/root/.cargo
+  export PATH="$CARGO_HOME/bin:$PATH"
+  if ! rustup toolchain list 2>/dev/null | grep -q "^${RUST_TOOLCHAIN:=1.100.0}"; then
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+      sh -s -- -y --no-modify-path --profile minimal --default-toolchain "$RUST_TOOLCHAIN"
+  fi
+  rustup default "$RUST_TOOLCHAIN"
+  cargo --version
+  set -- "$@" LLGUIDANCE=ON
+fi
 # CPU_ALL_RPC=ON builds the RPC backend and ggml-rpc-server in the same tree, so
 # llama-cpp-grpc and llama-cpp-rpc-server come out of this one build. Building them in their own
 # static tree compiled the whole GPU backend a second time, which was half the job time.

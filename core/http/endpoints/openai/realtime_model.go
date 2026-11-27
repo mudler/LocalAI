@@ -527,7 +527,7 @@ func (m *wrappedModel) renderPredictPrompt(input schema.OpenAIRequest, turnCfg *
 
 		// Generate grammar from function definitions
 		jsStruct := turnCfg.FunctionsConfig.ToJSONStructure(functions.Functions(funcs))
-		g, err := jsStruct.Grammar(turnCfg.FunctionsConfig.GrammarOptions()...)
+		g, err := turnCfg.SchemaGrammar(jsStruct)
 		if err == nil {
 			turnCfg.Grammar = g
 			xlog.Debug("Generated grammar for function calling", "grammar", g)

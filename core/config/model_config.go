@@ -81,7 +81,11 @@ type ModelConfig struct {
 	// but its sessions must not share a cache slot with the target's: the
 	// slot is invalidated on every config change, so two server sets under one
 	// key would tear each other's sessions down. Unexported: never persisted.
-	mcpSessionKey            string `yaml:"-" json:"-"`
+	mcpSessionKey string `yaml:"-" json:"-"`
+	// llguidanceGrammars maps a GBNF grammar that SchemaGrammar built to its
+	// llguidance form. It is replaced, never written in place, because the
+	// request pipeline works on shallow copies of one ModelConfig.
+	llguidanceGrammars       map[string]string `yaml:"-" json:"-"`
 	schema.PredictionOptions `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	Name                     string                `yaml:"name,omitempty" json:"name,omitempty"`
 	Artifacts                []modelartifacts.Spec `yaml:"artifacts,omitempty" json:"artifacts,omitempty"`

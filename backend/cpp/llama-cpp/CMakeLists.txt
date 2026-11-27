@@ -143,6 +143,11 @@ if(LLAMA_GRPC_BUILD_TESTS)
     target_compile_features(backend_sampling_test PRIVATE cxx_std_17)
     add_test(NAME backend_sampling_test COMMAND backend_sampling_test)
 
+    add_executable(grammar_engine_test grammar_engine_test.cpp grammar_engine.h)
+    target_include_directories(grammar_engine_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_compile_features(grammar_engine_test PRIVATE cxx_std_17)
+    add_test(NAME grammar_engine_test COMMAND grammar_engine_test)
+
     add_executable(moe_cache_option_test moe_cache_option_test.cpp moe_cache_option.h)
     target_include_directories(moe_cache_option_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_compile_features(moe_cache_option_test PRIVATE cxx_std_17)
