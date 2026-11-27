@@ -524,6 +524,7 @@ This worker holds one route: the WebSocket tunnel to the frontend. Add `--nats-u
 | `--backends-path` | `LOCALAI_BACKENDS_PATH` | `./backends` | Path to backend binaries |
 | `--models-path` | `LOCALAI_MODELS_PATH` | `./models` | Path to model files |
 | `--vram-budget` | `LOCALAI_VRAM_BUDGET` | *(empty)* | Cap the VRAM this node advertises for model placement, as a percentage (e.g. `80%`) or an absolute amount (e.g. `12GB`). Empty uses all detected VRAM. See [Per-node VRAM budget](#per-node-vram-budget). |
+| `--vram-total` | `LOCALAI_VRAM_TOTAL` | *(empty)* | Total VRAM this node reports, as an absolute amount (e.g. `40GB`). Replaces GPU detection; use it when the detected VRAM is wrong. `LOCALAI_VRAM_BUDGET` is then resolved against this total. Empty uses detection. See [Per-node VRAM budget](#per-node-vram-budget). |
 | `--max-active-backends` | `LOCALAI_MAX_ACTIVE_BACKENDS` | *(empty)* | Models kept loaded on this node (`0` = no limit). Empty uses the cluster setting. See [Per-node memory limits](#per-node-memory-limits). |
 | `--model-swap` | `LOCALAI_MODEL_SWAP` | *(empty)* | `true` or `false`: unload the least recently used idle model on this node to make room for another. Empty uses the cluster setting. |
 | `--memory-reclaimer-threshold` | `LOCALAI_MEMORY_RECLAIMER_THRESHOLD` | *(empty)* | Memory use (0 to 1) above which idle models on this node are unloaded. Setting it turns the memory reclaimer on for this node, even when the cluster setting leaves it off. Empty uses the cluster setting. |
@@ -1046,6 +1047,12 @@ curl -X DELETE http://frontend:8080/api/nodes/<node-id>/vram-budget \
 ```
 
 The value accepts the same formats as the standalone budget: a percentage (`80%`) or an absolute amount (`12GB`, `12GiB`, `12000MB`, or raw bytes). It is a **hard ceiling**: the budget keeps `total - budget` of the node's VRAM out of reach, so the free VRAM the scheduler sees is the reported free VRAM minus that reserve. A node with a `12GB` budget on 24 GB that already uses 4 GB has 8 GB left for new models, not 12. A budget can only lower the number, never raise it above the hardware. When no admin budget and no worker budget is set, the **GPU memory budget** of Settings → Models in memory applies to each worker (see [Per-node memory limits](#per-node-memory-limits)). An admin-set node budget is **sticky across worker restarts**: it is stored in the node registry and reapplied when the worker re-registers, so it wins over whatever the worker reports on reconnect. For the underlying semantics and the standalone equivalent, see [VRAM Budget]({{%relref "/models/vram-management#vram-budget-allocation-ceiling" %}}).
+
+The Nodes page draws the VRAM bar of a node with a budget against the budget, and shows the detected total next to it, so an idle node with a `40GB` budget reads 0 of 40 GB in use, not 148 of 188 GB.
+
+**Budget and total are different settings.** `LOCALAI_VRAM_BUDGET` is the share of the node's VRAM that LocalAI may use. `LOCALAI_VRAM_TOTAL` is how much VRAM the node has, and replaces what GPU detection found. Use the total when detection is wrong (see [Troubleshooting]({{%relref "/administration/troubleshooting#wrong-vram-total-detected" %}})), and the budget to keep headroom. With both set, the budget applies to the total: `LOCALAI_VRAM_TOTAL=40GB` with `LOCALAI_VRAM_BUDGET=80%` offers 32 GB for placement.
+
+Runtime state: none is added. The worker reads the total at start and reports it on registration; the frontend stores it in the node registry with the other node fields, so every frontend sees the same figure.
 
 ### Disk headroom
 

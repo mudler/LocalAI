@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { nodesApi } from '../utils/api'
-import { capacityReading, nodeLifecycleAction } from '../utils/nodeFleet'
+import { capacityReading, nodeLifecycleAction, vramReading } from '../utils/nodeFleet'
 import { isDown, leavePreview } from '../utils/swarm'
 import { cssVars } from '../utils/modelLedger'
 import { usePolling } from '../hooks/usePolling'
@@ -198,7 +198,7 @@ export default function NodeDetail() {
   const addLabel = async (k, v) => { try { await nodesApi.mergeLabels(id, { [k]: v }); refresh({ quiet: true }) } catch (e) { addToast(e.message, 'error') } }
   const delLabel = async k => { try { await nodesApi.deleteLabel(id, k); refresh({ quiet: true }) } catch (e) { addToast(e.message, 'error') } }
 
-  const vram = capacityReading(node.total_vram, node.available_vram)
+  const vram = vramReading(node)
   const ram = capacityReading(node.total_ram, node.available_ram)
   const disk = capacityReading(node.total_disk, node.available_disk)
   const cpuPercent = node.cpu_logical_cores > 0 && Number.isFinite(node.cpu_usage_percent) ? node.cpu_usage_percent : null
@@ -259,7 +259,7 @@ export default function NodeDetail() {
       )}
 
       <section className="sw-vitals" aria-label={t('detail.resources')}>
-        <Vital label="VRAM" value={fmt(vram)} reading={vram} />
+        <Vital label="VRAM" value={fmt(vram)} reading={vram} note={vram?.detected ? t('detail.vramBudgetOf', { detected: formatVRAM(vram.detected) }) : null} />
         <Vital label="RAM" value={fmt(ram)} reading={ram} />
         {/* Free space on the worker's MODELS filesystem. A node can look
             healthy on VRAM while having nowhere to put the weights, which is

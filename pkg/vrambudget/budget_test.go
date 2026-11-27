@@ -48,7 +48,7 @@ var _ = Describe("Budget", func() {
 			for s, want := range cases {
 				b, err := vrambudget.Parse(s)
 				Expect(err).NotTo(HaveOccurred(), "input %q", s)
-				Expect(b.Ceiling(64 * gb)).To(Equal(want), "input %q", s)
+				Expect(b.Ceiling(64*gb)).To(Equal(want), "input %q", s)
 			}
 		})
 
@@ -98,5 +98,35 @@ var _ = Describe("Budget", func() {
 			z, _ := vrambudget.Parse("")
 			Expect(z.String()).To(Equal(""))
 		})
+	})
+})
+
+var _ = Describe("ParseSize", func() {
+	It("parses absolute amounts in decimal and binary units", func() {
+		cases := map[string]uint64{
+			"40GB":        40 * gb,
+			"40 GB":       40 * gb,
+			"48GiB":       48 << 30,
+			"12000MB":     12 * gb,
+			"42949672960": 40 << 30,
+		}
+		for in, want := range cases {
+			got, err := vrambudget.ParseSize(in)
+			Expect(err).NotTo(HaveOccurred(), "input %q", in)
+			Expect(got).To(Equal(want), "input %q", in)
+		}
+	})
+
+	It("returns 0 for empty input", func() {
+		got, err := vrambudget.ParseSize("  ")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(BeZero())
+	})
+
+	It("rejects percentages and fractions, which are not a total", func() {
+		for _, s := range []string{"80%", "0.8", "abc", "-1GB", "1.5"} {
+			_, err := vrambudget.ParseSize(s)
+			Expect(err).To(HaveOccurred(), "input %q", s)
+		}
 	})
 })

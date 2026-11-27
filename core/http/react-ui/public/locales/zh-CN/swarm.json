@@ -219,5 +219,8 @@
       "cluster": "集群",
       "default": "默认"
     }
+  },
+  "detail": {
+    "vramBudgetOf": "预算，检测到 {{detected}}"
   }
 }

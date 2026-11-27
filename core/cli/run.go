@@ -152,6 +152,7 @@ type RunCMD struct {
 	WatchdogInterval                   string        `env:"LOCALAI_WATCHDOG_INTERVAL,WATCHDOG_INTERVAL" default:"500ms" help:"Interval between watchdog checks (e.g., 500ms, 5s, 1m) (default: 500ms)" group:"backends"`
 	EnableMemoryReclaimer              bool          `env:"LOCALAI_MEMORY_RECLAIMER,MEMORY_RECLAIMER,LOCALAI_GPU_RECLAIMER,GPU_RECLAIMER" default:"false" help:"Enable memory threshold monitoring to auto-evict backends when memory usage exceeds threshold (uses GPU VRAM if available, otherwise RAM)" group:"backends"`
 	MemoryReclaimerThreshold           float64       `env:"LOCALAI_MEMORY_RECLAIMER_THRESHOLD,MEMORY_RECLAIMER_THRESHOLD,LOCALAI_GPU_RECLAIMER_THRESHOLD,GPU_RECLAIMER_THRESHOLD" default:"0.95" help:"Memory usage threshold (0.0-1.0) that triggers backend eviction (default 0.95 = 95%%)" group:"backends"`
+	VRAMTotal                          string        `env:"LOCALAI_VRAM_TOTAL" help:"Total VRAM of this node as an absolute amount (e.g. 40GB or 48GiB). Overrides GPU detection; use it when the detected VRAM is wrong. LOCALAI_VRAM_BUDGET then caps the share LocalAI may use. Empty uses detection." group:"backends"`
 	VRAMBudget                         string        `env:"LOCALAI_VRAM_BUDGET" help:"Cap VRAM used for model allocation on this node, as a percentage (e.g. 80%) or absolute amount (e.g. 12GB). Empty uses all detected VRAM." group:"backends"`
 	ForceEvictionWhenBusy              bool          `env:"LOCALAI_FORCE_EVICTION_WHEN_BUSY,FORCE_EVICTION_WHEN_BUSY" default:"false" help:"Force eviction even when models have active API calls (default: false for safety)" group:"backends"`
 	SizeAwareEviction                  bool          `env:"LOCALAI_SIZE_AWARE_EVICTION,SIZE_AWARE_EVICTION" default:"false" help:"Evict the largest loaded model first rather than the least-recently-used one, keeping small utility models resident and maximizing freed memory per eviction" group:"backends"`
@@ -362,6 +363,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		fmt.Println(internal.Version)
 		return nil
 	}
+
+	// The VRAM total must be in place before the first detection below
+	// (GetSystemState) so every reading of the host uses it.
+	xsysinfo.ApplyVRAMTotalSetting(r.VRAMTotal)
 
 	tlsMaterial, err := tlsconf.Resolve(r.TLSCert, r.TLSKey, r.TLSSelfSigned, r.DataPath)
 	if err != nil {

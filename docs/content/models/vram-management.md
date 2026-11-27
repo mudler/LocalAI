@@ -420,6 +420,17 @@ The budget is a **hard ceiling**, never a floor:
 - The budget can only **lower** usable VRAM, never raise it above what the hardware physically has. An absolute value larger than physical VRAM is clamped to physical.
 - A percentage above `100%` is rejected as invalid.
 
+### Overriding the detected total
+
+The budget is a share of the VRAM LocalAI detects. When detection itself is wrong, set the total with `LOCALAI_VRAM_TOTAL` / `--vram-total` instead:
+
+```bash
+# Two 20 GB cards
+LOCALAI_VRAM_TOTAL=40GB ./local-ai
+```
+
+It takes an absolute amount only (`40GB`, `48GiB`, `40000MB`, or raw bytes), replaces the detected total everywhere LocalAI reads VRAM, and works the same for `local-ai run` and `local-ai worker`. A budget then applies to this total. Per-GPU decisions (batch size, parallel slots) split the total evenly over the GPUs LocalAI finds. A value that does not parse is logged and ignored.
+
 ### Editing from the UI
 
 The budget is exposed in the **Settings** page under the **Performance** section as **VRAM Budget**, so you can change it without editing flags or restarting from scratch. It is live-editable and persists to the runtime settings.

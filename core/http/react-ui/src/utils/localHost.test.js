@@ -73,3 +73,21 @@ test('uptime reads at the right grain', () => {
   assert.equal(uptime('2026-09-19T11:00:00Z', now), '2d 1h')
   assert.equal(uptime(null, now), null)
 })
+
+test('a GPU host is measured against its aggregate, which carries the VRAM budget', () => {
+  const node = hostAsNode({
+    type: 'gpu',
+    gpus: [{ total_vram: 24 * GB, free_vram: 20 * GB }, { total_vram: 24 * GB, free_vram: 20 * GB }],
+    aggregate: { total_memory: 40 * GB, free_memory: 32 * GB },
+  })
+  const summary = summarizeFleet([node])
+  assert.equal(summary.vram.total, 40 * GB)
+  assert.equal(summary.vram.available, 32 * GB)
+  assert.equal(summary.vram.detected, 48 * GB, 'the hardware figure stays visible')
+})
+
+test('a VRAM total with an unknown usage gives a total but no reading', () => {
+  const node = hostAsNode({ type: 'gpu', gpus: [], aggregate: { total_memory: 40 * GB, usage_unknown: true } })
+  assert.equal(node.total_vram, 40 * GB)
+  assert.equal(node.available_vram, undefined)
+})

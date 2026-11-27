@@ -27,6 +27,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/splitenv"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
 )
 
@@ -35,6 +36,9 @@ import (
 // on signals.
 func Run(ctx *cliContext.Context, cfg *Config) error {
 	xlog.Info("Starting worker", "advertise", cfg.advertiseAddr(), "basePort", cfg.effectiveBasePort())
+	// Before any detection (system state, registration, heartbeats), so the
+	// total the frontend sees is the operator's.
+	xsysinfo.ApplyVRAMTotalSetting(cfg.VRAMTotal)
 	if err := cfg.validateFrontend(); err != nil {
 		return err
 	}
