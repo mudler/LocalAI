@@ -747,11 +747,13 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // override: paged serving steps aside for it (or fails the load when
     // paged_kv:true is explicit).
     bool cont_batching_off = false;
-    // Prefix sharing between live slots (serving_policy.h).
+    // Prefix sharing between live slots and load-adaptive drafting (serving_policy.h).
     std::optional<bool> slot_attach;
-    // Load-adaptive drafting and the n-gram drafting default (serving_policy.h).
     std::optional<int> spec_max_streams;
     bool spec_type_set = false; // the model chose its drafting, so no n-gram default
+    // Order of waiting requests and the per-request prefill cap (serving_policy.h).
+    std::optional<bool> admission_order;
+    std::optional<int> prefill_cap;
 
     // Initialize fit_params options (can be overridden by options)
     // fit_params: whether to auto-adjust params to fit device memory (default: true as in llama.cpp)
@@ -921,6 +923,18 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 slot_attach = *v;
             } else {
                 SRV_WRN("%s: ignoring invalid value '%s' (expected true or false)\n", optname, optval_str.c_str());
+            }
+        } else if (!strcmp(optname, "admission_order") || !strcmp(optname, "paged_order")) {
+            if (const auto v = llama_grpc::parse_switch(optval_str)) {
+                admission_order = *v;
+            } else {
+                SRV_WRN("%s: ignoring invalid value '%s' (expected true or false)\n", optname, optval_str.c_str());
+            }
+        } else if (!strcmp(optname, "prefill_cap")) {
+            if (const auto n = llama_grpc::parse_non_negative_int(optval_str)) {
+                prefill_cap = *n;
+            } else {
+                SRV_WRN("prefill_cap: ignoring invalid value '%s' (expected a non-negative integer)\n", optval_str.c_str());
             }
         } else if (!strcmp(optname, "spec_max_streams")) {
             if (const auto n = llama_grpc::parse_non_negative_int(optval_str)) {
@@ -1994,6 +2008,13 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         params.prefill_budget    = prefill_budget.value_or(serving_policy::default_prefill_budget);
         params.kv_output_reserve = kv_output_reserve;
         params.paged_attach      = paged.on && slot_attach.value_or(true);
+#if LOCALAI_HAS_ADMISSION_ORDER
+        params.paged_order       = paged.on && admission_order.value_or(true);
+        params.prefill_cap       = paged.on ? prefill_cap.value_or(serving_policy::default_prefill_cap) : 0;
+#else
+        (void) admission_order;
+        (void) prefill_cap;
+#endif
         params.spec_max_streams  = spec_max_streams.value_or(serving_policy::default_spec_max_streams);
         // Without a draft model, draft from n-grams of the context: free when it
         // misses, and paused under load by spec_max_streams. spec_type:none opts out.
@@ -2028,6 +2049,8 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     (void) slot_attach;
     (void) spec_max_streams;
     (void) spec_type_set;
+    (void) admission_order;
+    (void) prefill_cap;
 #endif
 
 #ifndef LOCALAI_LLAMA_CPP_NO_SCORE_TASK

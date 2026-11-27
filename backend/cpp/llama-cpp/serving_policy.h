@@ -272,4 +272,86 @@ constexpr int default_spec_max_streams = 4;
 // N-gram drafting used by default when a model has no draft model: 0 ngram-simple, 1 ngram-mod.
 constexpr int default_ngram_type = 1;
 
+// Order of waiting requests (the deferred queue, the pool admission wait and
+// the prompt fill of each step). Classes come from the request priority
+// (-1 batch, 0 default, 1 interactive, as upstream's server_task::priority).
+struct order_params {
+    bool    by_cache     = true;          // within a class, fewest uncached prompt tokens first
+    int64_t aging_us     = 20 * 1000000;  // a waiting request gains one class per aging_us (0: no aging)
+    int32_t max_overtake = 8;             // after this many younger requests went first, go by arrival
+    int64_t max_wait_us  = 30 * 1000000;  // after this long waiting, go by arrival (0: no limit)
+};
+
+struct wait_key {
+    int32_t klass       = 0; // request priority
+    int64_t id          = 0; // task id: arrival order
+    int64_t t_wait_us   = 0; // time spent waiting so far
+    int64_t n_uncached  = 0; // prompt tokens no cache covers (estimate)
+    int32_t n_overtaken = 0; // younger requests that went first
+    bool    preempted   = false;
+};
+
+constexpr int32_t class_batch       = -1;
+constexpr int32_t class_interactive = 1;
+
+// The class a waiting request competes in: its own, raised by one per aging_us waited.
+inline int32_t effective_class(const wait_key & k, const order_params & p) {
+    int64_t c = k.klass;
+    if (p.aging_us > 0) {
+        c += k.t_wait_us / p.aging_us;
+    }
+    return (int32_t) std::min<int64_t>(std::max<int64_t>(c, class_batch), class_interactive);
+}
+
+// A starved request is served by arrival, ahead of the size order: it was
+// preempted, overtaken too often, or waited too long.
+inline bool starved(const wait_key & k, const order_params & p) {
+    return k.preempted || k.n_overtaken >= p.max_overtake || (p.max_wait_us > 0 && k.t_wait_us >= p.max_wait_us);
+}
+
+// True when a goes before b. Higher class first; within a class starved
+// requests first, by arrival; then fewest uncached tokens; then arrival.
+inline bool goes_before(const wait_key & a, const wait_key & b, const order_params & p) {
+    const int32_t ca = effective_class(a, p);
+    const int32_t cb = effective_class(b, p);
+    if (ca != cb) {
+        return ca > cb;
+    }
+    const bool sa = starved(a, p);
+    const bool sb = starved(b, p);
+    if (sa != sb) {
+        return sa;
+    }
+    if (!sa && p.by_cache && a.n_uncached != b.n_uncached) {
+        return a.n_uncached < b.n_uncached;
+    }
+    return a.id < b.id;
+}
+
+// Default of prefill_cap with paged serving.
+constexpr int default_prefill_cap = 512;
+
+// Per-request prefill cap: the most prompt tokens one request may add in a
+// step while other requests also read prompts. Alone, a request gets the step.
+inline int32_t request_prefill_cap(int32_t cap, int32_t n_prefilling, int32_t n_fill) {
+    if (cap <= 0 || n_prefilling <= 1) {
+        return n_fill;
+    }
+    return std::min(cap, n_fill);
+}
+
+// Fewest cells trimmed from an idle slot at once, so a pool that stays short
+// by one cell per step does not trim (and log) one cell per step.
+constexpr int64_t paged_min_trim = 256;
+
+// How many tail cells to trim from an idle slot to free n_short cells: at
+// least paged_min_trim, and all of them when the memory cannot drop a
+// partial sequence.
+inline int64_t idle_trim(int64_t n_cells, int64_t n_short, bool partial_ok) {
+    if (n_cells <= 0 || n_short <= 0) {
+        return 0;
+    }
+    return partial_ok ? std::min(n_cells, std::max(n_short, paged_min_trim)) : n_cells;
+}
+
 } // namespace serving_policy

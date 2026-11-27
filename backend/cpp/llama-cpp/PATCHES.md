@@ -13,13 +13,17 @@ patches alive. Other files in `patches/` are not applied.
 | Patch | What it does |
 |---|---|
 | `0001-add-server-task-type-score.patch` | The `SERVER_TASK_TYPE_SCORE` task (log-probabilities of candidate continuations), used by the `Score` RPC. |
-| `0002-paged-serving.patch` | Hooks of the paged serving mode: admission, preemption, resume by recompute, and the decode-first prefill budget. |
+| `0002-paged-serving.patch` | Hooks of the paged serving mode: admission, preemption, resume by recompute, the decode-first prefill budget, prefix sharing between live slots, and load-adaptive drafting. |
+| `0003-server-request-priority.patch` | Backport of ggml-org/llama.cpp#32219: `server_task::priority` and the deferred-queue pick by priority. Drop it when the pin contains #32219. |
+| `0004-paged-admission-order.patch` | Order of waiting requests (class with aging, uncached tokens, arrival) at the deferred queue, the admission wait and the prompt fill; the per-request prefill cap; idle-slot eviction least recently used first with save and tail trim; lazy idle-slot save. |
 
 ## Rules for 0002
 
 - Scope: server scheduling policy and small getters. The hooks live in
-  `tools/server/server-context.cpp`, the four option fields in
-  `common/common.h`. A hunk in any other file needs the maintainer's approval.
+  `tools/server/server-context.cpp`, the option fields in `common/common.h`.
+  0003 and 0004 also touch `server-task.h` (the priority, queue time and
+  uncached-token fields) and `server-queue.*` (the deferred-queue pick), as
+  approved by the maintainer. Any other file needs the maintainer's approval.
 - No kernels, no model code, no ggml API changes, no environment variables, no
   instrumentation.
 - The arithmetic lives in `serving_policy.h` (LocalAI-owned, tested by
@@ -52,6 +56,9 @@ Line numbers drift with every bump. Find each hook by the grep anchor.
 | H6 | `paged_resume`, `paged_resume_fill` | A preempted slot keeps its text tokens in `paged_resume`, loses its cells, waits for admission, decodes the tokens again without outputs, then generates on. Its sampler and grammar keep their state. |
 | H7 | `paged_attach`, called before `pos_next = slot.prompt.tokens.pos_next(n_past)` in the `SLOT_STATE_STARTED` branch | Prefix sharing: when another slot (busy or idle) holds a longer prefix of the new prompt, at least `paged_min_attach` (256) tokens, the slot drops its own cells and `seq_cp`s that prefix. Off for SWA, recurrent and hybrid memory, multimodal, draft models, aLoRA, shared-prefix children and `n_cache_reuse`. |
 | H8 | `spec_paused_now` in `pre_decode()` | Drafting pauses when more than `spec_max_streams` slots decode and resumes with hysteresis (`serving_policy::spec_paused`). n-gram drafting (no draft model) is resumable: the tables are rebuilt after a resume. |
+| H9 | `pop_deferred_task` in `server-queue.cpp` (0003, 0004) | The freed slot goes to the deferred task with the highest priority (#32219); with `paged_order`, by `serving_policy::goes_before` (class with aging, overtake cap, fewest uncached tokens, arrival). `n_uncached_hint` is set before a task is deferred. |
+| H10 | `paged_fill_order`, `fill_slot` | With `paged_order`, the prompt fill visits waiting and prefilling slots by the same key, parents before children; `paged_admit` uses the key instead of the task id. `prefill_cap` limits one request's prompt tokens per step while others read prompts. |
+| H11 | `paged_trim_idle`; `cache_idle_slots()` after a launch | Under paged serving idle slots keep their cells until the pool needs them; then the least recently used idle slot is saved to the RAM prompt cache once and trimmed from the tail, only as much as needed. |
 
 A slot that cannot be resumed (a draft model or MTP, a multimodal
 prompt, a score parent or child, recurrent or hybrid memory, aLoRA) is
@@ -122,8 +129,9 @@ the new pin.
 
 | Upstream item | Probe | When it lands | Re-benchmark |
 |---|---|---|---|
-| ggml-org/llama.cpp#30970 `--slot-attach` (open) | `slot_attach` in `common/common.h` | Map shared-prefix serving to it; make H2 count unique cells; re-check victim choice | shared, overcommit, parity |
-| ggml-org/llama.cpp#32358 shared prefix across slots (open) | `copy_prefix_to` or `shares_cells` in `tools/server` | Same as #30970, whichever merges first | shared, overcommit |
+| ggml-org/llama.cpp#30970 `--slot-attach` (open, does not apply to the pin) | `slot_attach` in `common/common.h` | Drop H7, map `slot_attach` to it; keep H2's shared-cell count in step with it; re-check victim choice | shared, overcommit, parity |
+| ggml-org/llama.cpp#32358 shared prefix across slots (open draft, does not apply to the pin) | `copy_prefix_to` or `shares_cells` in `tools/server` | Same as #30970, whichever merges first | shared, overcommit |
+| ggml-org/llama.cpp#32219 request priority (open) | `int priority` in `tools/server/server-task.h` at the pin | Drop 0003; 0004 keeps its own ordering on top | hol, collide |
 | ggml-org/llama.cpp#10718 chunked prefill (open) | `n_chunk_pp` or a new budget field in `common.h` | Delete H4, map `prefill_budget` to the upstream field | mixed, budget arms vs upstream |
 | Preemption TODO in `decode()` ("try to terminate only the largest active slot") | the TODO is gone, or a new preempt symbol | Delete H5 and H6, keep H3 if upstream has no admission, map `paged_preempt` | overcommit-preempt, parity |
 | ggml-org/llama.cpp#32520 quantized-KV `kv_rows` on CUDA (open) | `kv_rows` in `ggml/src/ggml-cuda/fattn-vec*` | No hunk change; update the docs; add a q8_0 KV arm | steady, single on GPU |
@@ -136,7 +144,8 @@ follow-up.
 
 ## Known limits
 
-- Hybrid and recurrent models, speculative decoding and MTP are not resumable.
+- Hybrid and recurrent models, draft-model speculative decoding and MTP are
+  not resumable (n-gram drafting is).
   Admission and the prefill budget work for them; preemption aborts them only
   as a last resort.
 - Shared cells are counted once only for prompt copies between slots

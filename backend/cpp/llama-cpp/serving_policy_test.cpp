@@ -253,6 +253,51 @@ static void test_spec_pause() {
     EXPECT(flips == 1, "one flip for a count hovering at the limit");
 }
 
+static void test_order() {
+    order_params p;
+    wait_key a, b;
+    a.id = 1; b.id = 2;
+    EXPECT(goes_before(a, b, p) && !goes_before(b, a, p), "same class and size: arrival");
+    b.klass = class_interactive;
+    EXPECT(goes_before(b, a, p), "interactive before default");
+    a.klass = class_batch; b.klass = 0;
+    EXPECT(goes_before(b, a, p), "default before batch");
+    a.t_wait_us = 25 * 1000000;
+    EXPECT(effective_class(a, p) == 0, "a batch request ages into default after aging_us");
+    EXPECT(goes_before(a, b, p), "then it goes by arrival");
+    // fewest uncached first, within a class
+    wait_key c, d;
+    c.id = 1; c.n_uncached = 3000;
+    d.id = 2; d.n_uncached = 100;
+    EXPECT(goes_before(d, c, p), "a cached or short prompt overtakes a long one");
+    p.by_cache = false;
+    EXPECT(goes_before(c, d, p), "without cache order: arrival");
+    p.by_cache = true;
+    c.n_overtaken = p.max_overtake;
+    EXPECT(goes_before(c, d, p), "overtaken too often: served by arrival");
+    c.n_overtaken = 0; c.t_wait_us = p.max_wait_us;
+    EXPECT(goes_before(c, d, p), "waited too long: served by arrival");
+    c.t_wait_us = 0; c.preempted = true;
+    EXPECT(goes_before(c, d, p), "preempted requests are not pushed back again");
+    EXPECT(effective_class({class_interactive, 0, 999999999}, p) == class_interactive, "class is capped");
+}
+
+static void test_prefill_cap() {
+    EXPECT(request_prefill_cap(512, 1, 2048) == 2048, "alone: the whole step");
+    EXPECT(request_prefill_cap(512, 3, 2048) == 512, "shared: capped");
+    EXPECT(request_prefill_cap(512, 3, 256) == 256, "never above the step");
+    EXPECT(request_prefill_cap(0, 3, 2048) == 2048, "0 is off");
+}
+
+static void test_idle_trim() {
+    EXPECT(idle_trim(800, 100, true) == paged_min_trim, "trim at least paged_min_trim, from the tail");
+    EXPECT(idle_trim(800, 300, true) == 300, "trim only what is needed above that");
+    EXPECT(idle_trim(100, 1, true) == 100, "a short slot is cleared");
+    EXPECT(idle_trim(800, 1000, true) == 800, "at most the whole slot");
+    EXPECT(idle_trim(800, 100, false) == 800, "no partial removal: the whole slot");
+    EXPECT(idle_trim(0, 100, true) == 0, "nothing to trim");
+}
+
 int main() {
     test_prefill_budget();
     test_adaptive_budget();
@@ -267,6 +312,9 @@ int main() {
     test_readmission();
     test_attach();
     test_spec_pause();
+    test_order();
+    test_prefill_cap();
+    test_idle_trim();
     if (failures > 0) {
         std::fprintf(stderr, "%d serving policy check(s) failed\n", failures);
         return 1;

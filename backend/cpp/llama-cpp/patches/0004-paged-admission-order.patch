@@ -1,0 +1,365 @@
+LocalAI admission ordering for paged serving.
+
+Orders waiting requests by class (request priority, with aging), then fewest
+uncached prompt tokens, then arrival, with an overtake cap: in the deferred
+queue, at the pool admission wait and in the prompt fill of each step.
+Also a per-request prefill cap, least-recently-used idle-slot eviction that
+saves the slot to the RAM prompt cache and trims cells tail-first, and lazy
+idle-slot saving under paged serving. The policy is in serving_policy.h.
+Every hook runs only when common_params::paged_serving (and paged_order or
+prefill_cap) is set. See backend/cpp/llama-cpp/PATCHES.md.
+
+diff --git a/common/common.h b/common/common.h
+--- a/common/common.h
++++ b/common/common.h
+@@ -669,6 +669,8 @@ struct common_params {
+     int32_t prefill_budget      = 0;     // LocalAI: decode-first prompt tokens per step, 0 = off, < 0 = adaptive
+     bool    paged_attach        = false; // LocalAI: start a prompt from another slot's prefix cells (paged serving)
+     int32_t spec_max_streams    = 0;     // LocalAI: pause speculative drafting above this many decoding streams, 0 = never
++    bool    paged_order         = false; // LocalAI: order waiting requests by class, cache hit and arrival (paged serving)
++    int32_t prefill_cap         = 0;     // LocalAI: prompt tokens one request may add per step while others read prompts, 0 = off
+     int32_t checkpoint_min_step = 8192;  // minimum spacing between context checkpoints
+     int32_t cache_ram_mib       = 8192;  // -1 = no limit, 0 - disable, 1 = 1 MiB, etc.
+     bool    cache_ram_explicit  = false; // set by --cache-ram, decision models disable the cache otherwise
+diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
+--- a/tools/server/server-context.cpp
++++ b/tools/server/server-context.cpp
+@@ -381,6 +381,9 @@ struct server_slot {
+     int          paged_src   = -1;            // slot this one copied its prompt from
+     int          paged_src_task = -1;         // task of that slot at the copy (-2: idle)
+     int64_t      paged_src_n = 0;             // cells copied from it
++    int          paged_n_overtaken = 0;       // younger requests admitted while this one waited
++    int64_t      paged_t_wait0     = 0;       // when this request started to wait (us)
++    bool         paged_saved       = false;   // the idle prompt is in the RAM prompt cache already
+     int          paged_n_preempted = 0;       // times this request was preempted
+     int64_t      paged_t_preempted = 0;       // when it was last preempted (us)
+ 
+@@ -531,6 +534,9 @@ struct server_slot {
+         paged_src_task   = -1;
+         paged_n_preempted = 0;
+         paged_t_preempted = 0;
++        paged_n_overtaken = 0;
++        paged_t_wait0     = 0;
++        paged_saved       = false;
+     }
+ 
+     void init_sampler() const {
+@@ -1562,6 +1568,8 @@ private:
+         }
+ 
+         // setup slots
++        queue_tasks.order_enabled = params_base.paged_serving && params_base.paged_order;
++
+         SRV_INF("initializing, n_slots = %d, n_ctx_slot = %d, kv_unified = '%s'\n",
+                 params_base.n_parallel, n_ctx_slot(), params_base.kv_unified ? "true" : "false");
+ 
+@@ -2067,8 +2075,8 @@ private:
+     }
+ 
+     // drop the cached cells of one idle or waiting slot, other than id_keep
+-    bool paged_purge(int id_keep) {
+-        if (try_clear_idle_slots()) {
++    bool paged_purge(int id_keep, int64_t n_short = 0) {
++        if (paged_trim_idle(n_short)) {
+             return true;
+         }
+         for (auto & slot : slots) {
+@@ -2081,6 +2089,98 @@ private:
+         return false;
+     }
+ 
++    // prompt tokens of a task that no live slot or RAM cache entry covers (estimate)
++    int64_t paged_uncached(const server_tokens & tokens) const {
++        size_t best = 0;
++        for (const auto & other : slots) {
++            best = std::max(best, other.prompt.tokens.get_common_prefix(tokens));
++        }
++        if (prompt_cache) {
++            for (const auto & st : prompt_cache->states) {
++                best = std::max(best, st.prompt.tokens.get_common_prefix(tokens));
++            }
++        }
++        return (int64_t) tokens.size() - (int64_t) best;
++    }
++
++    serving_policy::wait_key paged_key(const server_slot & slot) const {
++        serving_policy::wait_key k;
++        k.klass       = slot.task->priority;
++        k.id          = slot.task->id;
++        k.t_wait_us   = slot.paged_t_wait0 > 0 ? ggml_time_us() - slot.paged_t_wait0 : 0;
++        k.n_uncached  = slot.state == SLOT_STATE_STARTED ? paged_uncached(slot.task->tokens) : paged_prompt_left(slot);
++        k.n_overtaken = slot.paged_n_overtaken;
++        k.preempted   = slot.paged_n_preempted > 0;
++        return k;
++    }
++
++    // slots in the order the prompt fill visits them: parents before children, each group by paged_key
++    std::vector<server_slot *> paged_fill_order() {
++        std::vector<server_slot *> order;
++        for (int pass = 0; pass < 2; ++pass) {
++            const size_t first = order.size();
++            for (auto & slot : slots) {
++                if ((slot.is_processing() && slot.task->is_child()) == (pass == 1)) {
++                    order.push_back(&slot);
++                }
++            }
++            std::vector<std::pair<serving_policy::wait_key, server_slot *>> keyed;
++            for (size_t i = first; i < order.size(); i++) {
++                if (order[i]->is_processing() && order[i]->state != SLOT_STATE_GENERATING) {
++                    keyed.push_back({ paged_key(*order[i]), order[i] });
++                }
++            }
++            std::stable_sort(keyed.begin(), keyed.end(), [&](const auto & a, const auto & b) {
++                return serving_policy::goes_before(a.first, b.first, queue_tasks.order);
++            });
++            // the waiting and prefilling slots first, in key order; the rest keep their index order
++            std::vector<server_slot *> rest;
++            for (size_t i = first; i < order.size(); i++) {
++                if (!(order[i]->is_processing() && order[i]->state != SLOT_STATE_GENERATING)) {
++                    rest.push_back(order[i]);
++                }
++            }
++            order.resize(first);
++            for (auto & k : keyed) {
++                order.push_back(k.second);
++            }
++            order.insert(order.end(), rest.begin(), rest.end());
++        }
++        return order;
++    }
++
++    // free n_short cells from idle slots, least recently used first: save the slot to the RAM
++    // prompt cache, then trim its cells from the tail, only as many as needed
++    bool paged_trim_idle(int64_t n_short) {
++        server_slot * lru = nullptr;
++        for (auto & slot : slots) {
++            if (!slot.is_processing() && slot.prompt.n_tokens() > 0 && (!lru || slot.t_last_used < lru->t_last_used)) {
++                lru = &slot;
++            }
++        }
++        if (!lru) {
++            return false;
++        }
++        if (prompt_cache && !lru->paged_saved && lru->prompt_save(*prompt_cache)) {
++            prompt_cache->update();
++        }
++        lru->paged_saved = true;
++        const int64_t n_cells = lru->prompt.n_tokens();
++        const int64_t n_trim  = serving_policy::idle_trim(n_cells, std::max<int64_t>(n_short, 1),
++                                                          ctx_tgt_seq_rm_type == COMMON_CONTEXT_SEQ_RM_TYPE_PART && n_swa == 0);
++        if (n_trim >= n_cells) {
++            SLT_INF(*lru, "paged: dropping %" PRId64 " cached tokens of the least recently used idle slot\n", n_cells);
++            lru->prompt_clear();
++        } else {
++            const int64_t keep = n_cells - n_trim;
++            SLT_INF(*lru, "paged: trimming %" PRId64 " cached tokens from the tail of an idle slot\n", n_trim);
++            lru->mem.seq_rm(lru->id, (llama_pos) keep, -1);
++            lru->prompt.tokens.keep_first(keep);
++            lru->prompt.checkpoints.clear();
++        }
++        return true;
++    }
++
+     // true when the slot may start (or resume) filling n_tokens cells now
+     bool paged_admit(server_slot & slot, int64_t n_tokens) {
+         while (true) {
+@@ -2095,14 +2195,23 @@ private:
+                 if (paged_running(other)) {
+                     v.n_active++;
+                     v.n_pending += serving_policy::slot_claim(paged_prompt_left(other), paged_reserve(other), other.stats.n_gen);
+-                } else if (other.is_processing() && (other.state == SLOT_STATE_STARTED || other.paged_wait) && other.task->id < slot.task->id) {
+-                    v.older_waiting = true;
++                } else if (other.is_processing() && (other.state == SLOT_STATE_STARTED || other.paged_wait)) {
++                    // waits for admission: it goes first by arrival, or by class, cache hit and aging
++                    v.older_waiting |= params_base.paged_order ? serving_policy::goes_before(paged_key(other), paged_key(slot), queue_tasks.order)
++                                                               : other.task->id < slot.task->id;
+                 }
+             }
+             // a resumed request needs only the part of its reserve it has not generated yet
+             const int64_t n_need = serving_policy::slot_claim(n_tokens, paged_reserve(slot), slot.stats.n_gen);
+             const auto res = serving_policy::admit(v, n_need);
+             if (res == serving_policy::admit_result::ADMIT) {
++                for (auto & other : slots) {
++                    // count the waiters this request overtook, for the overtake cap
++                    if (other.id != slot.id && other.is_processing() && (other.state == SLOT_STATE_STARTED || other.paged_wait) &&
++                        other.task->id < slot.task->id) {
++                        other.paged_n_overtaken++;
++                    }
++                }
+                 if (slot.paged_t_preempted > 0) {
+                     SLT_INF(slot, "paged: resuming after waiting %.1f s\n", (ggml_time_us() - slot.paged_t_preempted) / 1e6);
+                     slot.paged_t_preempted = 0;
+@@ -2118,11 +2227,12 @@ private:
+                 slot.paged_wait = false;
+                 return true;
+             }
+-            if (res == serving_policy::admit_result::PURGE_IDLE && paged_purge(slot.id)) {
++            if (res == serving_policy::admit_result::PURGE_IDLE && paged_purge(slot.id, n_need - (v.n_pool - v.n_used - v.n_pending))) {
+                 continue;
+             }
+             if (!slot.paged_wait) {
+                 slot.paged_wait = true;
++                slot.paged_t_wait0 = slot.paged_t_wait0 > 0 ? slot.paged_t_wait0 : ggml_time_us();
+                 SLT_INF(slot, "paged: waiting for %" PRId64 " free cells (used = %" PRId64 ", pending = %" PRId64 ", pool = %" PRId64 ", waits = %" PRId64 ")\n",
+                         n_need, v.n_used, v.n_pending, v.n_pool, ++n_paged_wait);
+             }
+@@ -2151,7 +2261,7 @@ private:
+             if (!serving_policy::pool_short(llama_n_ctx(ctx_tgt), n_used, n_demand)) {
+                 return;
+             }
+-            if (paged_purge(-1)) {
++            if (paged_purge(-1, n_used + n_demand - llama_n_ctx(ctx_tgt))) {
+                 continue;
+             }
+             if (!params_base.paged_preempt) {
+@@ -3529,6 +3639,11 @@ private:
+ 
+                     server_slot * slot = plan.id_slot == -1 ? nullptr : get_slot_by_id(plan.id_slot);
+ 
++                    // LocalAI paged serving: the uncached prompt size orders the deferred queue
++                    if (queue_tasks.order_enabled && task.n_uncached_hint < 0) {
++                        task.n_uncached_hint = paged_uncached(task.tokens);
++                    }
++
+                     //
+                     // slot scheduling logic
+                     //
+@@ -3563,7 +3678,9 @@ private:
+                     if (plan.update_cache && prompt_cache) {
+                         if (params_base.paged_serving) {
+                             // LocalAI paged serving: save the slot's prompt now, load the cache at admission
+-                            slot->prompt_save(*prompt_cache);
++                            if (!slot->paged_saved) {
++                                slot->prompt_save(*prompt_cache);
++                            }
+                             slot->prompt_clear();
+                             prompt_cache->update();
+                             slot->paged_cache_load = true;
+@@ -3582,7 +3699,10 @@ private:
+                         break; // drop the task
+                     }
+ 
+-                    cache_idle_slots();
++                    // LocalAI paged serving: idle slots keep their cells until the pool needs them
++                    if (!params_base.paged_serving) {
++                        cache_idle_slots();
++                    }
+                 } break;
+             case SERVER_TASK_TYPE_CANCEL:
+                 {
+@@ -4513,7 +4633,13 @@ private:
+         if (params_base.cont_batching || batch.size() == 0) {
+             bool add_ok = true; // false means the batch is full, skip remaining slots
+ 
+-            iterate(slots, [&](server_slot & slot) {
++            int32_t n_prefilling = 0; // LocalAI: requests that read prompts in this step, for prefill_cap
++            for (const auto & slot : slots) {
++                n_prefilling += slot.is_processing() && !slot.paged_wait &&
++                                (slot.state == SLOT_STATE_STARTED || slot.state == SLOT_STATE_PROCESSING_PROMPT);
++            }
++
++            const auto fill_slot = [&](server_slot & slot) {
+                 if (!add_ok || batch.size() >= n_fill_max) {
+                     return; // batch is full, skip remaining slots
+                 }
+@@ -5006,7 +5132,12 @@ private:
+                     const int32_t n_decision_first = slot.task->type == SERVER_TASK_TYPE_DECISION ? slot.task->decision.pos_first() : -1;
+ 
+                     // add prompt tokens for processing in the current batch
+-                    const int32_t n_fill_slot = slot.can_split() ? n_fill_max : n_batch;
++                    int32_t n_fill_slot = slot.can_split() ? n_fill_max : n_batch;
++                    if (params_base.prefill_cap > 0 && slot.can_split()) {
++                        // LocalAI: per-request cap while other requests read prompts too
++                        n_fill_slot = std::min(n_fill_slot, batch.size() + serving_policy::request_prefill_cap(
++                            params_base.prefill_cap, n_prefilling, n_fill_slot - batch.size()));
++                    }
+                     while (slot.prompt.n_tokens() < slot.task->n_tokens() && batch.size() < n_fill_slot) {
+                         // get next token to process
+                         llama_token cur_tok = input_tokens[slot.prompt.n_tokens()];
+@@ -5187,7 +5318,14 @@ private:
+                 if (!slot_batched) {
+                     slot_batched = &slot;
+                 }
+-            });
++            };
++            // LocalAI paged serving: visit the waiting and prefilling slots by class, cache hit and aging
++            if (params_base.paged_serving && params_base.paged_order) {
++                auto order = paged_fill_order();
++                iterate(order, fill_slot);
++            } else {
++                iterate(slots, fill_slot);
++            }
+         }
+     }
+ 
+diff --git a/tools/server/server-queue.cpp b/tools/server/server-queue.cpp
+--- a/tools/server/server-queue.cpp
++++ b/tools/server/server-queue.cpp
+@@ -76,6 +76,7 @@ int server_queue::post(std::vector<server_task> && tasks, bool front) {
+ void server_queue::defer(server_task && task) {
+     std::unique_lock<std::mutex> lock(mutex_tasks);
+     QUE_DBG("defer task, id = %d\n", task.id);
++    task.t_queued_us = ggml_time_us();
+     queue_tasks_deferred.push_back(std::move(task));
+     time_last_task = ggml_time_ms();
+     condition_tasks.notify_one();
+@@ -95,6 +96,22 @@ void server_queue::pop_deferred_task(int id_slot) {
+         if (it->id_slot != -1 && it->id_slot != id_slot) {
+             continue;
+         }
++        if (order_enabled) {
++            // LocalAI paged serving: class with aging, then fewest uncached tokens, then arrival
++            const int64_t now = ggml_time_us();
++            auto key = [&](const server_task & t) {
++                serving_policy::wait_key k;
++                k.klass      = t.priority;
++                k.id         = t.id;
++                k.t_wait_us  = now - t.t_queued_us;
++                k.n_uncached = t.n_uncached_hint >= 0 ? t.n_uncached_hint : t.n_tokens();
++                return k;
++            };
++            if (best == queue_tasks_deferred.end() || serving_policy::goes_before(key(*it), key(*best), order)) {
++                best = it;
++            }
++            continue;
++        }
+         if (best == queue_tasks_deferred.end() ||
+                 it->priority > best->priority ||
+                 (it->priority == best->priority && it->id_slot == id_slot && best->id_slot != id_slot)) {
+diff --git a/tools/server/server-queue.h b/tools/server/server-queue.h
+--- a/tools/server/server-queue.h
++++ b/tools/server/server-queue.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include "serving_policy.h" // LocalAI paged serving
++
+ #include "server-task.h"
+ 
+ #include <condition_variable>
+@@ -24,6 +26,11 @@ private:
+     // queues
+     std::deque<server_task> queue_tasks;
+     std::deque<server_task> queue_tasks_deferred;
++public:
++    // LocalAI paged serving: order the deferred queue by serving_policy::goes_before
++    bool                          order_enabled = false;
++    serving_policy::order_params  order;
++private:
+     // tasks declined while yielding, put back in queue_tasks once the yield is done
+     // note: kept as a member so that cleanup_pending_task() can also reach them
+     std::deque<server_task> queue_tasks_unhandled;
+diff --git a/tools/server/server-task.h b/tools/server/server-task.h
+--- a/tools/server/server-task.h
++++ b/tools/server/server-task.h
+@@ -191,6 +191,10 @@ struct server_task {
+     // higher value is served first when picking from the deferred queue
+     int priority  = 0;
+ 
++    // LocalAI paged serving: when the task was deferred, and its uncached prompt tokens (-1: unknown)
++    int64_t t_queued_us     = 0;
++    int64_t n_uncached_hint = -1;
++
+     // used by parallel sampling (multiple completions from same prompt)
+     int id_parent  = -1;
+     // temporary store of child tasks for scheduling
