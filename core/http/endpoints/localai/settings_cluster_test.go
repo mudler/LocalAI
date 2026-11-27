@@ -82,13 +82,18 @@ var _ = Describe("Settings endpoints with cluster memory settings", func() {
 		a := newFrontend()
 		b := newFrontend()
 
-		rec, _ := do(a, http.MethodPost, `{"model_swap": false, "max_active_backends": 2, "threads": 3}`)
+		// The default thread count is the number of cores of the host, so a
+		// fixed value can equal it (a 3-core runner defaults to 3). Pick one
+		// that differs from the default of B.
+		threads := b.app.ApplicationConfig().Threads + 1
+		body, _ := json.Marshal(map[string]any{"model_swap": false, "max_active_backends": 2, "threads": threads})
+		rec, _ := do(a, http.MethodPost, string(body))
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 
 		Expect(b.app.ApplicationConfig().ModelSwapEnabled()).To(BeFalse())
 		Expect(b.app.ApplicationConfig().MaxActiveBackends).To(Equal(2))
 		Expect(b.app.ModelLoader().ModelSwapEnabled()).To(BeFalse())
-		Expect(b.app.ApplicationConfig().Threads).ToNot(Equal(3), "threads is a frontend setting")
+		Expect(b.app.ApplicationConfig().Threads).ToNot(Equal(threads), "threads is a frontend setting")
 
 		_, got := do(b, http.MethodGet, "")
 		Expect(got["model_swap"]).To(Equal(false))
