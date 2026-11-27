@@ -536,7 +536,7 @@ func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationC
 
 	// a. Session cookie -> web UI
 	if cookie, err := c.Cookie(sessionCookie); err == nil && cookie.Value != "" {
-		if user, session := ValidateSession(db, cookie.Value, hmacSecret); user != nil {
+		if user, session := ValidateRequestSession(c.Request().Context(), db, cookie.Value, hmacSecret); user != nil {
 			// Store session for rotation check in middleware
 			c.Set("_auth_session", session)
 			c.Set(contextKeyTicketCredential, ticketCredential{"Cookie", cookie.String()})
@@ -551,7 +551,7 @@ func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationC
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 
 		// b1. Session token via Bearer -> still web UI
-		if user, _ := ValidateSession(db, token, hmacSecret); user != nil {
+		if user, _ := ValidateRequestSession(c.Request().Context(), db, token, hmacSecret); user != nil {
 			c.Set(contextKeyHeaderAuthenticated, true)
 			c.Set(contextKeyTicketCredential, ticketCredential{"Authorization", authHeader})
 			c.Set(contextKeySource, UsageSourceWeb)

@@ -30,6 +30,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gorm.io/gorm"
 )
 
 // The whole journey of a user who pairs their own phone: an administrator
@@ -51,6 +52,7 @@ var _ = Describe("P2P user pairing journey", func() {
 	var (
 		e     *echo.Echo
 		admin string
+		db    *gorm.DB
 	)
 
 	// call sends a request to the normal listener. A key starting with
@@ -104,7 +106,7 @@ var _ = Describe("P2P user pairing journey", func() {
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = app.Shutdown() })
 
-		db := app.AuthDB()
+		db = app.AuthDB()
 		Expect(db.Create(&auth.User{ID: "root", Email: "root@example.test", Name: "root", Role: auth.RoleAdmin,
 			Status: auth.StatusActive, Provider: auth.ProviderLocal}).Error).To(Succeed())
 		admin, _, err = auth.CreateAPIKey(db, "root", "test", auth.RoleAdmin, secret, nil)
@@ -244,9 +246,9 @@ var _ = Describe("P2P user pairing journey", func() {
 			return resp.StatusCode, sessionOf(resp.Cookies()), nil
 		}
 
-		// me asks over P2P from d who the session is.
-		me := func(d device, session string) (int, []byte, error) {
-			req, _ := http.NewRequest(http.MethodGet, base+"/api/auth/me", nil)
+		// overP2P sends a GET with the session cookie over P2P from d.
+		overP2P := func(d device, path, session string) (int, []byte, error) {
+			req, _ := http.NewRequest(http.MethodGet, base+path, nil)
 			req.AddCookie(&http.Cookie{Name: "session", Value: session})
 			resp, err := d.c.Do(req)
 			if err != nil {
@@ -255,6 +257,11 @@ var _ = Describe("P2P user pairing journey", func() {
 			defer func() { _ = resp.Body.Close() }()
 			b, _ := io.ReadAll(resp.Body)
 			return resp.StatusCode, b, nil
+		}
+
+		// me asks over P2P from d who the session is.
+		me := func(d device, session string) (int, []byte, error) {
+			return overP2P(d, "/api/auth/me", session)
 		}
 
 		By("pairing a phone with the real invite client over local P2P")
@@ -275,8 +282,13 @@ var _ = Describe("P2P user pairing journey", func() {
 		Expect(json.Unmarshal(body, &who)).To(Succeed())
 		Expect(who.ID).To(Equal(aliceID))
 		Expect(who.Role).To(Equal(auth.RoleUser), "the session has alice's rights, not more")
-		code, _ = call(http.MethodGet, "/api/auth/admin/users", "cookie:"+session, nil)
+		code, _, err = overP2P(phone, "/api/auth/admin/users", session)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(code).To(Equal(http.StatusForbidden), "the phone session is not an admin session")
+		code, _ = call(http.MethodGet, "/api/auth/me", "cookie:"+session, nil)
+		Expect(code).To(Equal(http.StatusUnauthorized), "a device session is refused on the normal listener")
+		code, _ = call(http.MethodGet, "/api/auth/me", session, nil)
+		Expect(code).To(Equal(http.StatusUnauthorized), "also as a bearer token")
 
 		By("refusing a wrong credential")
 		code, s, err := signIn(phone, "not-the-credential")
@@ -302,6 +314,9 @@ var _ = Describe("P2P user pairing journey", func() {
 		code, tabletSession, err := signIn(tablet, tablet.cred)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(code).To(Equal(http.StatusOK))
+		code, _, err = me(tablet, session)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(code).To(Equal(http.StatusUnauthorized), "the phone's session is refused from another paired peer")
 
 		By("listing both devices to alice")
 		code, body = call(http.MethodGet, "/api/p2p/me/devices", alice, nil)
@@ -329,8 +344,8 @@ var _ = Describe("P2P user pairing journey", func() {
 		By("ending the phone's session and refusing the phone at the gate when alice revokes it")
 		code, body = call(http.MethodDelete, "/api/p2p/me/devices/"+phoneID, alice, nil)
 		Expect(code).To(Equal(http.StatusOK), string(body))
-		code, _ = call(http.MethodGet, "/api/auth/me", "cookie:"+session, nil)
-		Expect(code).To(Equal(http.StatusUnauthorized), "the session of a revoked device ends")
+		u, _ := auth.ValidateSession(db, session, secret)
+		Expect(u).To(BeNil(), "the session of a revoked device ends")
 		// A new connection, not a stream of the old one the revoke closed,
 		// must be the one refused.
 		phone.c.CloseIdleConnections()
@@ -347,8 +362,8 @@ var _ = Describe("P2P user pairing journey", func() {
 		By("ending the second device's session and dropping it when the administrator disables alice")
 		code, body = call(http.MethodPut, "/api/auth/admin/users/"+aliceID+"/status", admin, map[string]any{"status": "disabled"})
 		Expect(code).To(Equal(http.StatusOK), string(body))
-		code, _ = call(http.MethodGet, "/api/auth/me", "cookie:"+tabletSession, nil)
-		Expect(code).To(Equal(http.StatusUnauthorized))
+		u, _ = auth.ValidateSession(db, tabletSession, secret)
+		Expect(u).To(BeNil(), "disabling the user ends the device's session")
 		code, body = call(http.MethodGet, "/api/p2p/devices?owner="+aliceID, admin, nil)
 		Expect(code).To(Equal(http.StatusOK), string(body))
 		Expect(string(body)).To(ContainSubstring(`"status":"revoked"`))

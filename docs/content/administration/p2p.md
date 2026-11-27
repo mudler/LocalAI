@@ -414,6 +414,15 @@ from the peer that redeemed the invite, because the route reads the peer ID
 that the P2P connection proved. It is not an API key: the normal HTTP listener
 does not accept it.
 
+The session is bound to the device. LocalAI accepts it only on a request that
+arrives over P2P from the device that opened it, and only while that device is
+active and signs in. The same cookie or `Authorization: Bearer` token on the
+normal HTTP listener, or over P2P from another paired peer, gets `401`. The app
+on the phone always reaches the server through its P2P forwarder, so this does
+not limit normal use. Each request with such a session reads the device row by
+its ID from the shared database, so a revoke takes effect on every frontend at
+once.
+
 Revoking a device ends the sessions it opened. When an administrator disables
 or deletes a user, the server revokes the sign-in devices of that user and ends
 their sessions. Every frontend also leaves the sign-in devices of a user who is

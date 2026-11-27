@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
 	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/p2pnet"
@@ -785,7 +786,7 @@ func (rt *p2pRuntime) httpHandler() http.Handler {
 			h.only.ServeHTTP(w, r)
 			return
 		}
-		h.main.ServeHTTP(w, r)
+		h.main.ServeHTTP(w, r.WithContext(auth.WithDeviceSessionCheck(r.Context(), rt.deviceSessionCheck(p))))
 	})
 }
 

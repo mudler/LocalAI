@@ -3,8 +3,12 @@
 package auth_test
 
 import (
+	"context"
+	"net/http"
 	"time"
 
+	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -91,5 +95,78 @@ var _ = Describe("Device sessions", func() {
 		Expect(auth.DeleteDeviceSessions(db, "dev-1")).To(Succeed())
 		u, _ := auth.ValidateSession(db, rotated, secret)
 		Expect(u).To(BeNil())
+	})
+})
+
+var _ = Describe("Device sessions in the auth middleware", func() {
+	var (
+		db        *gorm.DB
+		user      *auth.User
+		appConfig *config.ApplicationConfig
+		app       *echo.Echo
+		token     string
+		// check is the device check that the P2P handler puts in the context
+		// of a request; nil means the request came on the normal listener.
+		check auth.DeviceSessionCheck
+	)
+
+	BeforeEach(func() {
+		db = testDB()
+		user = createTestUser(db, "phone-mw@example.com", auth.RoleUser, auth.ProviderLocal)
+		appConfig = config.NewApplicationConfig()
+		appConfig.Auth.Enabled = true
+		appConfig.Auth.APIKeyHMACSecret = "device-session-mw-secret"
+		check = nil
+		app = echo.New()
+		app.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+			return func(c echo.Context) error {
+				if check != nil {
+					r := c.Request()
+					c.SetRequest(r.WithContext(auth.WithDeviceSessionCheck(r.Context(), check)))
+				}
+				return next(c)
+			}
+		})
+		app.Use(auth.Middleware(db, appConfig))
+		app.GET("/v1/models", ok)
+		var err error
+		token, err = auth.CreateDeviceSession(db, user.ID, "dev-1", appConfig.Auth.APIKeyHMACSecret)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("refuses a device session cookie on the normal listener", func() {
+		rec := doRequest(app, http.MethodGet, "/v1/models", withSessionCookie(token))
+		Expect(rec.Code).To(Equal(http.StatusUnauthorized))
+	})
+
+	It("refuses a device session bearer token on the normal listener", func() {
+		rec := doRequest(app, http.MethodGet, "/v1/models", withBearerToken(token))
+		Expect(rec.Code).To(Equal(http.StatusUnauthorized))
+	})
+
+	It("accepts a device session when the device check passes", func() {
+		var asked string
+		check = func(_ context.Context, deviceID string) bool { asked = deviceID; return true }
+		rec := doRequest(app, http.MethodGet, "/v1/models", withSessionCookie(token))
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(asked).To(Equal("dev-1"))
+	})
+
+	It("refuses a device session when the device check fails", func() {
+		check = func(context.Context, string) bool { return false }
+		rec := doRequest(app, http.MethodGet, "/v1/models", withSessionCookie(token))
+		Expect(rec.Code).To(Equal(http.StatusUnauthorized))
+		rec = doRequest(app, http.MethodGet, "/v1/models", withBearerToken(token))
+		Expect(rec.Code).To(Equal(http.StatusUnauthorized))
+	})
+
+	It("does not ask the device check for a normal session", func() {
+		normal, err := auth.CreateSession(db, user.ID, appConfig.Auth.APIKeyHMACSecret)
+		Expect(err).ToNot(HaveOccurred())
+		rec := doRequest(app, http.MethodGet, "/v1/models", withSessionCookie(normal))
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		check = func(context.Context, string) bool { Fail("asked for a normal session"); return false }
+		rec = doRequest(app, http.MethodGet, "/v1/models", withSessionCookie(normal))
+		Expect(rec.Code).To(Equal(http.StatusOK))
 	})
 })

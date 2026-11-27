@@ -72,6 +72,8 @@ func createSession(db *gorm.DB, userID string, deviceID *string, hmacSecret stri
 
 // ValidateSession hashes the plaintext token and looks up the session.
 // Returns the associated user and session, or (nil, nil) if not found/expired.
+// It does not check the binding of a device session to its device: a request
+// path must use ValidateRequestSession.
 func ValidateSession(db *gorm.DB, token, hmacSecret string) (*User, *Session) {
 	hash := HashAPIKey(token, hmacSecret)
 

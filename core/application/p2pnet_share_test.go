@@ -29,6 +29,15 @@ import (
 // shareServer is an application in mode share with an auth database, serving
 // a main handler that answers "main" and the real redeem handler over P2P.
 func shareServer() (*Application, *p2pRuntime) {
+	return shareServerWith(func(*Application) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = io.WriteString(w, "main")
+		})
+	})
+}
+
+// shareServerWith is shareServer with the main handler that main returns.
+func shareServerWith(main func(*Application) http.Handler) (*Application, *p2pRuntime) {
 	db, err := auth.InitDB(filepath.Join(GinkgoT().TempDir(), "auth.db"))
 	Expect(err).ToNot(HaveOccurred())
 	a := newP2PTestApp("share", GinkgoT().TempDir(), db)
@@ -36,9 +45,7 @@ func shareServer() (*Application, *p2pRuntime) {
 	only.POST(redeemPath, p2papi.RedeemEndpoint(a.P2P()))
 	only.GET(routesPath, p2papi.RoutesEndpoint(a.P2P()))
 	only.POST(deviceSessionPath, p2papi.DeviceSessionEndpoint(a.P2PUsers()))
-	a.ServeP2PHTTP(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = io.WriteString(w, "main")
-	}), only)
+	a.ServeP2PHTTP(main(a), only)
 	Expect(a.StartP2PNet()).To(Succeed())
 	rt, _ := a.p2p().runtime()
 	Expect(rt).ToNot(BeNil())

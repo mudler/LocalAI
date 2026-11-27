@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
+
+	"github.com/labstack/echo/v4"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,6 +46,13 @@ func pairSignIn(server *p2pRuntime, owner string) (*p2pnet.Host, *http.Client, s
 		Expect(out).To(HaveKeyWithValue("owner_name", owner), "the redeem names the account the device signs in as")
 	}
 	return h, c, cred
+}
+
+// p2pPairStoreMust returns the pairing store of a.
+func (a *Application) p2pPairStoreMust() p2ppair.Store {
+	st, err := a.p2pPairStore()
+	Expect(err).ToNot(HaveOccurred())
+	return st
 }
 
 // pairPlain mints an admission-only invite for owner and redeems it.
@@ -310,5 +320,49 @@ var _ = Describe("P2P device sign-in", func() {
 		other, _ := pairPlain(server, "alice")
 		Expect(server.paired(other.ID())).To(BeTrue())
 		Expect(server.mayReserve(other.ID())).To(BeFalse())
+	})
+
+	It("lets a device session be used only over P2P from its device while the device is active", func() {
+		a, server := shareServerWith(func(a *Application) http.Handler {
+			e := echo.New()
+			e.Use(auth.Middleware(a.AuthDB(), a.ApplicationConfig()))
+			e.GET("/api/whoami", func(c echo.Context) error { return c.String(http.StatusOK, auth.GetUser(c).ID) })
+			return e
+		})
+		signInUser(a, "alice", auth.RoleUser, true)
+		signInUser(a, "bob", auth.RoleUser, true)
+		_, phone, cred := pairSignIn(server, "alice")
+		_, tablet, _ := pairSignIn(server, "bob")
+		ans := askSession(phone, server, cred, false)
+		Expect(ans.status).To(Equal(http.StatusOK))
+
+		whoami := func(c *http.Client, session string) int {
+			req, err := http.NewRequest(http.MethodGet, "http://"+server.host.ID().String()+"/api/whoami", nil)
+			Expect(err).ToNot(HaveOccurred())
+			req.AddCookie(&http.Cookie{Name: "session", Value: session})
+			resp, err := c.Do(req)
+			if err != nil {
+				return 0
+			}
+			_ = resp.Body.Close()
+			return resp.StatusCode
+		}
+
+		By("accepting the session from the device that opened it")
+		Expect(whoami(phone, ans.cookie)).To(Equal(http.StatusOK))
+
+		By("refusing it over P2P from another paired peer")
+		Expect(whoami(tablet, ans.cookie)).To(Equal(http.StatusUnauthorized))
+
+		By("refusing it once the device is revoked, even if the session row survived")
+		devs, err := server.pair.ListDevicesByOwner(context.Background(), "alice")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(devs).To(HaveLen(1))
+		// Revoke the row only, as a revoke whose session cleanup failed.
+		_, err = a.p2pPairStoreMust().RevokeDevice(context.Background(), devs[0].ID, "root", time.Now())
+		Expect(err).ToNot(HaveOccurred())
+		u, _ := auth.ValidateSession(a.AuthDB(), ans.cookie, a.ApplicationConfig().Auth.APIKeyHMACSecret)
+		Expect(u).ToNot(BeNil(), "the row is still there")
+		Expect(whoami(phone, ans.cookie)).To(Equal(http.StatusUnauthorized))
 	})
 })

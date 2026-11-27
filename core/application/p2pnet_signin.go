@@ -73,6 +73,19 @@ func (s p2pService) DeviceSession(ctx context.Context, from, credential string) 
 	return p2papi.DeviceSession{Token: token, User: p2papi.SessionUser{ID: u.ID, Name: u.Name, Email: u.Email, Role: u.Role}}, nil
 }
 
+// deviceSessionCheck binds the web sessions that paired devices opened to
+// the device: a request over P2P from peer p may use such a session only
+// while its device is p's, is not revoked and still signs in. The device is
+// read from the pairing store by its ID (the primary key, so one indexed
+// lookup in the shared auth database), which every frontend sees at once
+// after a revoke.
+func (rt *p2pRuntime) deviceSessionCheck(p p2pnet.ID) auth.DeviceSessionCheck {
+	return func(ctx context.Context, deviceID string) bool {
+		d, err := rt.pair.GetDevice(ctx, deviceID)
+		return err == nil && d.RevokedAt == nil && d.SignIn && d.PeerID == p.String()
+	}
+}
+
 // revokeDevice is the one revoke of a device for every caller: the store row
 // (and the client key of a remote), the web sessions the device opened, the
 // gate and the open connections, and the relays. The caller reloads and tells
