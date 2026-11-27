@@ -95,18 +95,47 @@ func (n *Node) Enabled() bool {
 }
 
 // BackendEnv is the environment the node sets on each backend process it
-// starts. With the tier off, both keys are removed, so an inherited value
-// cannot turn it on behind the switch.
+// starts: the root, its read speed, and the policy of the node from the live
+// settings. These are the values of every backend; a llama.cpp model option
+// still wins in the llama.cpp backend. With the tier off, every key is
+// removed, so an inherited value cannot turn it on behind the switch.
 func (n *Node) BackendEnv() map[string]string {
-	env := map[string]string{config.EnvPromptCacheRoot: "", config.EnvPromptCacheReadMBps: ""}
+	env := make(map[string]string, len(config.PromptCacheEnvKeys))
+	for _, k := range config.PromptCacheEnvKeys {
+		env[k] = ""
+	}
 	if !n.Enabled() {
 		return env
 	}
+	s := n.settings()
+	p := n.Policy()
 	env[config.EnvPromptCacheRoot] = n.root
 	if mbps, ok := pc.TransferSpeed(n.root); ok {
 		env[config.EnvPromptCacheReadMBps] = strconv.FormatFloat(mbps, 'f', 1, 64)
 	}
+	minTokens := s.MinTokens
+	if minTokens <= 0 {
+		minTokens = config.DefaultPromptCacheMinTokens
+	}
+	env[config.EnvPromptCacheTTLHours] = strconv.Itoa(config.PromptCacheTTLHours(s.TTL))
+	env[config.EnvPromptCacheMinTokens] = strconv.Itoa(minTokens)
+	env[config.EnvPromptCacheQuotaMiB] = strconv.FormatInt(mib(p.QuotaBytes), 10)
+	env[config.EnvPromptCacheMaxSizeMiB] = strconv.FormatInt(mib(p.MaxBytes), 10)
+	env[config.EnvPromptCacheLowFreeMiB] = strconv.Itoa(max(s.LowFreeMiB, 0))
+	env[config.EnvPromptCacheCriticalFreeMiB] = strconv.Itoa(max(s.CriticalFreeMiB, 0))
+	env[config.EnvPromptCacheMinReuse] = strconv.Itoa(config.PromptCacheMinReuse)
+	env[config.EnvPromptCacheMaxCheckpoints] = strconv.Itoa(config.PromptCacheMaxCheckpoints)
+	env[config.EnvPromptCacheLoadOverheadMs] = strconv.Itoa(config.PromptCacheLoadOverheadMs)
 	return env
+}
+
+// mib is bytes in whole MiB. A positive value under 1 MiB is 1, so a small
+// quota or cap never reads as none.
+func mib(bytes int64) int64 {
+	if bytes <= 0 {
+		return 0
+	}
+	return max(bytes>>20, 1)
 }
 
 // Start measures the transfer speed in the background and runs the janitor at

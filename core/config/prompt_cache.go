@@ -35,6 +35,54 @@ const (
 	EnvPromptCacheRoot = "LOCALAI_PROMPT_CACHE_ROOT"
 	// EnvPromptCacheReadMBps is the measured cold read speed of the root.
 	EnvPromptCacheReadMBps = "LOCALAI_PROMPT_CACHE_READ_MBPS"
+
+	// The policy of the node, for every backend. A llama.cpp model option of
+	// the same meaning wins over these in the llama.cpp backend.
+
+	// EnvPromptCacheTTLHours is the time to live in whole hours, rounded up.
+	EnvPromptCacheTTLHours = "LOCALAI_PROMPT_CACHE_TTL_HOURS"
+	// EnvPromptCacheMinTokens is the shortest prompt written to disk.
+	EnvPromptCacheMinTokens = "LOCALAI_PROMPT_CACHE_MIN_TOKENS"
+	// EnvPromptCacheQuotaMiB is the effective quota of one user; 0 is none.
+	EnvPromptCacheQuotaMiB = "LOCALAI_PROMPT_CACHE_QUOTA_MIB"
+	// EnvPromptCacheMaxSizeMiB is the effective cap of the node. A backend
+	// uses it as the cap of its own model directory.
+	EnvPromptCacheMaxSizeMiB = "LOCALAI_PROMPT_CACHE_MAX_SIZE_MIB"
+	// EnvPromptCacheLowFreeMiB overrides the low watermark; 0 is the
+	// default rule.
+	EnvPromptCacheLowFreeMiB = "LOCALAI_PROMPT_CACHE_LOW_FREE_MIB"
+	// EnvPromptCacheCriticalFreeMiB overrides the critical watermark; 0 is
+	// the default rule.
+	EnvPromptCacheCriticalFreeMiB = "LOCALAI_PROMPT_CACHE_CRITICAL_FREE_MIB"
+	// EnvPromptCacheMinReuse is how many requests must share a prefix
+	// before it is written.
+	EnvPromptCacheMinReuse = "LOCALAI_PROMPT_CACHE_MIN_REUSE"
+	// EnvPromptCacheMaxCheckpoints is the most checkpoints of one entry.
+	EnvPromptCacheMaxCheckpoints = "LOCALAI_PROMPT_CACHE_MAX_CHECKPOINTS"
+	// EnvPromptCacheLoadOverheadMs is the fixed cost of one load in the gate
+	// that chooses between a read and a recompute.
+	EnvPromptCacheLoadOverheadMs = "LOCALAI_PROMPT_CACHE_LOAD_OVERHEAD_MS"
+)
+
+// PromptCacheEnvKeys are all the environment keys of the disk tier. A node
+// with the tier off removes every one of them from a backend, so an
+// inherited value cannot turn the tier on behind the switch.
+var PromptCacheEnvKeys = []string{
+	EnvPromptCacheRoot, EnvPromptCacheReadMBps,
+	EnvPromptCacheTTLHours, EnvPromptCacheMinTokens, EnvPromptCacheQuotaMiB,
+	EnvPromptCacheMaxSizeMiB, EnvPromptCacheLowFreeMiB, EnvPromptCacheCriticalFreeMiB,
+	EnvPromptCacheMinReuse, EnvPromptCacheMaxCheckpoints, EnvPromptCacheLoadOverheadMs,
+}
+
+// Fixed values of the backend policy. They are not settings yet.
+const (
+	// PromptCacheMinReuse: a prefix is written once this many requests
+	// share it, so a one-off prompt costs no disk write.
+	PromptCacheMinReuse = 2
+	// PromptCacheMaxCheckpoints is the most checkpoints kept per entry.
+	PromptCacheMaxCheckpoints = 3
+	// PromptCacheLoadOverheadMs is the fixed cost of one load, in ms.
+	PromptCacheLoadOverheadMs = 50
 )
 
 // PromptCacheDirName is the directory of the disk tier under a data path.
@@ -143,6 +191,15 @@ func (o *ApplicationConfig) PromptCacheRoot() string {
 	return filepath.Join(o.DataPath, PromptCacheDirName)
 }
 
+// PromptCacheTTLHours is a time to live in whole hours, rounded up; 0 or
+// less is the default.
+func PromptCacheTTLHours(ttl time.Duration) int {
+	if ttl <= 0 {
+		ttl = DefaultPromptCacheTTL
+	}
+	return int(math.Ceil(ttl.Hours()))
+}
+
 // PromptCacheMaxBytes is the cap of the disk tier: the configured size, else
 // the smaller of 20 GiB and a tenth of freeBytes.
 func PromptCacheMaxBytes(configuredMiB int, freeBytes uint64) int64 {
@@ -221,11 +278,7 @@ func WithPromptCacheDiskOptions(options []string, backend string, pc PromptCache
 		}
 	}
 	add(PromptCacheOptDisk, strconv.FormatBool(!pc.DiskDisabled))
-	ttl := pc.TTL
-	if ttl <= 0 {
-		ttl = DefaultPromptCacheTTL
-	}
-	add(PromptCacheOptTTLHours, strconv.Itoa(int(math.Ceil(ttl.Hours()))))
+	add(PromptCacheOptTTLHours, strconv.Itoa(PromptCacheTTLHours(pc.TTL)))
 	minTokens := pc.MinTokens
 	if minTokens <= 0 {
 		minTokens = DefaultPromptCacheMinTokens
