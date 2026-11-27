@@ -51,7 +51,7 @@ var flags = []es.Flag{
 		Key: "flash_attention", Target: es.TargetConfig, Path: "flash_attention",
 		CLI: []string{"-fa", "--flash-attn"}, Type: es.TypeEnum, Enum: []string{"on", "off", "auto"},
 		Default: "auto", Group: GroupSpeed,
-		Doc:           "Flash attention. A bare flag means on.",
+		Doc:           "Faster attention that needs less compute memory. A quantized V cache requires it. Auto turns it on when the device supports it.",
 		OptionalValue: true, BareValue: "on",
 	},
 	{
@@ -118,7 +118,7 @@ var flags = []es.Flag{
 		Key: "paged_kv", Target: es.TargetOption, Path: "options", Option: "paged_kv",
 		Type: es.TypeBool, Default: "on in builds with paged serving", Group: GroupServing, LocalAIOnly: true,
 		Doc: "Paged serving: start a request only when the shared KV cache has room for it, and pause the newest one when it runs out, " +
-			"so many users share the cache without failing. It needs more than one slot. Default: on in builds with paged serving.",
+			"so many users share the cache without failing. It needs more than one slot.",
 		OptionAliases: []string{"paged_serving"},
 	},
 	{
@@ -131,7 +131,7 @@ var flags = []es.Flag{
 		Key: "prefill_budget", Target: es.TargetOption, Path: "options", Option: "prefill_budget",
 		Type: es.TypeString, Default: "256 in builds with paged serving", Group: GroupServing, LocalAIOnly: true,
 		Doc: "Prompt tokens read per step while other requests generate, so a long prompt does not stall them. " +
-			"A number, 0 to turn it off, or auto to follow the load in builds that have it.",
+			"A number, 0 to turn it off, or auto to follow the load.",
 		OptionAliases: []string{"max_prefill_tokens"},
 	},
 	{

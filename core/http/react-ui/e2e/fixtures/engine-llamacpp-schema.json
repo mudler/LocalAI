@@ -94,7 +94,7 @@
         "auto"
       ],
       "default": "auto",
-      "doc": "Flash attention. A bare flag means on.",
+      "doc": "Faster attention that needs less compute memory. A quantized V cache requires it. Auto turns it on when the device supports it.",
       "group": "speed"
     },
     {
@@ -259,7 +259,7 @@
       ],
       "type": "bool",
       "default": "on in builds with paged serving",
-      "doc": "Paged serving: start a request only when the shared KV cache has room for it, and pause the newest one when it runs out, so many users share the cache without failing. It needs more than one slot. Default: on in builds with paged serving.",
+      "doc": "Paged serving: start a request only when the shared KV cache has room for it, and pause the newest one when it runs out, so many users share the cache without failing. It needs more than one slot.",
       "group": "serving",
       "localai_only": true
     },
@@ -284,7 +284,7 @@
       ],
       "type": "string",
       "default": "256 in builds with paged serving",
-      "doc": "Prompt tokens read per step while other requests generate, so a long prompt does not stall them. A number, 0 to turn it off, or auto to follow the load in builds that have it.",
+      "doc": "Prompt tokens read per step while other requests generate, so a long prompt does not stall them. A number, 0 to turn it off, or auto to follow the load.",
       "group": "serving",
       "localai_only": true
     },
@@ -1780,7 +1780,7 @@
     {
       "id": "backend_sampling",
       "group": "speed",
-      "doc": "Where tokens are sampled. A backend without GPU sampling ignores the setting.",
+      "doc": "Where the next token is picked: on the CPU or on the GPU.",
       "keys": [
         "backend_sampling"
       ],

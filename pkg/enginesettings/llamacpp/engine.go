@@ -152,7 +152,7 @@ var loadMode = es.Combined{
 // entry, so a model without the option keeps the backend default.
 var backendSampling = es.Combined{
 	ID: "backend_sampling", Group: GroupSpeed,
-	Doc:   "Where tokens are sampled. A backend without GPU sampling ignores the setting.",
+	Doc:   "Where the next token is picked: on the CPU or on the GPU.",
 	Keys:  []string{"backend_sampling"},
 	Unset: map[string]any{"backend_sampling": "off"},
 	Choices: []es.Choice{
