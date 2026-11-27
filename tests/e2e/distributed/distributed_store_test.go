@@ -5,6 +5,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/pkg/model"
+	process "github.com/mudler/go-processmanager"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -78,9 +79,17 @@ var _ = Describe("DistributedModelStore", Label("Distributed"), func() {
 	})
 
 	Context("Range", func() {
-		It("returns local-only models", func() {
-			localStore.Set("local-a", model.NewModel("local-a", "addr-a", nil))
-			localStore.Set("local-b", model.NewModel("local-b", "addr-b", nil))
+		// A local entry is listed when a process of this frontend backs it.
+		// A stub that no process and no registry row holds is stale, and
+		// Range drops it.
+		localModel := func(id, addr string) *model.Model {
+			p := process.New(process.WithTemporaryStateDir(), process.WithName(id))
+			return model.NewModel(id, addr, p)
+		}
+
+		It("returns local-only models that run on this frontend", func() {
+			localStore.Set("local-a", localModel("local-a", "addr-a"))
+			localStore.Set("local-b", localModel("local-b", "addr-b"))
 
 			visited := map[string]bool{}
 			dStore.Range(func(id string, m *model.Model) bool {
@@ -128,9 +137,9 @@ var _ = Describe("DistributedModelStore", Label("Distributed"), func() {
 		})
 
 		It("stops early when callback returns false", func() {
-			localStore.Set("r1", model.NewModel("r1", "a", nil))
-			localStore.Set("r2", model.NewModel("r2", "b", nil))
-			localStore.Set("r3", model.NewModel("r3", "c", nil))
+			localStore.Set("r1", localModel("r1", "a"))
+			localStore.Set("r2", localModel("r2", "b"))
+			localStore.Set("r3", localModel("r3", "c"))
 
 			count := 0
 			dStore.Range(func(id string, m *model.Model) bool {
