@@ -274,6 +274,7 @@ One GPU host with a local NVMe disk, llama.cpp, an 8B dense model at 4-bit and a
 - Decoding streams do not slow down: with ten 1 GiB entries written during a decode stream, its largest gap and its 99th-percentile gap were no larger than with the tier off.
 - On a network share at 117 MB/s, the read-speed gate wrote nothing: reading the entry would be slower than computing the prompt on that GPU.
 - An entry of a dense model with a long prompt is large: about 4.5 GiB for 32k tokens of an 8B model with f16 KV. A KV cache at q8_0 halves it.
+- Two requests that branch off the same long prompt (two answers to one question, a regenerated reply) keep two files, each with the whole shared prompt. A multi-turn chat keeps one: each turn's file replaces the one before. The per-user quota, the cap and the TTL bound the total ([issue #13543](https://github.com/mudler/LocalAI/issues/13543) tracks keeping one file).
 
 ## API
 
