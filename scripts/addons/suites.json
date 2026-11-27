@@ -1513,7 +1513,8 @@
       "follows the redirect to an allowed https host",
       "still checks the pinned digest of the redirected bytes",
       "names the check that refused a package, and keeps ErrPackage for the caller",
-      "names a package folder that other users can open"
+      "names a package folder that other users can open",
+      "is the receipt on disk when the manifest has an empty list"
     ],
     "report": ".cache/addons/logs/packages.json"
   },
@@ -1683,7 +1684,8 @@
       "lists and installs with a rule, and sends no credential to the redirect target",
       "logs the start error as the cause and keeps the previous generation running",
       "is one bounded line without credentials",
-      "carries the launch stage and reason in the log, bounded and without credentials"
+      "carries the launch stage and reason in the log, bounded and without credentials",
+      "starts the new generation"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -1854,7 +1856,11 @@
           "is the text of any other error",
           "names a process that never reports its endpoint",
           "names a process that reports an endpoint that is not loopback",
-          "names a process that exits before it reports"
+          "names a process that exits before it reports",
+          "accepts the receipt.json of every shipped manifest, against the receipt in memory and the receipt read back",
+          "accepts an empty list in memory that receipt.json leaves out",
+          "refuses a receipt.json that differs from the journal receipt",
+          "refuses a receipt.json that is not a receipt"
         ]
       },
       {
@@ -4337,7 +4343,8 @@
           "lists and installs with a rule, and sends no credential to the redirect target",
           "logs the start error as the cause and keeps the previous generation running",
           "is one bounded line without credentials",
-          "carries the launch stage and reason in the log, bounded and without credentials"
+          "carries the launch stage and reason in the log, bounded and without credentials",
+          "starts the new generation"
         ]
       },
       {
@@ -4479,7 +4486,11 @@
           "is the text of any other error",
           "names a process that never reports its endpoint",
           "names a process that reports an endpoint that is not loopback",
-          "names a process that exits before it reports"
+          "names a process that exits before it reports",
+          "accepts the receipt.json of every shipped manifest, against the receipt in memory and the receipt read back",
+          "accepts an empty list in memory that receipt.json leaves out",
+          "refuses a receipt.json that differs from the journal receipt",
+          "refuses a receipt.json that is not a receipt"
         ]
       },
       {
