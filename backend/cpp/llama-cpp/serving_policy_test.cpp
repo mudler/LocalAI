@@ -227,6 +227,13 @@ static void test_readmission() {
     EXPECT(slot_claim(700, 256, 100) == 856, "and the rest of its reserve otherwise");
 }
 
+static void test_attach() {
+    EXPECT(!should_attach(0, paged_min_attach - 1), "too short to attach");
+    EXPECT(should_attach(0, paged_min_attach), "long enough");
+    EXPECT(!should_attach(600, 600), "no gain over the own cache");
+    EXPECT(should_attach(300, 600), "longer than the own cache");
+}
+
 int main() {
     test_prefill_budget();
     test_adaptive_budget();
@@ -239,6 +246,7 @@ int main() {
     test_unique_cells();
     test_preemption_cap();
     test_readmission();
+    test_attach();
     if (failures > 0) {
         std::fprintf(stderr, "%d serving policy check(s) failed\n", failures);
         return 1;

@@ -28,17 +28,21 @@ type pagedStream struct {
 // pagedPredict streams one greedy request that ignores EOS, so every run of
 // the same prompt asks for the same number of tokens.
 func pagedPredict(client pb.BackendClient, prompt string, tokens int32, timeout time.Duration) pagedStream {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	out := pagedStream{sent: time.Now()}
-	stream, err := client.PredictStream(ctx, &pb.PredictOptions{
+	return pagedPredictOpts(client, &pb.PredictOptions{
 		Prompt:      prompt,
 		Tokens:      tokens,
 		Temperature: 0,
 		TopK:        1,
 		Seed:        1,
 		IgnoreEOS:   true,
-	})
+	}, timeout)
+}
+
+func pagedPredictOpts(client pb.BackendClient, opts *pb.PredictOptions, timeout time.Duration) pagedStream {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	out := pagedStream{sent: time.Now()}
+	stream, err := client.PredictStream(ctx, opts)
 	if err != nil {
 		out.err = err
 		return out
@@ -60,6 +64,13 @@ func pagedPredict(client pb.BackendClient, prompt string, tokens int32, timeout 
 	}
 	out.text = b.String()
 	return out
+}
+
+// pagedPredictCached is pagedPredict with the prompt cache on.
+func pagedPredictCached(client pb.BackendClient, prompt string, tokens int32, timeout time.Duration) pagedStream {
+	return pagedPredictOpts(client, &pb.PredictOptions{
+		Prompt: prompt, Tokens: tokens, Temperature: 0, TopK: 1, Seed: 1, IgnoreEOS: true, PromptCacheAll: true,
+	}, timeout)
 }
 
 // pagedConcurrent runs all prompts at once and returns the results in prompt order.

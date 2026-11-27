@@ -243,4 +243,13 @@ inline paged_choice resolve_paged(const std::optional<bool> & paged_kv, bool kv_
     return c;
 }
 
+// Shortest prefix worth attaching to: below it the prompt is cheap to read again.
+constexpr int32_t paged_min_attach = 256;
+
+// Whether a slot should start from another slot's cells: they cover at least
+// paged_min_attach prompt tokens and more than the slot's own cache does.
+inline bool should_attach(int32_t n_own, int32_t n_other) {
+    return n_other >= paged_min_attach && n_other > n_own;
+}
+
 } // namespace serving_policy

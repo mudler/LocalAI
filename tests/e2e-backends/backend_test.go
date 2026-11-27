@@ -116,8 +116,8 @@ import (
 //	                         "grammar_stress" does the same with a large tool set
 //	                         (BACKEND_TEST_GRAMMAR_STRESS_TOOLS tools, default 48)
 //	                         and reports the time per token.
-//	                         "paged_overcommit", "paged_parity", "paged_budget" and
-//	                         "paged_cache" exercise the llama.cpp paged serving mode
+//	                         "paged_overcommit", "paged_parity", "paged_budget",
+//	                         "paged_cache" and "paged_attach" exercise the llama.cpp paged serving mode
 //	                         and need BACKEND_TEST_OPTIONS with paged_kv and parallel
 //	                         (see the test-extra-backend-llama-cpp-paged target):
 //	                         more requests than the KV pool holds all complete,
@@ -164,6 +164,7 @@ const (
 	capPagedParity    = "paged_parity"
 	capPagedBudget    = "paged_budget"
 	capPagedCache     = "paged_cache"
+	capPagedAttach    = "paged_attach"
 
 	defaultPrompt             = "The capital of France is"
 	streamPrompt              = "Once upon a time"
@@ -1665,6 +1666,39 @@ var _ = Describe("Backend container", Ordered, func() {
 			Expect(got).To(BeNumerically(">=", minSteps/2),
 				"decoding stalled during the long prompt: the prefill budget is not applied")
 		}
+	})
+
+	// Prefix sharing between live slots: a request whose prompt starts with the
+	// prompt of a request that is still generating starts from that slot's
+	// cells instead of reading the shared part again.
+	It("shares a prompt prefix with a request that is still generating", func() {
+		if !caps[capPagedAttach] {
+			Skip("paged_attach capability not enabled")
+		}
+		ctxSize := int(envInt32("BACKEND_TEST_CTX_SIZE", 512))
+		predict := func(p string) *pb.Reply {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+			res, err := client.Predict(ctx, &pb.PredictOptions{
+				Prompt: p, Tokens: 4, Temperature: 0, TopK: 1, Seed: 1, PromptCacheAll: true,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			return res
+		}
+		system := pagedPrompt(600, ctxSize/4)
+		cold := predict(pagedPrompt(601, ctxSize/4) + " Question: one.")
+		done := make(chan pagedStream, 1)
+		go func() {
+			done <- pagedPredictCached(client, system+" Question: two.", 120, 5*time.Minute)
+		}()
+		time.Sleep(3 * time.Second) // the first request is decoding now
+		warm := predict(system + " Question: three.")
+		first := <-done
+		Expect(first.err).NotTo(HaveOccurred())
+		GinkgoWriter.Printf("paged attach: prompt processing %.1f ms cold, %.1f ms with the shared prefix\n",
+			cold.GetTimingPromptProcessing(), warm.GetTimingPromptProcessing())
+		Expect(warm.GetTimingPromptProcessing()).To(BeNumerically("<", cold.GetTimingPromptProcessing()/2),
+			"the shared prefix was read again instead of attached")
 	})
 
 	// With paged serving the RAM prompt cache is loaded when a request is

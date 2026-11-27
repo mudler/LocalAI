@@ -738,6 +738,8 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // override: paged serving steps aside for it (or fails the load when
     // paged_kv:true is explicit).
     bool cont_batching_off = false;
+    // Prefix sharing between live slots (serving_policy.h).
+    std::optional<bool> slot_attach;
 
     // Initialize fit_params options (can be overridden by options)
     // fit_params: whether to auto-adjust params to fit device memory (default: true as in llama.cpp)
@@ -899,6 +901,12 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         } else if (!strcmp(optname, "paged_kv") || !strcmp(optname, "paged_serving")) {
             if (const auto v = llama_grpc::parse_switch(optval_str)) {
                 paged_kv = *v;
+            } else {
+                SRV_WRN("%s: ignoring invalid value '%s' (expected true or false)\n", optname, optval_str.c_str());
+            }
+        } else if (!strcmp(optname, "slot_attach") || !strcmp(optname, "prefix_attach")) {
+            if (const auto v = llama_grpc::parse_switch(optval_str)) {
+                slot_attach = *v;
             } else {
                 SRV_WRN("%s: ignoring invalid value '%s' (expected true or false)\n", optname, optval_str.c_str());
             }
@@ -1964,6 +1972,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         params.paged_preempt     = paged.on && paged_preempt.value_or(true);
         params.prefill_budget    = prefill_budget.value_or(serving_policy::default_prefill_budget);
         params.kv_output_reserve = kv_output_reserve;
+        params.paged_attach      = paged.on && slot_attach.value_or(true);
         // The slots share one pool, so with a single slot paged serving does
         // nothing: it defaults to more. An explicit parallel (the options,
         // LLAMACPP_PARALLEL or a passthrough flag) always wins.
@@ -1984,6 +1993,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     (void) paged_preempt;
     (void) kv_output_reserve;
     (void) cont_batching_off;
+    (void) slot_attach;
 #endif
 
 #ifndef LOCALAI_LLAMA_CPP_NO_SCORE_TASK
