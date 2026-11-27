@@ -74,7 +74,7 @@ func (deviceRow) TableName() string { return "p2p_devices" }
 
 // Models returns the GORM models of the package, for a database that
 // migrates all its tables in one place.
-func Models() []any { return []any{&inviteRow{}, &deviceRow{}} }
+func Models() []any { return []any{&inviteRow{}, &deviceRow{}, &settingRow{}} }
 
 type gormStore struct {
 	db     *gorm.DB
