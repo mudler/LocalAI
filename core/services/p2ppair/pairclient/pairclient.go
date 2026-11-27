@@ -91,6 +91,14 @@ type Result struct {
 	Server Server `json:"server"`
 	// ClientKey is set for an invite of kind remote.
 	ClientKey *ClientKey `json:"client_key,omitempty"`
+	// DeviceCredential lets the device of a sign-in invite sign in as its
+	// owner. It is a secret: never log it. A server that does not issue
+	// one, or predates sign-in invites, leaves it empty.
+	DeviceCredential string `json:"device_credential,omitempty"`
+	// SignIn is true when the server issued a device credential.
+	SignIn bool `json:"sign_in,omitempty"`
+	// OwnerName names the account the device signs in as, when known.
+	OwnerName string `json:"owner_name,omitempty"`
 }
 
 // punchWait is how long Redeem waits for a hole punch through a hint. Tests

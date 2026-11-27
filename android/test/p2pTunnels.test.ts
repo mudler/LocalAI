@@ -275,8 +275,8 @@ describe('P2P in the client core', () => {
     expect(lists[lists.length - 1]?.[0]?.hints).toEqual([hint])
   })
 
-  it('works with a library of the previous API revision', async () => {
-    const p = fakePlatform({ p2pVersion: 'p2pmobile/2' })
+  it.each(['p2pmobile/3', 'p2pmobile/2'])('works with a library of an earlier API revision (%s)', async (version) => {
+    const p = fakePlatform({ p2pVersion: version })
     const { core } = await start(p)
     p.p2p.pairAnswers = [{ ok: true, json: pairJson(PEER) }]
     expect((await core.servers.addServerByInvite({ link: invite(PEER) })).ok).toBe(true)

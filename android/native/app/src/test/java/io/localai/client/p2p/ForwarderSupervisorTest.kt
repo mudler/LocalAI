@@ -50,7 +50,7 @@ class FakeEngine : P2PEngine {
     val alwaysFail = mutableSetOf<String>()
     var emitReady = true
 
-    override fun version() = "p2pmobile/3"
+    override fun version() = "p2pmobile/4"
     override fun pairJson(identityPath: String, link: String, deviceName: String, allowOpenRelay: Boolean) = """{"ok":true,"result":{}}"""
     override fun peerId(identityPath: String) = "12D3KooWExample"
 

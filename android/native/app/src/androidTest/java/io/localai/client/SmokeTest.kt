@@ -93,7 +93,7 @@ class SmokeTest {
     fun p2pLibraryLoads() {
         assertTrue("the APK was built without the P2P library (p2pmobile.aar)", BuildConfig.P2P_LIBRARY)
         // The app's own path to the gomobile library; this loads libgojni.so.
-        assertEquals("p2pmobile/3", GoP2PEngine().version())
+        assertEquals("p2pmobile/4", GoP2PEngine().version())
     }
 
     // ---- helpers ------------------------------------------------------------

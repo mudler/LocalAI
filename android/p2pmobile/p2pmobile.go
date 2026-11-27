@@ -29,7 +29,10 @@ import (
 // p2pmobile/3 adds the routes state line of StartForward; the exports and
 // their arguments are those of p2pmobile/2, so a caller of p2pmobile/2 works
 // unchanged if it ignores state lines it does not know.
-func Version() string { return "p2pmobile/3" }
+//
+// p2pmobile/4 adds device_credential, sign_in and owner_name to the result
+// of Pair and PairJSON for a sign-in invite; the exports are unchanged.
+func Version() string { return "p2pmobile/4" }
 
 // StateCallback receives one JSON object per state change of a forward.
 type StateCallback interface {
@@ -94,6 +97,18 @@ func pair(identityPath, inviteLink, deviceName string, allowOpenRelay bool) (map
 	}
 	if out.ClientKey != nil {
 		view["client_key"] = out.ClientKey
+	}
+	// The credential of a sign-in invite goes to the caller, which keeps it
+	// out of the WebView and its logs. Absent for other invites and for
+	// servers without sign-in invites.
+	if out.DeviceCredential != "" {
+		view["device_credential"] = out.DeviceCredential
+	}
+	if out.SignIn {
+		view["sign_in"] = true
+	}
+	if out.OwnerName != "" {
+		view["owner_name"] = out.OwnerName
 	}
 	return view, nil
 }

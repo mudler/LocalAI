@@ -93,7 +93,7 @@ func states(lines []string) []string {
 
 var _ = Describe("Version", func() {
 	It("names the library and its API revision", func() {
-		Expect(Version()).To(Equal("p2pmobile/3"))
+		Expect(Version()).To(Equal("p2pmobile/4"))
 	})
 })
 

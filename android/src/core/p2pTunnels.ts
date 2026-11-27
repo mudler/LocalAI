@@ -17,13 +17,15 @@ import type { TunnelStatusView } from '@launcher/shared/types'
 import type { P2PForwardInput, P2PPlugin } from '../plugins/definitions'
 
 /** What `P2P.version()` answers when the native library loaded. */
-export const P2P_LIBRARY_VERSION = 'p2pmobile/3'
+export const P2P_LIBRARY_VERSION = 'p2pmobile/4'
 
 /**
- * The library versions this app works with. p2pmobile/3 adds the routes
- * state line; with p2pmobile/2 the saved routes only change by an invite.
+ * The library versions this app works with. p2pmobile/4 returns the device
+ * credential of a sign-in invite; with p2pmobile/3 such an invite pairs
+ * without sign-in. p2pmobile/3 adds the routes state line; with p2pmobile/2
+ * the saved routes only change by an invite.
  */
-const KNOWN_LIBRARY_VERSIONS = new Set([P2P_LIBRARY_VERSION, 'p2pmobile/2'])
+const KNOWN_LIBRARY_VERSIONS = new Set([P2P_LIBRARY_VERSION, 'p2pmobile/3', 'p2pmobile/2'])
 
 /** The host of a server over P2P saved without one (the desktop's). */
 const DEFAULT_HOST = '127.0.0.1'
