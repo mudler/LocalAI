@@ -329,10 +329,26 @@ func (c *RegistrationClient) HeartbeatLoop(ctx context.Context, nodeID string, i
 
 // Drain sets the node to draining status via POST /api/node/:id/drain.
 func (c *RegistrationClient) Drain(ctx context.Context, nodeID string) error {
-	url := c.baseURL() + "/api/node/" + nodeID + "/drain"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	return c.postDrain(ctx, nodeID, nil)
+}
+
+// postDrain sends POST /api/node/:id/drain, with body as JSON when it is not
+// nil.
+func (c *RegistrationClient) postDrain(ctx context.Context, nodeID string, body any) error {
+	var payload io.Reader
+	if body != nil {
+		data, err := json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("encoding drain request: %w", err)
+		}
+		payload = bytes.NewReader(data)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL()+"/api/node/"+nodeID+"/drain", payload)
 	if err != nil {
 		return fmt.Errorf("creating drain request: %w", err)
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	c.setAuth(req)
 
@@ -340,7 +356,7 @@ func (c *RegistrationClient) Drain(ctx context.Context, nodeID string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("drain failed with status %d", resp.StatusCode)
 	}
@@ -475,25 +491,7 @@ func (c *RegistrationClient) GracefulShutdown(nodeID string, opts ShutdownOption
 
 // drainForShutdown drains the node and says that the worker shuts down.
 func (c *RegistrationClient) drainForShutdown(ctx context.Context, nodeID string, loadsEnded bool) error {
-	body, err := json.Marshal(map[string]bool{"shutdown": true, "loads_ended": loadsEnded})
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL()+"/api/node/"+nodeID+"/drain", bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("creating drain request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	c.setAuth(req)
-	resp, err := c.httpClient().Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("drain failed with status %d", resp.StatusCode)
-	}
-	return nil
+	return c.postDrain(ctx, nodeID, map[string]bool{"shutdown": true, "loads_ended": loadsEnded})
 }
 
 // SplitSync sends the split report of a node and returns the model-split
