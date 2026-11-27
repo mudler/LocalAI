@@ -341,6 +341,17 @@
       "localai_only": true
     },
     {
+      "key": "prefix_defer",
+      "target": "option",
+      "path": "options",
+      "option": "prefix_defer",
+      "type": "bool",
+      "default": "off",
+      "doc": "With paged serving: a new request that starts with a long prefix another request is reading waits up to 2 s, then copies that prefix instead of reading it again.",
+      "group": "serving",
+      "localai_only": true
+    },
+    {
       "key": "prefill_cap",
       "target": "option",
       "path": "options",

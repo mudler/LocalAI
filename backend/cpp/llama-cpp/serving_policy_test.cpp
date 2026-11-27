@@ -241,6 +241,16 @@ static void test_stash_fits() {
     EXPECT(stash_fits(1ull << 40, 1ull << 40, -1), "cache_ram -1 has no limit");
 }
 
+static void test_prefix_hold() {
+    EXPECT(hold_for_prefix(1024, 0, 0, false, 4), "a shared uncached prefix holds the newer request");
+    EXPECT(!hold_for_prefix(1024, 1024, 0, false, 4), "released once the prefix is held by a slot or the cache");
+    EXPECT(hold_for_prefix(1024, 900, 0, false, 4), "still held while the prefix is being read");
+    EXPECT(!hold_for_prefix(200, 0, 0, false, 4), "a prefix too short to copy does not hold");
+    EXPECT(!hold_for_prefix(1024, 0, prefix_hold_us, false, 4), "the hold is bounded in time");
+    EXPECT(!hold_for_prefix(1024, 0, 0, true, 4), "a starved request is never held");
+    EXPECT(!hold_for_prefix(1024, 0, 0, false, prefix_hold_max_waiting + 1), "skipped with many waiters");
+}
+
 static void test_readmission() {
     // A preempted request (old task id) waits: newer requests stay behind it.
     pool_view v;
@@ -340,6 +350,7 @@ int main() {
     test_readmission();
     test_victim_cells();
     test_stash_fits();
+    test_prefix_hold();
     test_resume_need();
     test_attach();
     test_spec_pause();
