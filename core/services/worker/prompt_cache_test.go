@@ -98,6 +98,12 @@ var _ = Describe("the prompt cache verbs between a frontend and a worker", func(
 
 				db, err := sqlitedb.Open(filepath.Join(GinkgoT().TempDir(), "cluster.db"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 				Expect(err).ToNot(HaveOccurred())
+				// Close the database before the temporary folder is removed:
+				// Windows does not delete a file that is still open. Cleanups
+				// run in reverse order, so this one runs first.
+				sqlDB, err := db.DB()
+				Expect(err).ToNot(HaveOccurred())
+				DeferCleanup(sqlDB.Close)
 				ledger, err := promptcachesvc.NewDBLedger(db)
 				Expect(err).ToNot(HaveOccurred())
 				settings = config.DefaultPromptCacheConfig()
