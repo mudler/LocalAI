@@ -47,6 +47,32 @@ func HasToolContext(h http.Header) bool {
 	return false
 }
 
+// SameOriginFetch reports whether r is a same-origin fetch of this page's
+// own code. With Sec-Fetch-Site it must be same-origin, with destination
+// empty and mode cors or same-origin. Browsers omit Sec-Fetch-* over plain
+// HTTP on an address that is not localhost, so without Sec-Fetch-Site the
+// request must name this host in Origin or, failing that, Referer
+// (SameHostBrowserRequest); a destination or a mode that is still present
+// must then be the one of a fetch.
+func SameOriginFetch(r *http.Request) bool {
+	h := r.Header
+	if site := h.Get("Sec-Fetch-Site"); site != "" {
+		if site != "same-origin" || h.Get("Sec-Fetch-Dest") != "empty" {
+			return false
+		}
+		mode := h.Get("Sec-Fetch-Mode")
+		return mode == "cors" || mode == "same-origin"
+	}
+	if !SameHostBrowserRequest(r) {
+		return false
+	}
+	if dest := h.Get("Sec-Fetch-Dest"); dest != "" && dest != "empty" {
+		return false
+	}
+	mode := h.Get("Sec-Fetch-Mode")
+	return mode == "" || mode == "cors" || mode == "same-origin"
+}
+
 // SameHostBrowserRequest reports whether Origin, or failing that Referer,
 // names the same host and port as the request. A malformed or "null" value
 // never matches. When Origin is present, Referer is not consulted.

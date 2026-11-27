@@ -60,22 +60,7 @@ func humanSurface(c echo.Context, s settings, a contract.Actor, id string) bool 
 	if auth.HasToolContext(h) {
 		return false
 	}
-	if site := h.Get("Sec-Fetch-Site"); site != "" {
-		if site != "same-origin" || h.Get("Sec-Fetch-Dest") != "empty" {
-			return false
-		}
-		if mode := h.Get("Sec-Fetch-Mode"); mode != "cors" && mode != "same-origin" {
-			return false
-		}
-	} else if !auth.SameHostBrowserRequest(c.Request()) {
-		// Browsers omit Sec-Fetch-* over plain HTTP on an address that is not
-		// localhost. Without Sec-Fetch-Site the request must still name this
-		// host in Origin or, when Origin is absent, Referer. A stray
-		// destination or mode that is present must still be the expected one.
-		return false
-	} else if dest := h.Get("Sec-Fetch-Dest"); dest != "" && dest != "empty" {
-		return false
-	} else if mode := h.Get("Sec-Fetch-Mode"); mode != "" && mode != "cors" && mode != "same-origin" {
+	if !auth.SameOriginFetch(c.Request()) {
 		return false
 	}
 	if id == "" || h.Get(ConfirmHeader) != id {

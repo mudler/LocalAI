@@ -155,16 +155,7 @@ func (h *Handlers) humanSurface(c echo.Context, confirm string) bool {
 	if auth.HasToolContext(hd) {
 		return false
 	}
-	if site := hd.Get("Sec-Fetch-Site"); site != "" {
-		if site != "same-origin" || hd.Get("Sec-Fetch-Dest") != "empty" {
-			return false
-		}
-		if mode := hd.Get("Sec-Fetch-Mode"); mode != "cors" && mode != "same-origin" {
-			return false
-		}
-		return true
-	}
-	return auth.SameHostBrowserRequest(r)
+	return auth.SameOriginFetch(r)
 }
 
 // fail maps an error of the service to its answer (spec 16).

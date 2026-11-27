@@ -389,6 +389,27 @@ var _ = Describe("Plugin routes", func() {
 			Expect(errType(rec)).To(Equal(pluginsendpoint.ErrTypeNotHumanSurface), "a confirmation of another plugin")
 			rec = install("root", p.Token, "instance", confirm("hook@team"), func(r *http.Request) { r.Header.Set("X-LocalAI-Tool-Call", "1") })
 			Expect(errType(rec)).To(Equal(pluginsendpoint.ErrTypeNotHumanSurface), "a tool call")
+			// Without Sec-Fetch-Site (plain HTTP on a LAN address) the request
+			// must name this host, and a destination or mode that is present
+			// must still be the one of a fetch.
+			noSite := func(dest, mode string) func(*http.Request) {
+				return func(r *http.Request) {
+					r.Header.Del("Sec-Fetch-Site")
+					r.Header.Del("Sec-Fetch-Dest")
+					r.Header.Del("Sec-Fetch-Mode")
+					r.Header.Set("Origin", "http://"+r.Host)
+					if dest != "" {
+						r.Header.Set("Sec-Fetch-Dest", dest)
+					}
+					if mode != "" {
+						r.Header.Set("Sec-Fetch-Mode", mode)
+					}
+				}
+			}
+			rec = install("root", p.Token, "instance", confirm("hook@team"), noSite("document", ""))
+			Expect(errType(rec)).To(Equal(pluginsendpoint.ErrTypeNotHumanSurface), "a stray Sec-Fetch-Dest")
+			rec = install("root", p.Token, "instance", confirm("hook@team"), noSite("", "navigate"))
+			Expect(errType(rec)).To(Equal(pluginsendpoint.ErrTypeNotHumanSurface), "a stray Sec-Fetch-Mode")
 			rec = install("root", p.Token, "user", confirm("hook@team"))
 			Expect(errType(rec)).To(Equal(pluginsendpoint.ErrTypeCodeForEveryone))
 			rec = install("root", p.Token, "instance", confirm("hook@team"))
