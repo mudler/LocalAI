@@ -234,6 +234,9 @@
       "target": "option",
       "path": "options",
       "option": "backend_sampling",
+      "option_aliases": [
+        "gpu_sampling"
+      ],
       "type": "enum",
       "enum": [
         "off",
