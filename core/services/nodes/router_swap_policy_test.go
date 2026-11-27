@@ -260,6 +260,38 @@ var _ = Describe("Scheduler memory policy", func() {
 		Expect(n).To(BeNumerically("<=", 1), "room for the new model within the limit of 2")
 	})
 
+	It("bounds the wait for a busy replica in placement when the request has no deadline", func() {
+		policy.MaxActiveBackends = 1
+		policy.LRUMaxRetries = 30
+		policy.LRURetryInterval = 200 * time.Millisecond // 6s with no bound
+		a := register("node-a")
+		loaded(a, "busy", time.Hour, 0)
+		Expect(registry.IncrementInFlight(ctx, a.ID, "busy", 0)).To(Succeed())
+
+		start := time.Now()
+		_, err := newRouter().ScheduleAndLoadModel(context.Background(), model, nil)
+
+		Expect(err).To(MatchError(ErrNoAvailableNodes))
+		Expect(time.Since(start)).To(BeNumerically("<", maxPlacementEvictionWait+time.Second))
+	})
+
+	It("bounds the wait for a busy replica in placement by the request deadline", func() {
+		policy.MaxActiveBackends = 1
+		policy.LRUMaxRetries = 30
+		policy.LRURetryInterval = 200 * time.Millisecond
+		a := register("node-a")
+		loaded(a, "busy", time.Hour, 0)
+		Expect(registry.IncrementInFlight(ctx, a.ID, "busy", 0)).To(Succeed())
+		reqCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
+		start := time.Now()
+		_, err := newRouter().ScheduleAndLoadModel(reqCtx, model, nil)
+
+		Expect(err).To(HaveOccurred())
+		Expect(time.Since(start)).To(BeNumerically("<", 2*time.Second))
+	})
+
 	It("records the size estimate on the loaded replica", func() {
 		estimate = 2 * gib
 		node := &BackendNode{Name: "node-a", NodeType: NodeTypeBackend, Address: "node-a:50051", MaxReplicasPerModel: 4, TotalVRAM: 48 * gib, AvailableVRAM: 48 * gib}

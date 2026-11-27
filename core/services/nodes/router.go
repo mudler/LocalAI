@@ -2698,8 +2698,9 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 
 // planLRUEviction finds the least-recently-used idle replica on one of
 // candidateNodeIDs (any healthy node when nil) and its node, without evicting
-// it. It waits briefly for one to become idle, like evictLRUAndFreeNodeFrom,
-// and returns ErrEvictionBusy when none does. makeRoom evicts it later, after
+// it. It waits for one to become idle, within the request deadline or
+// maxPlacementEvictionWait (placementRetries), and returns ErrEvictionBusy
+// when none does. makeRoom evicts it later, after
 // the load is claimed, and checks again that it is still evictable.
 func (r *SmartRouter) planLRUEviction(ctx context.Context, candidateNodeIDs []string) (*NodeModel, *BackendNode, error) {
 	if r.db == nil {
@@ -2709,7 +2710,7 @@ func (r *SmartRouter) planLRUEviction(ctx context.Context, candidateNodeIDs []st
 	if err != nil {
 		return nil, nil, err
 	}
-	maxEvictionRetries, evictionRetryInterval := r.evictionRetries(ctx)
+	maxEvictionRetries, evictionRetryInterval := r.placementRetries(ctx)
 	for attempt := range maxEvictionRetries {
 		var lru NodeModel
 		err := r.evictableReplicas(r.db.WithContext(ctx).Model(&NodeModel{}), candidateNodeIDs).

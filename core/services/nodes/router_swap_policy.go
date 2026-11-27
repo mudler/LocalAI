@@ -61,6 +61,14 @@ func (r *SmartRouter) forceEviction() bool {
 	return r.clusterPolicy().ForceEvictionWhenBusy
 }
 
+// maxPlacementEvictionWait bounds how long choosing a node waits for a busy
+// replica to become evictable when the caller has no deadline (the
+// reconciler, or a request without one). It is the wait of a router with
+// no cluster settings (5 x 500ms). The LRU retry settings can ask for much
+// more (30 x 1s by default), and a placement that waits that long holds up
+// the reconciler's whole pass.
+const maxPlacementEvictionWait = 2500 * time.Millisecond
+
 // evictionRetries is how often, and how far apart, an eviction waits for a
 // busy replica to become idle: the LRU retry settings, capped so the wait
 // ends before the request's own deadline.
@@ -81,6 +89,19 @@ func (r *SmartRouter) evictionRetries(ctx context.Context) (int, time.Duration) 
 	if deadline, ok := ctx.Deadline(); ok {
 		budget := time.Until(deadline)
 		if fit := int(budget / interval); fit < retries {
+			retries = max(fit, 1)
+		}
+	}
+	return retries, interval
+}
+
+// placementRetries is evictionRetries for the choice of a node: with no
+// deadline on ctx the wait is bounded by maxPlacementEvictionWait. The
+// eviction that runs after the claim (makeRoom) keeps the full LRU wait.
+func (r *SmartRouter) placementRetries(ctx context.Context) (int, time.Duration) {
+	retries, interval := r.evictionRetries(ctx)
+	if _, ok := ctx.Deadline(); !ok {
+		if fit := int(maxPlacementEvictionWait / interval); fit < retries {
 			retries = max(fit, 1)
 		}
 	}
