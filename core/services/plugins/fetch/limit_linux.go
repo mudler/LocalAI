@@ -18,9 +18,6 @@ func limitFileSize(pid int, n int64) error {
 	return unix.Prlimit(pid, unix.RLIMIT_FSIZE, &unix.Rlimit{Cur: uint64(n), Max: uint64(n)}, nil)
 }
 
-// hardFileLimit reports whether limitFileSize applies on this platform.
-const hardFileLimit = true
-
 // killedForSize reports whether a git command ended on SIGXFSZ: it wrote a
 // file past the size limit of limitFileSize.
 func killedForSize(err error) bool {

@@ -293,7 +293,7 @@ func foldPath(p string) string {
 
 func within(root, p string) bool {
 	rel, err := filepath.Rel(root, p)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
+	return err == nil && filepath.IsLocal(rel)
 }
 
 // hashFile reads at most limit+1 bytes, so a file that grew after the

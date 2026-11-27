@@ -3,7 +3,6 @@ package plugins
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/mudler/LocalAI/core/services/plugins/store"
 )
@@ -11,23 +10,6 @@ import (
 // ErrNeedsReenable means the install gained code since the user enabled it:
 // only the explicit re-enable call (Reenable) turns it on again.
 var ErrNeedsReenable = errors.New("plugins: the plugin runs code now; turn it on again to accept that")
-
-// visibleInstall returns the install when the actor can see it: an install
-// for everyone, or the actor's own user install. Another user's install is
-// ErrNotFound, as if it did not exist.
-func (s *Service) visibleInstall(ctx context.Context, a Actor, installID string) (store.Install, error) {
-	if a.ID == "" {
-		return store.Install{}, ErrForbidden
-	}
-	in, err := s.getInstall(ctx, installID)
-	if err != nil {
-		return store.Install{}, err
-	}
-	if in.Scope == store.ScopeUser && in.Owner != a.ID {
-		return store.Install{}, fmt.Errorf("%w: install %q", ErrNotFound, installID)
-	}
-	return in, nil
-}
 
 // SetEnabled turns an install on or off for the actor (spec 12.1). Turning
 // it off keeps the actor's settings. Turning on an install that waits for a

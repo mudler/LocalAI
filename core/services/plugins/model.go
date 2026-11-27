@@ -3,9 +3,10 @@ package plugins
 import (
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"github.com/mudler/nib/plugin/claudeplugin"
+
+	"github.com/mudler/LocalAI/core/services/plugins/content"
 )
 
 // Model is LocalAI's stored form of a parsed plugin (spec 6.8). The turn path
@@ -128,7 +129,7 @@ func ModelOf(p *claudeplugin.Plugin) Model {
 			return ""
 		}
 		r, err := filepath.Rel(p.Root, abs)
-		if err != nil || r == ".." || strings.HasPrefix(r, ".."+string(filepath.Separator)) {
+		if err != nil || !filepath.IsLocal(r) {
 			return ""
 		}
 		return filepath.ToSlash(r)
@@ -139,14 +140,14 @@ func ModelOf(p *claudeplugin.Plugin) Model {
 			Name: s.Name, Description: s.Description, Dir: rel(s.Dir), Path: rel(s.Path),
 			ArgumentHint: s.ArgumentHint, Arguments: s.Arguments, AllowedTools: s.AllowedTools, Model: s.Model,
 			DisableModelInvocation: s.DisableModelInvocation, UserInvocable: s.UserInvocable,
-			ShellInjection: injects(s.Injections),
+			ShellInjection: content.RunsShell(s.Injections),
 		})
 	}
 	for _, c := range p.Commands {
 		m.Commands = append(m.Commands, CommandRef{
 			Name: c.Name, Description: c.Description, Path: rel(c.Path), ArgumentHint: c.ArgumentHint,
 			Arguments: c.Arguments, AllowedTools: c.AllowedTools, Model: c.Model,
-			DisableModelInvocation: c.DisableModelInvocation, ShellInjection: injects(c.Injections),
+			DisableModelInvocation: c.DisableModelInvocation, ShellInjection: content.RunsShell(c.Injections),
 		})
 	}
 	for _, a := range p.Agents {
@@ -187,15 +188,6 @@ func optionRef(key string, o claudeplugin.UserConfigOption) OptionRef {
 		Key: key, Type: o.Type, Title: o.Title, Description: o.Description, Required: o.Required,
 		Default: o.Default, Sensitive: o.Sensitive, Min: o.Min, Max: o.Max, Options: o.Options, Multiple: o.Multiple,
 	}
-}
-
-func injects(in []claudeplugin.Injection) bool {
-	for _, i := range in {
-		if i.Kind != claudeplugin.InjectFile {
-			return true
-		}
-	}
-	return false
 }
 
 // Hosts returns the hosts that the remote MCP servers and the http hooks of

@@ -66,12 +66,12 @@ func CodeFiles(t Tree, p *claudeplugin.Plugin) []string {
 			}
 		}
 		for _, s := range p.Skills {
-			if injects(s.Injections) {
+			if RunsShell(s.Injections) {
 				addAbs(s.Path)
 			}
 		}
 		for _, c := range p.Commands {
-			if injects(c.Injections) {
+			if RunsShell(c.Injections) {
 				addAbs(c.Path)
 			}
 		}
@@ -90,9 +90,9 @@ func CodeFiles(t Tree, p *claudeplugin.Plugin) []string {
 	return out
 }
 
-// injects reports whether a body runs a shell command when it loads. An
+// RunsShell reports whether a body runs a shell command when it loads. An
 // @file reference only attaches a file.
-func injects(in []claudeplugin.Injection) bool {
+func RunsShell(in []claudeplugin.Injection) bool {
 	for _, i := range in {
 		if i.Kind != claudeplugin.InjectFile {
 			return true
@@ -123,6 +123,8 @@ func commandsOf(p *claudeplugin.Plugin) [][]string {
 	return out
 }
 
+var dropQuotes = strings.NewReplacer(`"`, "", `'`, "")
+
 // commandTokens splits a command line and its arguments into words. Quotes
 // are dropped, so "${CLAUDE_PLUGIN_ROOT}"/x reads as one word.
 func commandTokens(c []string) []string {
@@ -135,7 +137,7 @@ func commandTokens(c []string) []string {
 	}
 	var out []string
 	for _, s := range c {
-		s = strings.NewReplacer(`"`, "", `'`, "").Replace(s)
+		s = dropQuotes.Replace(s)
 		out = append(out, strings.FieldsFunc(s, split)...)
 	}
 	return out

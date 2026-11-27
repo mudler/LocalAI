@@ -68,6 +68,14 @@ func (s *Service) viewableInstall(ctx context.Context, a Actor, id string) (stor
 	return in, nil
 }
 
+// visibleInstall returns the install when the actor can see it as a user: an
+// install for everyone, or the actor's own user install. Another user's
+// install is ErrNotFound, as if it did not exist, also for an administrator:
+// the caller reads or writes the actor's own state of the install.
+func (s *Service) visibleInstall(ctx context.Context, a Actor, installID string) (store.Install, error) {
+	return s.viewableInstall(ctx, Actor{ID: a.ID}, installID)
+}
+
 // ListInstalls lists the instance installs and the caller's own. With all,
 // an administrator lists every install; a user gets ErrForbidden.
 func (s *Service) ListInstalls(ctx context.Context, a Actor, all bool) ([]InstallView, error) {
