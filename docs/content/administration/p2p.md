@@ -292,6 +292,7 @@ names the mode.
 | `POST /api/p2p/identity/regenerate` | Makes a new identity. The body must be `{"confirm": true}`. Every device must pair again. |
 | `POST /api/p2p/redeem` | Redeems an invite: `{v: 1, code, name, platform}`. Served **only over P2P**; the normal HTTP listener answers 404. |
 | `GET /api/p2p/routes` | The current routes to this server, for a paired device: `{server, addrs, relays, hints}`. Served **only over P2P** and only to a paired device; the normal HTTP listener answers 404. |
+| `POST /api/p2p/device/session` | Signs a paired sign-in device in as its owner: `{credential}` as JSON, or the form field `credential`. Sets the session cookie; a form post gets `303` to `/`, JSON gets `200` with the user. Served **only over P2P** and only to a paired device; the normal HTTP listener answers 404. See [Device sign-in](#device-sign-in). |
 
 The redeem route takes the peer ID of the caller from the P2P connection. A
 wrong, used, canceled or expired code all get the same answer, 410, so the route
@@ -312,6 +313,41 @@ reservation moves or an address changes. The Android app and the desktop
 launcher (through `local-ai p2p forward`) ask when a connection opens and every
 10 minutes after, and keep the new lists for this server. A peer that is not
 paired gets 403.
+
+### Device sign-in
+
+A device that redeemed a sign-in invite gets a device credential in the redeem
+answer (`device_credential`, shown once), with `sign_in: true` and
+`owner_name`, the account it signs in as. The server keeps only a keyed hash of
+the credential. The device posts the credential to `POST
+/api/p2p/device/session` over P2P and gets a normal web session of its owner,
+with the rights of the owner and no more. The route checks, in this order:
+
+1. the peer of the connection is an active device that was paired with sign-in;
+2. the credential is the credential of that device;
+3. the owner is an active user;
+4. the owner still has the feature **Pair own devices (P2P)** (`p2p_pair`).
+   Administrators always have it.
+
+Every other case gets the same `403`, so the route does not tell which check
+failed. Wrong credentials count against the limit of wrong invite codes of the
+peer: after 5 in an hour the route answers `429`. The credential works only
+from the peer that redeemed the invite, because the route reads the peer ID
+that the P2P connection proved. It is not an API key: the normal HTTP listener
+does not accept it.
+
+Revoking a device ends the sessions it opened. When an administrator disables
+or deletes a user, the server revokes the sign-in devices of that user and ends
+their sessions. Every frontend also leaves the sign-in devices of a user who is
+not active out of its allowlist at its next reload. Devices without sign-in (an
+admission-only phone or laptop, a remote, a worker) stay: an administrator pairs
+them for the instance, not for the account that made the invite. Taking
+`p2p_pair` away from a user keeps the devices of that user, but they can no
+longer open a new session.
+
+The in-process relay ("Via your server") does not let a sign-in device, or a
+device of a user who is not an administrator, hold a reservation: such a device
+never waits for connections. It can still use a circuit.
 
 A device that was away too long can have routes that are all out of date. Send
 it a new invite: the app sees that it already has this server, dials the routes
