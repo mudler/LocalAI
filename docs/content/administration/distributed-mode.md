@@ -1137,7 +1137,7 @@ Loads that run on the node when the drain starts are cancelled, because a model 
 
 **Force.** `POST /api/nodes/:id/drain?force=true` takes the models of the node out of routing at once, as drain did before this change. The reconciler then places replacements for the rules on its next pass. Use it when the node must stop serving now.
 
-**A node that does not answer.** An `unhealthy` or `offline` node drains at once: there is nothing on it to wait for. A draining node that stops answering (no live route and a stale heartbeat) loses its models at once too, so requests are not sent to it until the deadline.
+**A node that does not answer.** An `unhealthy` or `offline` node drains at once: there is nothing on it to wait for. A draining node that stops answering loses its models when the health monitor sees no live route that carries work and a heartbeat older than `--stale-node-threshold` (`5m` by default), so it is not routed to until the drain deadline. Before that, a request that reaches one of its replicas finds the backend dead in the health check before the request is sent, and that replica is removed then.
 
 **Resume.** `POST /api/nodes/:id/resume` (or **Resume** on the Nodes page) cancels the drain. The node is `healthy` again and the models still on it stay. A worker that registers again (it restarted) also ends the drain of its node.
 
