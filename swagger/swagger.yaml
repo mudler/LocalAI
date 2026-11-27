@@ -1748,6 +1748,11 @@ definitions:
     - CapabilityTensorPlacement
   enginesettings.Choice:
     properties:
+      doc:
+        description: |-
+          Doc says what the choice does. Optional; a client shows it for the
+          current choice.
+        type: string
       label:
         type: string
       set:
@@ -1819,6 +1824,12 @@ definitions:
       key:
         description: Key is a stable identifier, unique in the table.
         type: string
+      localai_only:
+        description: |-
+          LocalAIOnly marks an option that LocalAI's backend reads and the
+          engine's own command line does not have. It has no CLI spelling, a
+          pasted command never sets it, and a built command leaves it out.
+        type: boolean
       max:
         type: number
       min:
@@ -1974,9 +1985,19 @@ definitions:
         description: |-
           Placement is an optional tensor placement. Only for engines with the
           tensor-placement capability.
+      profile:
+        description: |-
+          Profile marks one of a set of exclusive setups, such as a balanced,
+          a long prompt and a many users setup. A client shows the profiles as
+          one choice and reads the current one back: a profile is current when
+          every key it lists has its value (unset for nil). A client that
+          switches from the current profile to another also unsets the keys the
+          current one sets and the new one does not list, so a value is removed
+          only when it came from a profile. A profile has no placement.
+        type: boolean
       settings:
         additionalProperties: {}
-        description: Settings maps flag keys to values.
+        description: Settings maps flag keys to values. A nil value unsets the key.
         type: object
     type: object
   enginesettings.Schema:
@@ -1989,10 +2010,20 @@ definitions:
         items:
           $ref: '#/definitions/enginesettings.Capability'
         type: array
+      collapsed_groups:
+        description: Collapsed lists the groups a client draws closed.
+        items:
+          type: string
+        type: array
       combined:
         items:
           $ref: '#/definitions/enginesettings.Combined'
         type: array
+      estimate:
+        additionalProperties:
+          type: string
+        description: Estimate maps VRAM estimate request fields to flag keys.
+        type: object
       example:
         description: Example is a sample command for the paste box (command-line only).
         type: string
@@ -4571,6 +4602,20 @@ definitions:
     type: object
   modeladmin.VRAMRequest:
     properties:
+      batch:
+        description: |-
+          Batch is the logical batch (parameters.batch). Absent uses the model's
+          config; 0 uses LocalAI's default for this host.
+        type: integer
+      cache_type_k:
+        description: |-
+          CacheTypeK and CacheTypeV are llama.cpp KV cache types (f16, q8_0,
+          q4_0, ...). Empty uses the model's config, then f16. They size the KV
+          cache of the runtime breakdown, and the KV term of the total when
+          KVQuantBits is not set.
+        type: string
+      cache_type_v:
+        type: string
       context_size:
         type: integer
       gpu_layers:
@@ -4579,6 +4624,11 @@ definitions:
         type: integer
       model:
         type: string
+      ubatch:
+        description: |-
+          UBatch is the physical batch (the ubatch option), capped by the batch.
+          Absent uses the model's config; 0 means the same as the batch.
+        type: integer
     type: object
   modeladmin.VRAMResponse:
     properties:
@@ -4598,6 +4648,13 @@ definitions:
         type: integer
       model_max_context:
         type: integer
+      runtime:
+        allOf:
+        - $ref: '#/definitions/vram.RuntimeBreakdown'
+        description: |-
+          Runtime is the KV cache and compute buffer part of a llama.cpp model
+          for the KV cache types and physical batch of the request. Absent when
+          the estimate has no weight files.
       size_bytes:
         type: integer
       size_display:
@@ -5158,6 +5215,11 @@ definitions:
       node_id:
         type: string
       replica_index:
+        type: integer
+      size_bytes:
+        description: |-
+          SizeBytes is the memory estimate the replica was placed with, for the
+          largest-first eviction order (size_aware_eviction). 0 when unknown.
         type: integer
       state:
         description: staging, loading, loaded, unloading, idle
@@ -17759,6 +17821,30 @@ definitions:
         $ref: '#/definitions/voiceprofile.AudioMetadata'
       transcript:
         type: string
+    type: object
+  vram.RuntimeBreakdown:
+    properties:
+      approximate:
+        description: |-
+          Approximate is true when the layers and heads were not read from a
+          GGUF header, so the KV cache is a rule of thumb per token.
+        type: boolean
+      cache_type_k:
+        type: string
+      cache_type_v:
+        type: string
+      compute_bytes:
+        type: integer
+      compute_display:
+        type: string
+      context_length:
+        type: integer
+      kv_cache_bytes:
+        type: integer
+      kv_cache_display:
+        type: string
+      ubatch:
+        type: integer
     type: object
   vram.VRAMAt:
     properties:

@@ -24935,6 +24935,10 @@ const docTemplate = `{
         "enginesettings.Choice": {
             "type": "object",
             "properties": {
+                "doc": {
+                    "description": "Doc says what the choice does. Optional; a client shows it for the\ncurrent choice.",
+                    "type": "string"
+                },
                 "label": {
                     "type": "string"
                 },
@@ -25024,6 +25028,10 @@ const docTemplate = `{
                 "key": {
                     "description": "Key is a stable identifier, unique in the table.",
                     "type": "string"
+                },
+                "localai_only": {
+                    "description": "LocalAIOnly marks an option that LocalAI's backend reads and the\nengine's own command line does not have. It has no CLI spelling, a\npasted command never sets it, and a built command leaves it out.",
+                    "type": "boolean"
                 },
                 "max": {
                     "type": "number"
@@ -25228,8 +25236,12 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "profile": {
+                    "description": "Profile marks one of a set of exclusive setups, such as a balanced,\na long prompt and a many users setup. A client shows the profiles as\none choice and reads the current one back: a profile is current when\nevery key it lists has its value (unset for nil). A client that\nswitches from the current profile to another also unsets the keys the\ncurrent one sets and the new one does not list, so a value is removed\nonly when it came from a profile. A profile has no placement.",
+                    "type": "boolean"
+                },
                 "settings": {
-                    "description": "Settings maps flag keys to values.",
+                    "description": "Settings maps flag keys to values. A nil value unsets the key.",
                     "type": "object",
                     "additionalProperties": {}
                 }
@@ -25250,10 +25262,24 @@ const docTemplate = `{
                         "$ref": "#/definitions/enginesettings.Capability"
                     }
                 },
+                "collapsed_groups": {
+                    "description": "Collapsed lists the groups a client draws closed.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "combined": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/enginesettings.Combined"
+                    }
+                },
+                "estimate": {
+                    "description": "Estimate maps VRAM estimate request fields to flag keys.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
                     }
                 },
                 "example": {
@@ -28698,6 +28724,17 @@ const docTemplate = `{
         "modeladmin.VRAMRequest": {
             "type": "object",
             "properties": {
+                "batch": {
+                    "description": "Batch is the logical batch (parameters.batch). Absent uses the model's\nconfig; 0 uses LocalAI's default for this host.",
+                    "type": "integer"
+                },
+                "cache_type_k": {
+                    "description": "CacheTypeK and CacheTypeV are llama.cpp KV cache types (f16, q8_0,\nq4_0, ...). Empty uses the model's config, then f16. They size the KV\ncache of the runtime breakdown, and the KV term of the total when\nKVQuantBits is not set.",
+                    "type": "string"
+                },
+                "cache_type_v": {
+                    "type": "string"
+                },
                 "context_size": {
                     "type": "integer"
                 },
@@ -28709,6 +28746,10 @@ const docTemplate = `{
                 },
                 "model": {
                     "type": "string"
+                },
+                "ubatch": {
+                    "description": "UBatch is the physical batch (the ubatch option), capped by the batch.\nAbsent uses the model's config; 0 means the same as the batch.",
+                    "type": "integer"
                 }
             }
         },
@@ -28731,6 +28772,14 @@ const docTemplate = `{
                 },
                 "model_max_context": {
                     "type": "integer"
+                },
+                "runtime": {
+                    "description": "Runtime is the KV cache and compute buffer part of a llama.cpp model\nfor the KV cache types and physical batch of the request. Absent when\nthe estimate has no weight files.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/vram.RuntimeBreakdown"
+                        }
+                    ]
                 },
                 "size_bytes": {
                     "type": "integer"
@@ -29448,6 +29497,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "replica_index": {
+                    "type": "integer"
+                },
+                "size_bytes": {
+                    "description": "SizeBytes is the memory estimate the replica was placed with, for the\nlargest-first eviction order (size_aware_eviction). 0 when unknown.",
                     "type": "integer"
                 },
                 "state": {
@@ -45691,6 +45744,39 @@ const docTemplate = `{
                 },
                 "transcript": {
                     "type": "string"
+                }
+            }
+        },
+        "vram.RuntimeBreakdown": {
+            "type": "object",
+            "properties": {
+                "approximate": {
+                    "description": "Approximate is true when the layers and heads were not read from a\nGGUF header, so the KV cache is a rule of thumb per token.",
+                    "type": "boolean"
+                },
+                "cache_type_k": {
+                    "type": "string"
+                },
+                "cache_type_v": {
+                    "type": "string"
+                },
+                "compute_bytes": {
+                    "type": "integer"
+                },
+                "compute_display": {
+                    "type": "string"
+                },
+                "context_length": {
+                    "type": "integer"
+                },
+                "kv_cache_bytes": {
+                    "type": "integer"
+                },
+                "kv_cache_display": {
+                    "type": "string"
+                },
+                "ubatch": {
+                    "type": "integer"
                 }
             }
         },
