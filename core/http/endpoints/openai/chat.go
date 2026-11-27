@@ -669,7 +669,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				wroteChunk := false
 				toolsCalled := false
 				var collectedToolCalls []schema.ToolCall
-				var collectedContent string
+				var collectedContent strings.Builder
+				var chunk sseChunkWriter
 
 			LOOP:
 				for {
@@ -713,16 +714,16 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						// markup keeps parsing correctly even when PII redaction would mask
 						// substrings.
 						if (hasMCPToolsStream || config.FunctionsConfig.AutomaticToolParsingFallback || evidence != nil) && haveContent {
-							collectedContent += rawContent
+							collectedContent.WriteString(rawContent)
 						}
-						respData, err := json.Marshal(ev)
+						respData, err := chunk.encode(ev)
 						if err != nil {
 							xlog.Debug("Failed to marshal response", "error", err)
 							input.Cancel()
 							continue
 						}
-						xlog.Debug("Sending chunk", "chunk", privacy.Redact(c.Request().Context(), string(respData)))
-						_, err = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", string(respData))
+						xlog.Debug("Sending chunk", "chunk", redactedJSON{ctx: c.Request().Context(), data: chunk.payload()})
+						_, err = c.Response().Writer.Write(respData)
 						if err != nil {
 							xlog.Debug("Sending chunk failed", "error", err)
 							input.Cancel()
@@ -794,7 +795,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						// Append assistant message with tool_calls
 						assistantMsg := schema.Message{
 							Role:      "assistant",
-							Content:   collectedContent,
+							Content:   collectedContent.String(),
 							ToolCalls: collectedToolCalls,
 						}
 						input.Messages = append(input.Messages, assistantMsg)
@@ -840,8 +841,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 				// Automatic tool parsing fallback for streaming: when no tools were
 				// requested but the model emitted tool call markup, parse and emit them.
-				if !shouldUseFn && config.FunctionsConfig.AutomaticToolParsingFallback && collectedContent != "" && !toolsCalled {
-					parsed := functions.ParseFunctionCall(collectedContent, config.FunctionsConfig)
+				if !shouldUseFn && config.FunctionsConfig.AutomaticToolParsingFallback && collectedContent.Len() > 0 && !toolsCalled {
+					parsed := functions.ParseFunctionCall(collectedContent.String(), config.FunctionsConfig)
 					for i, fc := range parsed {
 						toolCallID := fc.ID
 						if toolCallID == "" {
@@ -878,7 +879,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				// The answer has been streamed already, so the note can only
 				// follow it as one more content delta.
 				if !toolsCalled {
-					if note := evidence.suffix(collectedContent); note != "" {
+					if note := evidence.suffix(collectedContent.String()); note != "" {
 						noteChunk := schema.OpenAIResponse{
 							ID:      id,
 							Created: created,
