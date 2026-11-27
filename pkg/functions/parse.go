@@ -1054,46 +1054,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 
 			xlog.Debug("Function return", "result", functionConfig.LogText(s), "parsed", len(ss))
 
-			for _, s := range ss {
-				// The grammar defines the function name as "function", while OpenAI returns "name"
-				func_name, ok := s[functionNameKey]
-				if !ok {
-					continue
-					//return result, fmt.Errorf("unable to find function name in result")
-				}
-				// Arguments from grammar result is a map[string]interface{}, but OpenAI expects a stringified JSON object
-				// We marshal it to JSON string here to match OpenAI's format
-				args, ok := s[functionArgumentsKey]
-				if !ok {
-					continue
-					//return result, fmt.Errorf("unable to find arguments in result")
-				}
-				// Marshal arguments to JSON string (handles both object and string cases)
-				var d []byte
-				if argsStr, ok := args.(string); ok {
-					// Check if the string is valid JSON; if not, auto-heal if enabled
-					var testJSON map[string]any
-					if json.Unmarshal([]byte(argsStr), &testJSON) == nil {
-						d = []byte(argsStr)
-					} else if functionConfig.AutomaticToolParsingFallback {
-						healed := map[string]string{"query": argsStr}
-						d, _ = json.Marshal(healed)
-						xlog.Debug("Automatic tool parsing fallback: wrapped raw string arguments", "raw", functionConfig.LogText(argsStr))
-					} else {
-						d = []byte(argsStr)
-					}
-				} else {
-					// Object, marshal to JSON
-					d, _ = json.Marshal(args)
-				}
-				funcName, ok := func_name.(string)
-				if !ok {
-					continue
-					//return result, fmt.Errorf("unable to cast function name to string")
-				}
-
-				result = append(result, FuncCallResults{Name: funcName, Arguments: string(d)})
-			}
+			result = appendFunctionCalls(result, ss, functionConfig)
 		}
 
 		return result, nil
@@ -1151,6 +1112,67 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 		results, _ = extractJSON(llmResults)
 	}
 
+	return mergeMarkupFunctionCalls(llmresult, functionConfig, results)
+}
+
+// appendFunctionCalls appends the calls of the JSON objects that hold a
+// function name and arguments, as ParseFunctionCall reads them.
+func appendFunctionCalls(result []FuncCallResults, ss []map[string]any, functionConfig FunctionsConfig) []FuncCallResults {
+	functionNameKey := defaultFunctionNameKey
+	functionArgumentsKey := defaultFunctionArgumentsKey
+	if functionConfig.FunctionNameKey != "" {
+		functionNameKey = functionConfig.FunctionNameKey
+	}
+	if functionConfig.FunctionArgumentsKey != "" {
+		functionArgumentsKey = functionConfig.FunctionArgumentsKey
+	}
+	for _, s := range ss {
+		// The grammar defines the function name as "function", while OpenAI returns "name"
+		func_name, ok := s[functionNameKey]
+		if !ok {
+			continue
+			//return result, fmt.Errorf("unable to find function name in result")
+		}
+		// Arguments from grammar result is a map[string]interface{}, but OpenAI expects a stringified JSON object
+		// We marshal it to JSON string here to match OpenAI's format
+		args, ok := s[functionArgumentsKey]
+		if !ok {
+			continue
+			//return result, fmt.Errorf("unable to find arguments in result")
+		}
+		// Marshal arguments to JSON string (handles both object and string cases)
+		var d []byte
+		if argsStr, ok := args.(string); ok {
+			// Check if the string is valid JSON; if not, auto-heal if enabled
+			var testJSON map[string]any
+			if json.Unmarshal([]byte(argsStr), &testJSON) == nil {
+				d = []byte(argsStr)
+			} else if functionConfig.AutomaticToolParsingFallback {
+				healed := map[string]string{"query": argsStr}
+				d, _ = json.Marshal(healed)
+				xlog.Debug("Automatic tool parsing fallback: wrapped raw string arguments", "raw", functionConfig.LogText(argsStr))
+			} else {
+				d = []byte(argsStr)
+			}
+		} else {
+			// Object, marshal to JSON
+			d, _ = json.Marshal(args)
+		}
+		funcName, ok := func_name.(string)
+		if !ok {
+			continue
+			//return result, fmt.Errorf("unable to cast function name to string")
+		}
+
+		result = append(result, FuncCallResults{Name: funcName, Arguments: string(d)})
+	}
+	return result
+}
+
+// mergeMarkupFunctionCalls adds to results the calls that the PEG parser
+// finds in llmresult, or the iterative XML parser when the PEG parser finds
+// none and the output holds an XML tool-call tag.
+func mergeMarkupFunctionCalls(llmresult string, functionConfig FunctionsConfig, results []FuncCallResults) []FuncCallResults {
 	// Try PEG parser (unless disabled) — this is the primary tool call parser
 	pegFound := false
 	if !functionConfig.DisablePEGParser {
