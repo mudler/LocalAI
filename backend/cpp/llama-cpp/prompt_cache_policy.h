@@ -1,4 +1,4 @@
-// Decisions of the disk prompt cache (patches/0006-prompt-cache-disk-localai.patch).
+// Decisions of the disk prompt cache (patches/0007-prompt-cache-disk-localai.patch).
 //
 // LocalAI-owned and free of llama.cpp types, so prompt_cache_policy_test.cpp
 // tests it without a build of the backend. prepare.sh copies it next to

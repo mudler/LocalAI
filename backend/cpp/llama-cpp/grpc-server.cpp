@@ -396,7 +396,7 @@ static void start_llama_server(server_context& ctx_server) {
     loop_exit_cv.notify_all();
 }
 
-// The cache key of a task (patches/0006): the salt keeps the cached prompts of
+// The cache key of a task (patches/0007): the salt keeps the cached prompts of
 // one cache namespace (a user, or the shared one) apart from the others, in
 // RAM, on disk and between live slots. A request that must not persist
 // (NoPromptCache: zero-retention, incognito) gets a private salt and is never
@@ -800,8 +800,8 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     std::optional<bool> admission_order;
     std::optional<int> prefill_cap;
     bool lazy_idle_save = false;
-    // Disk tier of the prompt cache (prompt_cache_policy.h, patches/0005 and
-    // 0006). On by default when LocalAI gives a directory.
+    // Disk tier of the prompt cache (prompt_cache_policy.h, patches/0006 and
+    // 0007). On by default when LocalAI gives a directory.
     prompt_cache_policy::disk_options prompt_disk;
     // The node that started this process gives the policy numbers through the
     // environment (.agents/prompt-cache-backends.md); model options below win.

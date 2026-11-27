@@ -22,7 +22,7 @@ fi
 ## file before the copy below. Forks that drop the patches still get the
 ## header: grpc-server.cpp includes it for the option checks.
 cp -r serving_policy.h llama.cpp/tools/server/
-## Disk prompt cache policy (prompt_cache_policy.h). patches/0006 includes it
+## Disk prompt cache policy (prompt_cache_policy.h). patches/0007 includes it
 ## from tools/server/server-slot-sched.cpp; grpc-server.cpp includes it for the
 ## option checks.
 cp -r prompt_cache_policy.h llama.cpp/tools/server/
@@ -273,14 +273,14 @@ if grep -q "bool *reasoning_control" llama.cpp/common/common.h; then
 else
     HAS_REASONING_CONTROL=0
 fi
-# Disk prompt cache (patches/0005 backports ggml-org/llama.cpp#32303, patches/0006
+# Disk prompt cache (patches/0006 backports ggml-org/llama.cpp#32303, patches/0007
 # adds the LocalAI hooks: cache namespaces, retention, the writer thread).
 if grep -q "cache_disk_ns_quota_mib" llama.cpp/common/common.h; then
     HAS_PROMPT_CACHE_DISK=1
 else
     HAS_PROMPT_CACHE_DISK=0
 fi
-# The policy numbers of the disk tier as parameters (0006): the reuse count,
+# The policy numbers of the disk tier as parameters (0007): the reuse count,
 # checkpoints per file and the load overhead.
 if grep -q "cache_disk_min_reuse" llama.cpp/common/common.h; then
     HAS_PROMPT_CACHE_POLICY_ENV=1

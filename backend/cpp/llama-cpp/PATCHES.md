@@ -17,8 +17,8 @@ patches alive. Other files in `patches/` are not applied.
 | `0003-server-request-priority.patch` | Backport of ggml-org/llama.cpp#32219: `server_task::priority` and the deferred-queue pick by priority. Drop it when the pin contains #32219. |
 | `0004-paged-admission-order.patch` | Order of waiting requests (class with aging, uncached tokens, arrival) at the deferred queue, the admission wait and the prompt fill; the per-request prefill cap; idle-slot eviction least recently used first with save and tail trim; lazy idle-slot save. |
 | `0005-grammar-repetition-limit.patch` | The limit of the GBNF repetition check in `src/llama-grammar.cpp` comes from `LLAMA_GRAMMAR_MAX_REPETITION` when it is set to a positive number (upstream: a fixed 2000). `grpc-server.cpp` sets it from the `grammar_max_repetition` option, 100000 by default (`grammar_engine.h`). Drop it when the pin can configure the limit (ggml-org/llama.cpp#20867 and the PRs linked there). |
-| `0005-server-prompt-cache-disk.patch` | Backport of ggml-org/llama.cpp#32303 (open): a disk tier under the RAM prompt cache, `cache_disk_path` and `cache_disk_max_size_mib`. Rebased on the pin (`server_prompt::lora` instead of `lora_changed`; the startup lora config is `server_prompt_cache::lora_disk`). Tests, README and the Python test of the pull request are left out. Drop it when the pin contains #32303. |
-| `0006-prompt-cache-disk-localai.patch` | LocalAI hooks on 0005: cache namespaces (a salt in the prefix hash chain), zero-retention prompts kept off disk, the writer thread, the bounded save on unload, retention (ttl, namespace quota), free-space watermarks, the read-or-recompute gate and fewer checkpoints per file. See "Disk prompt cache" below. |
+| `0006-server-prompt-cache-disk.patch` | Backport of ggml-org/llama.cpp#32303 (open): a disk tier under the RAM prompt cache, `cache_disk_path` and `cache_disk_max_size_mib`. Rebased on the pin (`server_prompt::lora` instead of `lora_changed`; the startup lora config is `server_prompt_cache::lora_disk`). Tests, README and the Python test of the pull request are left out. Drop it when the pin contains #32303. |
+| `0007-prompt-cache-disk-localai.patch` | LocalAI hooks on 0006: cache namespaces (a salt in the prefix hash chain), zero-retention prompts kept off disk, the writer thread, the bounded save on unload, retention (ttl, namespace quota), free-space watermarks, the read-or-recompute gate and fewer checkpoints per file. See "Disk prompt cache" below. |
 
 ## Rules for 0002
 
@@ -45,9 +45,9 @@ patches alive. Other files in `patches/` are not applied.
   turboquant, olala) still build and run without paged serving. They warn
   only when a model sets `paged_kv:true` or `prefill_budget`.
 
-## Disk prompt cache (0005, 0006)
+## Disk prompt cache (0006, 0007)
 
-0005 and 0006 touch `server-slot-sched.*` and `server-common.*`, outside the
+0006 and 0007 touch `server-slot-sched.*` and `server-common.*`, outside the
 scope of 0002. The maintainer approved this for the disk prompt cache. The
 arithmetic lives in `prompt_cache_policy.h` (LocalAI-owned, tested by
 `prompt_cache_policy_test.cpp`), which `prepare.sh` copies to
@@ -63,7 +63,7 @@ a plain `llama-server` built from the patched tree behaves as upstream with
 
 | Hook | Anchor (grep) | What it does |
 |---|---|---|
-| D1 | `set_cache_key`, `any_salt` in `server-common.*` | Cache key of `server_tokens`: a salt seeds the first block of the prefix hash chain (zeros: the shared namespace, as upstream), and `get_common_prefix` returns 0 between different salts. So live slots, the RAM cache, the prefix hold (H12) and the disk never share a prefix across namespaces. `persist` is false once a token of a zero-retention request is in the prompt; such a request has a private salt (`prompt_cache_policy::private_salt`), so its cells never reach a prompt that may be saved. A restored slot file has `any_salt`: the next task adopts it, and it is never persisted. |
+| D1 | `set_cache_key`, `any_salt` in `server-common.*` | Cache key of `server_tokens`: a salt seeds the first block of the prefix hash chain (zeros: the shared namespace, as upstream), and `get_common_prefix` returns 0 between different salts. So live slots, the RAM cache and the disk never share a prefix across namespaces. `persist` is false once a token of a zero-retention request is in the prompt; such a request has a private salt (`prompt_cache_policy::private_salt`), so its cells never reach a prompt that may be saved. A restored slot file has `any_salt`: the next task adopts it, and it is never persisted. |
 | D2 | `re_file_name`, `make_name` in `server-slot-sched.cpp` | File names `{compat}-{namespace}-{hash}.cache`, the namespace being the first 16 hex characters of the salt. LocalAI's janitor reads it to apply per-user quotas and to purge one user. |
 | D3 | `enqueue`, `writer_loop` | `pop_oldest()` moves the state to a writer thread; the queue is bounded (`prompt_cache_policy::queue_limit`) and drops its oldest entry when full. A lookup takes the directory with `try_lock` and gives up while a write runs, so no request waits for the disk. |
 | D4 | `wants`, `likely_reused`, `observe_prompt` | Written only: persistable prompts of at least `cache_disk_min_tokens` (1024 from LocalAI), whose prefix was seen in at least two requests (`seen_counter`, fed at the `keep_first(n_past)` launch), when a read could beat the prompt speed (`should_write`). At most 3 checkpoints per file (`keep_checkpoints`). |
@@ -178,7 +178,7 @@ the new pin.
 | ggml-org/llama.cpp#10718 chunked prefill (open) | `n_chunk_pp` or a new budget field in `common.h` | Delete H4, map `prefill_budget` to the upstream field | mixed, budget arms vs upstream |
 | Preemption TODO in `decode()` ("try to terminate only the largest active slot") | the TODO is gone, or a new preempt symbol | Delete H5 and H6, keep H3 if upstream has no admission, map `paged_preempt` | overcommit-preempt, parity |
 | ggml-org/llama.cpp#32520 quantized-KV `kv_rows` on CUDA (open) | `kv_rows` in `ggml/src/ggml-cuda/fattn-vec*` | No hunk change; update the docs; add a q8_0 KV arm | steady, single on GPU |
-| ggml-org/llama.cpp#32303 disk prompt cache (open) | `cache_disk_path` in `common/common.h` | Drop 0005; re-port 0006 onto the merged version (file names, lora handling) | reload warm, zero-retention, other user |
+| ggml-org/llama.cpp#32303 disk prompt cache (open) | `cache_disk_path` in `common/common.h` | Drop 0006; re-port 0007 onto the merged version (file names, lora handling) | reload warm, zero-retention, other user |
 | ggml-org/llama.cpp#24124 `--kv-unified-per-slot` (merged) | `kv_unified_per_slot` in `common.h` (`HAS_KV_UNIFIED_PER_SLOT`) | Nothing to do; H3 respects `n_ctx_slot()` | overcommit with a per-slot cap |
 
 `upstream-watch.sh [llama.cpp dir]` runs these probes on a checkout and prints

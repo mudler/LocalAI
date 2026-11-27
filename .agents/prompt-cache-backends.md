@@ -102,8 +102,8 @@ override them for one model, as llama.cpp does.
 | Part | Where |
 |---|---|
 | Policy numbers and decisions, unit tested | `backend/cpp/llama-cpp/prompt_cache_policy.h`, `prompt_cache_policy_test.cpp` |
-| Disk tier (upstream #32303, backported) | `backend/cpp/llama-cpp/patches/0005-server-prompt-cache-disk.patch` |
-| Namespaces, zero retention, writer thread, gates, retention, watermarks | `backend/cpp/llama-cpp/patches/0006-prompt-cache-disk-localai.patch`, hooks D1 to D8 in `PATCHES.md` |
+| Disk tier (upstream #32303, backported) | `backend/cpp/llama-cpp/patches/0006-server-prompt-cache-disk.patch` |
+| Namespaces, zero retention, writer thread, gates, retention, watermarks | `backend/cpp/llama-cpp/patches/0007-prompt-cache-disk-localai.patch`, hooks D1 to D8 in `PATCHES.md` |
 | Environment, options, `manifest.json`, `Free()` | `backend/cpp/llama-cpp/grpc-server.cpp` (`apply_prompt_cache_key`, `Free`, the `prompt_cache_disk` options) |
 | End-to-end test (reload warm, other user, zero retention) | `tests/e2e-backends/prompt_cache_disk_test.go` |
 
@@ -114,7 +114,7 @@ and the e2e spec with `BACKEND_BINARY` pointing at its `run.sh`.
 
 | Backend | State | Cost to adopt |
 |---|---|---|
-| `turboquant`, `bonsai`, `olala` (llama.cpp forks) | They build the same `grpc-server.cpp` and `prepare.sh`, so the request handling, `Free()` and the policy header are already in. Their Makefiles drop `patches/` (the fork trees differ), so 0005 and 0006 are not applied: `LOCALAI_HAS_PROMPT_CACHE_DISK` is 0 and the tier stays off. | Small to medium per fork: port 0005 and 0006 into the fork's own `patches/`. Feasible when the fork's server keeps upstream's prefix hash chain (#32154) and `server-slot-sched.*`. |
-| `ik-llama-cpp` | Its own `grpc-server.cpp` and server; no disk tier. | Medium: the fork's server predates the upstream prompt cache layout, so 0005 does not apply; follow this contract with its slot save/restore API. |
+| `turboquant`, `bonsai`, `olala` (llama.cpp forks) | They build the same `grpc-server.cpp` and `prepare.sh`, so the request handling, `Free()` and the policy header are already in. Their Makefiles drop `patches/` (the fork trees differ), so 0006 and 0007 are not applied: `LOCALAI_HAS_PROMPT_CACHE_DISK` is 0 and the tier stays off. | Small to medium per fork: port 0006 and 0007 into the fork's own `patches/`. Feasible when the fork's server keeps upstream's prefix hash chain (#32154) and `server-slot-sched.*`. |
+| `ik-llama-cpp` | Its own `grpc-server.cpp` and server; no disk tier. | Medium: the fork's server predates the upstream prompt cache layout, so 0006 does not apply; follow this contract with its slot save/restore API. |
 | vLLM, SGLang | Python engines with their own prefix caches. | Separate effort: an LMCache-style connector that maps the salt to the cache key and writes under the layout above. |
 | Other backends | No prompt cache. | Not applicable. |
