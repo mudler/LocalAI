@@ -336,8 +336,8 @@
     "reloadNone": "has no other healthy node to move to, so it stops until this node returns.",
     "unavailable": "The cluster did not return the loaded replicas or the rules, so this cannot be worked out now.",
     "how": "Worked out in this browser from the node list, the loaded replicas and the placement rules. The server does not compute it, and the scheduler also weighs free memory and disk when it loads a model.",
-    "reloadDrain": "loads on another healthy node that fits while this one keeps serving it, then leaves this node. Free memory is not compared here.",
-    "reloadNoneDrain": "has no other healthy node to move to, so it keeps serving here until the drain deadline, then stops.",
+    "reloadDrain": "loads on another healthy node that fits while this one keeps serving it, then leaves this node. If it has no rule and is idle (not pinned, not used recently), it is removed instead. Free memory is not compared here.",
+    "reloadNoneDrain": "has no other healthy node to move to, so it keeps serving here until the drain deadline, then stops. If it has no rule and is idle (not pinned, not used recently), it is removed instead.",
     "blockedDrain": "keeps serving here until the drain deadline, then stops: its rule only allows {{selector}} and no other healthy node has those labels."
   },
   "detail": {
@@ -405,7 +405,7 @@
   },
   "drain": {
     "title": "Drain {{name}}?",
-    "desc": "A draining node takes no new models. The models on it keep serving until they run on another node, then leave. Anything still here at the deadline is removed.",
+    "desc": "A draining node takes no new models. The models on it keep serving until they run on another node, then leave. Anything still here at the deadline is removed. An unhealthy or offline node drains at once: its models are removed now.",
     "confirm": "Drain node",
     "pending": "Draining…",
     "undo": "You can resume the node at any time."

@@ -228,8 +228,8 @@
     "drainingEmpty": "Non resta più nulla. Ora puoi fermare il worker."
   },
   "leave": {
-    "reloadDrain": "viene caricato su un altro nodo sano adatto mentre questo continua a servirlo, poi lascia questo nodo. La memoria libera qui non viene confrontata.",
-    "reloadNoneDrain": "non ha un altro nodo sano su cui spostarsi, quindi continua a servire qui fino alla scadenza dello svuotamento, poi si ferma.",
+    "reloadDrain": "viene caricato su un altro nodo sano adatto mentre questo continua a servirlo, poi lascia questo nodo. Se non ha una regola ed è inattivo (non fissato, non usato di recente), viene invece rimosso. La memoria libera qui non viene confrontata.",
+    "reloadNoneDrain": "non ha un altro nodo sano su cui spostarsi, quindi continua a servire qui fino alla scadenza dello svuotamento, poi si ferma. Se non ha una regola ed è inattivo (non fissato, non usato di recente), viene invece rimosso.",
     "blockedDrain": "continua a servire qui fino alla scadenza dello svuotamento, poi si ferma: la sua regola consente solo {{selector}} e nessun altro nodo sano ha quelle etichette."
   }
 }

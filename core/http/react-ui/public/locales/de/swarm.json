@@ -228,8 +228,8 @@
     "drainingEmpty": "Hier ist nichts mehr. Sie können den Worker jetzt stoppen."
   },
   "leave": {
-    "reloadDrain": "wird auf einem anderen passenden gesunden Knoten geladen, während dieser es weiter bedient, und verlässt dann diesen Knoten. Freier Speicher wird hier nicht verglichen.",
-    "reloadNoneDrain": "hat keinen anderen gesunden Knoten, auf den es wechseln kann, und bedient daher hier weiter bis zur Frist der Entleerung, dann stoppt es.",
+    "reloadDrain": "wird auf einem anderen passenden gesunden Knoten geladen, während dieser es weiter bedient, und verlässt dann diesen Knoten. Hat es keine Regel und ist es unbenutzt (nicht angeheftet, nicht kürzlich genutzt), wird es stattdessen entfernt. Freier Speicher wird hier nicht verglichen.",
+    "reloadNoneDrain": "hat keinen anderen gesunden Knoten, auf den es wechseln kann, und bedient daher hier weiter bis zur Frist der Entleerung, dann stoppt es. Hat es keine Regel und ist es unbenutzt (nicht angeheftet, nicht kürzlich genutzt), wird es stattdessen entfernt.",
     "blockedDrain": "bedient hier weiter bis zur Frist der Entleerung, dann stoppt es: seine Regel erlaubt nur {{selector}}, und kein anderer gesunder Knoten hat diese Labels."
   }
 }

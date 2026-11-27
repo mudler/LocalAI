@@ -228,8 +228,8 @@
     "drainingEmpty": "Não resta mais nada nele. Você já pode parar o worker."
   },
   "leave": {
-    "reloadDrain": "é carregado em outro nó saudável adequado enquanto este continua a servi-lo, e depois deixa este nó. A memória livre não é comparada aqui.",
-    "reloadNoneDrain": "não tem outro nó saudável para onde ir, então continua servindo aqui até o prazo da drenagem e depois para.",
+    "reloadDrain": "é carregado em outro nó saudável adequado enquanto este continua a servi-lo, e depois deixa este nó. Se não tiver regra e estiver ocioso (não fixado, sem uso recente), é removido em vez disso. A memória livre não é comparada aqui.",
+    "reloadNoneDrain": "não tem outro nó saudável para onde ir, então continua servindo aqui até o prazo da drenagem e depois para. Se não tiver regra e estiver ocioso (não fixado, sem uso recente), é removido em vez disso.",
     "blockedDrain": "continua servindo aqui até o prazo da drenagem e depois para: a regra dele só permite {{selector}} e nenhum outro nó saudável tem esses rótulos."
   }
 }

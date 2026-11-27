@@ -336,8 +336,8 @@
     "reloadNone": "taşınabileceği başka sağlıklı düğüm yok, bu yüzden bu düğüm dönene kadar durur.",
     "unavailable": "Küme yüklü replikaları veya kuralları döndürmedi, bu yüzden şu anda hesaplanamıyor.",
     "how": "Düğüm listesinden, yüklü replikalardan ve yerleşim kurallarından bu tarayıcıda hesaplandı. Sunucu bunu hesaplamaz, zamanlayıcı ayrıca bir modeli yüklerken boş belleği ve diski de değerlendirir.",
-    "reloadDrain": "bu düğüm hizmet vermeye devam ederken uygun başka bir sağlıklı düğüme yüklenir, sonra bu düğümden ayrılır. Boş bellek burada karşılaştırılmaz.",
-    "reloadNoneDrain": "geçebileceği başka sağlıklı düğüm yok; boşaltma süresi dolana kadar burada hizmet verir, sonra durur.",
+    "reloadDrain": "bu düğüm hizmet vermeye devam ederken uygun başka bir sağlıklı düğüme yüklenir, sonra bu düğümden ayrılır. Kuralı yoksa ve boştaysa (sabitlenmemiş, yakın zamanda kullanılmamış) bunun yerine kaldırılır. Boş bellek burada karşılaştırılmaz.",
+    "reloadNoneDrain": "geçebileceği başka sağlıklı düğüm yok; boşaltma süresi dolana kadar burada hizmet verir, sonra durur. Kuralı yoksa ve boştaysa (sabitlenmemiş, yakın zamanda kullanılmamış) bunun yerine kaldırılır.",
     "blockedDrain": "boşaltma süresi dolana kadar burada hizmet verir, sonra durur: kuralı yalnızca {{selector}} için izin verir ve bu etiketlere sahip başka sağlıklı düğüm yok."
   },
   "detail": {
@@ -405,7 +405,7 @@
   },
   "drain": {
     "title": "{{name}} boşaltılsın mı?",
-    "desc": "Boşaltılan düğüm yeni model almaz. Üzerindeki modeller başka bir düğümde çalışana kadar hizmet vermeye devam eder, sonra ayrılır. Süre dolduğunda kalanlar kaldırılır.",
+    "desc": "Boşaltılan düğüm yeni model almaz. Üzerindeki modeller başka bir düğümde çalışana kadar hizmet vermeye devam eder, sonra ayrılır. Süre dolduğunda kalanlar kaldırılır. Sağlıksız veya çevrimdışı bir düğüm hemen boşaltılır: modelleri şimdi kaldırılır.",
     "confirm": "Düğümü boşalt",
     "pending": "Boşaltılıyor…",
     "undo": "Düğümü istediğin zaman sürdürebilirsin."

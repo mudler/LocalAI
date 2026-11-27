@@ -228,8 +228,8 @@
     "drainingEmpty": "Il n'y reste plus rien. Vous pouvez arrêter le worker."
   },
   "leave": {
-    "reloadDrain": "se charge sur un autre nœud sain qui convient pendant que celui-ci continue de le servir, puis quitte ce nœud. La mémoire libre n'est pas comparée ici.",
-    "reloadNoneDrain": "n'a aucun autre nœud sain où aller : il continue de servir ici jusqu'à l'échéance de la vidange, puis s'arrête.",
+    "reloadDrain": "se charge sur un autre nœud sain qui convient pendant que celui-ci continue de le servir, puis quitte ce nœud. S'il n'a pas de règle et qu'il est inactif (non épinglé, pas utilisé récemment), il est retiré à la place. La mémoire libre n'est pas comparée ici.",
+    "reloadNoneDrain": "n'a aucun autre nœud sain où aller : il continue de servir ici jusqu'à l'échéance de la vidange, puis s'arrête. S'il n'a pas de règle et qu'il est inactif (non épinglé, pas utilisé récemment), il est retiré à la place.",
     "blockedDrain": "continue de servir ici jusqu'à l'échéance de la vidange, puis s'arrête : sa règle n'autorise que {{selector}} et aucun autre nœud sain n'a ces étiquettes."
   }
 }

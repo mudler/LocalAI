@@ -220,12 +220,22 @@ test.describe('Node detail: drain, resume and remove', () => {
     await page.getByRole('button', { name: /Drain/ }).click()
     const dialog = page.getByRole('dialog', { name: 'Drain gpu-box-1?' })
     await expect(dialog).toBeVisible()
+    await expect(dialog).toContainText('An unhealthy or offline node drains at once')
     await expect(dialog).toContainText('Preview')
     await expect(dialog.getByTestId('leave-list')).toContainText('qwen3-8b-instruct')
     await dialog.getByRole('button', { name: 'Drain node' }).click()
     await expect.poll(() => log.filter(entry => entry.path === '/api/nodes/n-gpu1/drain').length).toBe(1)
     await expect(page.getByText('Node set to draining')).toBeVisible()
     await expect(dialog).toHaveCount(0)
+  })
+
+  test('says that a model with no rule is replaced only when it is in use', async ({ page }) => {
+    await mockSwarm(page, { rules: [] })
+    await page.goto('/app/nodes/n-gpu1')
+    const list = page.getByRole('region', { name: 'What happens if I drain this node' }).getByTestId('leave-list')
+    await expect(list).toContainText('loads on another healthy node that fits', { timeout: 15_000 })
+    // An idle model without a rule is not replaced: the drain removes it.
+    await expect(list).toContainText('If it has no rule and is idle (not pinned, not used recently), it is removed instead.')
   })
 
   test('shows the models still on a draining node and its deadline', async ({ page }) => {
