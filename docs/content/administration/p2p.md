@@ -314,8 +314,9 @@ launcher (through `local-ai p2p forward`) ask when a connection opens and every
 paired gets 403.
 
 A device that was away too long can have routes that are all out of date. Send
-it a new invite: the app sees that it already has this server, saves the routes
-of the invite and does not redeem the code. Then cancel that invite.
+it a new invite: the app sees that it already has this server, dials the routes
+of the invite and does not redeem the code. It saves new routes only when this
+server gives them over that connection. Then cancel that invite.
 
 The LocalAI Assistant has the tools `get_p2p_status`, `list_p2p_devices`,
 `list_p2p_invites`, `list_p2p_relays`, `get_p2p_relay_limits`,

@@ -192,24 +192,38 @@ describe('RemoteServers with no local server', () => {
     expect(r.p2p.stops).toEqual([res.id])
   })
 
-  it('an invite of a saved server updates its routes, restarts its forwarder and does not pair', async () => {
-    const r = await rig()
-    const first = await r.servers.addServerByInvite({ link: invite() })
-    if (!first.ok) throw new Error('pairing failed')
-    expect(r.servers.serversView().rows[0].peer).toBe(PEER)
+  it('an invite of a saved server only dials its routes until the server confirms them, and does not pair', async () => {
+    const saved = '/ip4/198.51.100.2/tcp/4001'
+    const r = await rig({
+      config: (c) => ({
+        ...c,
+        extra: { ...c.extra, remotes: [{ id: 'srv_00000001', name: 'Studio', url: 'http://127.0.0.1:41001', p2p: { peer: PEER, port: 41001, addrs: [saved], relays: [] } }] },
+      }),
+    })
+    r.servers.startTunnels()
     const relay = `/ip4/198.51.100.1/tcp/4001/p2p/${PEER}`
-    const res = await r.servers.addServerByInvite({ link: `${invite()}&r=${encodeURIComponent(relay)}` })
-    expect(res).toMatchObject({ ok: true, id: first.id, phrase: '', opened: false, routesUpdated: true })
-    expect(r.p2p.pairs).toHaveLength(1)
-    expect(remotes(r.store.get())).toHaveLength(1)
-    expect(remotes(r.store.get())[0].p2p?.relays).toEqual([relay])
-    expect(r.p2p.stops).toEqual([first.id])
-    expect(r.p2p.starts.map((x) => x.target.relays)).toEqual([[], [relay]])
+    const addr = '/ip4/198.51.100.3/tcp/4001'
+    const link = `${invite()}&r=${encodeURIComponent(relay)}&a=${encodeURIComponent(addr)}&a=${encodeURIComponent(saved)}`
+    const res = await r.servers.addServerByInvite({ link })
+    expect(res).toMatchObject({ ok: true, id: 'srv_00000001', phrase: '', opened: false, routesUpdated: true })
+    expect(r.p2p.pairs).toHaveLength(0)
+    // The link is not authenticated: nothing of it is saved.
+    expect(remotes(r.store.get())[0].p2p).toMatchObject({ addrs: [saved], relays: [] })
+    // The forwarder dials the routes of the link first, then the saved ones, each once.
+    expect(r.p2p.stops).toEqual(['srv_00000001'])
+    expect(r.p2p.starts.map((x) => x.target)).toEqual([
+      { peer: PEER, port: 41001, addrs: [saved], relays: [] },
+      { peer: PEER, port: 41001, addrs: [addr, saved], relays: [relay] },
+    ])
 
-    // The same routes again: saved as they are, the forwarder keeps running.
-    const again = await r.servers.addServerByInvite({ link: `${invite()}&r=${encodeURIComponent(relay)}` })
+    // The same invite again: the forwarder already dials it.
+    const again = await r.servers.addServerByInvite({ link })
     expect(again).toMatchObject({ ok: true, routesUpdated: true })
     expect(r.p2p.starts).toHaveLength(2)
+
+    // The routes the server gives once connected are saved.
+    expect(await r.servers.updateP2PRoutes('srv_00000001', { addrs: [addr], relays: [relay], hints: [] })).toBe(true)
+    expect(remotes(r.store.get())[0].p2p).toMatchObject({ addrs: [addr], relays: [relay] })
   })
 
   it('the routes a forwarder reports replace the saved ones, without a restart', async () => {

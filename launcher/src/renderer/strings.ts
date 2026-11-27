@@ -576,10 +576,10 @@ export const S = {
     done: 'Done',
     /** An invite of a server that is already saved: no pairing, only its routes. */
     knownTitle: (name: string) => `You already have this server: ${name}`,
-    knownNote: 'This device is already paired with it. Update routes saves the addresses and relays of this invite, so the app finds the server again. The invite is not used.',
+    knownNote: 'This device is already paired with it. Update routes tries the addresses and relays of this invite, so the app finds the server again. Once the server answers, the app saves the routes that the server gives. The invite is not used.',
     updateRoutes: 'Update routes',
-    updatingRoutes: 'Saving the routes…',
-    routesTitle: 'Routes updated',
+    updatingRoutes: 'Starting the connection…',
+    routesTitle: 'Trying the routes of the invite',
     routesNote: 'The invite was not used. Ask the server owner to cancel it: on the server, open Cluster, then Sharing, and cancel the pending invite.',
     p2pBadge: 'P2P',
     tunnel: {

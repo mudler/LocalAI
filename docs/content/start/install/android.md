@@ -180,7 +180,7 @@ Then select **Retry**, or choose another server.
 
 When a P2P connection fails, the app tries again by itself, after 1 second, then after longer waits, up to 1 minute. Make sure that P2P sharing is still on at the server, and that the server owner did not revoke this device. If the device was revoked, remove the server in the app and pair again.
 
-If the phone was away from the server for a long time, the saved routes can be out of date. Ask the server owner for a new invite and scan or paste it. The app sees that the server is already saved and shows **Update routes** instead of **Pair**. It saves the routes of the invite and does not use the invite code. Then ask the server owner to cancel the unused invite on the server: **Cluster**, then **Sharing**.
+If the phone was away from the server for a long time, the saved routes can be out of date. Ask the server owner for a new invite and scan or paste it. The app sees that the server is already saved and shows **Update routes** instead of **Pair**. It connects with the routes of the invite and does not use the invite code. It saves new routes only when the server gives them over that connection, so an invite that someone else wrote cannot change the saved routes. Then ask the server owner to cancel the unused invite on the server: **Cluster**, then **Sharing**.
 
 ### The server page does not open
 

@@ -9,8 +9,9 @@
 // sign-in cookie, per server.
 import type { PluginListenerHandle } from '@capacitor/core'
 import type { LauncherConfig } from '@launcher/core/configTypes'
+import type { P2PTarget } from '@launcher/core/p2pInvite'
 import { parseForwardState, parsePairJson, parseRoutesLine, type P2PRoutes, type PairOutcome } from '@launcher/core/p2pInvite'
-import type { P2PTunnels } from '@launcher/core/remoteServers'
+import { withTrialRoutes, type P2PTunnels } from '@launcher/core/remoteServers'
 import { isP2PHost, remotes } from '@launcher/core/serversConfig'
 import type { TunnelStatusView } from '@launcher/shared/types'
 import type { P2PForwardInput, P2PPlugin } from '../plugins/definitions'
@@ -129,6 +130,9 @@ export function androidP2PTunnels(o: AndroidTunnelsOptions): AndroidTunnels {
   /** The ids started and not stopped since. */
   const active = new Set<string>()
   const states = new Map<string, TunnelStatusView>()
+  // Routes a start asked for that are not saved: those of an invite of a
+  // saved server, dialled until the server gives its own (see the core).
+  const trials = new Map<string, P2PTarget>()
   /** Hosts handed out by allocate whose server is not saved yet. */
   const reserved = new Set<string>()
   const waiters = new Set<() => void>()
@@ -174,7 +178,9 @@ export function androidP2PTunnels(o: AndroidTunnelsOptions): AndroidTunnels {
         setState(r.id, { state: 'failed', error: 'listen address must be loopback' })
         continue
       }
-      out.push({ id: r.id, name: r.name, peer: r.p2p.peer, host, port: r.p2p.port, addrs: [...r.p2p.addrs], relays: [...r.p2p.relays], hints: [...(r.p2p.hints ?? [])] })
+      const trial = trials.get(r.id)
+      const t = trial ? withTrialRoutes(r.p2p, trial) : r.p2p
+      out.push({ id: r.id, name: r.name, peer: r.p2p.peer, host, port: r.p2p.port, addrs: [...t.addrs], relays: [...t.relays], hints: [...(t.hints ?? [])] })
     }
     return out
   }
@@ -255,14 +261,18 @@ export function androidP2PTunnels(o: AndroidTunnelsOptions): AndroidTunnels {
     allocate,
     allocatePort: async () => (await allocate()).port,
 
-    start(id) {
+    start(id, _name, target) {
       active.add(id)
+      const saved = remotes(o.store()).find((r) => r.id === id)?.p2p
+      if (target && saved && !sameRouteLists(target, saved)) trials.set(id, target)
+      else trials.delete(id)
       const cur = states.get(id)
       if (!cur || cur.state === 'stopped' || cur.state === 'failed') states.set(id, { state: 'starting' })
       sync()
     },
 
     stop(id) {
+      trials.delete(id)
       if (!active.delete(id)) return
       states.delete(id)
       sync()
@@ -342,4 +352,9 @@ export function androidP2PTunnels(o: AndroidTunnelsOptions): AndroidTunnels {
       }
     },
   }
+}
+
+function sameRouteLists(a: P2PTarget, b: P2PTarget): boolean {
+  const same = (x: string[] = [], y: string[] = []) => x.length === y.length && x.every((v, i) => v === y[i])
+  return same(a.addrs, b.addrs) && same(a.relays, b.relays) && same(a.hints, b.hints)
 }

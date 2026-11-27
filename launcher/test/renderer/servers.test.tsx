@@ -598,7 +598,7 @@ describe('invite preview', () => {
     await settle()
     expect(called(b, 'addServerByInvite')).toHaveLength(1)
     const done = screen.getByTestId('invite-routes')
-    expect(within(done).getByText('Routes updated')).toBeTruthy()
+    expect(within(done).getByText('Trying the routes of the invite')).toBeTruthy()
     expect(done.textContent).toContain('cancel the pending invite')
     expect(screen.queryByTestId('invite-phrase')).toBeNull()
   })

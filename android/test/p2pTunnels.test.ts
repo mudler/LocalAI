@@ -272,11 +272,12 @@ describe('P2P in the client core', () => {
     expect(saved[0]?.p2p?.addrs).toEqual(['/ip4/203.0.113.1/tcp/4001'])
   })
 
-  it('updates the routes of a saved server from its invite without pairing again', async () => {
+  it('dials the routes of an invite of a saved server and saves only what the server then gives', async () => {
     const p = withP2P()
     const { core } = await start(p)
     p.p2p.pairAnswers = [{ ok: true, json: pairJson(PEER) }]
-    const first = await core.servers.addServerByInvite({ link: invite(PEER) })
+    const savedAddr = '/ip4/203.0.113.1/tcp/4001'
+    const first = await core.servers.addServerByInvite({ link: `${invite(PEER)}&a=${encodeURIComponent(savedAddr)}` })
     if (!first.ok) throw new Error('pairing failed')
     await flush()
     const hint = '/ip4/192.0.2.7/tcp/4001/p2p/12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGo'
@@ -284,11 +285,18 @@ describe('P2P in the client core', () => {
     expect(r).toMatchObject({ ok: true, id: first.id, phrase: '', routesUpdated: true })
     expect(called(p, 'pair')).toHaveLength(1)
     await flush()
-    const saved = remotes({ extra: JSON.parse(p.files.files.get(CONFIG_FILE) ?? '{}') } as never)
-    expect(saved).toHaveLength(1)
-    expect(saved[0]?.p2p).toMatchObject({ addrs: ['/ip4/203.0.113.9/tcp/4001'], hints: [hint], host: '127.0.0.2' })
+    const saved = () => remotes({ extra: JSON.parse(p.files.files.get(CONFIG_FILE) ?? '{}') } as never)
+    expect(saved()).toHaveLength(1)
+    // Anyone can write a link with the peer ID of a saved server: its routes are only dialled.
+    expect(saved()[0]?.p2p).toMatchObject({ addrs: [savedAddr], host: '127.0.0.2' })
+    expect(saved()[0]?.p2p?.hints).toBeUndefined()
     const lists = p.p2p.forwardLists()
-    expect(lists[lists.length - 1]?.[0]).toMatchObject({ addrs: ['/ip4/203.0.113.9/tcp/4001'], hints: [hint] })
+    expect(lists[lists.length - 1]?.[0]).toMatchObject({ addrs: ['/ip4/203.0.113.9/tcp/4001', savedAddr], hints: [hint] })
+
+    // Once connected, the server gives its routes over the authenticated connection: those are saved.
+    p.p2p.emit('forwardState', { id: first.id, line: JSON.stringify({ state: 'routes', addrs: ['/ip4/203.0.113.9/tcp/4001'], relays: [], hints: [hint] }) })
+    await flush()
+    expect(saved()[0]?.p2p).toMatchObject({ addrs: ['/ip4/203.0.113.9/tcp/4001'], hints: [hint], host: '127.0.0.2' })
   })
 
   it('keeps the needs_relay code of a down line', () => {
