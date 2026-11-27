@@ -30,7 +30,7 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 }'
 ```
 
-Available additional parameters: `top_p`, `top_k`, `max_tokens`
+Available additional parameters: `top_p`, `top_k`, `max_tokens`, `service_tier` (see [Request priority](#request-priority))
 
 When a request omits `max_tokens`, the vLLM and SGLang backends do not cap generation at 200 tokens. Generation is bounded only by the context window of the model.
 
@@ -69,7 +69,31 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
 }'
 ```
 
-Available additional parameters: `top_p`, `top_k`, `max_tokens`
+Available additional parameters: `top_p`, `top_k`, `max_tokens`, `service_tier` (see [Request priority](#request-priority))
+
+### Request priority
+
+`/v1/chat/completions`, `/v1/completions` and `/v1/responses` accept the OpenAI `service_tier` field. It sets the priority class of the request. When requests wait for a free slot, a backend that queues requests (llama.cpp) serves a higher class first. Requests of one class are served in the order they arrive.
+
+| `service_tier` | Class | Use it for |
+|----------------|-------|------------|
+| `flex` | batch (-1) | Work that nobody waits on, such as bulk jobs |
+| `auto`, `default` or not set | default (0) | Normal requests |
+| `priority` | interactive (1) | Requests that a person waits on |
+
+Any caller can lower the priority of its own requests with `flex`. Only an administrator can use `priority`. For other callers, LocalAI changes `priority` to `default`. On a server without authentication (no user accounts and no API keys), every caller can use `priority`. An unknown value returns HTTP 400.
+
+The response includes the tier that LocalAI used in `service_tier`. For chat and text completions, only the non-streaming response includes it.
+
+LocalAI also sets the class of its own requests. A chat in the web UI and a chat from a connector are interactive. Sub-agents, jobs, triggers, pages and the indexing of collections are batch.
+
+```bash
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+  "model": "my-model",
+  "service_tier": "flex",
+  "messages": [{"role": "user", "content": "Summarize this report."}]
+}'
+```
 
 ### List models
 
@@ -359,6 +383,7 @@ the identity that created them.
 | `truncation` | string | No | Truncation mode: "auto" or "disabled" |
 | `text_format` | object | No | Text format configuration |
 | `metadata` | object | No | Custom metadata |
+| `service_tier` | string | No | Priority class: `flex`, `default` or `priority`. See [Request priority](#request-priority) |
 
 #### Input Format
 
