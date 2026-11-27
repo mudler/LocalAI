@@ -42,4 +42,11 @@ class P2PGuardTest {
         // The other server's state does not count.
         assertEquals(false, P2PGuard.listening(origin, forwards, mapOf("srv_2" to """{"state":"up"}""")))
     }
+
+    @Test
+    fun findsTheForwardOfAnOrigin() {
+        assertEquals("peer2", P2PGuard.forwardOf("http://127.0.0.3:41001", forwards)?.peer)
+        assertNull(P2PGuard.forwardOf("http://127.0.0.3:41002", forwards))
+        assertNull(P2PGuard.forwardOf(null, forwards))
+    }
 }

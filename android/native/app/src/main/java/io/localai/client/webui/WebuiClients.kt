@@ -98,6 +98,12 @@ internal class WebuiViewClient(private val host: WebuiHost) : WebViewClient() {
         if (!failed) host.pageLoaded(view, url)
     }
 
+    // Once per main-frame commit: page loads and history API changes alike,
+    // so the WebUI's client-side move to its sign-in page is seen too.
+    override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+        host.urlChanged(view, url)
+    }
+
     override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
         if (!request.isForMainFrame || failed) return
         failed = true

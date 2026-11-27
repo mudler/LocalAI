@@ -31,7 +31,7 @@ Native plugins (Kotlin package `io.localai.client`):
 |---|---|---|
 | `NativeHttp` | `http` | The HTTP request of the connection test (OkHttp, no redirects, no cookies, TLS reasons). |
 | `WebuiView` | `webui` | A second WebView that shows the server WebUI. It applies a Kotlin port of `launcher/src/core/webuiPolicy.ts`. Each server origin has its own WebView profile. |
-| `P2P` | `p2p` | Pairing, the forwarders, and the foreground service that keeps them open. |
+| `P2P` | `p2p` | Pairing, the forwarders, and the foreground service that keeps them open. It keeps the device credential of a sign-in invite out of the web layer, encrypted with an Android Keystore key, and `WebuiView` posts it to the server to sign in. |
 | `Updater` | `update` | Download, checksum and signer check, install with `PackageInstaller`. |
 | `Scanner` | `scan` | The QR scanner (zxing-android-embedded). |
 | `AppLinks` | `links` | `localai://pair` links and shared text. |
@@ -149,7 +149,7 @@ There are no release-candidate builds of the app.
 | Area | Command | What it covers |
 |---|---|---|
 | Web (`android/`) | `npm run lint && npm run typecheck && npm test && npm run build` | The bridge, the client core, P2P forwarders, the update policy and flow, links, the phone CSS rules, the version code, the manifest writer, the import rules. |
-| Native (`android/native/`) | `./gradlew lintDevDebug testDevDebugUnitTest assembleDevDebug` | JVM unit tests: the WebUI policy parity test, WebView profiles, the HTTP probe, links, the P2P supervisor, backoff, service and network policies, the APK download, signer check and install status. |
+| Native (`android/native/`) | `./gradlew lintDevDebug testDevDebugUnitTest assembleDevDebug` | JVM unit tests: the WebUI policy parity test, WebView profiles, the device sign-in and credential store, the HTTP probe, links, the P2P supervisor, backoff, service and network policies, the APK download, signer check and install status. |
 | P2P library (`android/p2pmobile/`) | `go vet ./... && go test ./...` | The Go facade on the host. |
 | Emulator | `./gradlew connectedDevDebugAndroidTest -PlocalaiAbis=arm64-v8a,x86_64` | `SmokeTest`: the app starts, adds a URL server, loads the WebUI and loads the P2P library. Needs an emulator or a device, and `node test/fixtures/fake-localai.mjs 18080` with `adb reverse tcp:18080 tcp:18080`. |
 

@@ -20,9 +20,14 @@ object P2PGuard {
      * ready, up or down) and false in any other state, or with no state yet.
      */
     fun listening(origin: String?, forwards: List<Forward>, states: Map<String, String>): Boolean? {
-        if (origin == null) return null
-        val f = forwards.firstOrNull { "http://${it.host}:${it.port}" == origin } ?: return null
+        val f = forwardOf(origin, forwards) ?: return null
         val state = states[f.id]?.let { stateOfLine(it) } ?: return false
         return state in LISTENING
+    }
+
+    /** The forward whose address is `origin`, or null (a URL server). */
+    fun forwardOf(origin: String?, forwards: List<Forward>): Forward? {
+        if (origin == null) return null
+        return forwards.firstOrNull { "http://${it.host}:${it.port}" == origin }
     }
 }

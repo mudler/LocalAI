@@ -77,6 +77,9 @@ class WebuiHost(
     private val downloads: ExecutorService = Executors.newSingleThreadExecutor()
     private val downloadResolver = DownloadResolver()
 
+    /** The automatic sign-in of a P2P server paired with a sign-in invite. */
+    private val deviceSignIn = DeviceSignIn()
+
     private var webView: WebView? = null
 
     /** The view was paused when the app left the screen (a P2P server, "keep in background" off). */
@@ -191,7 +194,9 @@ class WebuiHost(
         }
         webView = wv
         applyLayout()
-        wv.loadUrl(url)
+        // A new view is a new open: a refusal of the last one is forgotten.
+        deviceSignIn.reset()
+        if (!signInOnOpen(wv, origin)) wv.loadUrl(url)
     }
 
     /** Loads `url` in the view when it is on the server origin; routes it like a link otherwise. */
@@ -464,7 +469,45 @@ class WebuiHost(
 
     internal fun pageStarted(view: WebView, url: String?) {
         if (view !== webView || url == null) return
-        if (WebuiPolicy.httpOrigin(url) == serverOrigin) lastUrl = url
+        // The session route takes a post only: a reload must not GET it.
+        if (WebuiPolicy.httpOrigin(url) == serverOrigin && DeviceSignIn.pathOf(url) != DeviceSignIn.SESSION_PATH) lastUrl = url
+    }
+
+    /** The main frame committed `url` (a load or a history API change). */
+    internal fun urlChanged(view: WebView, url: String?) {
+        if (view !== webView || url == null) return
+        val origin = serverOrigin ?: return
+        if (WebuiPolicy.httpOrigin(url) != origin || p2pBlocked(origin)) return
+        val peer = P2PGuard.forwardOf(origin, P2PRuntime.forwards)?.peer ?: return
+        val store = P2PRuntime.credentials ?: return
+        when (deviceSignIn.onUrl(url, store.has(peer), SystemClock.elapsedRealtime())) {
+            DeviceSignIn.Action.NONE -> Unit
+            // Not from inside the callback: the navigation that called it is still being committed.
+            DeviceSignIn.Action.POST -> main.post { if (view === webView && serverOrigin == origin) postCredential(view, origin, peer) }
+            DeviceSignIn.Action.LEAVE -> main.post {
+                if (view === webView && serverOrigin == origin) view.loadUrl(origin + DeviceSignIn.SIGN_IN_PATH)
+            }
+        }
+    }
+
+    /**
+     * The first open of a P2P server after a pairing that gave a device
+     * credential: posts it, so the view starts signed in. True when it did;
+     * the server's answer redirects to `/`.
+     */
+    private fun signInOnOpen(wv: WebView, origin: String): Boolean {
+        val peer = P2PGuard.forwardOf(origin, P2PRuntime.forwards)?.peer ?: return false
+        val store = P2PRuntime.credentials ?: return false
+        if (!deviceSignIn.onOpen(store.takeFresh(peer), store.has(peer), SystemClock.elapsedRealtime())) return false
+        return postCredential(wv, origin, peer)
+    }
+
+    /** Posts the credential of `peer` to the session route of `origin`. The cookie lands in the view's profile. */
+    private fun postCredential(wv: WebView, origin: String, peer: String): Boolean {
+        val credential = P2PRuntime.credentials?.load(peer) ?: return false
+        oauthFlow?.reset()
+        wv.postUrl(origin + DeviceSignIn.SESSION_PATH, DeviceSignIn.body(credential))
+        return true
     }
 
     internal fun pageLoaded(view: WebView, url: String?) {
