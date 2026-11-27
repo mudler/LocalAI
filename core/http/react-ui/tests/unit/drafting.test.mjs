@@ -37,6 +37,7 @@ test('drafting: the schema names the kind, the model, the streams option and fou
 
 test('drafting: the streams option keeps the table entry when the engine lists one', () => {
   const raw = structuredClone(SCHEMA)
+  raw.flags = raw.flags.filter(f => f.option !== 'spec_max_streams')
   raw.flags.push({ key: 'spec_max_streams', target: 'option', path: 'options', option: 'spec_max_streams', type: 'int', min: 0, default: '4', doc: 'from the table', group: 'speculative', localai_only: true })
   const s = normalizeSchema(raw)
   assert.equal(s.items.filter(i => i.option === 'spec_max_streams').length, 1)

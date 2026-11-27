@@ -244,7 +244,7 @@
         "auto",
         "on"
       ],
-      "default": "off",
+      "default": "auto",
       "doc": "Sample tokens on the GPU. off: on the CPU. auto: on the GPU when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs. on: always on the GPU, turned off for a request with a grammar, a reasoning budget or logprobs.",
       "group": "speed",
       "localai_only": true
@@ -270,7 +270,7 @@
       "option": "paged_preempt",
       "type": "bool",
       "default": "on",
-      "doc": "With paged serving: pause the newest request when the KV cache is full and resume it later. Off makes new requests wait instead.",
+      "doc": "With paged serving: pause the request that is cheapest to recompute when the KV cache is full, and resume it later. Keep it on: with it off, a full cache fails every running request.",
       "group": "serving",
       "localai_only": true
     },
@@ -309,6 +309,57 @@
       "min": 0,
       "default": "256",
       "doc": "With paged serving: free tokens a request needs beyond its prompt before it starts, capped at its max tokens.",
+      "group": "serving",
+      "localai_only": true
+    },
+    {
+      "key": "slot_attach",
+      "target": "option",
+      "path": "options",
+      "option": "slot_attach",
+      "option_aliases": [
+        "prefix_attach"
+      ],
+      "type": "bool",
+      "default": "on",
+      "doc": "With paged serving: a request whose prompt starts like one another request holds starts from that request's KV cache instead of reading the prompt again.",
+      "group": "serving",
+      "localai_only": true
+    },
+    {
+      "key": "admission_order",
+      "target": "option",
+      "path": "options",
+      "option": "admission_order",
+      "option_aliases": [
+        "paged_order"
+      ],
+      "type": "bool",
+      "default": "on",
+      "doc": "With paged serving: waiting requests go by priority class, then by the fewest prompt tokens not in a cache, then by arrival. Off serves them first come, first served.",
+      "group": "serving",
+      "localai_only": true
+    },
+    {
+      "key": "prefill_cap",
+      "target": "option",
+      "path": "options",
+      "option": "prefill_cap",
+      "type": "int",
+      "min": 0,
+      "default": "512",
+      "doc": "With paged serving: the most prompt tokens one request reads per step while other requests read prompts too. 0 turns it off.",
+      "group": "serving",
+      "localai_only": true
+    },
+    {
+      "key": "lazy_idle_save",
+      "target": "option",
+      "path": "options",
+      "option": "lazy_idle_save",
+      "type": "bool",
+      "default": "off",
+      "doc": "With paged serving: idle slots keep their KV cache until the cache needs room, instead of saving it to the RAM prompt cache after each new request.",
       "group": "serving",
       "localai_only": true
     },
@@ -497,7 +548,7 @@
       "option": "backend_sampling_min_slots",
       "type": "int",
       "min": 1,
-      "default": "4",
+      "default": "16",
       "doc": "With GPU sampling on Auto: the fewest parallel requests that turn GPU sampling on.",
       "group": "engine_advanced",
       "localai_only": true
@@ -1007,6 +1058,18 @@
       "default": "none, or draft-simple with a draft model",
       "doc": "Kind of speculative decoding, or several comma-separated: draft-simple, draft-mtp, draft-eagle3, ngram-simple, ngram-mod and others.",
       "group": "speculative"
+    },
+    {
+      "key": "spec_max_streams",
+      "target": "option",
+      "path": "options",
+      "option": "spec_max_streams",
+      "type": "int",
+      "min": 0,
+      "default": "4",
+      "doc": "Drafting pauses while more than this many requests generate, and resumes when the count drops by a quarter. 0 never pauses.",
+      "group": "speculative",
+      "localai_only": true
     },
     {
       "key": "spec_n_max",
@@ -1682,24 +1745,24 @@
         "backend_sampling"
       ],
       "unset": {
-        "backend_sampling": "off"
+        "backend_sampling": "auto"
       },
       "choices": [
         {
           "value": "off",
           "label": "Off",
           "set": {
-            "backend_sampling": null
+            "backend_sampling": "off"
           },
-          "doc": "Sample tokens on the CPU. Nothing is written to the file."
+          "doc": "Sample tokens on the CPU."
         },
         {
           "value": "auto",
           "label": "Auto",
           "set": {
-            "backend_sampling": "auto"
+            "backend_sampling": null
           },
-          "doc": "Use GPU sampling when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs."
+          "doc": "Use GPU sampling when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs. Nothing is written to the file."
         },
         {
           "value": "on",

@@ -73,7 +73,7 @@ test('engine settings: blocks follow the schema groups; composite settings are l
   assert.equal(blocks[3].placement, true)
   assert.deepEqual(blocks[2].items.map(i => i.id), [
     'options.parallel', 'options.paged_kv', 'options.paged_preempt', 'options.prefill_budget', 'options.kv_pool_tokens',
-    'options.kv_output_reserve', 'options.cache_idle_slots', 'options.n_cache_reuse', 'options.slot_prompt_similarity', 'options.kv_unified_per_slot',
+    'options.kv_output_reserve', 'options.slot_attach', 'options.admission_order', 'options.prefill_cap', 'options.lazy_idle_save', 'options.cache_idle_slots', 'options.n_cache_reuse', 'options.slot_prompt_similarity', 'options.kv_unified_per_slot',
   ])
   // An alias in a file reads into its field, and a write uses the canonical name.
   const unified = byId['options.kv_unified']
@@ -282,7 +282,7 @@ test('engine settings: the quick setup profiles are apart from the presets', () 
     assert.equal(byId[id].group, 'serving', id)
   }
   assert.equal(byId['options.parallel'].group, 'serving')
-  // GPU sampling: a three-way choice over one plain options entry, Off writing none.
+  // GPU sampling: a three-way choice over one plain options entry, Auto writing none.
   const gpu = byId['options.backend_sampling']
   assert.equal(gpu.localAIOnly, true)
   assert.equal(gpu.flag, undefined)
@@ -292,14 +292,15 @@ test('engine settings: the quick setup profiles are apart from the presets', () 
   assert.deepEqual(sampling.choices.map(c => c.value), ['off', 'auto', 'on'])
   assert.match(sampling.choices[1].doc, /^Use GPU sampling when the model runs on a GPU/)
   assert.match(sampling.choices[2].doc, /^Sample tokens on the GPU\. Faster with many parallel requests\./)
-  assert.equal(readCombined(schema, {}, sampling), 'off')
-  assert.equal(readCombined(schema, { options: ['backend_sampling:auto'] }, sampling), 'auto')
+  // Auto is the backend default, so a file without the option reads as Auto and Auto writes nothing.
+  assert.equal(readCombined(schema, {}, sampling), 'auto')
+  assert.equal(readCombined(schema, { options: ['backend_sampling:off'] }, sampling), 'off')
   const draft = { options: ['my_option:true'] }
   writeCombined(schema, draft, sampling, 'on')
   assert.deepEqual(draft.options, ['my_option:true', 'backend_sampling:on'])
-  writeCombined(schema, draft, sampling, 'auto')
-  assert.deepEqual(draft.options, ['my_option:true', 'backend_sampling:auto'])
   writeCombined(schema, draft, sampling, 'off')
+  assert.deepEqual(draft.options, ['my_option:true', 'backend_sampling:off'])
+  writeCombined(schema, draft, sampling, 'auto')
   assert.deepEqual(draft.options, ['my_option:true'])
   // No batch profile touches it; the 16 and 32 stream setups do.
   assert.ok(schema.profiles.every(p => !('options.backend_sampling' in p.settings)))
