@@ -8,7 +8,7 @@ import { contributions, hookHandlerText, mcpServerText, shortSha, skippedKey } f
 // The parts the Plugins tab, its review dialogs and its details pane share.
 
 // What a plugin adds, as tags: "4 skills", "Connects to host", plus the
-// "Runs code" and "Needs Sandbox" marks, or "No code". runsCode null (not
+// "Runs code" and "Needs an isolated sandbox" marks, or "No code". runsCode null (not
 // known yet) draws no mark: the browse card says "Not checked yet".
 export function ContributionTags({ model, hosts, runsCode, testId = 'plugin-adds' }) {
   const { t } = useTranslation('addons')
@@ -29,7 +29,8 @@ export function ContributionTags({ model, hosts, runsCode, testId = 'plugin-adds
 
 const ICON = { skills: 'book', commands: 'terminal', agents: 'robot', connects: 'globe', hooks: 'bolt' }
 
-// "Runs code" and "Needs Sandbox": plugin code runs only in the Sandbox of a chat.
+// "Runs code" and "Needs an isolated sandbox": plugin code runs only in the
+// sandbox of a chat, whichever add-on provides it.
 export function CodeMarks() {
   const { t } = useTranslation('addons')
   return (

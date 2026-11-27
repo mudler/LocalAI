@@ -914,7 +914,7 @@ func (c *PluginsRemoveCMD) Run(_ *cliContext.Context) error {
 
 type PluginsEnableCMD struct {
 	Plugin     string `arg:"" help:"Install ID or name@marketplace"`
-	AcceptCode bool   `name:"accept-code" help:"Turn on a plugin that runs code since you last turned it on. Its code then runs in the Sandbox of your chats"`
+	AcceptCode bool   `name:"accept-code" help:"Turn on a plugin that runs code since you last turned it on. Its code then runs in the isolated sandbox of your chats"`
 
 	PluginsServer `embed:""`
 }
