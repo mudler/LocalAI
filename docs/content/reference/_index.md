@@ -14,6 +14,7 @@ Look up exact facts here. For how to do a task, use the other sections.
 | Release binaries and their file names | [Binaries]({{% relref "/reference/binaries" %}}) |
 | System and version endpoints | [System and version endpoints]({{% relref "/reference/system-info" %}}) |
 | Tab completion in your shell | [Shell completion]({{% relref "/reference/shell-completion" %}}) |
+| What LocalAI itself costs per request and per streamed token | [Request and streaming overhead]({{% relref "/reference/performance" %}}) |
 | What a start-up or runtime error means | [Runtime errors]({{% relref "/reference/runtime-errors" %}}) |
 | What an API error means | [API errors]({{% relref "/api/api-errors" %}}) |
 | Which model runs on which backend | [Compatibility table]({{% relref "/models/compatibility-table" %}}) |
