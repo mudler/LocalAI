@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -154,11 +155,8 @@ func EnsureCheckpointOption(opts []string, state uint64, slots int, hostRAM uint
 func backendOptionValue(opts []string, names ...string) (string, bool) {
 	for _, o := range opts {
 		name, value, _ := strings.Cut(o, ":")
-		name = strings.TrimSpace(strings.ToLower(name))
-		for _, n := range names {
-			if name == n {
-				return strings.TrimSpace(value), true
-			}
+		if slices.Contains(names, strings.TrimSpace(strings.ToLower(name))) {
+			return strings.TrimSpace(value), true
 		}
 	}
 	return "", false

@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/mudler/xlog"
 )
@@ -45,17 +44,6 @@ func ApplyServingDefaults(cfg *ModelConfig) {
 // Options are "name:value" strings (or bare "name"); used so we never override
 // an explicit value. Shared with hardware_defaults.go.
 func backendOptionSet(opts []string, names ...string) bool {
-	for _, o := range opts {
-		name := o
-		if i := strings.IndexByte(o, ':'); i >= 0 {
-			name = o[:i]
-		}
-		name = strings.TrimSpace(strings.ToLower(name))
-		for _, n := range names {
-			if name == n {
-				return true
-			}
-		}
-	}
-	return false
+	_, ok := backendOptionValue(opts, names...)
+	return ok
 }

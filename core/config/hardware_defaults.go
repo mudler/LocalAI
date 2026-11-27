@@ -269,13 +269,7 @@ func ParallelSlotsForContext(g GPU, ctx int) int {
 // count to 8, which would bring back the per-device OOM of issue #10485.
 // With no GPU (VRAM unknown, e.g. CPU) the backend default applies.
 func EnsureParallelOptionForContext(opts []string, gpu GPU, ctx int) []string {
-	if hasParallelOption(opts) {
-		return opts
-	}
-	if slots := ParallelSlotsForContext(gpu, ctx); slots > 1 || gpu.VRAM > 0 {
-		return append(opts, fmt.Sprintf("parallel:%d", slots))
-	}
-	return opts
+	return EnsureParallelOptionForModel(opts, gpu, ctx, 0)
 }
 
 // EnsureParallelOption is EnsureParallelOptionForContext with no known context
@@ -411,10 +405,11 @@ func ApplyHardwareDefaults(cfg *ModelConfig, gpu GPU) {
 		// A hybrid or recurrent model keeps up to n_ctx_checkpoints copies of its
 		// recurrent state per slot in host memory: bound them by a byte budget.
 		before = len(cfg.Options)
-		cfg.Options = EnsureCheckpointOption(cfg.Options, cfg.recurrentState, slotsFromOptions(cfg.Options), hostRAM())
+		slots := slotsFromOptions(cfg.Options)
+		cfg.Options = EnsureCheckpointOption(cfg.Options, cfg.recurrentState, slots, hostRAM())
 		if len(cfg.Options) > before {
 			xlog.Info("[hardware_defaults] bounding context checkpoints of a model with a recurrent state",
-				"option", cfg.Options[len(cfg.Options)-1], "state_mib", cfg.recurrentState>>20, "slots", slotsFromOptions(cfg.Options))
+				"option", cfg.Options[len(cfg.Options)-1], "state_mib", cfg.recurrentState>>20, "slots", slots)
 		}
 	}
 }

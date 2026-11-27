@@ -152,10 +152,10 @@ func guessGGUFFromFile(cfg *ModelConfig, f ggufHeader, defaultCtx int) {
 		cfg.modelTemplate = f.ChatTemplate
 	}
 
+	cfg.recurrentState = f.RecurrentStateBytes
 	// Auto-enable Multi-Token Prediction (ggml-org/llama.cpp#22673) when the
 	// GGUF carries an embedded MTP head. Skipped silently for non-MTP models
 	// and when the user already configured a spec_type.
-	cfg.recurrentState = f.RecurrentStateBytes
 	if f.HasMTP {
 		ApplyMTPDefaults(cfg, f.MTPLayers)
 	}
