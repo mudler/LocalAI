@@ -469,6 +469,9 @@ func New(opts ...config.AppOption) (*Application, error) {
 		return nil, err
 	}
 	application.initStudioService()
+	if err := application.initPlugins(); err != nil {
+		return nil, err
+	}
 
 	if err := coreStartup.InstallModels(options.Context, application.GalleryService(), options.Galleries, options.BackendGalleries, options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.RequireBackendIntegrity, nil, options.ModelsURL...); err != nil {
 		xlog.Error("error installing models", "error", err)

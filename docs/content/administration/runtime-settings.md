@@ -211,6 +211,15 @@ The **Tools** tab lists the built-in chat tools, from `GET /api/chats/admin/tool
   - `chats_trigger_max_daily_cap` (1 to 1000, default 1000): the highest daily limit one trigger may have. A trigger with a higher limit runs at this one.
 - **Add-ons that replace a built-in tool** (`chats_tool_providers`, a map such as `{"bash": "sandbox", "xlsx": "office"}`, applies at once): when several add-ons replace one tool, the one that serves it. The keys are the replaceable tools (`bash`, `web_search`, `web_fetch`) and the replaceable built-in skills (`xlsx`, `docx`, `pptx`, `pdf`). A chosen add-on that cannot serve a chat (stopped, off for the chat) leaves the name to the built-in, not to another add-on. With none chosen, the add-on installed first serves (ties go by add-on ID), and the tab marks it as the default and says that you should choose. See [Tools that replace a built-in tool]({{% relref "/addons/contract-reference/owner-forwarding#tools-that-replace-a-built-in-tool" %}}).
 
+### Plugins
+
+The settings of the [plugins]({{% relref "/features/plugins" %}}) compatible with the Claude Code plugin format. They apply at once.
+
+- **Personal plugin installs** (`plugins_user_installs`, default on): users can install plugins that run no code for themselves.
+- **Plugin agent models** (`plugins_model_tiers`, a map such as `{"opus": "qwen3-32b"}`, default `{}`): the model of each agent tier of the format. The keys are `haiku`, `sonnet` and `opus`; another key or an empty model refuses the whole map. An unmapped tier uses the chat's model.
+- **Hook timeout** (`plugins_hook_timeout_seconds`, default `60`, 1 to 600): the longest one hook handler may run.
+- **Plugin size** (`plugins_max_bytes`, default `20971520`, 1048576 to 209715200): the largest size of the files of one plugin.
+
 > **Note:** Most collection settings require a restart to take effect. The settings of the removed agent pool, agent jobs and agent hub (`agent_job_retention_days`, `agent_pool_enable_logs`, `agent_pool_agent_hub_url` and the like) are ignored when found in `runtime_settings.json`.
 
 ## Configuration Persistence

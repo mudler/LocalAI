@@ -54,6 +54,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/notify"
+	"github.com/mudler/LocalAI/core/services/plugins"
 	"github.com/mudler/LocalAI/core/services/routing/admission"
 	"github.com/mudler/LocalAI/core/services/routing/billing"
 	"github.com/mudler/LocalAI/core/services/routing/corpus"
@@ -235,6 +236,8 @@ type Application struct {
 	studioTempDir         string                 // removed at shutdown; set only in memory-only mode
 	studioHostExec        *hostexec.Runner       // the chats' built-in bash on this machine
 	studioFiles           *files.Service
+	pluginsService        *plugins.Service
+	pluginsReason         string
 	studioFilesIndex      io.Closer          // closes the workspace index: ends pending blob removals, frees the JSON folder
 	studioFilesTemp       string             // blob cache folder of a cluster with no data path; removed at shutdown
 	studioTextIndex       *textindex.Indexer // the text of the documents in the files; nil when files are off

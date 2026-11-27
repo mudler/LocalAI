@@ -628,6 +628,51 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.ChatsWorkFolder },
 		func(o *ApplicationConfig) bool { return !o.DisableChatsWorkFolder },
 		func(o *ApplicationConfig, v bool) { o.DisableChatsWorkFolder = !v }),
+	// Plugins in the Claude Code plugin format: read by the Plugins service
+	// at each request, so no restart.
+	field("plugins_user_installs",
+		func(s *RuntimeSettings) **bool { return &s.PluginsUserInstalls },
+		func(o *ApplicationConfig) bool { return !o.Plugins.DisableUserInstalls },
+		func(o *ApplicationConfig, v bool) { o.Plugins.DisableUserInstalls = !v }),
+	withApply(fieldEq("plugins_model_tiers",
+		func(s *RuntimeSettings) **map[string]string { return &s.PluginsModelTiers },
+		func(o *ApplicationConfig) map[string]string { return o.PluginModelTiers() },
+		func(o *ApplicationConfig, v map[string]string) { o.Plugins.ModelTiers = maps.Clone(v) },
+		func(a, b map[string]string) bool { return maps.Equal(a, b) }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			for k, v := range *s.PluginsModelTiers {
+				if !slices.Contains(PluginModelTierNames, k) || strings.TrimSpace(v) == "" {
+					xlog.Warn("invalid plugins_model_tiers in runtime settings", "tier", k)
+					return false
+				}
+			}
+			o.Plugins.ModelTiers = maps.Clone(*s.PluginsModelTiers)
+			return true
+		}),
+	withApply(field("plugins_hook_timeout_seconds",
+		func(s *RuntimeSettings) **int { return &s.PluginsHookTimeoutSeconds },
+		func(o *ApplicationConfig) int { return o.EffectivePluginHookTimeoutSeconds() },
+		func(o *ApplicationConfig, v int) { o.Plugins.HookTimeoutSeconds = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.PluginsHookTimeoutSeconds; v < 1 || v > MaxPluginHookTimeoutSeconds {
+				xlog.Warn("invalid plugins_hook_timeout_seconds in runtime settings", "value", v)
+				return false
+			}
+			o.Plugins.HookTimeoutSeconds = *s.PluginsHookTimeoutSeconds
+			return true
+		}),
+	withApply(field("plugins_max_bytes",
+		func(s *RuntimeSettings) **int64 { return &s.PluginsMaxBytes },
+		func(o *ApplicationConfig) int64 { return o.EffectivePluginMaxBytes() },
+		func(o *ApplicationConfig, v int64) { o.Plugins.MaxBytes = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.PluginsMaxBytes; v < MinPluginMaxBytes || v > MaxPluginMaxBytes {
+				xlog.Warn("invalid plugins_max_bytes in runtime settings", "value", v)
+				return false
+			}
+			o.Plugins.MaxBytes = *s.PluginsMaxBytes
+			return true
+		}),
 	// The text index of the documents in the chats' files: read at each pass
 	// of the indexer, so no restart. The switch is stored as the negation, so
 	// it is on by default; the snapshot of the cap is the cap that applies.

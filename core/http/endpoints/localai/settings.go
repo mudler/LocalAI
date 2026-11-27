@@ -625,6 +625,19 @@ func validateEgressSettings(s config.RuntimeSettings, body []byte, privateOn boo
 	if s.ChatsIndexMaxTextBytes != nil && (*s.ChatsIndexMaxTextBytes < config.MinChatsIndexMaxTextBytes || *s.ChatsIndexMaxTextBytes > config.MaxChatsIndexMaxTextBytes) {
 		return fmt.Sprintf("Invalid chats_index_max_text_bytes: use %d to %d", config.MinChatsIndexMaxTextBytes, config.MaxChatsIndexMaxTextBytes)
 	}
+	if s.PluginsHookTimeoutSeconds != nil && (*s.PluginsHookTimeoutSeconds < 1 || *s.PluginsHookTimeoutSeconds > config.MaxPluginHookTimeoutSeconds) {
+		return fmt.Sprintf("Invalid plugins_hook_timeout_seconds: use 1 to %d", config.MaxPluginHookTimeoutSeconds)
+	}
+	if s.PluginsMaxBytes != nil && (*s.PluginsMaxBytes < config.MinPluginMaxBytes || *s.PluginsMaxBytes > config.MaxPluginMaxBytes) {
+		return fmt.Sprintf("Invalid plugins_max_bytes: use %d to %d", config.MinPluginMaxBytes, config.MaxPluginMaxBytes)
+	}
+	if s.PluginsModelTiers != nil {
+		for k, v := range *s.PluginsModelTiers {
+			if !slices.Contains(config.PluginModelTierNames, k) || strings.TrimSpace(v) == "" {
+				return "Invalid plugins_model_tiers: the keys are haiku, sonnet and opus, each with a model"
+			}
+		}
+	}
 	if s.ChatsExtractMaxBytes != nil && (*s.ChatsExtractMaxBytes < config.MinChatsExtractMaxBytes || *s.ChatsExtractMaxBytes > config.MaxChatsExtractMaxBytes) {
 		return fmt.Sprintf("Invalid chats_extract_max_bytes: use %d to %d", config.MinChatsExtractMaxBytes, config.MaxChatsExtractMaxBytes)
 	}

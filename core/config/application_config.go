@@ -105,6 +105,10 @@ type ApplicationConfig struct {
 
 	Addons AddonConfig `json:"-" yaml:"-"`
 
+	// Plugins holds the settings of the plugins in the Claude Code plugin
+	// format.
+	Plugins PluginsConfig `json:"-" yaml:"-"`
+
 	// AddonHostOps maps an add-on ID to the host operation prefixes it may
 	// call. It is startup-only. Nil or empty means no add-on gets a host
 	// operation endpoint.

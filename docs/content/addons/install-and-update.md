@@ -502,6 +502,9 @@ setting back on restores exactly what was there. Sources you added are not affec
 change applies at once, with no restart. On a frontend the switch is read-only: the
 owner's value applies, and a change there reaches the frontends within 60 seconds.
 
+The same setting suspends the default marketplaces of [plugins]({{% relref "/features/plugins" %}}),
+such as the curated LocalAI marketplace, in the same way.
+
 ### Source routes
 
 The routes are for administrators. A caller who is not an administrator gets `403`, and a

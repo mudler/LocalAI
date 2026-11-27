@@ -168,6 +168,16 @@ type RuntimeSettings struct {
 	// Name each chat's work folder in its prompt, so scripts, logs and drafts
 	// go there and not next to the user's files (default: true). Read at
 	// each turn.
+	// Plugins in the Claude Code plugin format: personal installs of
+	// text-only plugins (default: true), the models of the agent tiers
+	// haiku, sonnet and opus (default: none, the chat's model), the cap of
+	// one hook handler, 1 to 600 seconds (default: 60), and the cap of the
+	// files of one plugin, 1 MiB to 200 MiB (default: 20 MiB).
+	PluginsUserInstalls       *bool              `json:"plugins_user_installs,omitempty"`
+	PluginsModelTiers         *map[string]string `json:"plugins_model_tiers,omitempty"`
+	PluginsHookTimeoutSeconds *int               `json:"plugins_hook_timeout_seconds,omitempty"`
+	PluginsMaxBytes           *int64             `json:"plugins_max_bytes,omitempty"`
+
 	ChatsWorkFolder *bool `json:"chats_work_folder,omitempty"`
 	// Read the text of PDF and Office files in the chats' files so that
 	// search finds them by what they say (default: true), and the most text

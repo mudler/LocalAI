@@ -55,6 +55,7 @@ type RunCMD struct {
 	AddonsOfficialLibrary        bool   `name:"addons-official-library" env:"LOCALAI_ADDONS_OFFICIAL_LIBRARY" default:"true" help:"Register the official add-on library on the first start, when the add-on owner has no sources.json yet. A library the admin removes later stays removed. Turn it off with --addons-official-library=false" group:"addons"`
 	AddonsBackendLibrary         bool   `name:"addons-backend-library" env:"LOCALAI_ADDONS_BACKEND_LIBRARY" default:"true" help:"Register the backend library on the first start, when the add-on owner has no sources.json yet. A build from master reads it as the backend source; a tagged build reads the backend gallery until the release cutover. Turn it off to read the backend gallery only" group:"addons"`
 	OfficialLibraries            bool   `name:"official-libraries" env:"LOCALAI_OFFICIAL_LIBRARIES" default:"true" help:"Use the official (shipped default) library sources of add-ons, backends and models. Off: they stay in the list, shown as off, and are not read. Sources you added are not affected. Also a runtime setting (official_libraries)" group:"addons"`
+	PluginMarketplaces           string `name:"plugin-marketplaces" env:"LOCALAI_PLUGIN_MARKETPLACES" help:"Marketplaces of plugins in the Claude Code plugin format that a fresh server gets instead of the curated LocalAI marketplace: comma-separated owner/repo, https git URLs or https marketplace.json URLs, each optionally id=source. Read at the first start only" group:"addons"`
 	AddonsBackendMaxBytes        int64  `name:"addons-backend-max-bytes" env:"LOCALAI_ADDONS_BACKEND_MAX_BYTES" default:"8589934592" help:"Largest compressed size, in bytes, of a backend image installed from a library. Add-ons keep their own limit of 512 MiB" group:"addons"`
 	AddonsWSLDistro              string `name:"addons-wsl-distro" env:"LOCALAI_ADDONS_WSL_DISTRO" help:"Windows only: the WSL 2 distribution that runs the add-ons whose package runs in WSL 2 (osSettings.windows.execution wsl2). Empty uses the default distribution of WSL" group:"addons"`
 	Pprof                        bool   `name:"pprof" env:"LOCALAI_PPROF" default:"false" help:"Enable the private loopback profiling listener" group:"diagnostics"`
@@ -995,6 +996,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 
 	opts = append(opts, config.WithOfficialLibraries(r.OfficialLibraries))
+	opts = append(opts, config.WithPluginMarketplaces(r.PluginMarketplaces))
 
 	if r.AutoUpgradeBackends {
 		opts = append(opts, config.WithAutoUpgradeBackends(r.AutoUpgradeBackends))

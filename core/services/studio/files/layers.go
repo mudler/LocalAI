@@ -24,6 +24,10 @@ const (
 	// per add-on: /addon-skills/<add-on>/<skill>/SKILL.md. The add-on owner
 	// writes it when it installs, upgrades or starts.
 	AddonSkillsPath = "/addon-skills"
+	// PluginsPath holds the packages of the plugins in the Claude Code plugin
+	// format, one read-only folder per content digest:
+	// /plugins/<digest-hex>/. The Plugins service writes it.
+	PluginsPath = "/plugins"
 )
 
 // The paths the model uses for the layers: their mount names in a chat's view
