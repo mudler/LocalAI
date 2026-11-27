@@ -50,7 +50,7 @@ test.describe('Agent form', () => {
     expect(s.calls.find(c => c.method === 'PUT').body).toEqual({
       name: 'Reviewer', description: 'Checks a change', instructions: 'Answer in French.', model: '',
       mcp_servers: ['connector:m1'], addons: [], collections: ['handbook'], skills: ['citations'], builtins_off: [], builtins_on: [],
-      builtins: [], network: 'off',
+      builtins: [], network: 'off', plugins: [],
     })
   })
 

@@ -101,6 +101,7 @@ test.describe('New agent wizard', () => {
       name: 'helper', description: '', instructions: 'Be brief.', model: '', network: 'off', memory: 'mine_and_own',
       mcp_servers: [], addons: [], collections: [], skills: [], builtins_off: [], builtins_on: [],
       builtins: ['triggers.propose', 'triggers.run', 'talkback.channels', 'files.upload', 'memory.write'],
+      plugins: [],
     })
     // Nothing was chosen, so there is no card.
     await expect(page.getByTestId('agent-setup')).toHaveCount(0)
