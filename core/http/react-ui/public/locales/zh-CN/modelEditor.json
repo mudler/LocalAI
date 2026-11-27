@@ -118,7 +118,7 @@
         },
         "choices": {
             "load_mode": {
-                "default": "默认（内存映射）",
+                "default": "默认（自动）",
                 "none": "无（读入内存）",
                 "mmap": "mmap",
                 "mlock": "mlock",
@@ -267,21 +267,58 @@
             "now": "当前：除权重外，{{context}} 个 token 时 KV 缓存约 {{kv}}，计算缓冲区约 {{compute}}。",
             "estimate": "这些数值是估算值。",
             "approximate": "粗略估算：未从文件中读取模型结构。",
-            "failed": "内存估算不可用。"
+            "failed": "内存估算不可用。",
+            "batch": "批大小",
+            "concurrency": "并发",
+            "bestFor": "适合：{{use}}",
+            "share": "每个流约 {{tokens}} 个上下文 token",
+            "tight": "f16 KV 缓存放不下，因此使用 8 位缓存。",
+            "unsupported": "此处不提供",
+            "needs": "需要 {{size}} 内存",
+            "noFit": "放不下：约 {{size}}，上限 {{limit}}",
+            "shared": "各槽位共享同一个 KV 缓存，因此流越多所需内存大致不变：每个流分到的上下文更少。"
         },
         "profiles": {
             "balanced": {
                 "name": "均衡",
-                "text": "默认值：LocalAI 按你的 GPU 选择批大小和槽位，使用 f16 KV 缓存。"
+                "text": "默认批大小：由 LocalAI 按你的 GPU 选择。"
             },
             "longPrompts": {
-                "name": "长提示词",
-                "text": "批大小和微批大小为 2048。长提示词读取快得多；计算缓冲区占用更多内存。"
+                "name": "长提示",
+                "text": "批大小 2048。长提示读取快得多，计算缓冲区占用更多内存。",
+                "memory": {
+                    "discrete": "独立显卡上微批大小为 1024：其计算缓冲区必须放进单张卡。"
+                }
             },
-            "concurrent": {
-                "name": "更多并发用户",
-                "text": "8 位 KV 缓存、分页服务和 8 个槽位。相同内存可容纳约两倍的 token，由更多用户共享，质量略有下降。",
-                "note": "在 llama.cpp 提供快速内核之前，量化的 KV 缓存在某些注意力路径上可能更慢。分页服务需要支持它的后端构建；其他构建会忽略该选项。"
+            "concurrencyDefault": {
+                "name": "默认",
+                "text": "LocalAI 按你的 GPU 选择槽位，后端使用其默认服务设置。",
+                "bestFor": "一人或少数人。"
+            },
+            "streams8": {
+                "name": "8 个流",
+                "text": "8 个槽位并启用分页服务：请求共享 KV 缓存，缓存满时等待而不是失败。",
+                "bestFor": "一个团队与同一模型聊天。",
+                "short": "8"
+            },
+            "streams16": {
+                "name": "16 个流",
+                "text": "16 个槽位，运行 16 个请求时使用 GPU 采样，不使用草稿解码。",
+                "bestFor": "并行发送请求的智能体和工具。",
+                "memory": {
+                    "system": "无 GPU：在 CPU 上采样 token。"
+                },
+                "short": "16"
+            },
+            "streams32": {
+                "name": "32+ 个流",
+                "text": "32 个槽位，始终使用 GPU 采样，不使用草稿解码：总 token 速率最高，每个流更慢。",
+                "bestFor": "批处理任务和大量同时在线的用户。",
+                "memory": {
+                    "discrete": "8 位 KV 缓存：可容纳约两倍的 token，质量和速度略有损失。",
+                    "system": "无 GPU 时不提供：32 个流共享一个 CPU 会让每个流都太慢。"
+                },
+                "short": "32+"
             }
         },
         "choiceHints": {
@@ -289,6 +326,9 @@
                 "off": "在 CPU 上采样 token。不向文件写入任何内容。",
                 "auto": "当模型在 GPU 上运行且有多个并行请求，并且请求不需要语法约束或 logprobs 时，使用 GPU 采样。",
                 "on": "在 GPU 上采样 token。并行请求多时更快。对使用语法约束、推理预算或 logprobs 的请求会自动关闭。"
+            },
+            "load_mode": {
+                "default": "由 llama.cpp 选择：使用内存映射，但在会占用两份模型内存的集成显卡上不使用。"
             }
         },
         "groupCount": "{{count}} 项设置",
@@ -398,6 +438,33 @@
                 "split": "（{{weights}} 权重，以及 {{context}} 个 token 时的 {{kv}} KV 缓存）。",
                 "none": "此模型没有估算。",
                 "unmatched": "没有估算：大约为文件大小加上与模型上下文一样大的 KV 缓存。"
+            }
+        },
+        "memory": {
+            "label": "内存类型",
+            "auto": "检测到：{{kind}}",
+            "autoUnknown": "未检测到",
+            "detected": "此服务器上的{{kind}}（{{size}}）",
+            "detectedDevice": "此服务器上的{{kind}}：{{device}}，{{size}}",
+            "chosen": "{{kind}}，由你选择",
+            "unknown": "未检测到内存类型：使用{{kind}}的规则",
+            "useValue": "使用{{value}}",
+            "kinds": {
+                "unified": {
+                    "label": "统一内存",
+                    "doc": "GPU 与系统共享内存（DGX Spark、Jetson、Apple 芯片、AMD APU）。可放更多槽位；提示缓存和检查点占用同一块内存，因此保持较小。"
+                },
+                "discrete": {
+                    "label": "独立显卡",
+                    "doc": "GPU 有自己的显存。槽位数受显存估算限制，32 个流使用 8 位 KV 缓存，提示缓存留在系统内存中。"
+                },
+                "system": {
+                    "label": "无 GPU",
+                    "doc": "模型在 CPU 上使用系统内存运行。缓存保持较小，不提供 32 个流。"
+                }
+            },
+            "advice": {
+                "unifiedLoadMode": "在统一内存上，内存映射的模型在复制到 GPU 时会占用两份内存。选择默认可让 llama.cpp 在集成显卡上跳过 mmap。"
             }
         }
     }

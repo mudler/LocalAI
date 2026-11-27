@@ -154,7 +154,7 @@
         },
         "choices": {
             "load_mode": {
-                "default": "Varsayılan (belleğe eşlenmiş)",
+                "default": "Varsayılan (otomatik)",
                 "none": "Yok (belleğe oku)",
                 "mmap": "mmap",
                 "mlock": "mlock",
@@ -411,21 +411,58 @@
             "now": "Şu an: ağırlıkların yanında, {{context}} token'da KV önbelleği ≈ {{kv}} ve hesaplama tamponları ≈ {{compute}}.",
             "estimate": "Bu rakamlar tahmindir.",
             "approximate": "Kaba tahminler: model düzeni dosyadan okunmadı.",
-            "failed": "Bellek tahmini kullanılamıyor."
+            "failed": "Bellek tahmini kullanılamıyor.",
+            "batch": "Toplu iş",
+            "concurrency": "Eşzamanlılık",
+            "bestFor": "En uygun: {{use}}",
+            "share": "Akış başına yaklaşık {{tokens}} bağlam belirteci",
+            "tight": "f16 KV önbelleği sığmıyor, bu yüzden 8 bitlik olan kullanılıyor.",
+            "unsupported": "Burada sunulmuyor",
+            "needs": "{{size}} bellek gerekir",
+            "noFit": "Sığmıyor: ≈ {{size}} / {{limit}}",
+            "shared": "Yuvalar tek bir KV önbelleğini paylaşır; bu yüzden daha fazla akış yaklaşık aynı belleği ister: her akış bağlamın daha küçük bir payını alır."
         },
         "profiles": {
             "balanced": {
                 "name": "Dengeli",
-                "text": "Varsayılanlar: LocalAI, f16 KV önbelleğiyle GPU'n için batch ve slotları seçer."
+                "text": "Varsayılan toplu iş boyutları: LocalAI bunları GPU'nuz için seçer."
             },
             "longPrompts": {
-                "name": "Uzun prompt'lar",
-                "text": "2048'lik batch ve mikro batch. Uzun prompt'lar çok daha hızlı okunur; hesaplama tamponları daha fazla bellek kullanır."
+                "name": "Uzun istemler",
+                "text": "2048'lik bir toplu iş. Uzun istemler çok daha hızlı okunur; hesaplama arabellekleri daha fazla bellek kullanır.",
+                "memory": {
+                    "discrete": "Ayrık GPU'da mikro toplu iş 1024'tür: hesaplama arabelleği tek bir karta sığmalıdır."
+                }
             },
-            "concurrent": {
-                "name": "Daha fazla eşzamanlı kullanıcı",
-                "text": "8 bit KV önbelleği, sayfalı sunum ve 8 slot. Aynı belleğe yaklaşık iki kat token sığar ve daha fazla kullanıcı paylaşır; kalitede küçük bir kayıp olur.",
-                "note": "Nicemlenmiş bir KV önbelleği, llama.cpp bazı dikkat yolları için hızlı bir kernel sunana kadar bu yollarda daha yavaş olabilir. Sayfalı sunum, bunu destekleyen bir backend derlemesi gerektirir; diğer derlemeler bu seçeneği yok sayar."
+            "concurrencyDefault": {
+                "name": "Varsayılan",
+                "text": "LocalAI yuvaları GPU'nuz için seçer ve arka uç kendi varsayılanlarını kullanır.",
+                "bestFor": "Bir veya birkaç kişi."
+            },
+            "streams8": {
+                "name": "8 akış",
+                "text": "Sayfalı sunumla 8 yuva: istekler KV önbelleğini paylaşır ve önbellek dolunca başarısız olmak yerine bekler.",
+                "bestFor": "Tek bir modelle sohbet eden bir ekip.",
+                "short": "8"
+            },
+            "streams16": {
+                "name": "16 akış",
+                "text": "16 yuva, 16 istek çalışırken GPU örnekleme, taslak yok.",
+                "bestFor": "Paralel istek gönderen ajanlar ve araçlar.",
+                "memory": {
+                    "system": "GPU yok: belirteçler CPU'da örneklenir."
+                },
+                "short": "16"
+            },
+            "streams32": {
+                "name": "32+ akış",
+                "text": "Her zaman açık GPU örnekleme ve taslaksız 32 yuva: toplamda en çok saniyede belirteç, her akış daha yavaş.",
+                "bestFor": "Toplu işler ve aynı anda çok sayıda kullanıcı.",
+                "memory": {
+                    "discrete": "8 bitlik KV önbelleği: yaklaşık iki kat belirteç sığar, kalite ve hızda küçük bir kayıpla.",
+                    "system": "GPU olmadan sunulmaz: 32 akışa bölünen bir CPU her birini fazla yavaşlatır."
+                },
+                "short": "32+"
             }
         },
         "choiceHints": {
@@ -433,8 +470,38 @@
                 "off": "Token'ları CPU'da örnekle. Dosyaya hiçbir şey yazılmaz.",
                 "auto": "Model birkaç paralel istekle bir GPU'da çalıştığında ve istek grammar ya da logprobs gerektirmediğinde GPU örneklemesini kullan.",
                 "on": "Token'ları GPU'da örnekle. Çok sayıda paralel istekte daha hızlıdır. Grammar, akıl yürütme bütçesi ya da logprobs kullanan isteklerde kendiliğinden kapanır."
+            },
+            "load_mode": {
+                "default": "llama.cpp seçer: belleğe eşlenir; modeli iki kez tutacak tümleşik GPU'lar hariç."
             }
         },
-        "groupCount": "{{count}} ayar"
+        "groupCount": "{{count}} ayar",
+        "memory": {
+            "label": "Bellek türü",
+            "auto": "Algılanan: {{kind}}",
+            "autoUnknown": "Algılanmadı",
+            "detected": "Bu sunucuda {{kind}} ({{size}})",
+            "detectedDevice": "Bu sunucuda {{kind}}: {{device}}, {{size}}",
+            "chosen": "{{kind}}, sizin seçiminiz",
+            "unknown": "Bellek türü algılanmadı: {{kind}} kuralları kullanılıyor",
+            "useValue": "{{value}} kullan",
+            "kinds": {
+                "unified": {
+                    "label": "Birleşik bellek",
+                    "doc": "GPU sistem belleğini paylaşır (DGX Spark, Jetson, Apple silicon, AMD APU'lar). Daha fazla yuva sığar; istem önbelleği ve kontrol noktaları aynı belleği kullandığı için küçük tutulur."
+                },
+                "discrete": {
+                    "label": "Ayrık GPU",
+                    "doc": "GPU'nun kendi belleği vardır. Yuvalar VRAM tahminiyle sınırlanır, 32 akış 8 bitlik KV önbelleği kullanır ve istem önbelleği sistem belleğinde kalır."
+                },
+                "system": {
+                    "label": "GPU yok",
+                    "doc": "Model sistem belleğinde CPU üzerinde çalışır. Önbellekler küçük tutulur ve 32 akış sunulmaz."
+                }
+            },
+            "advice": {
+                "unifiedLoadMode": "Birleşik bellekte, belleğe eşlenen bir model GPU'ya kopyalanırken iki kez yer kaplar. Varsayılan, llama.cpp'nin tümleşik GPU'larda mmap'i atlamasını sağlar."
+            }
+        }
     }
 }

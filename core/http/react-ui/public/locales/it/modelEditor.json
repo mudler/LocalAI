@@ -118,7 +118,7 @@
         },
         "choices": {
             "load_mode": {
-                "default": "Predefinita (mappata in memoria)",
+                "default": "Predefinito (auto)",
                 "none": "Nessuna (letta in memoria)",
                 "mmap": "mmap",
                 "mlock": "mlock",
@@ -267,21 +267,58 @@
             "now": "Ora: cache KV ≈ {{kv}} e buffer di calcolo ≈ {{compute}} a {{context}} token, oltre ai pesi.",
             "estimate": "Questi valori sono stime.",
             "approximate": "Stime approssimative: la struttura del modello non è stata letta dal file.",
-            "failed": "La stima della memoria non è disponibile."
+            "failed": "La stima della memoria non è disponibile.",
+            "batch": "Batch",
+            "concurrency": "Concorrenza",
+            "bestFor": "Ideale per: {{use}}",
+            "share": "Circa {{tokens}} token di contesto per flusso",
+            "tight": "La cache KV f16 non entra, quindi si usa quella a 8 bit.",
+            "unsupported": "Non disponibile qui",
+            "needs": "Servono {{size}} di memoria",
+            "noFit": "Non entra: ≈ {{size}} su {{limit}}",
+            "shared": "Gli slot condividono una sola cache KV, quindi più flussi richiedono circa la stessa memoria: ogni flusso ottiene una parte più piccola del contesto."
         },
         "profiles": {
             "balanced": {
-                "name": "Bilanciata",
-                "text": "I valori predefiniti: LocalAI sceglie batch e slot per la tua GPU, con cache KV f16."
+                "name": "Bilanciato",
+                "text": "Le dimensioni di batch predefinite: LocalAI le sceglie per la tua GPU."
             },
             "longPrompts": {
                 "name": "Prompt lunghi",
-                "text": "Batch e micro-batch da 2048. I prompt lunghi vengono letti molto più in fretta; i buffer di calcolo usano più memoria."
+                "text": "Un batch di 2048. I prompt lunghi vengono letti molto più in fretta; i buffer di calcolo usano più memoria.",
+                "memory": {
+                    "discrete": "Su una GPU dedicata il micro-batch è 1024: il suo buffer di calcolo deve stare in una sola scheda."
+                }
             },
-            "concurrent": {
-                "name": "Più utenti insieme",
-                "text": "Cache KV a 8 bit, servizio a pagine e 8 slot. Nella stessa memoria entrano circa il doppio dei token, condivisi da più utenti, con una piccola perdita di qualità.",
-                "note": "Una cache KV quantizzata può essere più lenta su alcuni percorsi di attenzione finché llama.cpp non ha un kernel veloce per loro. Il servizio a pagine richiede una build del backend che lo supporta; le altre build ignorano l'opzione."
+            "concurrencyDefault": {
+                "name": "Predefinito",
+                "text": "LocalAI sceglie gli slot per la tua GPU e il backend usa i suoi valori predefiniti.",
+                "bestFor": "Una persona o poche."
+            },
+            "streams8": {
+                "name": "8 flussi",
+                "text": "8 slot con il serving paginato: le richieste condividono la cache KV e aspettano invece di fallire quando è piena.",
+                "bestFor": "Un team che chatta con un modello.",
+                "short": "8"
+            },
+            "streams16": {
+                "name": "16 flussi",
+                "text": "16 slot, campionamento su GPU quando girano 16 richieste, nessuna bozza.",
+                "bestFor": "Agenti e strumenti che inviano richieste in parallelo.",
+                "memory": {
+                    "system": "Nessuna GPU: i token sono campionati sulla CPU."
+                },
+                "short": "16"
+            },
+            "streams32": {
+                "name": "32+ flussi",
+                "text": "32 slot con campionamento su GPU sempre attivo e nessuna bozza: il massimo di token al secondo in totale, ogni flusso più lento.",
+                "bestFor": "Lavori batch e molti utenti insieme.",
+                "memory": {
+                    "discrete": "Cache KV a 8 bit: entrano circa il doppio dei token, con un piccolo costo in qualità e velocità.",
+                    "system": "Non disponibile senza GPU: una CPU divisa fra 32 flussi rende ognuno troppo lento."
+                },
+                "short": "32+"
             }
         },
         "choiceHints": {
@@ -289,6 +326,9 @@
                 "off": "Campiona i token sulla CPU. Nel file non viene scritto nulla.",
                 "auto": "Usa il campionamento su GPU quando il modello gira su una GPU con più richieste in parallelo e la richiesta non usa una grammatica o i logprobs.",
                 "on": "Campiona i token sulla GPU. Più veloce con molte richieste in parallelo. Si disattiva da solo per le richieste con una grammatica, un budget di ragionamento o i logprobs."
+            },
+            "load_mode": {
+                "default": "Sceglie llama.cpp: mappato in memoria, tranne sulle GPU integrate dove il modello occuperebbe il doppio."
             }
         },
         "groupCount": "{{count}} impostazioni",
@@ -398,6 +438,33 @@
                 "split": "({{weights}} di pesi e {{kv}} di cache KV a {{context}} token).",
                 "none": "Nessuna stima per questo modello.",
                 "unmatched": "Nessuna stima: considera circa la dimensione del file più una cache KV grande quanto il contesto del modello."
+            }
+        },
+        "memory": {
+            "label": "Tipo di memoria",
+            "auto": "Rilevato: {{kind}}",
+            "autoUnknown": "Non rilevato",
+            "detected": "{{kind}} su questo server ({{size}})",
+            "detectedDevice": "{{kind}} su questo server: {{device}}, {{size}}",
+            "chosen": "{{kind}}, scelto da te",
+            "unknown": "Tipo di memoria non rilevato: si usano le regole per {{kind}}",
+            "useValue": "Usa {{value}}",
+            "kinds": {
+                "unified": {
+                    "label": "Memoria unificata",
+                    "doc": "La GPU condivide la memoria di sistema (DGX Spark, Jetson, Apple silicon, APU AMD). Entrano più slot; la cache dei prompt e i checkpoint restano piccoli perché usano la stessa memoria."
+                },
+                "discrete": {
+                    "label": "GPU dedicata",
+                    "doc": "La GPU ha una memoria propria. Gli slot sono limitati dalla stima della VRAM, con 32 flussi la cache KV è a 8 bit e la cache dei prompt resta nella memoria di sistema."
+                },
+                "system": {
+                    "label": "Nessuna GPU",
+                    "doc": "Il modello gira sulla CPU nella memoria di sistema. Le cache restano piccole e 32 flussi non sono disponibili."
+                }
+            },
+            "advice": {
+                "unifiedLoadMode": "Con la memoria unificata, un modello mappato in memoria occupa il doppio mentre viene copiato sulla GPU. Predefinito lascia che llama.cpp eviti mmap sulle GPU integrate."
             }
         }
     }

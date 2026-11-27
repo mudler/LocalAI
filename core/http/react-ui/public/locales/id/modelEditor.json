@@ -154,7 +154,7 @@
         },
         "choices": {
             "load_mode": {
-                "default": "Bawaan (dipetakan ke memori)",
+                "default": "Bawaan (otomatis)",
                 "none": "Tidak ada (dibaca ke memori)",
                 "mmap": "mmap",
                 "mlock": "mlock",
@@ -303,21 +303,58 @@
             "now": "Sekarang: cache KV ≈ {{kv}} dan buffer komputasi ≈ {{compute}} pada {{context}} token, di luar bobot.",
             "estimate": "Angka-angka ini adalah perkiraan.",
             "approximate": "Perkiraan kasar: susunan model tidak dibaca dari file.",
-            "failed": "Perkiraan memori tidak tersedia."
+            "failed": "Perkiraan memori tidak tersedia.",
+            "batch": "Batch",
+            "concurrency": "Konkurensi",
+            "bestFor": "Cocok untuk: {{use}}",
+            "share": "Sekitar {{tokens}} token konteks per aliran",
+            "tight": "Cache KV f16 tidak muat, jadi dipakai cache 8-bit.",
+            "unsupported": "Tidak tersedia di sini",
+            "needs": "Butuh memori {{size}}",
+            "noFit": "Tidak muat: ≈ {{size}} dari {{limit}}",
+            "shared": "Slot berbagi satu cache KV, jadi lebih banyak aliran butuh memori yang kurang lebih sama: tiap aliran mendapat bagian konteks yang lebih kecil."
         },
         "profiles": {
             "balanced": {
                 "name": "Seimbang",
-                "text": "Bawaan: LocalAI memilih batch dan slot untuk GPU Anda, dengan cache KV f16."
+                "text": "Ukuran batch bawaan: LocalAI memilihnya untuk GPU Anda."
             },
             "longPrompts": {
                 "name": "Prompt panjang",
-                "text": "Batch dan micro-batch 2048. Prompt panjang dibaca jauh lebih cepat; buffer komputasi memakai lebih banyak memori."
+                "text": "Batch 2048. Prompt panjang dibaca jauh lebih cepat; buffer komputasi memakai lebih banyak memori.",
+                "memory": {
+                    "discrete": "Pada GPU diskret micro-batch-nya 1024: buffer komputasinya harus muat di satu kartu."
+                }
             },
-            "concurrent": {
-                "name": "Lebih banyak pengguna serentak",
-                "text": "Cache KV 8-bit, layanan berhalaman, dan 8 slot. Sekitar dua kali lipat token muat di memori yang sama, dibagi oleh lebih banyak pengguna, dengan sedikit penurunan kualitas.",
-                "note": "Cache KV terkuantisasi bisa lebih lambat pada beberapa jalur atensi sampai llama.cpp punya kernel cepat untuknya. Layanan berhalaman butuh build backend yang mendukungnya; build lain mengabaikan opsi ini."
+            "concurrencyDefault": {
+                "name": "Bawaan",
+                "text": "LocalAI memilih slot untuk GPU Anda dan backend memakai nilai bawaannya.",
+                "bestFor": "Satu orang, atau beberapa."
+            },
+            "streams8": {
+                "name": "8 aliran",
+                "text": "8 slot dengan paged serving: permintaan berbagi cache KV dan menunggu, bukan gagal, saat cache penuh.",
+                "bestFor": "Tim yang mengobrol dengan satu model.",
+                "short": "8"
+            },
+            "streams16": {
+                "name": "16 aliran",
+                "text": "16 slot, sampling GPU saat 16 permintaan berjalan, tanpa drafting.",
+                "bestFor": "Agen dan alat yang mengirim permintaan secara paralel.",
+                "memory": {
+                    "system": "Tanpa GPU: token di-sampling di CPU."
+                },
+                "short": "16"
+            },
+            "streams32": {
+                "name": "32+ aliran",
+                "text": "32 slot dengan sampling GPU selalu aktif dan tanpa drafting: token per detik total paling tinggi, tiap aliran lebih lambat.",
+                "bestFor": "Pekerjaan batch dan banyak pengguna sekaligus.",
+                "memory": {
+                    "discrete": "Cache KV 8-bit: kira-kira dua kali lebih banyak token muat, dengan sedikit penurunan kualitas dan kecepatan.",
+                    "system": "Tidak tersedia tanpa GPU: CPU yang dibagi 32 aliran membuat tiap aliran terlalu lambat."
+                },
+                "short": "32+"
             }
         },
         "choiceHints": {
@@ -325,6 +362,9 @@
                 "off": "Sampling token di CPU. Tidak ada yang ditulis ke file.",
                 "auto": "Gunakan sampling GPU saat model berjalan di GPU dengan beberapa permintaan paralel dan permintaan tidak butuh grammar atau logprobs.",
                 "on": "Sampling token di GPU. Lebih cepat dengan banyak permintaan paralel. Dimatikan otomatis untuk permintaan yang memakai grammar, anggaran penalaran, atau logprobs."
+            },
+            "load_mode": {
+                "default": "llama.cpp yang memilih: di-mmap, kecuali pada GPU terintegrasi yang akan menyimpan model dua kali."
             }
         },
         "groupCount": "{{count}} pengaturan",
@@ -434,6 +474,33 @@
                 "split": "({{weights}} bobot dan {{kv}} cache KV pada {{context}} token).",
                 "none": "Tidak ada perkiraan untuk model ini.",
                 "unmatched": "Tidak ada perkiraan: perkirakan sekitar ukuran berkas ditambah cache KV sebesar konteks model."
+            }
+        },
+        "memory": {
+            "label": "Jenis memori",
+            "auto": "Terdeteksi: {{kind}}",
+            "autoUnknown": "Tidak terdeteksi",
+            "detected": "{{kind}} di server ini ({{size}})",
+            "detectedDevice": "{{kind}} di server ini: {{device}}, {{size}}",
+            "chosen": "{{kind}}, pilihan Anda",
+            "unknown": "Jenis memori tidak terdeteksi: memakai aturan {{kind}}",
+            "useValue": "Pakai {{value}}",
+            "kinds": {
+                "unified": {
+                    "label": "Memori terpadu",
+                    "doc": "GPU berbagi memori sistem (DGX Spark, Jetson, Apple silicon, APU AMD). Lebih banyak slot muat; cache prompt dan checkpoint dibuat kecil karena memakai memori yang sama."
+                },
+                "discrete": {
+                    "label": "GPU diskret",
+                    "doc": "GPU punya memori sendiri. Slot dibatasi oleh estimasi VRAM, 32 aliran memakai cache KV 8-bit, dan cache prompt tetap di memori sistem."
+                },
+                "system": {
+                    "label": "Tanpa GPU",
+                    "doc": "Model berjalan di CPU dalam memori sistem. Cache dibuat kecil, dan 32 aliran tidak ditawarkan."
+                }
+            },
+            "advice": {
+                "unifiedLoadMode": "Pada memori terpadu, model yang di-mmap tersimpan dua kali saat disalin ke GPU. Default membiarkan llama.cpp melewati mmap pada GPU terintegrasi."
             }
         }
     }

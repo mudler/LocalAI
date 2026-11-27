@@ -121,6 +121,18 @@
 .rt-quick__mem--more { color: var(--dk-warn-text); }
 .rt-quick__mem--less { color: var(--dk-ok-text); }
 .rt-quick__now { margin: 0; }
+.rt-quick__mem--off { color: var(--dk-muted); font-weight: var(--dk-weight-regular); white-space: normal; }
+/* One choice of the quick setup: the batch, or the concurrency. */
+.rt-quick__set { display: grid; gap: var(--dk-space-2); min-width: 0; }
+.rt-quick__title { font-weight: var(--dk-weight-semibold); min-width: 7rem; }
+.rt-quick__meta { display: block; margin-top: 2px; font-size: var(--dk-text-12); }
+/* The memory kind the setups use, with the override. */
+.rt-quick__memory {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: var(--dk-space-2) var(--dk-space-3);
+}
+.rt-quick__memory-text { display: grid; gap: 2px; min-width: 0; flex: 1 1 16rem; }
+.rt-quick__memory-line { font-weight: var(--dk-weight-semibold); }
 
 @container (max-width: 520px) {
   .rt-quick__row { grid-template-columns: minmax(0, 1fr) auto; }

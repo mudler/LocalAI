@@ -5,7 +5,7 @@ import {
   readEntry, readCombined, writeCombined, placementRequest, placementModes, choiceFromPlacement, patternOf,
   validateOverride, ownedOptionNames, rawOptions, replaceRawOptions, validateRawOption,
   rawOptionFor, applyPreset, applyParsed, describeChanges, undoChanges, diffPaths, unflatten,
-  optionNames, hasCapability, readProfile, withProfile, CUSTOM_PROFILE,
+  optionNames, hasCapability, readProfile, withProfile, resolveProfile, CUSTOM_PROFILE, CONCURRENCY_SET,
 } from '../../src/utils/engineSettings.js'
 import { isAllLayers } from '../../src/utils/placement.js'
 // The answers of the real handlers (pkg/enginesettings), saved for the specs.
@@ -262,7 +262,13 @@ test('engine settings: a preset fills settings, lists them and undoes them', () 
 })
 
 test('engine settings: the quick setup profiles are apart from the presets', () => {
-  assert.deepEqual(schema.profiles.map(p => p.id), ['balanced', 'longPrompts', 'concurrent'])
+  assert.deepEqual(schema.profiles.map(p => p.id), ['balanced', 'longPrompts'])
+  assert.deepEqual(schema.concurrency.map(p => p.id), ['concurrencyDefault', 'streams8', 'streams16', 'streams32'])
+  assert.deepEqual(schema.concurrency.map(p => p.streams), [0, 8, 16, 32])
+  assert.ok(schema.concurrency.every(p => p.set === CONCURRENCY_SET && p.bestFor))
+  assert.equal(schema.memory.fallback, 'discrete')
+  assert.equal(schema.memory.fitFraction, 0.9)
+  assert.deepEqual(schema.memory.kinds.map(k => k.kind), ['unified', 'discrete', 'system'])
   assert.deepEqual(schema.presets.map(p => p.id), ['bigMoe', 'maxContext', 'lowVram'])
   assert.ok(schema.profiles.every(p => p.profile && p.placement === undefined))
   assert.deepEqual(schema.estimate, {
@@ -295,49 +301,82 @@ test('engine settings: the quick setup profiles are apart from the presets', () 
   assert.deepEqual(draft.options, ['my_option:true', 'backend_sampling:auto'])
   writeCombined(schema, draft, sampling, 'off')
   assert.deepEqual(draft.options, ['my_option:true'])
-  // No profile touches it.
+  // No batch profile touches it; the 16 and 32 stream setups do.
   assert.ok(schema.profiles.every(p => !('options.backend_sampling' in p.settings)))
+  assert.equal(schema.concurrency.find(p => p.id === 'streams16').settings['options.backend_sampling'], 'auto')
 })
 
-test('engine settings: a profile is read back from the values, else custom', () => {
-  const prof = (id) => schema.profiles.find(p => p.id === id)
+test('engine settings: a batch profile is read back from the values, per memory kind, else custom', () => {
+  const prof = (id, kind = 'unified') => resolveProfile(schema.profiles.find(p => p.id === id), kind)
   assert.equal(readProfile(schema, {}), 'balanced')
   // Settings no profile lists do not matter.
   assert.equal(readProfile(schema, { context_size: 8192, options: ['use_jinja:true'] }), 'balanced')
   const long = withProfile(schema, { context_size: 8192, options: ['use_jinja:true'] }, prof('longPrompts'))
   assert.equal(long['parameters.batch'], 2048)
   assert.deepEqual(long.options, ['use_jinja:true', 'ubatch:2048'])
-  assert.equal(readProfile(schema, long), 'longPrompts')
+  assert.equal(readProfile(schema, long, { kind: 'unified' }), 'longPrompts')
   // A value written as text in the file still matches.
-  assert.equal(readProfile(schema, { 'parameters.batch': '2048', options: ['ubatch:2048'] }), 'longPrompts')
-  const many = withProfile(schema, long, prof('concurrent'))
-  assert.equal(readProfile(schema, many), 'concurrent')
-  assert.equal(many['parameters.batch'], undefined)
-  assert.equal(many.cache_type_k, 'q8_0')
-  assert.equal(many.flash_attention, 'on')
-  assert.deepEqual(many.options, ['use_jinja:true', 'paged_kv:true', 'parallel:8'])
-  // Back to Balanced from More concurrent users unsets everything it set,
-  // flash attention included, and keeps the rest.
-  const back = withProfile(schema, many, prof('balanced'))
-  assert.deepEqual(back, { context_size: 8192, options: ['use_jinja:true'] })
-  // Long prompts from More concurrent users drops its flash attention too.
-  assert.equal(withProfile(schema, many, prof('longPrompts')).flash_attention, undefined)
-  // A flash attention value the person set is not a profile's: Balanced and
-  // Long prompts keep it.
-  const own = { flash_attention: 'off', 'parameters.batch': 1024 }
-  assert.equal(readProfile(schema, own), CUSTOM_PROFILE)
-  assert.deepEqual(withProfile(schema, own, prof('balanced')), { flash_attention: 'off' })
-  assert.equal(readProfile(schema, { flash_attention: 'on' }), 'balanced')
-  assert.equal(withProfile(schema, { flash_attention: 'on', 'parameters.batch': 2048, options: ['ubatch:2048'] }, prof('balanced')).flash_attention, 'on')
-  // Values that look like More concurrent users but differ in one setting
-  // are custom, and Balanced leaves their flash attention.
-  const near = { ...many, options: ['use_jinja:true', 'paged_kv:true', 'parallel:4'] }
-  assert.equal(withProfile(schema, near, prof('balanced')).flash_attention, 'on')
+  assert.equal(readProfile(schema, { 'parameters.batch': '2048', options: ['ubatch:2048'] }, { kind: 'unified' }), 'longPrompts')
+  // The micro-batch of Long prompts depends on the memory kind.
+  assert.deepEqual(withProfile(schema, {}, prof('longPrompts', 'discrete')).options, ['ubatch:1024'])
+  assert.deepEqual(withProfile(schema, {}, prof('longPrompts', 'system')).options, ['ubatch:512'])
+  assert.equal(readProfile(schema, long, { kind: 'discrete' }), CUSTOM_PROFILE)
+  // Back to Balanced unsets the batch sizes and keeps the rest.
+  assert.deepEqual(withProfile(schema, long, prof('balanced')), { context_size: 8192, options: ['use_jinja:true'] })
+  // Batch profiles leave the concurrency settings alone.
+  const busy = { options: ['parallel:16', 'paged_kv:true'] }
+  assert.deepEqual(withProfile(schema, busy, prof('longPrompts')).options, ['parallel:16', 'paged_kv:true', 'ubatch:2048'])
   // A setting off every profile is custom.
   assert.equal(readProfile(schema, { 'parameters.batch': 1024 }), CUSTOM_PROFILE)
-  assert.equal(readProfile(schema, { ...many, options: ['paged_kv:true', 'parallel:4'] }), CUSTOM_PROFILE)
   // withProfile leaves its input alone.
   assert.equal(long.cache_type_k, undefined)
+})
+
+test('engine settings: concurrency profiles are a set of their own, with values per memory kind', () => {
+  const tier = (id, kind, tight = false) => resolveProfile(schema.concurrency.find(p => p.id === id), kind, tight)
+  const set = { set: CONCURRENCY_SET }
+  assert.equal(readProfile(schema, {}, { ...set, kind: 'discrete' }), 'concurrencyDefault')
+  // 8 streams: the same on a discrete GPU, plus the host cache bounds on unified memory.
+  const d8 = withProfile(schema, { options: ['use_jinja:true'] }, tier('streams8', 'discrete'))
+  assert.deepEqual([...d8.options].sort(), ['paged_kv:true', 'paged_preempt:true', 'parallel:8', 'use_jinja:true'])
+  assert.equal(readProfile(schema, d8, { ...set, kind: 'discrete' }), 'streams8')
+  const u8 = withProfile(schema, {}, tier('streams8', 'unified'))
+  assert.ok(u8.options.includes('cache_ram:4096'))
+  assert.ok(u8.options.includes('n_ctx_checkpoints:8'))
+  assert.equal(readProfile(schema, u8, { ...set, kind: 'unified' }), 'streams8')
+  // The batch choice does not see the concurrency settings.
+  assert.equal(readProfile(schema, u8), 'balanced')
+  // 16 streams: GPU sampling auto and drafting off, the draft model removed.
+  const d16 = withProfile(schema, { draft_model: 'small.gguf', options: ['spec_type:draft-mtp'] }, tier('streams16', 'discrete'))
+  assert.equal(d16.draft_model, undefined)
+  assert.ok(d16.options.includes('spec_type:none'))
+  assert.ok(d16.options.includes('backend_sampling:auto'))
+  // No GPU: no GPU sampling.
+  assert.ok(!withProfile(schema, {}, tier('streams16', 'system')).options.some(o => o.startsWith('backend_sampling')))
+  // 32 streams: q8_0 on a discrete GPU; f16 on unified memory unless tight.
+  const d32 = withProfile(schema, {}, tier('streams32', 'discrete'))
+  assert.equal(d32.cache_type_k, 'q8_0')
+  assert.equal(d32.flash_attention, 'on')
+  assert.ok(d32.options.includes('backend_sampling:on'))
+  assert.equal(withProfile(schema, {}, tier('streams32', 'unified')).cache_type_k, undefined)
+  const tight = tier('streams32', 'unified', true)
+  assert.equal(tight.tight, true)
+  const u32 = withProfile(schema, {}, tight)
+  assert.equal(u32.cache_type_v, 'q8_0')
+  // The tight values still read back as 32+ streams.
+  assert.equal(readProfile(schema, u32, { ...set, kind: 'unified' }), 'streams32')
+  // Down from 32 to 16 removes what 32 wrote and 16 does not list.
+  const down = withProfile(schema, d32, tier('streams16', 'discrete'))
+  assert.equal(down.cache_type_k, undefined)
+  assert.equal(down.flash_attention, undefined)
+  assert.ok(down.options.includes('backend_sampling:auto'))
+  // Default removes every tier setting and keeps the person's own.
+  const back = withProfile(schema, { ...d32, options: [...d32.options, 'use_jinja:true'] }, tier('concurrencyDefault', 'discrete'))
+  assert.deepEqual(back, { options: ['use_jinja:true'] })
+  // A flash attention value the person set is kept by Default.
+  assert.equal(withProfile(schema, { flash_attention: 'off', options: ['parallel:8', 'paged_kv:true', 'paged_preempt:true'] }, tier('concurrencyDefault', 'discrete')).flash_attention, 'off')
+  // A slot count off every tier is custom.
+  assert.equal(readProfile(schema, { options: ['parallel:4', 'paged_kv:true'] }, { ...set, kind: 'discrete' }), CUSTOM_PROFILE)
 })
 
 test('engine settings: the Inkling command fills every field', () => {

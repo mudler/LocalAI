@@ -118,7 +118,7 @@
         },
         "choices": {
             "load_mode": {
-                "default": "Predeterminado (mapeado en memoria)",
+                "default": "Predeterminado (auto)",
                 "none": "Ninguno (leído en memoria)",
                 "mmap": "mmap",
                 "mlock": "mlock",
@@ -267,21 +267,58 @@
             "now": "Ahora: caché KV ≈ {{kv}} y búferes de cálculo ≈ {{compute}} con {{context}} tokens, además de los pesos.",
             "estimate": "Estas cifras son estimaciones.",
             "approximate": "Estimaciones aproximadas: la estructura del modelo no se leyó del archivo.",
-            "failed": "La estimación de memoria no está disponible."
+            "failed": "La estimación de memoria no está disponible.",
+            "batch": "Lote",
+            "concurrency": "Concurrencia",
+            "bestFor": "Ideal para: {{use}}",
+            "share": "Unos {{tokens}} tokens de contexto por flujo",
+            "tight": "La caché KV f16 no cabe, así que se usa una de 8 bits.",
+            "unsupported": "No disponible aquí",
+            "needs": "Necesita {{size}} de memoria",
+            "noFit": "No cabe: ≈ {{size}} de {{limit}}",
+            "shared": "Los slots comparten una sola caché KV, así que más flujos necesitan más o menos la misma memoria: cada flujo recibe una parte menor del contexto."
         },
         "profiles": {
             "balanced": {
-                "name": "Equilibrada",
-                "text": "Los valores por defecto: LocalAI elige el batch y los slots para tu GPU, con caché KV f16."
+                "name": "Equilibrado",
+                "text": "Los tamaños de lote predeterminados: LocalAI los elige para tu GPU."
             },
             "longPrompts": {
                 "name": "Prompts largos",
-                "text": "Batch y micro-batch de 2048. Los prompts largos se leen mucho más rápido; los búferes de cálculo usan más memoria."
+                "text": "Un lote de 2048. Los prompts largos se leen mucho más rápido; los búferes de cálculo usan más memoria.",
+                "memory": {
+                    "discrete": "En una GPU dedicada el microlote es 1024: su búfer de cálculo debe caber en una sola tarjeta."
+                }
             },
-            "concurrent": {
-                "name": "Más usuarios a la vez",
-                "text": "Caché KV de 8 bits, servicio paginado y 8 slots. Caben unas dos veces más tokens en la misma memoria, compartidos por más usuarios, con una pequeña pérdida de calidad.",
-                "note": "Una caché KV cuantizada puede ser más lenta en algunas rutas de atención hasta que llama.cpp tenga un kernel rápido para ellas. El servicio paginado necesita una compilación del backend que lo admita; las demás ignoran la opción."
+            "concurrencyDefault": {
+                "name": "Predeterminado",
+                "text": "LocalAI elige los slots para tu GPU y el backend usa sus valores predeterminados.",
+                "bestFor": "Una persona o pocas."
+            },
+            "streams8": {
+                "name": "8 flujos",
+                "text": "8 slots con servicio paginado: las solicitudes comparten la caché KV y esperan en lugar de fallar cuando está llena.",
+                "bestFor": "Un equipo que chatea con un modelo.",
+                "short": "8"
+            },
+            "streams16": {
+                "name": "16 flujos",
+                "text": "16 slots, muestreo en GPU cuando corren 16 solicitudes, sin borradores.",
+                "bestFor": "Agentes y herramientas que envían solicitudes en paralelo.",
+                "memory": {
+                    "system": "Sin GPU: los tokens se muestrean en la CPU."
+                },
+                "short": "16"
+            },
+            "streams32": {
+                "name": "32+ flujos",
+                "text": "32 slots con muestreo en GPU siempre activo y sin borradores: el máximo de tokens por segundo en total, cada flujo más lento.",
+                "bestFor": "Trabajos por lotes y muchos usuarios a la vez.",
+                "memory": {
+                    "discrete": "Caché KV de 8 bits: caben el doble de tokens, con un pequeño coste en calidad y velocidad.",
+                    "system": "No disponible sin GPU: una CPU repartida entre 32 flujos hace que cada uno sea demasiado lento."
+                },
+                "short": "32+"
             }
         },
         "choiceHints": {
@@ -289,6 +326,9 @@
                 "off": "Muestrea los tokens en la CPU. No se escribe nada en el archivo.",
                 "auto": "Usa el muestreo en GPU cuando el modelo se ejecuta en una GPU con varias peticiones en paralelo y la petición no necesita gramática ni logprobs.",
                 "on": "Muestrea los tokens en la GPU. Más rápido con muchas peticiones en paralelo. Se desactiva solo en las peticiones que usan una gramática, un presupuesto de razonamiento o logprobs."
+            },
+            "load_mode": {
+                "default": "Elige llama.cpp: mapeado en memoria, salvo en GPU integradas, donde el modelo ocuparía el doble."
             }
         },
         "groupCount": "{{count}} ajustes",
@@ -398,6 +438,33 @@
                 "split": "({{weights}} de pesos y {{kv}} de caché KV con {{context}} tokens).",
                 "none": "No hay estimación para este modelo.",
                 "unmatched": "Sin estimación: cuenta con el tamaño del archivo más una caché KV tan grande como el contexto del modelo."
+            }
+        },
+        "memory": {
+            "label": "Tipo de memoria",
+            "auto": "Detectado: {{kind}}",
+            "autoUnknown": "No detectado",
+            "detected": "{{kind}} en este servidor ({{size}})",
+            "detectedDevice": "{{kind}} en este servidor: {{device}}, {{size}}",
+            "chosen": "{{kind}}, elegido por ti",
+            "unknown": "Tipo de memoria no detectado: se usan las reglas de {{kind}}",
+            "useValue": "Usar {{value}}",
+            "kinds": {
+                "unified": {
+                    "label": "Memoria unificada",
+                    "doc": "La GPU comparte la memoria del sistema (DGX Spark, Jetson, Apple silicon, APU de AMD). Caben más slots; la caché de prompts y los checkpoints se mantienen pequeños porque usan la misma memoria."
+                },
+                "discrete": {
+                    "label": "GPU dedicada",
+                    "doc": "La GPU tiene su propia memoria. Los slots se limitan según la estimación de VRAM, 32 flujos usan una caché KV de 8 bits y la caché de prompts queda en la memoria del sistema."
+                },
+                "system": {
+                    "label": "Sin GPU",
+                    "doc": "El modelo se ejecuta en la CPU en la memoria del sistema. Las cachés se mantienen pequeñas y no se ofrecen 32 flujos."
+                }
+            },
+            "advice": {
+                "unifiedLoadMode": "Con memoria unificada, un modelo mapeado en memoria ocupa el doble mientras se copia a la GPU. Predeterminado deja que llama.cpp evite mmap en GPU integradas."
             }
         }
     }

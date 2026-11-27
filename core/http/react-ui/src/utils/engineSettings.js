@@ -205,6 +205,16 @@ export function normalizeSchema(raw) {
     settings: mapKeys(p.settings),
     placement: placement && p.placement && !p.profile ? p.placement : undefined,
     profile: Boolean(p.profile),
+    set: p.profile && p.set ? String(p.set) : '',
+    streams: Number(p.streams) > 0 ? Number(p.streams) : 0,
+    bestFor: p.best_for ? String(p.best_for) : '',
+    memory: Object.fromEntries(Object.entries(p.profile && p.memory ? p.memory : {}).map(([kind, m]) => [kind, {
+      settings: mapKeys(m?.settings),
+      tight: mapKeys(m?.tight),
+      minMemory: Number(m?.min_memory) || 0,
+      unsupported: Boolean(m?.unsupported),
+      note: m?.note ? String(m.note) : '',
+    }])),
   }))
 
   const drafting = capabilities.includes(CAPABILITY_DRAFTING) ? normalizeDrafting(raw?.drafting, byName, aliases, items) : null
@@ -222,7 +232,11 @@ export function normalizeSchema(raw) {
     items,
     combined,
     presets: presets.filter(p => !p.profile),
-    profiles: presets.filter(p => p.profile),
+    // The quick setups: the batch profiles, and the concurrency ones (the
+    // slot count), two independent choices.
+    profiles: presets.filter(p => p.profile && p.set === ''),
+    concurrency: presets.filter(p => p.profile && p.set === CONCURRENCY_SET),
+    memory: normalizeMemory(raw?.memory),
     // The groups drawn closed: rarely used or risky settings.
     collapsed: new Set(Array.isArray(raw?.collapsed_groups) ? raw.collapsed_groups.map(groupId) : []),
     // VRAM estimate request field -> setting id.
@@ -231,6 +245,30 @@ export function normalizeSchema(raw) {
     placement,
     drafting,
     aliases,
+  }
+}
+
+// The set of the concurrency profiles.
+export const CONCURRENCY_SET = 'concurrency'
+
+// The memory kinds, in the order the editor offers them.
+export const MEMORY_KINDS = ['unified', 'discrete', 'system']
+
+// The memory description of the schema: { fallback, fitFraction, kinds, advice }
+// where kinds is [{ kind, label, doc }] and advice [{ id, control, kind,
+// value, avoid, doc }]. Null when the engine has none.
+function normalizeMemory(raw) {
+  if (!raw || !Array.isArray(raw.kinds)) return null
+  return {
+    fallback: MEMORY_KINDS.includes(raw.fallback) ? raw.fallback : 'discrete',
+    fitFraction: Number(raw.fit_fraction) > 0 ? Number(raw.fit_fraction) : 1,
+    kinds: raw.kinds.filter(k => MEMORY_KINDS.includes(k?.kind)).map(k => ({
+      kind: k.kind, label: String(k.label || k.kind), doc: String(k.doc || ''),
+    })),
+    advice: (Array.isArray(raw.advice) ? raw.advice : []).filter(a => a?.id && a.control).map(a => ({
+      id: String(a.id), control: String(a.control), kind: String(a.kind), value: String(a.value),
+      avoid: Array.isArray(a.avoid) ? a.avoid.map(String) : [], doc: String(a.doc || ''),
+    })),
   }
 }
 
@@ -608,33 +646,63 @@ export function applyPreset(schema, draft, preset, placementEntry) {
 export const CUSTOM_PROFILE = 'custom'
 
 /**
- * The profile a value map holds: the first one whose every setting has its
- * value (unset for null), else CUSTOM_PROFILE. Numbers and booleans are
- * compared as written, so "2048" in a file matches 2048.
+ * A profile as it applies on a memory kind: its settings with the kind's
+ * merged over them, and the kind's tight settings too when `tight` (the
+ * estimate does not fit). The result carries `kind` and `tight`, so applying
+ * it reads the current profile on the same kind.
  */
-export function readProfile(schema, values) {
-  for (const p of schema?.profiles || []) {
-    const fits = Object.entries(p.settings).every(([id, want]) => {
-      const item = itemById(schema, id)
-      if (!item) return true
-      const got = readItem(values, item)
-      if (want === null || want === undefined) return got === undefined
-      return got !== undefined && String(got) === String(want)
-    })
-    if (fits) return p.id
-  }
-  return CUSTOM_PROFILE
+export function resolveProfile(profile, kind, tight = false) {
+  const m = profile?.memory?.[kind]
+  const settings = { ...profile.settings, ...(m?.settings || {}), ...(tight && m ? m.tight : {}) }
+  return { ...profile, settings, kind, tight: Boolean(tight && m && Object.keys(m.tight).length) }
+}
+
+// The profiles of a set.
+function profilesIn(schema, set = '') {
+  return set ? schema?.concurrency || [] : schema?.profiles || []
+}
+
+function holds(schema, values, settings) {
+  return Object.entries(settings).every(([id, want]) => {
+    const item = itemById(schema, id)
+    if (!item) return true
+    const got = readItem(values, item)
+    if (want === null || want === undefined) return got === undefined
+    return got !== undefined && String(got) === String(want)
+  })
 }
 
 /**
- * Writes a profile into a draft. When the draft holds another profile, the
- * settings that profile sets and the new one does not list are unset first:
- * a value is removed only when it came from a profile. So Balanced, which
- * does not list flash attention, removes it after More concurrent users and
- * keeps a value the person set.
+ * The profile a value map holds, resolved for the memory kind: the first one
+ * of the set whose every setting has its value (unset for null), with or
+ * without its tight settings; else null. Numbers and booleans are compared
+ * as written, so "2048" in a file matches 2048.
+ */
+export function heldProfile(schema, values, { set = '', kind } = {}) {
+  for (const p of profilesIn(schema, set)) {
+    const plain = resolveProfile(p, kind, false)
+    if (holds(schema, values, plain.settings)) return plain
+    const tight = resolveProfile(p, kind, true)
+    if (tight.tight && holds(schema, values, tight.settings)) return tight
+  }
+  return null
+}
+
+/** The id of the profile a value map holds, else CUSTOM_PROFILE. */
+export function readProfile(schema, values, opts = {}) {
+  return heldProfile(schema, values, opts)?.id || CUSTOM_PROFILE
+}
+
+/**
+ * Writes a profile into a draft. When the draft holds another profile of the
+ * same set, the settings that profile sets and the new one does not list
+ * are unset first: a value is removed only when it came from a profile. So
+ * Default after 32+ streams removes the 8-bit KV cache that 32+ wrote, and
+ * keeps one the person set. A profile from resolveProfile is matched on its
+ * own memory kind.
  */
 export function applyProfile(schema, draft, profile) {
-  const from = schema.profiles.find(p => p.id === readProfile(schema, draft))
+  const from = heldProfile(schema, draft, { set: profile.set || '', kind: profile.kind })
   if (from && from.id !== profile.id) {
     for (const [id, v] of Object.entries(from.settings)) {
       if (v === null || v === undefined || id in profile.settings) continue

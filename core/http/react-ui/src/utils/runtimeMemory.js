@@ -92,3 +92,65 @@ export function memoryNow(answer) {
     approximate: Boolean(r.approximate),
   }
 }
+
+// --- memory kinds and concurrency profiles ---------------------------------
+
+/**
+ * The memory kind the quick setup uses: the person's choice, else the one
+ * the server detected, else the schema's fallback (the cautious discrete
+ * rules). `source` says which.
+ */
+export function memoryKind(schema, host, override) {
+  const known = (k) => Boolean(k && schema?.memory?.kinds?.some(x => x.kind === k))
+  if (known(override)) return { kind: override, source: 'override' }
+  if (known(host?.kind)) return { kind: host.kind, source: 'detected' }
+  return { kind: schema?.memory?.fallback || 'discrete', source: 'fallback' }
+}
+
+/** The whole estimate of an answer (weights and runtime), or null. */
+export function totalBytes(answer) {
+  const n = Number(answer?.vram_bytes)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+/**
+ * Whether a concurrency profile can be offered on a memory kind, and with
+ * which settings:
+ *   { state: 'ok' | 'unsupported' | 'small' | 'nofit', tight, need, limit }
+ *
+ *   profile   a normalized concurrency profile
+ *   kind      the memory kind
+ *   memory    the device memory in bytes (0: unknown, so no size check)
+ *   fraction  the share of it an estimate may take
+ *   answers   { plain, tight, now } estimate answers (any may be missing)
+ *
+ * A profile whose estimate does not fit uses its tight settings when it has
+ * them. It is refused only when what it would use still does not fit and
+ * needs more than the current values, so a model that already does not fit
+ * (partial GPU offload) does not lose every choice.
+ */
+export function profileFit(profile, kind, memory, fraction, answers = {}) {
+  const m = profile?.memory?.[kind]
+  if (m?.unsupported) return { state: 'unsupported', tight: false }
+  if (memory > 0 && m?.minMemory > memory) return { state: 'small', tight: false, need: m.minMemory }
+  const limit = memory > 0 ? memory * (fraction || 1) : 0
+  if (!limit) return { state: 'ok', tight: false }
+  const now = totalBytes(answers.now)
+  const over = (a) => {
+    const b = totalBytes(a)
+    return b !== null && b > limit
+  }
+  const worse = (a) => over(a) && (now === null || totalBytes(a) > now)
+  if (!over(answers.plain)) return { state: 'ok', tight: false }
+  const hasTight = Boolean(m && Object.keys(m.tight || {}).length)
+  const used = hasTight ? answers.tight : answers.plain
+  if (!worse(used)) return { state: 'ok', tight: hasTight }
+  return { state: 'nofit', tight: hasTight, need: totalBytes(used), limit }
+}
+
+/** The context tokens each of `streams` requests gets on average, or null. */
+export function tokensPerStream(context, streams) {
+  const c = Number(context)
+  if (!streams || !Number.isFinite(c) || c <= 0) return null
+  return Math.floor(c / streams)
+}

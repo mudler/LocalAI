@@ -154,7 +154,7 @@
         },
         "choices": {
             "load_mode": {
-                "default": "Default (memory-mapped)",
+                "default": "Default (auto)",
                 "none": "None (read into memory)",
                 "mmap": "mmap",
                 "mlock": "mlock",
@@ -303,21 +303,58 @@
             "now": "Now: KV cache ≈ {{kv}} and compute buffers ≈ {{compute}} at {{context}} tokens, beside the weights.",
             "estimate": "These figures are estimates.",
             "approximate": "Rough estimates: the model layout was not read from the file.",
-            "failed": "The memory estimate is not available."
+            "failed": "The memory estimate is not available.",
+            "batch": "Batch",
+            "concurrency": "Concurrency",
+            "bestFor": "Best for: {{use}}",
+            "share": "About {{tokens}} context tokens per stream",
+            "tight": "The f16 KV cache does not fit, so this uses an 8-bit one.",
+            "unsupported": "Not offered here",
+            "needs": "Needs {{size}} of memory",
+            "noFit": "Does not fit: ≈ {{size}} of {{limit}}",
+            "shared": "The slots share one KV cache, so more streams need about the same memory: each stream gets a smaller part of the context."
         },
         "profiles": {
             "balanced": {
                 "name": "Balanced",
-                "text": "The defaults: LocalAI picks the batch and the slots for your GPU, with an f16 KV cache."
+                "text": "The default batch sizes: LocalAI picks them for your GPU."
             },
             "longPrompts": {
                 "name": "Long prompts",
-                "text": "Batch and micro-batch of 2048. Long prompts are read much faster; the compute buffers use more memory."
+                "text": "A batch of 2048. Long prompts are read much faster; the compute buffers use more memory.",
+                "memory": {
+                    "discrete": "The micro-batch is 1024 on a discrete GPU: its compute buffer must fit one card."
+                }
             },
-            "concurrent": {
-                "name": "More concurrent users",
-                "text": "8-bit KV cache, paged serving and 8 slots. About twice the tokens fit in the same memory, shared by more users, at a small cost in quality.",
-                "note": "A quantized KV cache can be slower on some attention paths until llama.cpp has a fast kernel for them. Paged serving needs a backend build that supports it; other builds ignore the option."
+            "concurrencyDefault": {
+                "name": "Default",
+                "text": "LocalAI picks the slots for your GPU and the backend uses its serving defaults.",
+                "bestFor": "One person, or a few."
+            },
+            "streams8": {
+                "name": "8 streams",
+                "text": "8 slots with paged serving: requests share the KV cache and wait instead of failing when it is full.",
+                "bestFor": "A team chatting with one model.",
+                "short": "8"
+            },
+            "streams16": {
+                "name": "16 streams",
+                "text": "16 slots, GPU sampling when 16 requests run, no drafting.",
+                "bestFor": "Agents and tools that send requests in parallel.",
+                "memory": {
+                    "system": "No GPU: tokens are sampled on the CPU."
+                },
+                "short": "16"
+            },
+            "streams32": {
+                "name": "32+ streams",
+                "text": "32 slots with GPU sampling always on and no drafting: the most tokens per second in total, each stream slower.",
+                "bestFor": "Batch jobs and many users at once.",
+                "memory": {
+                    "discrete": "8-bit KV cache: about twice the tokens fit, at a small cost in quality and speed.",
+                    "system": "Not offered without a GPU: a CPU shared by 32 streams makes each one too slow."
+                },
+                "short": "32+"
             }
         },
         "choiceHints": {
@@ -325,6 +362,9 @@
                 "off": "Sample tokens on the CPU. Nothing is written to the file.",
                 "auto": "Use GPU sampling when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs.",
                 "on": "Sample tokens on the GPU. Faster with many parallel requests. Turned off automatically for requests that use a grammar, a reasoning budget or logprobs."
+            },
+            "load_mode": {
+                "default": "llama.cpp picks: memory-mapped, except on integrated GPUs that would hold the model twice."
             }
         },
         "groupCount": "{{count}} settings",
@@ -434,6 +474,33 @@
                 "split": "({{weights}} weights and {{kv}} KV cache at {{context}} tokens).",
                 "none": "No estimate for this model.",
                 "unmatched": "No estimate: expect about the file's size plus a KV cache as large as the model's context."
+            }
+        },
+        "memory": {
+            "label": "Memory type",
+            "auto": "Detected: {{kind}}",
+            "autoUnknown": "Not detected",
+            "detected": "{{kind}} on this server ({{size}})",
+            "detectedDevice": "{{kind}} on this server: {{device}}, {{size}}",
+            "chosen": "{{kind}}, chosen by you",
+            "unknown": "Memory type not detected: using the {{kind}} rules",
+            "useValue": "Use {{value}}",
+            "kinds": {
+                "unified": {
+                    "label": "Unified memory",
+                    "doc": "The GPU shares the system memory (DGX Spark, Jetson, Apple silicon, AMD APUs). More slots fit; the prompt cache and checkpoints are kept small because they use the same memory."
+                },
+                "discrete": {
+                    "label": "Discrete GPU",
+                    "doc": "The GPU has its own memory. Slots are capped by the VRAM estimate, 32 streams use an 8-bit KV cache, and the prompt cache stays in system memory."
+                },
+                "system": {
+                    "label": "No GPU",
+                    "doc": "The model runs on the CPU in system memory. The caches are kept small, and 32 streams are not offered."
+                }
+            },
+            "advice": {
+                "unifiedLoadMode": "On unified memory, a memory-mapped model is held twice while it is copied to the GPU. Default lets llama.cpp skip mmap on integrated GPUs."
             }
         }
     }

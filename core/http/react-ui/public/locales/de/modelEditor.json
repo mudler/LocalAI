@@ -118,7 +118,7 @@
         },
         "choices": {
             "load_mode": {
-                "default": "Standard (speichergemappt)",
+                "default": "Standard (auto)",
                 "none": "Keiner (in den Speicher gelesen)",
                 "mmap": "mmap",
                 "mlock": "mlock",
@@ -267,21 +267,58 @@
             "now": "Jetzt: KV-Cache ≈ {{kv}} und Rechenpuffer ≈ {{compute}} bei {{context}} Tokens, zusätzlich zu den Gewichten.",
             "estimate": "Diese Werte sind Schätzungen.",
             "approximate": "Grobe Schätzungen: Der Aufbau des Modells wurde nicht aus der Datei gelesen.",
-            "failed": "Die Speicherschätzung ist nicht verfügbar."
+            "failed": "Die Speicherschätzung ist nicht verfügbar.",
+            "batch": "Batch",
+            "concurrency": "Parallelität",
+            "bestFor": "Geeignet für: {{use}}",
+            "share": "Etwa {{tokens}} Kontext-Tokens pro Stream",
+            "tight": "Der f16-KV-Cache passt nicht, daher wird ein 8-Bit-Cache verwendet.",
+            "unsupported": "Hier nicht verfügbar",
+            "needs": "Benötigt {{size}} Speicher",
+            "noFit": "Passt nicht: ≈ {{size}} von {{limit}}",
+            "shared": "Die Slots teilen sich einen KV-Cache, daher brauchen mehr Streams etwa gleich viel Speicher: Jeder Stream erhält einen kleineren Teil des Kontexts."
         },
         "profiles": {
             "balanced": {
                 "name": "Ausgewogen",
-                "text": "Die Standardwerte: LocalAI wählt Batch und Slots für Ihre GPU, mit einem f16-KV-Cache."
+                "text": "Die Standard-Batchgrößen: LocalAI wählt sie für deine GPU."
             },
             "longPrompts": {
                 "name": "Lange Prompts",
-                "text": "Batch und Micro-Batch von 2048. Lange Prompts werden viel schneller gelesen; die Rechenpuffer brauchen mehr Speicher."
+                "text": "Ein Batch von 2048. Lange Prompts werden viel schneller gelesen; die Rechenpuffer brauchen mehr Speicher.",
+                "memory": {
+                    "discrete": "Auf einer dedizierten GPU ist der Micro-Batch 1024: Ihr Rechenpuffer muss auf eine Karte passen."
+                }
             },
-            "concurrent": {
-                "name": "Mehr gleichzeitige Nutzer",
-                "text": "8-Bit-KV-Cache, seitenbasiertes Serving und 8 Slots. Etwa doppelt so viele Tokens passen in denselben Speicher, geteilt von mehr Nutzern, bei leicht geringerer Qualität.",
-                "note": "Ein quantisierter KV-Cache kann auf manchen Attention-Pfaden langsamer sein, bis llama.cpp einen schnellen Kernel dafür hat. Seitenbasiertes Serving braucht einen Backend-Build, der es unterstützt; andere Builds ignorieren die Option."
+            "concurrencyDefault": {
+                "name": "Standard",
+                "text": "LocalAI wählt die Slots für deine GPU, und das Backend nutzt seine Standardwerte.",
+                "bestFor": "Eine oder wenige Personen."
+            },
+            "streams8": {
+                "name": "8 Streams",
+                "text": "8 Slots mit Paged Serving: Anfragen teilen sich den KV-Cache und warten, statt bei vollem Cache zu scheitern.",
+                "bestFor": "Ein Team, das mit einem Modell chattet.",
+                "short": "8"
+            },
+            "streams16": {
+                "name": "16 Streams",
+                "text": "16 Slots, GPU-Sampling ab 16 laufenden Anfragen, kein Drafting.",
+                "bestFor": "Agenten und Tools, die Anfragen parallel senden.",
+                "memory": {
+                    "system": "Keine GPU: Tokens werden auf der CPU gesampelt."
+                },
+                "short": "16"
+            },
+            "streams32": {
+                "name": "32+ Streams",
+                "text": "32 Slots mit stets aktivem GPU-Sampling und ohne Drafting: insgesamt die meisten Tokens pro Sekunde, jeder Stream langsamer.",
+                "bestFor": "Batch-Jobs und viele Nutzer gleichzeitig.",
+                "memory": {
+                    "discrete": "8-Bit-KV-Cache: Etwa doppelt so viele Tokens passen, bei etwas Verlust an Qualität und Tempo.",
+                    "system": "Ohne GPU nicht verfügbar: Eine CPU, die sich 32 Streams teilt, macht jeden zu langsam."
+                },
+                "short": "32+"
             }
         },
         "choiceHints": {
@@ -289,6 +326,9 @@
                 "off": "Tokens auf der CPU sampeln. In die Datei wird nichts geschrieben.",
                 "auto": "GPU-Sampling nutzen, wenn das Modell auf einer GPU mit mehreren parallelen Anfragen läuft und die Anfrage keine Grammatik und keine Logprobs braucht.",
                 "on": "Tokens auf der GPU sampeln. Schneller bei vielen parallelen Anfragen. Wird für Anfragen mit Grammatik, Reasoning-Budget oder Logprobs automatisch abgeschaltet."
+            },
+            "load_mode": {
+                "default": "llama.cpp wählt: per mmap eingebunden, außer auf integrierten GPUs, die das Modell doppelt halten würden."
             }
         },
         "groupCount": "{{count}} Einstellungen",
@@ -398,6 +438,33 @@
                 "split": "({{weights}} Gewichte und {{kv}} KV-Cache bei {{context}} Tokens).",
                 "none": "Keine Schätzung für dieses Modell.",
                 "unmatched": "Keine Schätzung: Rechne mit etwa der Dateigröße plus einem KV-Cache so groß wie der Kontext des Modells."
+            }
+        },
+        "memory": {
+            "label": "Speichertyp",
+            "auto": "Erkannt: {{kind}}",
+            "autoUnknown": "Nicht erkannt",
+            "detected": "{{kind}} auf diesem Server ({{size}})",
+            "detectedDevice": "{{kind}} auf diesem Server: {{device}}, {{size}}",
+            "chosen": "{{kind}}, von dir gewählt",
+            "unknown": "Speichertyp nicht erkannt: Es gelten die Regeln für {{kind}}",
+            "useValue": "{{value}} verwenden",
+            "kinds": {
+                "unified": {
+                    "label": "Gemeinsamer Speicher",
+                    "doc": "Die GPU teilt sich den Systemspeicher (DGX Spark, Jetson, Apple Silicon, AMD-APUs). Mehr Slots passen; Prompt-Cache und Checkpoints bleiben klein, weil sie denselben Speicher nutzen."
+                },
+                "discrete": {
+                    "label": "Dedizierte GPU",
+                    "doc": "Die GPU hat eigenen Speicher. Die Slots sind durch die VRAM-Schätzung begrenzt, 32 Streams nutzen einen 8-Bit-KV-Cache, und der Prompt-Cache bleibt im Systemspeicher."
+                },
+                "system": {
+                    "label": "Keine GPU",
+                    "doc": "Das Modell läuft auf der CPU im Systemspeicher. Die Caches bleiben klein, und 32 Streams werden nicht angeboten."
+                }
+            },
+            "advice": {
+                "unifiedLoadMode": "Bei gemeinsamem Speicher liegt ein per mmap eingebundenes Modell doppelt im Speicher, während es auf die GPU kopiert wird. Standard lässt llama.cpp mmap auf integrierten GPUs auslassen."
             }
         }
     }
