@@ -22,7 +22,9 @@ async function shoot(page, name) {
   await page.screenshot({ path: `${shots}/${name}.png`, fullPage: true })
 }
 
-const tab = (page, name) => page.getByRole('tab', { name })
+// The section tabs of the page. The Plugins panel has tabs of its own (one of
+// them is also called Installed), so the lookup stays in the page's tab list.
+const tab = (page, name) => page.getByRole('tablist', { name: 'Add-ons sections' }).getByRole('tab', { name })
 // The start, stop and tool controls of an add-on live in its detail pane, the state
 // chip in the header of the pane. Both the title and the body of the pane carry
 // data-app, so the pane is found by the add-on it shows, not by that attribute.
