@@ -1,0 +1,83 @@
+---
+# A commit cannot hold its own SHA, so a pull request that changes
+# plugins/localai/ leaves the pin of the `localai` marketplace entry behind.
+# After the merge, this job opens a pull request that pins the entry to the
+# last commit that changed the folder (spec 8.3). The token setup and the
+# branch rules are in .agents/ci-bot-pull-requests.md.
+name: 'Pin the localai plugin'
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'plugins/localai/**'
+  workflow_dispatch:
+
+concurrency:
+  group: plugins-bump-localai-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  pin:
+    if: github.repository == 'mudler/LocalAI'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          # git log needs the history of the folder, not its old blobs.
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Set the pin
+        id: pin
+        env:
+          MARKETPLACE: plugins/.claude-plugin/marketplace.json
+          SELF_URL: https://github.com/${{ github.repository }}.git
+        run: |
+          sha=$(git log -1 --format=%H HEAD -- plugins/localai)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "short=${sha:0:12}" >> "$GITHUB_OUTPUT"
+          tmp=$(mktemp)
+          jq --arg sha "$sha" --arg url "$SELF_URL" '
+            .plugins |= map(
+              if .source.source? == "git-subdir" and .source.url == $url and .source.path == "plugins/localai"
+              then .source.sha = $sha else . end)' "$MARKETPLACE" > "$tmp"
+          mv "$tmp" "$MARKETPLACE"
+          if git diff --quiet -- "$MARKETPLACE"; then
+            echo "The localai entry is pinned to $sha already."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git diff -- "$MARKETPLACE"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub App token
+        id: app-token
+        if: steps.pin.outputs.changed == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.UPDATE_BOT_APP_ID }}
+          private-key: ${{ secrets.UPDATE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Create Pull Request
+        if: steps.pin.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          commit-message: 'chore(plugins): pin the localai plugin to ${{ steps.pin.outputs.short }}'
+          title: 'chore(plugins): pin the localai plugin to ${{ steps.pin.outputs.short }}'
+          branch: 'update/plugins-localai-pin'
+          add-paths: plugins/.claude-plugin/marketplace.json
+          body: |
+            Pins the `localai` entry of the curated plugin marketplace to ${{ steps.pin.outputs.sha }}, the last commit that changed `plugins/localai/`.
+
+            Servers read the new pin at their next refresh of the marketplace.
+          signoff: true

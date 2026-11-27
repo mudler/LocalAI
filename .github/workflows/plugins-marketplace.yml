@@ -1,0 +1,74 @@
+---
+# Checks of the curated plugin marketplace (spec 8.3): the schema, full SHA
+# pins, the license of each entry at its SHA, a fetch and the install checks of
+# every entry at its SHA, and metadata.localai.runsCode against the computed
+# code reasons. It runs no code of the plugins: validate reads their files.
+name: 'Plugins marketplace'
+on:
+  pull_request:
+    paths:
+      - 'plugins/**'
+      - '.github/workflows/plugins-marketplace.yml'
+      - '.github/scripts/plugins-marketplace-check.sh'
+      - 'core/cli/plugins_validate.go'
+
+concurrency:
+  group: ci-plugins-marketplace-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  marketplace:
+    name: 'Curated marketplace'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      MARKETPLACE: plugins/.claude-plugin/marketplace.json
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Schema
+        run: pipx run check-jsonschema==0.39.0 --schemafile plugins/marketplace.schema.json "$MARKETPLACE"
+
+      - name: Pins, licenses and the pin of the in-repository plugin
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          SELF_URL: https://github.com/${{ github.repository }}.git
+          SCRATCH: ${{ runner.temp }}/plugins-check
+        run: |
+          # The pin check compares trees of two commits; their history is not needed.
+          git fetch -q --depth 1 origin "$BASE_SHA"
+          .github/scripts/plugins-marketplace-check.sh "$MARKETPLACE" "$RUNNER_TEMP/marketplace.ci.json"
+
+      # See .agents/ci-caching.md for why the Linux Go jobs keep cache: false.
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Build local-ai
+        run: |
+          make protogen-go
+          # core/http embeds the built UI. validate does not serve it.
+          mkdir -p core/http/react-ui/dist
+          touch core/http/react-ui/dist/index.html
+          go build -tags nosqlite,purego_utp -o "$RUNNER_TEMP/local-ai" ./cmd/local-ai
+
+      - name: Validate the in-repository plugin
+        run: |
+          for dir in plugins/*/; do
+            [ -f "$dir/.claude-plugin/plugin.json" ] || continue
+            "$RUNNER_TEMP/local-ai" plugins validate --strict "$dir"
+          done
+
+      - name: Fetch and validate every entry at its SHA
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: |
+          "$RUNNER_TEMP/local-ai" plugins validate --strict --marketplace "$RUNNER_TEMP/marketplace.ci.json"
