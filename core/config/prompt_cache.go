@@ -182,13 +182,55 @@ func WithPromptCacheDiskCriticalFreeMiB(mib int) AppOption {
 	return func(o *ApplicationConfig) { o.PromptCache.CriticalFreeMiB = max(mib, 0) }
 }
 
-// PromptCacheRoot is the root of the disk tier of this server in single mode:
-// <DataPath>/prompt-cache. It is empty (tier off) without a data path.
+// WithPromptCachePath sets the root of the disk tier; it wins over the data
+// path. Empty keeps <DataPath>/prompt-cache.
+func WithPromptCachePath(path string) AppOption {
+	return func(o *ApplicationConfig) { o.PromptCachePath = path }
+}
+
+// PromptCacheRoot is the root of the disk tier of this server: the path the
+// operator set, else <DataPath>/prompt-cache. It is empty (tier off) with
+// neither.
 func (o *ApplicationConfig) PromptCacheRoot() string {
-	if o == nil || o.DataPath == "" {
+	if o == nil {
 		return ""
 	}
-	return filepath.Join(o.DataPath, PromptCacheDirName)
+	root, _ := ResolvePromptCacheRoot(o.PromptCachePath, o.DataPath, "", nil)
+	return root
+}
+
+// Where a prompt cache root comes from, for the logs.
+const (
+	PromptCacheRootExplicit = "prompt-cache-path"
+	PromptCacheRootDataPath = "data-path"
+	PromptCacheRootDerived  = "models-path"
+)
+
+// noDataPath is the value of a --data-path that keeps nothing on disk.
+const noDataPath = "-"
+
+// ResolvePromptCacheRoot chooses the root of the disk tier of a node, and
+// says where it came from. The order is:
+//
+//  1. explicit, the --prompt-cache-path of the operator;
+//  2. <dataPath>/prompt-cache, unless dataPath is empty or "-" (none);
+//  3. derived, the old root of a worker (<models path>/../data/prompt-cache),
+//     only when derivedLocal says it is on a local filesystem. Next to models
+//     on a network share it would land on that share, or on the ephemeral
+//     root filesystem of a container. A nil derivedLocal refuses it.
+//
+// It returns an empty root, which turns the tier off, when none applies.
+func ResolvePromptCacheRoot(explicit, dataPath, derived string, derivedLocal func(string) bool) (root, source string) {
+	if explicit != "" {
+		return filepath.Clean(explicit), PromptCacheRootExplicit
+	}
+	if dataPath != "" && dataPath != noDataPath {
+		return filepath.Join(dataPath, PromptCacheDirName), PromptCacheRootDataPath
+	}
+	if derived != "" && derivedLocal != nil && derivedLocal(derived) {
+		return filepath.Clean(derived), PromptCacheRootDerived
+	}
+	return "", ""
 }
 
 // PromptCacheTTLHours is a time to live in whole hours, rounded up; 0 or

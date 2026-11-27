@@ -13,6 +13,35 @@ export function promptCacheState(st) {
   return PROMPT_CACHE_STATES[st?.state] || PROMPT_CACHE_STATES.unknown
 }
 
+// Why the tier is off on one node (promptcachesvc, the Off constants), in the
+// words of the Settings page.
+export const PROMPT_CACHE_OFF_REASONS = {
+  no_path: 'Off: no cache directory',
+  switched_off: 'Off',
+  network_disk: 'Off: network disk',
+  not_writable: 'Off: not writable',
+}
+
+// The chip label of a node with the tier off.
+export function promptCacheOffLabel(reason) {
+  return PROMPT_CACHE_OFF_REASONS[reason] || 'Off'
+}
+
+// The one-line message of a node with the tier off for a reason the operator
+// can fix, else null.
+export function promptCacheOffMessage(reason) {
+  if (reason === 'network_disk') {
+    return 'Off: the cache directory is on a network disk. Set a directory on a local disk with --prompt-cache-path or LOCALAI_PROMPT_CACHE_PATH on this node.'
+  }
+  if (reason === 'not_writable') {
+    return 'Off: the cache directory is not writable. Set a writable directory on a local disk with --prompt-cache-path or LOCALAI_PROMPT_CACHE_PATH on this node.'
+  }
+  if (reason === 'no_path') {
+    return 'Off: this node has no cache directory. Set --data-path or --prompt-cache-path on it.'
+  }
+  return null
+}
+
 // The one-line message of a state that needs attention, else null.
 export function promptCacheMessage(st) {
   if (!st) return null

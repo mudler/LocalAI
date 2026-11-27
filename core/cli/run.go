@@ -116,6 +116,7 @@ type RunCMD struct {
 
 	// Disk tier of the llama.cpp prompt cache.
 	PromptCacheDisk                bool          `env:"LOCALAI_PROMPT_CACHE_DISK" group:"models" default:"true" help:"Keep the prompt cache of long llama.cpp prompts on disk under <data-path>/prompt-cache, so it survives a model reload. Each user has a separate namespace. Can also be changed at runtime via the prompt_cache_disk setting"`
+	PromptCachePath                string        `env:"LOCALAI_PROMPT_CACHE_PATH" type:"path" group:"models" help:"Directory of the disk prompt cache. Give a directory on a local disk. Default: <data-path>/prompt-cache. On a network disk, or when it is not writable, the disk prompt cache is off"`
 	PromptCacheDiskMaxSizeMiB      int           `env:"LOCALAI_PROMPT_CACHE_DISK_MAX_SIZE_MIB" group:"models" default:"0" help:"Most MiB the disk prompt cache of this node may use. 0 is automatic: the smaller of 20 GiB and a tenth of the free disk at start"`
 	PromptCacheDiskTTL             time.Duration `env:"LOCALAI_PROMPT_CACHE_DISK_TTL" group:"models" default:"168h" help:"How long a disk prompt cache entry is kept after its last use"`
 	PromptCacheDiskUserQuotaMiB    int           `env:"LOCALAI_PROMPT_CACHE_DISK_USER_QUOTA_MIB" group:"models" default:"0" help:"Most MiB of the disk prompt cache one user may use. 0 is automatic: an equal share of the cap when there is more than one user. -1 is no quota"`
@@ -495,6 +496,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		libraryOptionFor(r),
 		config.WithVRAMPersistentCache(r.VRAMPersistentCache),
 		config.WithPromptCacheDisk(r.PromptCacheDisk),
+		config.WithPromptCachePath(r.PromptCachePath),
 		config.WithPromptCacheDiskMaxSizeMiB(r.PromptCacheDiskMaxSizeMiB),
 		config.WithPromptCacheDiskTTL(r.PromptCacheDiskTTL),
 		config.WithPromptCacheDiskUserQuotaMiB(r.PromptCacheDiskUserQuotaMiB),

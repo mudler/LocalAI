@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/mudler/LocalAI/core/config"
+	pc "github.com/mudler/LocalAI/pkg/promptcache"
 	"github.com/mudler/xlog"
 )
 
@@ -43,8 +44,13 @@ type Config struct {
 	GRPCMaxPort int `env:"LOCALAI_GRPC_MAX_PORT" default:"0" help:"Highest port the worker may assign to a backend gRPC process. The range is [base port, this]; its width caps concurrent backends on this worker. 0 uses up to 65535." group:"server"`
 
 	// PromptCacheDisk turns the disk tier of the llama.cpp prompt cache of
-	// this worker on or off. Its files live under <data dir>/prompt-cache.
+	// this worker on or off. Its root comes from promptCacheRoot.
 	PromptCacheDisk bool `env:"LOCALAI_PROMPT_CACHE_DISK" default:"true" help:"Keep the prompt cache of long llama.cpp prompts on the local disk of this worker, so it survives a model reload" group:"server"`
+	// PromptCachePath and DataPath choose the root of the disk tier (see
+	// promptCacheRoot). DataPath has no default on purpose: without it the
+	// worker keeps the old root next to the models, when that is local.
+	PromptCachePath string `env:"LOCALAI_PROMPT_CACHE_PATH" type:"path" help:"Directory of the disk prompt cache of this worker. Give a directory on a local disk. Default: <data-path>/prompt-cache" group:"server"`
+	DataPath        string `env:"LOCALAI_DATA_PATH" type:"path" help:"Data directory of this worker. The disk prompt cache goes under it, in prompt-cache. Default: none, and the cache uses <models path>/../data/prompt-cache when that is on a local disk" group:"server"`
 
 	PreferDevelopmentBackends bool   `env:"LOCALAI_PREFER_DEV_BACKENDS,PREFER_DEV_BACKENDS" default:"false" help:"Prefer compatible installed development aliases and development downloads (worker-local; restart to apply)" group:"server"`
 	BackendsPath              string `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends" group:"server"`
@@ -149,9 +155,20 @@ type Config struct {
 // process ledger and the P2P identity.
 func (c Config) dataDir() string { return filepath.Join(c.ModelsPath, "..", "data") }
 
-// promptCacheRoot is the root of the disk prompt cache of the worker.
-func (c Config) promptCacheRoot() string {
-	return filepath.Join(c.dataDir(), config.PromptCacheDirName)
+// promptCacheRoot is the root of the disk prompt cache of the worker and
+// where it comes from: --prompt-cache-path, else <data-path>/prompt-cache,
+// else the old <models path>/../data/prompt-cache when stats says it is on a
+// local filesystem. Models often sit on a network share, and ../data of the
+// share is then on the share, or on the ephemeral root filesystem of a
+// container.
+func (c Config) promptCacheRoot(stats pc.StatProvider) (root, source string) {
+	derived := filepath.Join(c.dataDir(), config.PromptCacheDirName)
+	return config.ResolvePromptCacheRoot(c.PromptCachePath, c.DataPath, derived, func(p string) bool {
+		st, err := stats.Stat(pc.ExistingDir(p))
+		// An unreadable filesystem is not known to be remote: CheckRoot
+		// still checks that the root is writable.
+		return err != nil || !st.Network
+	})
 }
 
 // nodeName is the name that the worker registers under.

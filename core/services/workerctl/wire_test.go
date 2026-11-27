@@ -114,8 +114,8 @@ var _ = Describe("Control payload wire format", func() {
 		Entry("PromptCacheSyncReply, zero value", workerctl.PromptCacheSyncReply{}, `{"success":false}`),
 		Entry("PromptCacheUsageRequest", workerctl.PromptCacheUsageRequest{}, `{}`),
 		Entry("PromptCacheUsageReply, every field set", workerctl.PromptCacheUsageReply{
-			Enabled: true, Usage: []byte(`{"bytes":1}`), Error: "e",
-		}, `{"enabled":true,"usage":{"bytes":1},"error":"e"}`),
+			Enabled: true, OffReason: "r", Usage: []byte(`{"bytes":1}`), Error: "e",
+		}, `{"enabled":true,"off_reason":"r","usage":{"bytes":1},"error":"e"}`),
 		Entry("PromptCacheUsageReply, zero value", workerctl.PromptCacheUsageReply{}, `{"enabled":false}`),
 
 		Entry("ModelsRunningRequest", workerctl.ModelsRunningRequest{}, `{}`),

@@ -9,7 +9,7 @@ import (
 func registerPromptCacheTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolGetPromptCache,
-		Description: "Disk prompt cache of llama.cpp: size, free disk, effective cap and state (on, paused_low_disk, disabled_disk_full) of each node, the size of each model, and the total. A node that did not answer has an error. Read-only.",
+		Description: "Disk prompt cache of llama.cpp: size, free disk, effective cap and state (on, paused_low_disk, disabled_disk_full) of each node, the size of each model, and the total. A node that did not answer has an error; a node that is off has off_reason. Read-only.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		st, err := client.GetPromptCache(ctx)
 		if err != nil {

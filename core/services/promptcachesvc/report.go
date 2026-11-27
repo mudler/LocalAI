@@ -24,7 +24,10 @@ type NodeStatus struct {
 	Node string `json:"node"`
 	// Enabled is false when the tier is off on the node; Error says why a
 	// node gave no usage (offline, no answer).
-	Enabled    bool         `json:"enabled"`
+	Enabled bool `json:"enabled"`
+	// OffReason says why the tier is off on the node: no_path,
+	// switched_off, network_disk or not_writable.
+	OffReason  string       `json:"off_reason,omitempty"`
 	Error      string       `json:"error,omitempty"`
 	Bytes      int64        `json:"bytes"`
 	Files      int          `json:"files"`
@@ -79,7 +82,7 @@ func Report(ctx context.Context, nodes Nodes, enabled, shared bool, names map[st
 	}
 	for _, r := range reports {
 		ns := NodeStatus{
-			Node: r.Node, Enabled: r.Enabled, Error: r.Error, Bytes: r.Bytes, Files: r.Files, Namespaces: len(r.Namespaces),
+			Node: r.Node, Enabled: r.Enabled, OffReason: r.OffReason, Error: r.Error, Bytes: r.Bytes, Files: r.Files, Namespaces: len(r.Namespaces),
 			Status: r.Status, Models: []ModelUsage{},
 		}
 		if r.Error != "" && r.Files == 0 && r.Status.State == "" {

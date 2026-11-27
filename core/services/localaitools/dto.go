@@ -1119,7 +1119,10 @@ type PromptCacheNode struct {
 	Node string `json:"node"`
 	// Enabled is false when the tier is off on the node; Error says why a
 	// node gave no usage (offline, no answer).
-	Enabled    bool               `json:"enabled"`
+	Enabled bool `json:"enabled"`
+	// OffReason says why the tier is off on the node: no_path,
+	// switched_off, network_disk or not_writable.
+	OffReason  string             `json:"off_reason,omitempty"`
 	Error      string             `json:"error,omitempty"`
 	Bytes      int64              `json:"bytes"`
 	Files      int                `json:"files"`

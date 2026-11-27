@@ -79,6 +79,10 @@ type PromptCacheUsageReply struct {
 	// Enabled is false when the tier is off on the worker (no data path, the
 	// cluster switch, or the switch of the worker).
 	Enabled bool `json:"enabled"`
+	// OffReason says why the tier is off on the worker: no_path,
+	// switched_off, network_disk or not_writable. An older worker sends
+	// none.
+	OffReason string `json:"off_reason,omitempty"`
 	// Usage is the pkg/promptcache NodeUsage of the worker, as it sends it.
 	Usage json.RawMessage `json:"usage,omitempty"`
 	Error string          `json:"error,omitempty"`

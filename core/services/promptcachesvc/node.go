@@ -14,6 +14,8 @@ package promptcachesvc
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -43,13 +45,31 @@ type Node struct {
 	store   pc.Store
 	janitor *pc.Janitor
 	stats   pc.StatProvider
+	// writable checks that the node can write under the root.
+	writable func(root string) error
 
 	mu sync.Mutex
 	// freeAtStart is the free space of the root at start; the automatic cap
 	// is a tenth of it, at most 20 GiB.
 	freeAtStart uint64
 	measured    bool
+	// offReason is set by CheckRoot when the root cannot hold the tier. It
+	// turns the tier off on this node whatever the settings say.
+	offReason string
 }
+
+// The reasons the tier is off on a node, in its usage report.
+const (
+	// OffNoPath: the node has no root (no data path and no
+	// --prompt-cache-path).
+	OffNoPath = "no_path"
+	// OffSwitchedOff: the setting of the cluster or the switch of the node.
+	OffSwitchedOff = "switched_off"
+	// OffNetworkDisk: the root is on a network or FUSE filesystem.
+	OffNetworkDisk = "network_disk"
+	// OffNotWritable: the node cannot create or write the root.
+	OffNotWritable = "not_writable"
+)
 
 // Option configures a Node.
 type Option func(*Node)
@@ -69,6 +89,11 @@ func WithStats(s pc.StatProvider) Option {
 	return func(n *Node) { n.stats = s }
 }
 
+// WithWritableCheck replaces the check that the root is writable, for tests.
+func WithWritableCheck(fn func(root string) error) Option {
+	return func(n *Node) { n.writable = fn }
+}
+
 // NewNode returns the disk tier rooted at root. An empty root means the node
 // has no place for it (no data path): the tier is off. settings may be nil
 // (defaults).
@@ -76,7 +101,7 @@ func NewNode(root, modelsPath string, settings func() config.PromptCacheConfig, 
 	if settings == nil {
 		settings = config.DefaultPromptCacheConfig
 	}
-	n := &Node{root: root, modelsPath: modelsPath, settings: settings, stats: pc.OSStats{}}
+	n := &Node{root: root, modelsPath: modelsPath, settings: settings, stats: pc.OSStats{}, writable: checkWritable}
 	for _, o := range opts {
 		o(n)
 	}
@@ -88,10 +113,79 @@ func NewNode(root, modelsPath string, settings func() config.PromptCacheConfig, 
 // Root is the root of the tier, empty when the node has none.
 func (n *Node) Root() string { return n.root }
 
-// Enabled reports whether backends get the tier: a root and the global
-// switch on.
+// Enabled reports whether backends get the tier: a usable root and the
+// global switch on.
 func (n *Node) Enabled() bool {
-	return n != nil && n.root != "" && !n.settings().DiskDisabled
+	return n.OffReason() == ""
+}
+
+// OffReason says why the tier is off on this node (one of the Off
+// constants), or is empty when it is on.
+func (n *Node) OffReason() string {
+	switch {
+	case n == nil || n.root == "":
+		return OffNoPath
+	case n.rootOff() != "":
+		return n.rootOff()
+	case n.settings().DiskDisabled:
+		return OffSwitchedOff
+	}
+	return ""
+}
+
+func (n *Node) rootOff() string {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.offReason
+}
+
+// CheckRoot checks once, at start, that the root can hold the tier: it must
+// be on a local filesystem and writable. When it is not, the tier is off on
+// this node, with one WARN that says how to set a local root. It returns the
+// reason, empty when the root is fine. The transfer speed probe is not enough
+// for this: a fast network share passes it, and then several nodes or a lost
+// lock can corrupt the files.
+func (n *Node) CheckRoot() string {
+	if n == nil || n.root == "" {
+		return ""
+	}
+	reason, detail := "", ""
+	if n.stats != nil {
+		if st, err := n.stats.Stat(pc.ExistingDir(n.root)); err == nil && st.Network {
+			reason, detail = OffNetworkDisk, fmt.Sprintf("the directory is on a network filesystem (%s)", st.FSType)
+		}
+	}
+	if reason == "" && n.writable != nil {
+		if err := n.writable(n.root); err != nil {
+			reason, detail = OffNotWritable, "the directory is not writable: "+err.Error()
+		}
+	}
+	if reason == "" {
+		return ""
+	}
+	n.mu.Lock()
+	n.offReason = reason
+	n.mu.Unlock()
+	xlog.Warn("The disk prompt cache is off on this node: "+detail+
+		". Set a directory on a local disk with --prompt-cache-path or LOCALAI_PROMPT_CACHE_PATH",
+		"path", n.root)
+	return reason
+}
+
+// checkWritable creates the root and writes and removes a file in it.
+func checkWritable(root string) error {
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(root, ".write-check-*")
+	if err != nil {
+		return err
+	}
+	name := f.Name()
+	_, werr := f.Write([]byte{0})
+	cerr := f.Close()
+	rerr := os.Remove(name)
+	return errors.Join(werr, cerr, rerr)
 }
 
 // BackendEnv is the environment the node sets on each backend process it
@@ -142,7 +236,7 @@ func mib(bytes int64) int64 {
 // start and every SweepInterval until ctx ends. It never blocks: a backend
 // that starts before the probe ends runs without a speed.
 func (n *Node) Start(ctx context.Context) {
-	if n.root == "" {
+	if n.root == "" || n.rootOff() != "" {
 		return
 	}
 	if n.Enabled() {
@@ -220,7 +314,7 @@ func (n *Node) Policy() pc.Policy {
 
 // Sweep runs the janitor once.
 func (n *Node) Sweep(ctx context.Context) (pc.Status, error) {
-	if n.root == "" {
+	if n.root == "" || n.rootOff() != "" {
 		return pc.Status{}, nil
 	}
 	st, err := n.janitor.Sweep(ctx, n.Policy())
@@ -231,8 +325,11 @@ func (n *Node) Sweep(ctx context.Context) (pc.Status, error) {
 }
 
 // Usage reports what the node holds and the state of its disk.
+//
+// A root that CheckRoot refused is never read: the report carries only the
+// reason.
 func (n *Node) Usage(ctx context.Context) (pc.NodeUsage, error) {
-	if n.root == "" {
+	if n.root == "" || n.rootOff() != "" {
 		return pc.NodeUsage{}, nil
 	}
 	return n.janitor.Usage(ctx)
@@ -271,9 +368,11 @@ func NamespaceScope(namespaces ...string) Scope {
 	return s
 }
 
-// Purge deletes the files of the scope on this node.
+// Purge deletes the files of the scope on this node. A root that CheckRoot
+// refused holds nothing of this node: the purge does nothing there, so a
+// read-only root cannot block the purges of a worker.
 func (n *Node) Purge(ctx context.Context, s Scope) (pc.Result, error) {
-	if n.root == "" {
+	if n.root == "" || n.rootOff() != "" {
 		return pc.Result{}, nil
 	}
 	switch {

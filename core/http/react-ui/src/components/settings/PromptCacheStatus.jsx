@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { promptCacheApi } from '../../utils/api'
 import { formatBytes } from '../../utils/format'
-import { promptCacheMessage, promptCacheState, promptCacheTotal } from '../../utils/promptCache'
+import { promptCacheMessage, promptCacheOffLabel, promptCacheOffMessage, promptCacheState, promptCacheTotal } from '../../utils/promptCache'
 import { Button, Callout, StatusChip, useLoad } from '../ui'
 import ConfirmDialog from '../ConfirmDialog'
 import Icon from '../Icon'
@@ -50,7 +50,8 @@ export default function PromptCacheStatus({ addToast }) {
         {nodes.map(n => {
           const st = n.status || {}
           const s = promptCacheState(st)
-          const msg = promptCacheMessage(st)
+          const off = n.enabled === false
+          const msg = off ? promptCacheOffMessage(n.off_reason) : promptCacheMessage(st)
           if (n.error && !n.files) {
             return (
               <div key={n.node} data-testid={`prompt-cache-node-${n.node}`}>
@@ -64,8 +65,8 @@ export default function PromptCacheStatus({ addToast }) {
           return (
             <div key={n.node} data-testid={`prompt-cache-node-${n.node}`}>
               <p>
-                {n.enabled === false
-                  ? <StatusChip tone="idle" label="Off" testId="prompt-cache-state" />
+                {off
+                  ? <StatusChip tone="idle" label={promptCacheOffLabel(n.off_reason)} testId="prompt-cache-state" />
                   : <StatusChip tone={s.tone} label={s.label} testId="prompt-cache-state" />}{' '}
                 {several && <><strong>{n.node}</strong>: </>}
                 <strong>{formatBytes(n.bytes || 0)} in {n.files || 0} {n.files === 1 ? 'entry' : 'entries'}.</strong>{' '}
@@ -73,7 +74,7 @@ export default function PromptCacheStatus({ addToast }) {
                 {st.effective_cap_bytes > 0 && <>The cache may grow to {formatBytes(st.effective_cap_bytes)}.</>}
                 {st.shares_models_disk && <> It shares the disk with the models, so it never takes the room a download needs.</>}
               </p>
-              {msg && <Callout tone={st.state === 'disabled_disk_full' ? 'error' : 'warn'} testId="prompt-cache-message">{msg}</Callout>}
+              {msg && <Callout tone={!off && st.state === 'disabled_disk_full' ? 'error' : 'warn'} testId="prompt-cache-message">{msg}</Callout>}
             </div>
           )
         })}

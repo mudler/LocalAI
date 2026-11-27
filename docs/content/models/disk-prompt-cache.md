@@ -8,7 +8,7 @@ keywords = ["prompt cache","kv cache","llama.cpp","disk","retention","privacy"]
 
 The `llama-cpp` backend keeps the KV state of earlier prompts in RAM (the [server-side prompt cache]({{%relref "/models/capabilities/text/text-generation#server-side-prompt-cache-repeated-system-prompts" %}})). That cache is lost when the model unloads. The disk prompt cache keeps the state of long prompts on disk too. After a reload, a swap or a restart, a request with the same start reads the state from disk and does not compute it again.
 
-The disk prompt cache is on by default. It needs a data path (`--data-path`, `LOCALAI_DATA_PATH`). With `LOCALAI_DATA_PATH=-` it is off.
+The disk prompt cache is on by default. It needs a directory on a local disk: `--prompt-cache-path` (`LOCALAI_PROMPT_CACHE_PATH`), or the data path (`--data-path`, `LOCALAI_DATA_PATH`). With `LOCALAI_DATA_PATH=-` and no `--prompt-cache-path`, it is off.
 
 ## What is stored
 
@@ -24,8 +24,15 @@ Treat these files like stored chats. They contain what the users wrote, and the 
 
 | Mode | Root |
 |---|---|
-| Single mode | `<data path>/prompt-cache` |
-| Distributed worker | `<worker data dir>/prompt-cache`, on the local disk of the worker |
+| Single mode | `--prompt-cache-path`, else `<data path>/prompt-cache` |
+| Distributed worker | `--prompt-cache-path`, else `<data path>/prompt-cache`, else `<models path>/../data/prompt-cache` when it is on a local disk. See [Worker setup](#worker-setup). |
+
+The root must be on a local disk that the node can write. At start, each node checks its root:
+
+- On a network filesystem (NFS, SMB/CIFS, FUSE such as sshfs or s3fs, Ceph, 9p, AFS and similar), the cache is off on that node.
+- When the node cannot create the root or write a file in it, the cache is off on that node.
+
+In both cases the node logs one warning with the path, and Settings shows the reason for that node, for example "Off: network disk". To fix it, set `--prompt-cache-path` or `LOCALAI_PROMPT_CACHE_PATH` to a directory on a local disk. On Windows and on platforms other than Linux and macOS, the type of the filesystem is not known, and only the write check applies.
 
 Under the root, the backend writes one directory per model: `llama-cpp/<build>-<model>/`, mode `0700`. The `<build>` part changes with the llama.cpp build, so an update starts a new directory and the old one expires. The directory also holds a `manifest.json` that describes the model and the cache format, and two small files, `.lock` and `.speed`.
 
@@ -146,11 +153,74 @@ The administrator view (`GET /api/prompt-cache`) shows, for each node, the size,
 
 In distributed mode each worker keeps its own disk prompt cache. The frontends keep the settings and the clears once, for the whole cluster, and bring every worker up to date over the node control channel (the control verbs `promptcache.sync` and `promptcache.usage`, on NATS or on the tunnel of the worker).
 
+### Worker setup
+
+A worker chooses the root of its cache in this order:
+
+1. `--prompt-cache-path` (`LOCALAI_PROMPT_CACHE_PATH`).
+2. `<data path>/prompt-cache`, with `--data-path` (`LOCALAI_DATA_PATH`).
+3. `<models path>/../data/prompt-cache`, but only when that directory is on a local disk.
+
+Step 3 keeps older workers working. Do not rely on it in a container. The models often sit on a network share at `/models`. Then `/data` is on the ephemeral root filesystem of the container, and the cache is lost when the container is replaced. Give the worker a data path on a local volume instead.
+
+A worker without a usable root runs without the disk cache, logs one warning, and Settings shows it as off with the reason.
+
+With `docker run`, mount a local directory at the data path:
+
+```bash
+docker run -d --name localai-worker   -v /srv/localai/data:/data   -v /mnt/models:/models   -e LOCALAI_DATA_PATH=/data   -e LOCALAI_MODELS_PATH=/models   -e LOCALAI_REGISTER_TO=http://frontend:8080   -e LOCALAI_REGISTRATION_TOKEN=<token>   localai/localai:latest-gpu-nvidia-cuda-12 worker
+```
+
+With docker compose, do the same with a named volume:
+
+```yaml
+services:
+  worker:
+    image: localai/localai:latest-gpu-nvidia-cuda-12
+    command: worker
+    environment:
+      LOCALAI_DATA_PATH: /data
+      LOCALAI_MODELS_PATH: /models
+      LOCALAI_REGISTER_TO: http://frontend:8080
+      LOCALAI_REGISTRATION_TOKEN: <token>
+    volumes:
+      - worker-data:/data
+      - /mnt/models:/models
+
+volumes:
+  worker-data:
+```
+
+On Kubernetes, mount an `emptyDir` with a `sizeLimit` at the data path. The cache then lives as long as the pod. For a cache that survives a new pod on the same node, use a PVC of a local-path storage class instead.
+
+```yaml
+spec:
+  containers:
+    - name: worker
+      image: localai/localai:latest-gpu-nvidia-cuda-12
+      args: ["worker"]
+      env:
+        - name: LOCALAI_DATA_PATH
+          value: /data
+      volumeMounts:
+        - name: data
+          mountPath: /data
+  volumes:
+    - name: data
+      emptyDir:
+        sizeLimit: 50Gi
+      # Or a local-path PVC:
+      # persistentVolumeClaim:
+      #   claimName: localai-worker-data
+```
+
+Keep the `sizeLimit` above the cache cap and the low free-space mark. The cache measures the free space of the volume, and the kubelet evicts a pod that goes over the limit.
+
 ### Who owns what
 
 | What | Owner | Where |
 |---|---|---|
-| Files | The worker that runs the backend | `<worker data dir>/prompt-cache`, on the local disk of the worker. Its backends write the files and its own cleaner deletes them. A frontend never reads or writes them. No shared storage is needed or used. |
+| Files | The worker that runs the backend | The root of the worker (see [Worker setup](#worker-setup)), on the local disk of the worker. Its backends write the files and its own cleaner deletes them. A frontend never reads or writes them. No shared storage is needed or used. |
 | Settings | The cluster | Stored once in the database with the other cluster settings (the memory settings of Settings > Models in memory). Every frontend applies the same values. The workers get them over the control channel, not from their own environment. |
 | Clears and purges | The cluster | Stored in a purge log in the database. The frontend that is asked sends them to every worker at once. |
 | Usage | Each worker | Each worker reports its own size, free disk, cap in effect and state. The frontend asks every worker and adds up the total. |
@@ -185,7 +255,7 @@ Deleting a chat does not delete its entries, as in single mode.
 
 ### Usage
 
-`GET /api/prompt-cache` and Settings > Models in memory list every worker: its size, entries, free disk, cap in effect and state (on, paused, disabled, or off on that worker). A worker that is offline or does not answer is listed with the reason. The `total` adds up the workers that answered.
+`GET /api/prompt-cache` and Settings > Models in memory list every worker: its size, entries, free disk, cap in effect and state (on, paused, disabled, or off on that worker). A worker that is off says why in `off_reason`: `no_path` (no root), `switched_off` (the setting or the switch of the worker), `network_disk` or `not_writable`. A worker that is offline or does not answer is listed with the reason. The `total` adds up the workers that answered.
 
 A cache that several workers share (for example on network storage), and routing a request to the worker that has its prompt on disk, are planned, not available now.
 
@@ -193,6 +263,6 @@ A cache that several workers share (for example on network storage), and routing
 
 | Method and path | Who | Body | Answer |
 |---|---|---|---|
-| `GET /api/prompt-cache` | Administrator | | `{enabled, shared, nodes: [{node, enabled, error, bytes, files, namespaces, status, models}], total: {bytes, files, cap_bytes, nodes, unreachable}}`. `status.state` is `on`, `paused_low_disk`, `disabled_disk_full` or `unknown`. `error` is set for a node that gave no usage. |
+| `GET /api/prompt-cache` | Administrator | | `{enabled, shared, nodes: [{node, enabled, off_reason, error, bytes, files, namespaces, status, models}], total: {bytes, files, cap_bytes, nodes, unreachable}}`. `status.state` is `on`, `paused_low_disk`, `disabled_disk_full` or `unknown`. `error` is set for a node that gave no usage. |
 | `POST /api/prompt-cache/clear` | Administrator | `{"model": "<name>"}`, or empty for all | `{files, bytes}` |
 | `DELETE /api/prompt-cache/mine` | Any user | | `{files, bytes}` |

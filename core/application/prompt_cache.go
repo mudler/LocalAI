@@ -37,6 +37,9 @@ func (a *Application) startPromptCache(o *config.ApplicationConfig) {
 		promptcachesvc.WithModelTTLs(a.promptCacheModelTTLs),
 		promptcachesvc.WithUsers(a.promptCacheUsers),
 	)
+	// A root on a network disk, or one this node cannot write, turns the
+	// tier off here with one WARN.
+	node.CheckRoot()
 	a.promptCacheMu.Lock()
 	a.promptCache = node
 	if a.promptCacheNodes == nil {

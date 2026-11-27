@@ -25,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
+	pc "github.com/mudler/LocalAI/pkg/promptcache"
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/splitenv"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -136,8 +137,16 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// first sync the worker runs the defaults. Its own switch can only turn
 	// the tier off.
 	promptCache := promptcachesvc.NewWorker(!cfg.PromptCacheDisk, workerIncarnation)
-	promptCacheNode := promptcachesvc.NewNode(cfg.promptCacheRoot(), cfg.ModelsPath, promptCache.Settings,
+	promptCacheRoot, promptCacheSource := cfg.promptCacheRoot(pc.OSStats{})
+	if promptCacheRoot == "" {
+		xlog.Warn("The disk prompt cache is off on this worker: it has no local directory for it. Set --data-path, or --prompt-cache-path or LOCALAI_PROMPT_CACHE_PATH, to a directory on a local disk",
+			"models_path", cfg.ModelsPath)
+	} else {
+		xlog.Debug("prompt cache root", "path", promptCacheRoot, "from", promptCacheSource)
+	}
+	promptCacheNode := promptcachesvc.NewNode(promptCacheRoot, cfg.ModelsPath, promptCache.Settings,
 		promptcachesvc.WithUsers(promptCache.Users))
+	promptCacheNode.CheckRoot()
 	promptCache.Attach(promptCacheNode)
 	ml.SetBackendEnv(promptCacheNode.BackendEnv)
 	promptCacheNode.Start(shutdownCtx)

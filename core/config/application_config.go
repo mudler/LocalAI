@@ -279,6 +279,9 @@ type ApplicationConfig struct {
 
 	// PromptCache is the disk tier of the llama.cpp prompt cache.
 	PromptCache PromptCacheConfig
+	// PromptCachePath is the root of the disk tier of this node when the
+	// operator sets it; it wins over <DataPath>/prompt-cache.
+	PromptCachePath string
 	// PromptCacheAutoQuota returns the automatic per-user quota of the disk
 	// tier in bytes (0 = none), so a backend enforces it on each write and
 	// not only at the next janitor sweep. Set when the tier starts.

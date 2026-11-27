@@ -145,6 +145,7 @@ func (d *Distributed) usageOf(ctx context.Context, p Peer) NodeReport {
 		return r
 	}
 	r.Enabled = reply.Enabled
+	r.OffReason = reply.OffReason
 	if reply.Error != "" {
 		r.Error = reply.Error
 	}

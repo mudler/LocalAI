@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { promptCacheMessage, promptCacheState, promptCacheTotal } from '../../src/utils/promptCache.js'
+import { promptCacheMessage, promptCacheOffLabel, promptCacheOffMessage, promptCacheState, promptCacheTotal } from '../../src/utils/promptCache.js'
 
 const GIB = 1024 ** 3
 
@@ -30,4 +30,17 @@ test('prompt cache: the total shows only with several nodes, and counts the node
   assert.match(line, /3 entries on 2 nodes/)
   assert.match(line, /at most/)
   assert.match(line, /1 node did not answer/)
+})
+
+test('prompt cache: a node that is off says why, and how to fix a bad directory', () => {
+  assert.equal(promptCacheOffLabel(undefined), 'Off')
+  assert.equal(promptCacheOffLabel('switched_off'), 'Off')
+  assert.equal(promptCacheOffLabel('network_disk'), 'Off: network disk')
+  assert.equal(promptCacheOffLabel('not_writable'), 'Off: not writable')
+  assert.equal(promptCacheOffMessage('switched_off'), null)
+  assert.equal(promptCacheOffMessage(undefined), null)
+  assert.match(promptCacheOffMessage('network_disk'), /on a network disk/)
+  assert.match(promptCacheOffMessage('network_disk'), /--prompt-cache-path/)
+  assert.match(promptCacheOffMessage('not_writable'), /not writable/)
+  assert.match(promptCacheOffMessage('no_path'), /--data-path/)
 })

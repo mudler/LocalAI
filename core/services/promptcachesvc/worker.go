@@ -130,16 +130,20 @@ func (w *Worker) Usage(ctx context.Context) workerctl.PromptCacheUsageReply {
 	w.mu.Lock()
 	n := w.node
 	w.mu.Unlock()
-	if n == nil || n.Root() == "" {
+	if n == nil {
 		return workerctl.PromptCacheUsageReply{}
 	}
+	if n.Root() == "" {
+		return workerctl.PromptCacheUsageReply{OffReason: OffNoPath}
+	}
+	enabled, off := n.Enabled(), n.OffReason()
 	u, err := n.Usage(ctx)
 	if err != nil {
-		return workerctl.PromptCacheUsageReply{Enabled: n.Enabled(), Error: err.Error()}
+		return workerctl.PromptCacheUsageReply{Enabled: enabled, OffReason: off, Error: err.Error()}
 	}
 	raw, err := json.Marshal(u)
 	if err != nil {
-		return workerctl.PromptCacheUsageReply{Enabled: n.Enabled(), Error: err.Error()}
+		return workerctl.PromptCacheUsageReply{Enabled: enabled, OffReason: off, Error: err.Error()}
 	}
-	return workerctl.PromptCacheUsageReply{Enabled: n.Enabled(), Usage: raw}
+	return workerctl.PromptCacheUsageReply{Enabled: enabled, OffReason: off, Usage: raw}
 }

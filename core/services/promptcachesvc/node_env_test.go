@@ -2,6 +2,8 @@ package promptcachesvc_test
 
 import (
 	"context"
+	"errors"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -11,7 +13,15 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/promptcachesvc"
 	"github.com/mudler/LocalAI/core/services/workerctl"
+	pc "github.com/mudler/LocalAI/pkg/promptcache"
 )
+
+// networkStats is a filesystem that says it is a network one.
+type networkStats struct{}
+
+func (networkStats) Stat(string) (pc.FSStats, error) {
+	return pc.FSStats{Free: 500 * gib, Total: 1000 * gib, Device: 1, FSType: "nfs", Network: true}, nil
+}
 
 func expectNoTierEnv(env map[string]string) {
 	Expect(env).To(HaveLen(len(config.PromptCacheEnvKeys)))
@@ -63,6 +73,7 @@ var _ = Describe("the environment of the backends of a node", func() {
 		settings.DiskDisabled = true
 		n := promptcachesvc.NewNode(root, "", get)
 		expectNoTierEnv(n.BackendEnv())
+		Expect(n.OffReason()).To(Equal(promptcachesvc.OffSwitchedOff))
 		expectNoTierEnv(promptcachesvc.NewNode("", "", get).BackendEnv())
 	})
 
@@ -92,5 +103,111 @@ var _ = Describe("the environment of the backends of a node", func() {
 		off.Disabled = true
 		w.Sync(context.Background(), workerctl.PromptCacheSyncRequest{Settings: &off})
 		expectNoTierEnv(n.BackendEnv())
+	})
+})
+
+var _ = Describe("the start checks of the root", func() {
+	settings := config.DefaultPromptCacheConfig
+	var root string
+
+	BeforeEach(func() { root = filepath.Join(GinkgoT().TempDir(), "prompt-cache") })
+
+	It("turns the tier off on a network filesystem and says why in the report", func() {
+		n := promptcachesvc.NewNode(root, "", settings, promptcachesvc.WithStats(networkStats{}))
+		Expect(n.CheckRoot()).To(Equal(promptcachesvc.OffNetworkDisk))
+		Expect(n.Enabled()).To(BeFalse())
+		expectNoTierEnv(n.BackendEnv())
+		Expect(root).ToNot(BeADirectory(), "a refused root is never written")
+
+		reports, err := promptcachesvc.Local{Node: n}.Usage(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(reports).To(HaveLen(1))
+		Expect(reports[0].Enabled).To(BeFalse())
+		Expect(reports[0].OffReason).To(Equal(promptcachesvc.OffNetworkDisk))
+
+		rep, err := promptcachesvc.Report(context.Background(), promptcachesvc.Local{Node: n}, true, false, nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rep.Nodes[0].OffReason).To(Equal(promptcachesvc.OffNetworkDisk))
+
+		res, err := n.Purge(context.Background(), promptcachesvc.Scope{All: true})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res.Files).To(BeZero())
+	})
+
+	It("turns the tier off when the root cannot be created", func() {
+		file := filepath.Join(GinkgoT().TempDir(), "a-file")
+		Expect(os.WriteFile(file, []byte("x"), 0o600)).To(Succeed())
+		n := promptcachesvc.NewNode(filepath.Join(file, "prompt-cache"), "", settings,
+			promptcachesvc.WithStats(fixedStats{free: 500 * gib, total: 1000 * gib}))
+		Expect(n.CheckRoot()).To(Equal(promptcachesvc.OffNotWritable))
+		Expect(n.OffReason()).To(Equal(promptcachesvc.OffNotWritable))
+		expectNoTierEnv(n.BackendEnv())
+	})
+
+	It("turns the tier off when the write check fails", func() {
+		n := promptcachesvc.NewNode(root, "", settings,
+			promptcachesvc.WithStats(fixedStats{free: 500 * gib, total: 1000 * gib}),
+			promptcachesvc.WithWritableCheck(func(string) error { return errors.New("read-only file system") }))
+		Expect(n.CheckRoot()).To(Equal(promptcachesvc.OffNotWritable))
+		Expect(n.Enabled()).To(BeFalse())
+	})
+
+	It("keeps a local, writable root and creates it", func() {
+		n := promptcachesvc.NewNode(root, "", settings,
+			promptcachesvc.WithStats(fixedStats{free: 500 * gib, total: 1000 * gib}))
+		Expect(n.CheckRoot()).To(BeEmpty())
+		Expect(n.Enabled()).To(BeTrue())
+		Expect(root).To(BeADirectory())
+		entries, err := os.ReadDir(root)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(entries).To(BeEmpty(), "the write check leaves nothing behind")
+	})
+
+	It("sends the reason of a worker to the frontend", func() {
+		w := promptcachesvc.NewWorker(false, "inc-1")
+		n := promptcachesvc.NewNode(root, "", w.Settings, promptcachesvc.WithStats(networkStats{}))
+		n.CheckRoot()
+		w.Attach(n)
+		reply := w.Usage(context.Background())
+		Expect(reply.Enabled).To(BeFalse())
+		Expect(reply.OffReason).To(Equal(promptcachesvc.OffNetworkDisk))
+
+		w2 := promptcachesvc.NewWorker(false, "inc-2")
+		w2.Attach(promptcachesvc.NewNode("", "", w2.Settings))
+		Expect(w2.Usage(context.Background()).OffReason).To(Equal(promptcachesvc.OffNoPath))
+	})
+})
+
+// oneWorker sends the verbs straight to one Worker half.
+type oneWorker struct{ w *promptcachesvc.Worker }
+
+func (o oneWorker) PromptCacheSync(ctx context.Context, _ string, req workerctl.PromptCacheSyncRequest, _ time.Duration) (*workerctl.PromptCacheSyncReply, error) {
+	r := o.w.Sync(ctx, req)
+	return &r, nil
+}
+
+func (o oneWorker) PromptCacheUsage(ctx context.Context, _ string, _ time.Duration) (*workerctl.PromptCacheUsageReply, error) {
+	r := o.w.Usage(ctx)
+	return &r, nil
+}
+
+var _ = Describe("the reason a worker is off, in the cluster report", func() {
+	It("reaches the report of the frontend", func() {
+		root := filepath.Join(GinkgoT().TempDir(), "prompt-cache")
+		w := promptcachesvc.NewWorker(false, "inc-1")
+		n := promptcachesvc.NewNode(root, "", w.Settings, promptcachesvc.WithStats(networkStats{}))
+		n.CheckRoot()
+		w.Attach(n)
+		d := &promptcachesvc.Distributed{
+			Sender: oneWorker{w},
+			Peers: func(context.Context) ([]promptcachesvc.Peer, error) {
+				return []promptcachesvc.Peer{{ID: "n1", Name: "gpu-1", Online: true}}, nil
+			},
+		}
+		rep, err := promptcachesvc.Report(context.Background(), d, true, false, nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rep.Nodes).To(HaveLen(1))
+		Expect(rep.Nodes[0].Enabled).To(BeFalse())
+		Expect(rep.Nodes[0].OffReason).To(Equal(promptcachesvc.OffNetworkDisk))
 	})
 })
