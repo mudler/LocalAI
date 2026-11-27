@@ -2,6 +2,7 @@ package anthropic
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -14,6 +15,7 @@ import (
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	openaiEndpoint "github.com/mudler/LocalAI/core/http/endpoints/openai"
 	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/http/sse"
 	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/cloudproxy"
@@ -859,12 +861,10 @@ func convertFuncsToOpenAITools(funcs functions.Functions) []functions.Tool {
 func intPtr(i int) *int { return &i }
 
 func sendAnthropicSSE(c echo.Context, event schema.AnthropicStreamEvent) {
-	data, err := json.Marshal(event)
-	if err != nil {
+	if err := sse.WriteEvent(c.Response().Writer, event.Type, event); errors.Is(err, sse.ErrEncode) {
 		xlog.Error("Failed to marshal SSE event", "error", err)
 		return
 	}
-	fmt.Fprintf(c.Response().Writer, "event: %s\ndata: %s\n\n", event.Type, string(data))
 	c.Response().Flush()
 }
 

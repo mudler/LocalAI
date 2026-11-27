@@ -15,6 +15,7 @@ import (
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	openaiEndpoint "github.com/mudler/LocalAI/core/http/endpoints/openai"
 	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/http/sse"
 	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/templates"
@@ -2809,12 +2810,9 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 // sendSSEEvent sends a Server-Sent Event
 func sendSSEEvent(c echo.Context, toolNames map[string]namespacedTool, event *schema.ORStreamEvent) {
 	normalizeORStreamEvent(event, toolNames)
-	data, err := json.Marshal(event)
-	if err != nil {
+	if err := sse.WriteEvent(c.Response().Writer, event.Type, event); errors.Is(err, sse.ErrEncode) {
 		xlog.Error("Failed to marshal SSE event", "error", err)
-		return
 	}
-	fmt.Fprintf(c.Response().Writer, "event: %s\ndata: %s\n\n", event.Type, string(data))
 }
 
 // normalizeORStreamEvent ensures required fields like Summary are never null
