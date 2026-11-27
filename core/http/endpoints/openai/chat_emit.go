@@ -340,3 +340,7 @@ type redactedJSON struct {
 func (r redactedJSON) LogValue() slog.Value {
 	return slog.StringValue(privacy.Redact(r.ctx, string(r.data)))
 }
+
+// maxChunksPerFlush caps how many ready chunks the chat stream writes before
+// it flushes them to the client.
+const maxChunksPerFlush = 32

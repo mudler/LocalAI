@@ -672,6 +672,61 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				var collectedContent strings.Builder
 				var chunk sseChunkWriter
 
+				// sendChunk writes one chunk without flushing it, and reports
+				// whether it wrote anything.
+				sendChunk := func(ev schema.OpenAIResponse) (bool, error) {
+					if len(ev.Choices) == 0 {
+						xlog.Debug("No choices in the response, skipping")
+						return false, nil
+					}
+					if len(ev.Choices[0].Delta.ToolCalls) > 0 {
+						toolsCalled = true
+						// Collect and merge tool call deltas for MCP execution
+						if hasMCPToolsStream {
+							collectedToolCalls = mergeToolCallDeltas(collectedToolCalls, ev.Choices[0].Delta.ToolCalls)
+						}
+					}
+					// Extract the raw content delta string once per chunk;
+					// both the MCP collector and the PII filter need it
+					// and the type-switch is otherwise duplicated.
+					var rawContent string
+					haveContent := false
+					if ev.Choices[0].Delta != nil && ev.Choices[0].Delta.Content != nil {
+						switch v := ev.Choices[0].Delta.Content.(type) {
+						case string:
+							rawContent = v
+							haveContent = true
+						case *string:
+							if v != nil {
+								rawContent = *v
+								haveContent = true
+							}
+						}
+					}
+					// Collect content for MCP conversation history and automatic tool parsing fallback.
+					// We collect the RAW (unfiltered) content so the model's tool-call
+					// markup keeps parsing correctly even when PII redaction would mask
+					// substrings.
+					if (hasMCPToolsStream || config.FunctionsConfig.AutomaticToolParsingFallback || evidence != nil) && haveContent {
+						collectedContent.WriteString(rawContent)
+					}
+					respData, err := chunk.encode(ev)
+					if err != nil {
+						xlog.Debug("Failed to marshal response", "error", err)
+						input.Cancel()
+						return false, nil
+					}
+					xlog.Debug("Sending chunk", "chunk", redactedJSON{ctx: c.Request().Context(), data: chunk.payload()})
+					_, err = c.Response().Writer.Write(respData)
+					if err != nil {
+						xlog.Debug("Sending chunk failed", "error", err)
+						input.Cancel()
+						return false, err
+					}
+					wroteChunk = true
+					return true, nil
+				}
+
 			LOOP:
 				for {
 					select {
@@ -681,56 +736,33 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						input.Cancel()
 						break LOOP
 					case ev := <-responses:
-						if len(ev.Choices) == 0 {
-							xlog.Debug("No choices in the response, skipping")
-							continue
-						}
-						if len(ev.Choices[0].Delta.ToolCalls) > 0 {
-							toolsCalled = true
-							// Collect and merge tool call deltas for MCP execution
-							if hasMCPToolsStream {
-								collectedToolCalls = mergeToolCallDeltas(collectedToolCalls, ev.Choices[0].Delta.ToolCalls)
-							}
-						}
-						// Extract the raw content delta string once per chunk;
-						// both the MCP collector and the PII filter need it
-						// and the type-switch is otherwise duplicated.
-						var rawContent string
-						haveContent := false
-						if ev.Choices[0].Delta != nil && ev.Choices[0].Delta.Content != nil {
-							switch v := ev.Choices[0].Delta.Content.(type) {
-							case string:
-								rawContent = v
-								haveContent = true
-							case *string:
-								if v != nil {
-									rawContent = *v
-									haveContent = true
-								}
-							}
-						}
-						// Collect content for MCP conversation history and automatic tool parsing fallback.
-						// We collect the RAW (unfiltered) content so the model's tool-call
-						// markup keeps parsing correctly even when PII redaction would mask
-						// substrings.
-						if (hasMCPToolsStream || config.FunctionsConfig.AutomaticToolParsingFallback || evidence != nil) && haveContent {
-							collectedContent.WriteString(rawContent)
-						}
-						respData, err := chunk.encode(ev)
+						wrote, err := sendChunk(ev)
 						if err != nil {
-							xlog.Debug("Failed to marshal response", "error", err)
-							input.Cancel()
-							continue
-						}
-						xlog.Debug("Sending chunk", "chunk", redactedJSON{ctx: c.Request().Context(), data: chunk.payload()})
-						_, err = c.Response().Writer.Write(respData)
-						if err != nil {
-							xlog.Debug("Sending chunk failed", "error", err)
-							input.Cancel()
 							return err
 						}
-						wroteChunk = true
-						c.Response().Flush()
+						// Write the chunks the worker already has ready, then
+						// flush once: each flush is a write to the socket. A
+						// chunk that is not ready is not waited for, and the
+						// batch is capped so a cancelled request is noticed.
+					BATCH:
+						for range maxChunksPerFlush {
+							select {
+							case next, ok := <-responses:
+								if !ok {
+									break BATCH
+								}
+								w, err := sendChunk(next)
+								if err != nil {
+									return err
+								}
+								wrote = wrote || w
+							default:
+								break BATCH
+							}
+						}
+						if wrote {
+							c.Response().Flush()
+						}
 					case res := <-ended:
 						if res.err == nil {
 							finalUsage = res.usage
