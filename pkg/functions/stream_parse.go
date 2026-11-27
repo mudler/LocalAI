@@ -25,6 +25,12 @@ type StreamToolCalls struct {
 // skips the parse when its result cannot have changed, when nothing was
 // written since the last parse, and returns no calls without parsing while the
 // output has no byte that can start a tool call.
+//
+// Without replacement rules the output is only appended to, and two parses
+// keep their work across tokens, with the same result as a parse of the whole
+// output: the XML parse is skipped until the output holds a start tag of the
+// format (xmlStreamGate), and the JSON parse of an output that does not open
+// with an object or array resumes from its last stable step (legacyJSONScan).
 type StreamToolCallParser struct {
 	config    FunctionsConfig
 	xmlFormat *XMLToolCallFormat
@@ -33,6 +39,11 @@ type StreamToolCallParser struct {
 	hasTrigger bool
 	dirty      bool
 	last       StreamToolCalls
+
+	// incremental is set when the cleaned output is the output itself.
+	incremental bool
+	xmlGate     xmlStreamGate
+	legacy      legacyJSONScan
 }
 
 // NewStreamToolCallParser returns a parser for the given function config.
@@ -42,6 +53,10 @@ func NewStreamToolCallParser(config FunctionsConfig) *StreamToolCallParser {
 		p.xmlFormat = config.XMLFormat
 	} else if config.XMLFormatPreset != "" {
 		p.xmlFormat = GetXMLFormatPreset(config.XMLFormatPreset)
+	}
+	p.incremental = len(config.ReplaceLLMResult) == 0
+	if p.incremental {
+		p.xmlGate = newXMLStreamGate(p.xmlFormat)
 	}
 	return p
 }
@@ -64,6 +79,8 @@ func (p *StreamToolCallParser) Reset() {
 	p.hasTrigger = false
 	p.dirty = false
 	p.last = StreamToolCalls{}
+	p.xmlGate.reset()
+	p.legacy.reset()
 }
 
 // Parse returns the partial tool calls of the output so far.
@@ -78,14 +95,53 @@ func (p *StreamToolCallParser) Parse() StreamToolCalls {
 		p.last = StreamToolCalls{}
 		return p.last
 	}
-	cleaned := CleanupLLMResult(p.output.String(), p.config)
-	if calls, err := ParseXMLIterative(cleaned, p.xmlFormat, true); err == nil && len(calls) > 0 {
+	cleaned := p.Cleaned()
+	if calls, err := p.parseXML(cleaned); err == nil && len(calls) > 0 {
 		p.last = StreamToolCalls{XML: calls}
 		return p.last
 	}
-	calls, err := ParseJSONIterative(cleaned, true)
+	calls, err := p.parseJSON(cleaned, true)
 	p.last = StreamToolCalls{JSON: calls, JSONErr: err}
 	return p.last
+}
+
+// Cleaned returns CleanupLLMResult of the output so far.
+func (p *StreamToolCallParser) Cleaned() string {
+	if p.incremental {
+		return p.output.String()
+	}
+	return CleanupLLMResult(p.output.String(), p.config)
+}
+
+// ParseXML returns ParseXMLIterative(p.Cleaned(), format, true), with the
+// format of the config.
+func (p *StreamToolCallParser) ParseXML() ([]FuncCallResults, error) {
+	return p.parseXML(p.Cleaned())
+}
+
+// ParseJSON returns ParseJSONIterative(p.Cleaned(), isPartial).
+func (p *StreamToolCallParser) ParseJSON(isPartial bool) ([]map[string]any, error) {
+	return p.parseJSON(p.Cleaned(), isPartial)
+}
+
+func (p *StreamToolCallParser) parseXML(cleaned string) ([]FuncCallResults, error) {
+	if p.incremental && p.xmlGate.empty(cleaned) {
+		return []FuncCallResults{}, nil
+	}
+	return ParseXMLIterative(cleaned, p.xmlFormat, true)
+}
+
+func (p *StreamToolCallParser) parseJSON(cleaned string, isPartial bool) ([]map[string]any, error) {
+	if p.incremental {
+		// ParseJSONIterative starts with the iterative parser at the first
+		// byte, which gives up on one that opens no object or array, and the
+		// parse is then parseJSONLegacy of the whole output, as it is for
+		// every output that starts like this one.
+		if opens, known := opensWithJSON(cleaned); known && !opens {
+			return p.legacy.scan(cleaned)
+		}
+	}
+	return ParseJSONIterative(cleaned, isPartial)
 }
 
 // StreamOutput keeps the output of a stream for the endpoints that parse it
