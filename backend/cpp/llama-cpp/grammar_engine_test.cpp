@@ -41,6 +41,14 @@ int main() {
     // A value that llama.cpp would not route to llguidance is ignored.
     check(&select_grammar(grammar_engine::automatic, true, gbnf, std::string("start: \"a\"")) != &llg, "no prefix: gbnf");
 
+    // grammar_max_repetition: option, then environment, then the default.
+    check(grammar_max_repetition("", nullptr) == "100000", "default when nothing is set");
+    check(grammar_max_repetition("5000", nullptr) == "5000", "the option");
+    check(grammar_max_repetition("5000", "300") == "5000", "the option wins over the environment");
+    check(grammar_max_repetition("", "300").empty(), "the environment is kept");
+    check(grammar_max_repetition("0", nullptr) == "100000", "0 is not a limit");
+    check(grammar_max_repetition("abc", nullptr) == "100000", "garbage is ignored");
+
     if (failures == 0) {
         std::printf("grammar_engine_test: all checks passed\n");
         return 0;

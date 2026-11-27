@@ -616,6 +616,12 @@ var flags = []es.Flag{
 			"A grammar you write yourself always uses GBNF.",
 	},
 	{
+		Key: "grammar_max_repetition", Target: es.TargetOption, Path: "options", Option: "grammar_max_repetition",
+		Type: es.TypeInt, Min: es.F64(1), Default: "100000", Group: GroupSampling, LocalAIOnly: true,
+		Doc: "Limit of the GBNF repetition check (llama.cpp's is 2000). The grammar of a large tool set goes over 2000 " +
+			"and the request fails with \"exceeds sane defaults\"; a lower value bounds the work a grammar can ask for.",
+	},
+	{
 		Key: "override_tensor", Target: es.TargetOption, Path: "options", Option: "-ot",
 		CLI: []string{"-ot", "--override-tensor"}, Type: es.TypeString,
 		Default: "no override", Group: GroupPlacement, Repeatable: true,

@@ -1,0 +1,44 @@
+Make the limit of the GBNF repetition check configurable. The check
+multiplies the size of a repeated group by its repetition count and fails
+above 2000, which the grammar of a large tool set exceeds: one group with
+many alternatives under a `*`. LLAMA_GRAMMAR_MAX_REPETITION, when set to a
+positive number, replaces 2000; LocalAI sets it from the
+grammar_max_repetition model option (default 100000). Upstream proposals to
+raise or configure the limit: ggml-org/llama.cpp#20867 and the PRs linked
+there. Drop this patch when the pin has an equivalent.
+
+diff --git a/src/llama-grammar.cpp b/src/llama-grammar.cpp
+--- a/src/llama-grammar.cpp
++++ b/src/llama-grammar.cpp
+@@ -11,8 +11,22 @@
+ #include <set>
+ #include <numeric>
+ #include <stdexcept>
++#include <cstdlib>
+ 
+ #define MAX_REPETITION_THRESHOLD 2000
++
++// LocalAI: the limit of the repetition check below, from LLAMA_GRAMMAR_MAX_REPETITION
++// when it is set to a positive number. Grammars of large tool sets go over 2000.
++static uint64_t llama_grammar_max_repetition() {
++    const char * env = getenv("LLAMA_GRAMMAR_MAX_REPETITION");
++    if (env != nullptr) {
++        const unsigned long long v = strtoull(env, nullptr, 10);
++        if (v > 0) {
++            return v;
++        }
++    }
++    return MAX_REPETITION_THRESHOLD;
++}
+ #define GRAMMAR_RECURSIVE_LIMIT 256
+ //
+ // helpers
+@@ -560,7 +574,7 @@ const char * llama_grammar_parser::parse_sequence(
+             total_rules = min_times;
+         }
+ 
+-        if (n_prev_rules * total_rules > MAX_REPETITION_THRESHOLD) {
++        if (n_prev_rules * total_rules > llama_grammar_max_repetition()) {
+             throw std::runtime_error("number of rules that are going to be repeated multiplied by the new repetition exceeds sane defaults, please reduce the number of repetitions or rule complexity");
+         }
+ 

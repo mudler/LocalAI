@@ -16,6 +16,7 @@ patches alive. Other files in `patches/` are not applied.
 | `0002-paged-serving.patch` | Hooks of the paged serving mode: admission, preemption, resume by recompute, the decode-first prefill budget, prefix sharing between live slots, and load-adaptive drafting. |
 | `0003-server-request-priority.patch` | Backport of ggml-org/llama.cpp#32219: `server_task::priority` and the deferred-queue pick by priority. Drop it when the pin contains #32219. |
 | `0004-paged-admission-order.patch` | Order of waiting requests (class with aging, uncached tokens, arrival) at the deferred queue, the admission wait and the prompt fill; the per-request prefill cap; idle-slot eviction least recently used first with save and tail trim; lazy idle-slot save. |
+| `0005-grammar-repetition-limit.patch` | The limit of the GBNF repetition check in `src/llama-grammar.cpp` comes from `LLAMA_GRAMMAR_MAX_REPETITION` when it is set to a positive number (upstream: a fixed 2000). `grpc-server.cpp` sets it from the `grammar_max_repetition` option, 100000 by default (`grammar_engine.h`). Drop it when the pin can configure the limit (ggml-org/llama.cpp#20867 and the PRs linked there). |
 
 ## Rules for 0002
 

@@ -754,6 +754,7 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 | `backend_sampling` or `gpu_sampling` | string | Where tokens are sampled: `off` (default, on the CPU), `on` (on the device that holds the output, such as the GPU) or `auto` (decided per request). `true`/`false` and `1`/`0` also work. See [Backend sampling](#backend-sampling) below. | `backend_sampling:auto` |
 | `backend_sampling_min_slots` | integer | With `backend_sampling:auto`, the number of requests that must run at the same time before a request samples on the GPU. Default: `16`. | `backend_sampling_min_slots:8` |
 | `grammar_engine` | string | Engine of the grammars that LocalAI builds from a JSON schema (`response_format` and tool calls): `auto` (default), `gbnf` or `llguidance`. See [Grammar engine](#grammar-engine) below. | `grammar_engine:gbnf` |
+| `grammar_max_repetition` | integer | Limit of the GBNF repetition check. llama.cpp stops at 2000, which the grammar of a large tool set exceeds: the request then fails with "number of rules that are going to be repeated ... exceeds sane defaults". Default: `100000`. The `LLAMA_GRAMMAR_MAX_REPETITION` environment variable sets it for every model when the option is not set. | `grammar_max_repetition:20000` |
 
 **Example configuration with options:**
 

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <optional>
+#include <cstdlib>
 #include <string>
 
 namespace llama_grpc {
@@ -53,6 +54,32 @@ inline const std::string & select_grammar(grammar_engine engine, bool built_with
         return gbnf;
     }
     return llg;
+}
+
+// Default of grammar_max_repetition: the limit of llama.cpp's GBNF repetition
+// check (upstream 2000). The check multiplies the size of a repeated group by
+// its repetition count, so the grammar of a large tool set, one group with
+// many alternatives under a `*`, goes over 2000 and the request fails with
+// "number of rules that are going to be repeated ... exceeds sane defaults".
+// 100000 is the value users of large tool sets report working.
+constexpr unsigned long long grammar_default_max_repetition = 100000;
+
+// grammar_max_repetition returns the value for LLAMA_GRAMMAR_MAX_REPETITION
+// (read by patches/0005): the model option when it is a positive number,
+// else the environment value when it is set, else the default. An empty
+// result leaves the environment as it is.
+inline std::string grammar_max_repetition(const std::string & option, const char * env) {
+    if (!option.empty()) {
+        char * end = nullptr;
+        const unsigned long long v = std::strtoull(option.c_str(), &end, 10);
+        if (end != option.c_str() && *end == '\0' && v > 0) {
+            return std::to_string(v);
+        }
+    }
+    if (env != nullptr && *env != '\0') {
+        return "";
+    }
+    return std::to_string(grammar_default_max_repetition);
 }
 
 } // namespace llama_grpc

@@ -1658,6 +1658,18 @@
       "localai_only": true
     },
     {
+      "key": "grammar_max_repetition",
+      "target": "option",
+      "path": "options",
+      "option": "grammar_max_repetition",
+      "type": "int",
+      "min": 1,
+      "default": "100000",
+      "doc": "Limit of the GBNF repetition check (llama.cpp's is 2000). The grammar of a large tool set goes over 2000 and the request fails with \"exceeds sane defaults\"; a lower value bounds the work a grammar can ask for.",
+      "group": "sampling",
+      "localai_only": true
+    },
+    {
       "key": "override_tensor",
       "target": "option",
       "path": "options",

@@ -846,6 +846,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     backend_sampling_option_set = false;
     grammar_engine_option = llama_grpc::grammar_engine::automatic;
     backend_sampling_auto_model = llama_grpc::backend_sampling_model{};
+    std::string grammar_max_repetition_option;
 
      // decode options. Options are in form optname:optvale, or if booleans only optname.
     for (int i = 0; i < request->options_size(); i++) {
@@ -1674,6 +1675,9 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             } else {
                 fprintf(stderr, "backend_sampling: ignoring invalid value '%s' (expected on, off or auto)\n", optval_str.c_str());
             }
+        } else if (!strcmp(optname, "grammar_max_repetition")) {
+            // limit of the GBNF repetition check, see grammar_engine.h; applied after the loop
+            grammar_max_repetition_option = optval_str;
         } else if (!strcmp(optname, "grammar_engine")) {
             // auto | gbnf | llguidance, see grammar_engine.h.
             if (const auto engine = llama_grpc::parse_grammar_engine(optval_str)) {
@@ -1720,6 +1724,14 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
 
     if (legacy_budget_zero_disables && !enable_reasoning_explicit) {
         params.enable_reasoning = 0;
+    }
+
+    // The GBNF repetition limit (patches/0005 reads it from the environment).
+    {
+        const std::string v = llama_grpc::grammar_max_repetition(grammar_max_repetition_option, std::getenv("LLAMA_GRAMMAR_MAX_REPETITION"));
+        if (!v.empty()) {
+            setenv("LLAMA_GRAMMAR_MAX_REPETITION", v.c_str(), 1);
+        }
     }
 
     if (backend_sampling_option_set) {
