@@ -1885,15 +1885,13 @@
         },
         "system": {
           "settings": {
-            "cache_ram": 4096,
-            "ctx_checkpoints": 8
+            "cache_ram": 4096
           },
           "min_memory": 17179869184
         },
         "unified": {
           "settings": {
-            "cache_ram": 4096,
-            "ctx_checkpoints": 8
+            "cache_ram": 4096
           },
           "min_memory": 17179869184
         }
@@ -1917,23 +1915,21 @@
       "best_for": "Agents and tools that send requests in parallel.",
       "memory": {
         "discrete": {
-          "min_memory": 17179869184
+          "min_memory": 8589934592
         },
         "system": {
           "settings": {
             "backend_sampling": null,
-            "cache_ram": 4096,
-            "ctx_checkpoints": 8
+            "cache_ram": 4096
           },
-          "min_memory": 34359738368,
+          "min_memory": 17179869184,
           "note": "No GPU: tokens are sampled on the CPU."
         },
         "unified": {
           "settings": {
-            "cache_ram": 4096,
-            "ctx_checkpoints": 8
+            "cache_ram": 4096
           },
-          "min_memory": 34359738368
+          "min_memory": 17179869184
         }
       }
     },
@@ -1960,7 +1956,7 @@
             "cache_type_v": "q8_0",
             "flash_attention": "on"
           },
-          "min_memory": 25769803776,
+          "min_memory": 8589934592,
           "note": "8-bit KV cache: about twice the tokens fit, at a small cost in quality and speed."
         },
         "system": {
@@ -1969,15 +1965,14 @@
         },
         "unified": {
           "settings": {
-            "cache_ram": 4096,
-            "ctx_checkpoints": 8
+            "cache_ram": 4096
           },
           "tight": {
             "cache_type_k": "q8_0",
             "cache_type_v": "q8_0",
             "flash_attention": "on"
           },
-          "min_memory": 68719476736
+          "min_memory": 17179869184
         }
       }
     },

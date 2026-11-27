@@ -18,6 +18,7 @@ const lastPatch = state => state.patches[state.patches.length - 1]?.patch
 const HOSTS = {
   discrete: { kind: 'discrete', device: 'NVIDIA GeForce RTX 4090', total: 24 * GIB },
   smallDiscrete: { kind: 'discrete', device: 'NVIDIA GeForce RTX 4080', total: 16 * GIB },
+  tinyDiscrete: { kind: 'discrete', device: 'NVIDIA GeForce GTX 1060', total: 6 * GIB },
   unified: { kind: 'unified', device: 'NVIDIA GB10', total: 128 * GIB },
   system: { kind: 'system', total: 64 * GIB },
 }
@@ -99,10 +100,12 @@ test.describe('Runtime tuning: concurrency', () => {
     await expect(page.getByTestId('rt-backend-sampling')).toHaveValue('off')
   })
 
-  test('a 16 GiB card is too small for 32 streams', async ({ page }) => {
-    await open(page, { host: HOSTS.smallDiscrete })
+  test('a 6 GiB card is too small for the stream setups, a 16 GiB one is not', async ({ page }) => {
+    await open(page, { host: HOSTS.tinyDiscrete })
     await expect(tier(page, 'streams32')).toBeDisabled()
-    await expect(page.getByTestId('rt-conc-mem-streams32')).toHaveText('Needs 24 GB of memory')
+    await expect(page.getByTestId('rt-conc-mem-streams32')).toHaveText('Needs 8 GB of memory')
+    await open(page, { host: HOSTS.smallDiscrete })
+    await expect(tier(page, 'streams32')).toBeEnabled()
     await expect(tier(page, 'streams16')).toBeEnabled()
   })
 
@@ -114,7 +117,7 @@ test.describe('Runtime tuning: concurrency', () => {
     await expect(page.getByTestId('rt-conc-kind-streams32')).toHaveCount(0)
     await save(page).click()
     await expect.poll(() => state.patches.length).toBe(1)
-    expect(lastPatch(state).options).toEqual(expect.arrayContaining(['parallel:32', 'cache_ram:4096', 'n_ctx_checkpoints:8', 'backend_sampling:on']))
+    expect(lastPatch(state).options).toEqual(expect.arrayContaining(['parallel:32', 'cache_ram:4096', 'backend_sampling:on']))
   })
 
   test('unified memory that f16 would overflow gets the 8-bit cache', async ({ page }) => {

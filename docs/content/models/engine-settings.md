@@ -241,9 +241,9 @@ the **Interactive** tab has a **Runtime tuning** section with the badge
   | **Balanced** | Removes `parameters.batch` and `ubatch`. | Same. | Same. |
   | **Long prompts** | `parameters.batch: 2048`, `ubatch:2048`. | `parameters.batch: 2048`, `ubatch:1024` (the compute buffer must fit one card). | `parameters.batch: 2048`, `ubatch:512`. |
   | **Default** | Removes `parallel`, `paged_kv`, `paged_preempt`, and what a stream setup wrote. | Same. | Same. |
-  | **8 streams** | `parallel:8`, `paged_kv:true`, `paged_preempt:true`, `cache_ram:4096`, `n_ctx_checkpoints:8`. From 16 GB. | `parallel:8`, `paged_kv:true`, `paged_preempt:true`. From 8 GB. | As unified memory. From 16 GB. |
-  | **16 streams** | 8 streams with `parallel:16`, `backend_sampling:on`, `spec_type:none` and no draft model. From 32 GB. | Same, without the cache bounds. From 16 GB. | As unified memory, without GPU sampling. From 32 GB. |
-  | **32+ streams** | `parallel:32`, `backend_sampling:on`, drafting off, the cache bounds, f16 KV cache; `cache_type_k`/`cache_type_v: q8_0` and flash attention only when the f16 cache does not fit. From 64 GB. | `parallel:32`, `backend_sampling:on`, drafting off, `q8_0` K and V cache, flash attention on. From 24 GB. | Not offered. |
+  | **8 streams** | `parallel:8`, `paged_kv:true`, `paged_preempt:true`, `cache_ram:4096`. From 16 GB. | `parallel:8`, `paged_kv:true`, `paged_preempt:true`. From 8 GB. | As unified memory. From 16 GB. |
+  | **16 streams** | 8 streams with `parallel:16`, `backend_sampling:on`, `spec_type:none` and no draft model. From 16 GB. | Same, without the cache bounds. From 8 GB. | As unified memory, without GPU sampling. From 16 GB. |
+  | **32+ streams** | `parallel:32`, `backend_sampling:on`, drafting off, the cache bounds, f16 KV cache; `cache_type_k`/`cache_type_v: q8_0` and flash attention only when the f16 cache does not fit. From 16 GB. | `parallel:32`, `backend_sampling:on`, drafting off, `q8_0` K and V cache, flash attention on. From 8 GB. | Not offered. |
 
   A stream setup is also refused when its estimate needs more than 90% of the
   memory and more than the current values. The slots share one KV cache, so

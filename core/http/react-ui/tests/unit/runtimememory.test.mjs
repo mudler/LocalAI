@@ -60,9 +60,9 @@ test('runtime memory: whether a concurrency profile fits the memory', () => {
   assert.deepEqual(profileFit(tier('streams32'), 'discrete', 0, 0.9, {}), { state: 'ok', tight: false })
   // Not offered without a GPU, and below the floor of the kind.
   assert.equal(profileFit(tier('streams32'), 'system', 64 * GIB, 0.9, {}).state, 'unsupported')
-  const small = profileFit(tier('streams32'), 'discrete', 16 * GIB, 0.9, {})
+  const small = profileFit(tier('streams32'), 'discrete', 6 * GIB, 0.9, {})
   assert.equal(small.state, 'small')
-  assert.equal(small.need, 24 * GIB)
+  assert.equal(small.need, 8 * GIB)
   assert.equal(profileFit(tier('streams8'), 'discrete', 16 * GIB, 0.9, { plain: total(10 * GIB), now: total(10 * GIB) }).state, 'ok')
   // Unified memory: f16 when it fits, the 8-bit cache when it does not.
   assert.deepEqual(profileFit(tier('streams32'), 'unified', 128 * GIB, 0.9, { plain: total(100 * GIB), tight: total(80 * GIB), now: total(90 * GIB) }), { state: 'ok', tight: false })

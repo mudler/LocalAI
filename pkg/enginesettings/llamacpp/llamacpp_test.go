@@ -602,7 +602,9 @@ var _ = Describe("the llama.cpp engine", func() {
 		It("bounds the host caches on unified memory and the CPU, and leaves them on a discrete GPU", func() {
 			for _, id := range []string{"streams8", "streams16", "streams32"} {
 				Expect(byID(id).SettingsFor(es.MemoryUnified, false)).To(HaveKey("cache_ram"), id)
-				Expect(byID(id).SettingsFor(es.MemoryUnified, false)).To(HaveKey("ctx_checkpoints"), id)
+				Expect(byID(id).SettingsFor(es.MemoryUnified, false)).To(HaveKey("cache_ram"), id)
+				// The checkpoints are bounded per model by the hardware defaults, not fixed here.
+				Expect(byID(id).SettingsFor(es.MemoryUnified, false)).NotTo(HaveKey("ctx_checkpoints"), id)
 				Expect(byID(id).SettingsFor(es.MemoryDiscrete, false)).ToNot(HaveKey("cache_ram"), id)
 			}
 		})

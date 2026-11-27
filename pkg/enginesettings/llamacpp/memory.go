@@ -33,20 +33,27 @@ import es "github.com/mudler/LocalAI/pkg/enginesettings"
 
 const gib = uint64(1) << 30
 
-// Host memory bounds for unified memory and the CPU. The checkpoint count
-// is per slot: a hybrid model keeps up to that many copies of its recurrent
-// state for each slot.
-//
-// TODO(paged serving): confirm against the Qwen3-8B parallel 8/16/32 study on
-// the GB10 (paged serving PR, #13528). Until then these are conservative:
-// half the backend's 8192 MiB prompt cache, and 8 checkpoints a slot (the
-// paged serving defaults bound hybrid models to 6 to 32 a slot at 8 slots).
-const (
-	hostPromptCacheMiB    = 4096
-	hostCheckpointsBySlot = 8
-)
+// Host memory bound for unified memory and the CPU: half the backend's 8192
+// MiB prompt cache. The context checkpoints of a hybrid model are not set
+// here: LocalAI's hardware defaults bound them from the model's recurrent
+// state, the slots and this cache_ram (n_ctx_checkpoints = the smaller of
+// cache_ram and a quarter of the host memory, divided by slots times state,
+// between 4 and 32), which a fixed count per slot would override.
+const hostPromptCacheMiB = 4096
 
-var hostBounds = map[string]any{"cache_ram": hostPromptCacheMiB, "ctx_checkpoints": hostCheckpointsBySlot}
+var hostBounds = map[string]any{"cache_ram": hostPromptCacheMiB}
+
+// Floors of the stream setups. The slots share one KV cache, so the slot
+// count does not change the memory a model needs: Qwen3-8B Q4_K_M at a
+// 32768-token context through LocalAI on a GB10 used 9.6, 9.6 and 9.7 GiB
+// of device memory and 3.2, 3.0 and 2.7 GB of host RSS at 8, 16 and 32
+// slots. So every setup has the floor of its memory kind; the estimate
+// check of the editor still refuses a model that does not fit.
+const (
+	minUnified  = 16 * gib
+	minDiscrete = 8 * gib
+	minSystem   = 16 * gib
+)
 
 // merge returns the union of maps; later maps win.
 func merge(maps ...map[string]any) map[string]any {
@@ -129,11 +136,9 @@ var profiles = []es.Preset{
 		BestFor:     "A team chatting with one model.",
 		Settings:    map[string]any{"parallel": 8, "paged_kv": true, "paged_preempt": true},
 		Memory: map[es.MemoryKind]es.PresetMemory{
-			es.MemoryUnified: {Settings: hostBounds, MinMemory: 16 * gib},
-			// TODO(paged serving): the VRAM floors are placeholders until the
-			// parallel study of #13528 has numbers for discrete cards.
-			es.MemoryDiscrete: {MinMemory: 8 * gib},
-			es.MemorySystem:   {Settings: hostBounds, MinMemory: 16 * gib},
+			es.MemoryUnified:  {Settings: hostBounds, MinMemory: minUnified},
+			es.MemoryDiscrete: {MinMemory: minDiscrete},
+			es.MemorySystem:   {Settings: hostBounds, MinMemory: minSystem},
 		},
 	},
 	{
@@ -149,10 +154,10 @@ var profiles = []es.Preset{
 			"backend_sampling": "on", "spec_type": "none", "draft_model": nil,
 		},
 		Memory: map[es.MemoryKind]es.PresetMemory{
-			es.MemoryUnified:  {Settings: hostBounds, MinMemory: 32 * gib},
-			es.MemoryDiscrete: {MinMemory: 16 * gib},
+			es.MemoryUnified:  {Settings: hostBounds, MinMemory: minUnified},
+			es.MemoryDiscrete: {MinMemory: minDiscrete},
 			es.MemorySystem: {
-				Settings: merge(hostBounds, map[string]any{"backend_sampling": nil}), MinMemory: 32 * gib,
+				Settings: merge(hostBounds, map[string]any{"backend_sampling": nil}), MinMemory: minSystem,
 				Note: "No GPU: tokens are sampled on the CPU.",
 			},
 		},
@@ -171,11 +176,11 @@ var profiles = []es.Preset{
 			es.MemoryUnified: {
 				Settings:  hostBounds,
 				Tight:     map[string]any{"cache_type_k": "q8_0", "cache_type_v": "q8_0", "flash_attention": "on"},
-				MinMemory: 64 * gib,
+				MinMemory: minUnified,
 			},
 			es.MemoryDiscrete: {
 				Settings:  map[string]any{"cache_type_k": "q8_0", "cache_type_v": "q8_0", "flash_attention": "on"},
-				MinMemory: 24 * gib,
+				MinMemory: minDiscrete,
 				Note:      "8-bit KV cache: about twice the tokens fit, at a small cost in quality and speed.",
 			},
 			es.MemorySystem: {Unsupported: true, Note: "Not offered without a GPU: a CPU shared by 32 streams makes each one too slow."},

@@ -343,7 +343,7 @@ test('engine settings: concurrency profiles are a set of their own, with values 
   assert.equal(readProfile(schema, d8, { ...set, kind: 'discrete' }), 'streams8')
   const u8 = withProfile(schema, {}, tier('streams8', 'unified'))
   assert.ok(u8.options.includes('cache_ram:4096'))
-  assert.ok(u8.options.includes('n_ctx_checkpoints:8'))
+  assert.ok(!u8.options.some(o => o.startsWith('n_ctx_checkpoints')))
   assert.equal(readProfile(schema, u8, { ...set, kind: 'unified' }), 'streams8')
   // The batch choice does not see the concurrency settings.
   assert.equal(readProfile(schema, u8), 'balanced')
