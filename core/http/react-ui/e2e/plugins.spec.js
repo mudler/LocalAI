@@ -67,6 +67,15 @@ test.describe('Plugins tab', () => {
     await expect(dialog.getByTestId('plugin-adds')).toContainText('Connects to docs.example.com')
     await expect(dialog.getByTestId('plugin-components')).toContainText('/docs-helper:outline')
     await expect(dialog.getByTestId('plugin-review-code')).toHaveCount(0)
+    // The digest, one long word, wraps inside the dialog.
+    const digest = dialog.getByTestId('plugin-digest')
+    await expect(digest).toContainText('sha256:')
+    const over = await dialog.evaluate((el) => {
+      const d = el.querySelector('[data-testid="plugin-digest"]').getBoundingClientRect()
+      const box = el.getBoundingClientRect()
+      return d.right - box.right
+    })
+    expect(over).toBeLessThanOrEqual(0)
     // An administrator chooses the scope; everyone is the first choice.
     await dialog.getByTestId('plugin-scope-user').click()
     await dialog.getByTestId('plugin-install-confirm').click()

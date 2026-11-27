@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Trans, useTranslation } from 'react-i18next'
 import { Button, Page, PageHeader, Tabs } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
+import { useHubAuth } from '../components/hub/useHubAuth'
 import { addonsApi, addonsCatalog } from '../utils/addonsClient'
 import AppsView from '../components/addons/AppsView'
 import BrowseView from '../components/addons/BrowseView'
@@ -39,11 +40,14 @@ export default function Addons() {
   const [params, setParams] = useSearchParams()
   const manage = resolveManage(params, isAdmin)
   const plugins = hasFeature('plugins')
-  const tab = manage ? 'apps' : resolveTab(params.get('tab'), isAdmin, { plugins })
-  const tabs = visibleTabs(isAdmin, { plugins })
+  // With the add-on runtime off the page still serves the Plugins tab.
+  const { features } = useHubAuth()
+  const addonsOn = features?.addons !== false
+  const tab = manage && addonsOn ? 'apps' : resolveTab(params.get('tab'), isAdmin, { plugins, addons: addonsOn })
+  const tabs = visibleTabs(isAdmin, { plugins, addons: addonsOn })
   // Host access is read once here: the tab shows how many approvals wait, and
   // the list of add-ons shows the same banners.
-  const grants = useHostGrants({ enabled: Boolean(isAdmin) })
+  const grants = useHostGrants({ enabled: Boolean(isAdmin) && addonsOn })
   // An approval whose upgrade is queued or running no longer waits for anyone.
   const upgrades = useAddonUpgrades()
   const waiting = awaitingApproval(grants.data, (id) => upgrades.live.find(op => op.addonId === id) || null).length

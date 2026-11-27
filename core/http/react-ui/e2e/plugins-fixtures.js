@@ -14,7 +14,7 @@ export const MARKETS = [
 export const ITEMS = [
   { name: 'docs-helper', description: 'Write and review documentation.', version: '1.2.0', category: 'writing', supported: true, plugin: 'docs-helper@localai', marketplace: 'localai', runsCode: false, installs: [] },
   { name: 'lint-hooks', description: 'Runs a linter after each edit.', version: '0.3.0', category: 'code', author: 'Acme', supported: true, plugin: 'lint-hooks@acme', marketplace: 'acme', runsCode: true, installs: [] },
-  { name: 'notes-kit', description: 'No version of it was installed yet.', version: '2.0.0', supported: true, plugin: 'notes-kit@acme', marketplace: 'acme', installs: [] },
+  { name: 'notes-kit', description: 'Nobody has reviewed or installed it yet.', version: '2.0.0', supported: true, plugin: 'notes-kit@acme', marketplace: 'acme', installs: [] },
   { name: 'npm-thing', description: 'From npm.', supported: false, reason: 'npm sources are not supported', plugin: 'npm-thing@acme', marketplace: 'acme', installs: [] },
 ]
 const MODEL_TEXT = {

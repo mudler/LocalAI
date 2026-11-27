@@ -34,6 +34,13 @@ test('plugins tab: shows to everyone with the plugins feature, after the add-on 
   assert.equal(resolveView('nope'), 'browse')
 })
 
+test('plugins tab: with the add-on runtime off, the page has the Plugins tab only', () => {
+  assert.deepEqual(visibleTabs(true, { plugins: true, addons: false }), ['plugins'])
+  assert.deepEqual(visibleTabs(false, { plugins: false, addons: false }), [])
+  assert.equal(resolveTab('apps', true, { plugins: true, addons: false }), 'plugins')
+  assert.equal(resolveTab(null, false, { plugins: true, addons: false }), 'plugins')
+})
+
 test('plugins client: a code install sends the plugin ID in the confirm header; a text install sends none', async () => {
   const f = fakeFetch({ status: 202, body: { jobID: 'j1', plugin: 'lint@acme' } })
   const api = createPluginsApi({ base: (p) => `/base${p}`, fetch: f.fn })
