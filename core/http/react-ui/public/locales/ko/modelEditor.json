@@ -55,6 +55,7 @@
             "options_cache_ram": "프롬프트 캐시 메모리 (MiB)",
             "options_mmproj_use_gpu": "GPU 비전 프로젝터",
             "options_backend_sampling_min_slots": "GPU 샘플링 최소 슬롯",
+            "options_grammar_engine": "문법 엔진",
             "options_context_shift": "컨텍스트 이동",
             "options_cont_batching": "연속 배칭",
             "options_kv_unified": "통합 KV 캐시",

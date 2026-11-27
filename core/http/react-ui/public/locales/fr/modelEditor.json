@@ -55,6 +55,7 @@
             "options_cache_ram": "Mémoire du cache de prompts (Mio)",
             "options_mmproj_use_gpu": "Projecteur de vision sur GPU",
             "options_backend_sampling_min_slots": "Slots minimum pour l'échantillonnage GPU",
+            "options_grammar_engine": "Moteur de grammaire",
             "options_context_shift": "Décalage du contexte",
             "options_cont_batching": "Batching continu",
             "options_kv_unified": "Cache KV unifié",

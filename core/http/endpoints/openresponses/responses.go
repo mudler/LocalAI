@@ -222,7 +222,7 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 
 			// Generate grammar to constrain model output to valid function calls
 			jsStruct := cfg.FunctionsConfig.ToJSONStructure(funcsWithNoAction)
-			g, err := jsStruct.Grammar(cfg.FunctionsConfig.GrammarOptions()...)
+			g, err := cfg.SchemaGrammar(jsStruct)
 			if err == nil {
 				cfg.Grammar = g
 				xlog.Debug("Open Responses - Generated grammar for function calling")

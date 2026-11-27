@@ -6,6 +6,12 @@ IMAGE_NAME="${IMAGE_NAME:-localai/llama-cpp-darwin}"
 
 pushd backend/cpp/llama-cpp
 
+# llguidance (the grammar_engine model option) needs cargo, which the macOS
+# runners have. Without it the backend builds as before and uses GBNF.
+if [ -z "${LLGUIDANCE:-}" ] && command -v cargo >/dev/null 2>&1; then
+    export LLGUIDANCE=ON
+fi
+
 # Single build via ggml CPU_ALL_VARIANTS: one binary plus the per-microarch Apple/arm
 # dylibs (apple_m1/m2_m3/m4, armv8.x) that ggml selects at runtime. GGML_METAL stays ON
 # and --target ggml also builds ggml-metal (via add_dependencies), so the Metal GPU

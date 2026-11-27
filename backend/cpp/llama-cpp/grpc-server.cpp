@@ -79,6 +79,7 @@
 #include "model_load_error.h"
 #include "thread_params.h"
 #include "backend_sampling.h"
+#include "grammar_engine.h"
 #include "parallel_params.h"
 #include "slot_cache.h"
 #include "message_content.h"
@@ -218,6 +219,14 @@ std::atomic<bool> loaded_model{false};
 static llama_grpc::backend_sampling_mode backend_sampling_option = llama_grpc::backend_sampling_mode::off;
 static bool backend_sampling_option_set = false;
 static llama_grpc::backend_sampling_model backend_sampling_auto_model;
+
+// grammar_engine of the loaded model (one per process). See grammar_engine.h.
+static llama_grpc::grammar_engine grammar_engine_option = llama_grpc::grammar_engine::automatic;
+#ifdef LLAMA_USE_LLGUIDANCE
+static constexpr bool built_with_llguidance = true;
+#else
+static constexpr bool built_with_llguidance = false;
+#endif
 
 // Completion requests that run now. backend_sampling:auto counts them as the
 // active slots, since a request holds a slot while it generates.
@@ -400,9 +409,18 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     data["min_p"] = predict->minp();
 
 
-    std::string grammar_str = predict->grammar();
-
-
+    // LocalAI sends the llguidance form of a grammar it built from a JSON
+    // schema in the metadata; grammar_engine decides which form is used.
+    std::string llg_grammar;
+    {
+        const auto & md = predict->metadata();
+        const auto it = md.find(llama_grpc::llguidance_grammar_metadata_key);
+        if (it != md.end()) {
+            llg_grammar = it->second;
+        }
+    }
+    const std::string grammar_str = llama_grpc::select_grammar(
+        grammar_engine_option, built_with_llguidance, predict->grammar(), llg_grammar);
 
     if (!grammar_str.empty()) {
         data["grammar"] = grammar_str;
@@ -791,6 +809,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
 
     backend_sampling_option = llama_grpc::backend_sampling_mode::off;
     backend_sampling_option_set = false;
+    grammar_engine_option = llama_grpc::grammar_engine::automatic;
     backend_sampling_auto_model = llama_grpc::backend_sampling_model{};
 
      // decode options. Options are in form optname:optvale, or if booleans only optname.
@@ -1557,6 +1576,16 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 backend_sampling_option_set = true;
             } else {
                 fprintf(stderr, "backend_sampling: ignoring invalid value '%s' (expected on, off or auto)\n", optval_str.c_str());
+            }
+        } else if (!strcmp(optname, "grammar_engine")) {
+            // auto | gbnf | llguidance, see grammar_engine.h.
+            if (const auto engine = llama_grpc::parse_grammar_engine(optval_str)) {
+                grammar_engine_option = *engine;
+                if (*engine == llama_grpc::grammar_engine::llguidance && !built_with_llguidance) {
+                    fprintf(stderr, "grammar_engine: this build has no llguidance, using GBNF\n");
+                }
+            } else {
+                fprintf(stderr, "grammar_engine: ignoring invalid value '%s' (expected auto, gbnf or llguidance)\n", optval_str.c_str());
             }
         } else if (!strcmp(optname, "backend_sampling_min_slots")) {
             try {
@@ -2871,6 +2900,17 @@ public:
             // Update the grammar triggers in params
             params.sampling.grammar_triggers = std::move(processed_triggers);
         }
+
+#ifdef LLAMA_USE_LLGUIDANCE
+        // llama.cpp builds the llguidance view of the vocabulary on the first
+        // llguidance grammar and caches it. That takes seconds on a large
+        // vocabulary, so build it here instead of in the first request.
+        if (grammar_engine_option != llama_grpc::grammar_engine::gbnf) {
+            if (llama_sampler * warm = llama_sampler_init_llg(ctx_server.impl->vocab, "lark", "start: \"a\"")) {
+                llama_sampler_free(warm);
+            }
+        }
+#endif
 
         //ctx_server.init();
         result->set_message("Loading succeeded");

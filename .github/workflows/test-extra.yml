@@ -518,6 +518,7 @@ jobs:
           make test-extra-backend-llama-cpp
           make test-extra-backend-llama-cpp-embeddings
           make test-extra-backend-llama-cpp-rpc
+          make test-extra-backend-llama-cpp-grammar
   tests-llama-cpp-grpc-transcription:
     needs: detect-changes
     if: needs.detect-changes.outputs.llama-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'

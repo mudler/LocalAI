@@ -718,6 +718,7 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 | `split_mode` or `sm` | string | How to split the model across multiple GPUs: `none` (single GPU only), `layer` (default - split layers and KV across GPUs), `row` (deprecated upstream; use `tensor`), `tensor` (experimental tensor parallelism: each layer is split across all GPUs for lower token latency). `tensor` needs flash attention (`flash_attention: "on"`, or `"auto"`, which llama.cpp turns on in this mode), `fit_params:false` and a `context_size` you set yourself, and it is not implemented for every architecture. Quantized KV cache (`cache_type_k`/`cache_type_v`) works with it on the bundled llama.cpp ([#23792](https://github.com/ggml-org/llama.cpp/pull/23792)); `f16` is the safe choice. The NVIDIA CUDA backends ship NCCL for the GPU-to-GPU reductions. See the [tensor split configuration]({{%relref "/models/gpu-acceleration#llama-cpp-tensor-split" %}}). | `split_mode:tensor` |
 | `backend_sampling` or `gpu_sampling` | string | Where tokens are sampled: `off` (default, on the CPU), `on` (on the device that holds the output, such as the GPU) or `auto` (decided per request). `true`/`false` and `1`/`0` also work. See [Backend sampling](#backend-sampling) below. | `backend_sampling:auto` |
 | `backend_sampling_min_slots` | integer | With `backend_sampling:auto`, the number of requests that must run at the same time before a request samples on the GPU. Default: `4`. | `backend_sampling_min_slots:8` |
+| `grammar_engine` | string | Engine of the grammars that LocalAI builds from a JSON schema (`response_format` and tool calls): `auto` (default), `gbnf` or `llguidance`. See [Grammar engine](#grammar-engine) below. | `grammar_engine:gbnf` |
 
 **Example configuration with options:**
 
@@ -752,6 +753,37 @@ By default llama.cpp copies the logits of every slot to the host after each deco
 llama.cpp turns backend sampling off for a request by itself when the request uses a grammar, a reasoning budget (thinking models with tool calls) or logprobs taken before sampling, and for text-to-speech; `auto` leaves those requests on the CPU from the start. Only a prefix of the sampler chain made of top-k, top-p, min-p, temperature, penalties, logit bias and the final draw runs on the device; other samplers (typical-p, XTC, mirostat, DRY) run on the CPU.
 
 Known upstream issues at the time of writing: [#32141](https://github.com/ggml-org/llama.cpp/issues/32141) (`min_keep` and `min_p` handling), [#31840](https://github.com/ggml-org/llama.cpp/issues/31840) (pinned host buffers are allocated again each time a request ends) and [#32637](https://github.com/ggml-org/llama.cpp/issues/32637) (an invalid token on Metal with a small vocabulary). Test greedy output against `off` before you turn it on for a model.
+
+##### Grammar engine
+
+LocalAI constrains the output of the model with a grammar for JSON mode (`response_format` with a `json_schema`) and for tool calls when it builds the tool-call grammar itself. llama.cpp has two engines for these grammars:
+
+- **GBNF**: the grammar sampler of llama.cpp. It works in every build. It can be slow on a large schema, such as a big tool set, and llama.cpp rejects a grammar whose repetitions expand too far.
+- **[llguidance](https://github.com/guidance-ai/llguidance)**: a Rust engine that takes the JSON schema directly. It computes the allowed tokens faster on large schemas and supports more of JSON Schema. The llama.cpp backend images for Linux and macOS are built with it.
+
+The `grammar_engine` option selects the engine:
+
+| Value | Behavior |
+|---|---|
+| `auto` (default) | Use llguidance when the backend build has it, GBNF otherwise. |
+| `gbnf` | Always use GBNF. |
+| `llguidance` | Use llguidance. A build without it logs a warning and uses GBNF. |
+
+```yaml
+options:
+  - grammar_engine:gbnf
+```
+
+The option applies only to grammars that LocalAI builds from a JSON schema. These always use GBNF:
+
+- a grammar you write yourself (the `grammar` request field or the `grammar` key of the model config),
+- `response_format` of type `json_object`,
+- function calling with `mixed_mode: true` (free text or JSON) or `schema_type: llama3.1`,
+- grammars that the chat template builds for tools (`grammar.disable: true` with `use_tokenizer_template: true`). These are lazy grammars, which llguidance does not support in llama.cpp.
+
+With llguidance, an object in the schema that has no `required` list requires all its properties, and an object without `additionalProperties` allows no other property, as with the GBNF grammar of LocalAI. A `required` list and `additionalProperties` that the schema sets are kept, and keywords such as `minLength`, `pattern` and `maxItems`, which the GBNF converter ignores, are enforced. Between two JSON tokens the model may write one space or none, as with the GBNF grammar.
+
+Use `gbnf` when a model must behave exactly as before, for example when a prompt relies on whitespace that the GBNF grammar allows. Other backends ignore the option.
 
 ##### Hardware auto-tuning (and how to override it)
 

@@ -55,6 +55,7 @@
             "options_cache_ram": "Speicher des Prompt-Caches (MiB)",
             "options_mmproj_use_gpu": "Vision-Projektor auf der GPU",
             "options_backend_sampling_min_slots": "Mindest-Slots für GPU-Sampling",
+            "options_grammar_engine": "Grammatik-Engine",
             "options_context_shift": "Kontextverschiebung",
             "options_cont_batching": "Kontinuierliches Batching",
             "options_kv_unified": "Gemeinsamer KV-Cache",

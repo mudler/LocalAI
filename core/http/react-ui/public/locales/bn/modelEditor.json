@@ -91,6 +91,7 @@
       "options_cache_ram": "প্রম্পট ক্যাশের মেমরি (MiB)",
       "options_mmproj_use_gpu": "GPU-তে ভিশন প্রজেক্টর",
       "options_backend_sampling_min_slots": "GPU স্যাম্পলিংয়ের ন্যূনতম স্লট",
+      "options_grammar_engine": "ব্যাকরণ ইঞ্জিন",
       "options_context_shift": "কনটেক্সট শিফট",
       "options_cont_batching": "অবিরাম ব্যাচিং",
       "options_kv_unified": "একীভূত KV ক্যাশ",
