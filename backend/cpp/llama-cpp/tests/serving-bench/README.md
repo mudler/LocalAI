@@ -53,6 +53,14 @@ options:
 | single | `gen --workload single`: 6 serial requests | `context_size: 4096`, `parallel:1` |
 | concurrent N | `gen --workload overcommit --n N --words 300 --max-tokens 256`: N requests at t=0 that fit the pool | `context_size: 32768`, `parallel:N` |
 
+| natural | `gen --workload natural --n N`: N instruction prompts at once that stop at EOS (chat-like output; the other traces ignore EOS, which can make a small model loop and flatters n-gram drafting) | `parallel:N` |
+| hol | `gen --workload hol`: one long prompt, then short requests right behind it (head-of-line blocking) | small pool, 4 slots |
+| collide | `gen --workload collide --words W`: 4 prompts warmed one by one, then sent again together with 4 new prompts of the same length (cache-aware order) | 4 slots, `--cache-prompt` |
+| pressure | `gen --workload pressure --words W`: conversations whose second turn comes back after others filled the pool (idle-slot eviction) | small pool, `--cache-prompt` |
+
+`run` and `ab` take `--cache-prompt` to let the server reuse cached prefixes;
+`sum --by-kind` adds the TTFT of each request kind.
+
 On a GPU, scale the mixed workload up, for example `--chats 8 --long-words 8000`
 with `context_size: 65536` and `parallel:9`.
 

@@ -5,11 +5,11 @@
 Standard library only. Works against LocalAI and against llama-server. Used for
 the paged serving A/B (see README.md in this directory).
 
-  serve_bench.py gen --workload overcommit|mixed|steady|shared|single [--seed 1] [--n N] [--max-tokens N]
+  serve_bench.py gen --workload overcommit|mixed|steady|shared|single|natural|hol|collide|pressure [--seed 1] [--n N] [--max-tokens N]
                      [--words W] [--chats C] [--long-words L] > trace.jsonl
   serve_bench.py run --url URL --model NAME --trace trace.jsonl --arm A --rep 0 --workload W --out req.jsonl
   serve_bench.py ab  --url URL --trace trace.jsonl --workload W --reps 5 --out req.jsonl ARM=MODEL [ARM=MODEL ...]
-  serve_bench.py sum req.jsonl [...] [--ref ARM]
+  serve_bench.py sum req.jsonl [...] [--ref ARM] [--by-kind]
 
 gen  writes a fixed request trace (same seed, same trace).
 run  replays a trace once and appends one JSON line per request.
@@ -54,6 +54,42 @@ def gen(a):
             if a.workload == "shared":
                 p = sysp + p
             reqs.append(dict(id=i, t=round(t, 3), kind="chat", prompt=p, max_tokens=rng.choice([64, 128, 256])))
+    elif a.workload == "natural":
+        # instruction-style prompts that end with EOS: output text like a chat answer
+        # (the other traces ignore EOS, which can make a small model loop and
+        # flatters n-gram drafting)
+        asks = ["Explain how a bicycle stays upright.", "Write a short story about a lighthouse keeper.",
+                "Describe the water cycle to a child.", "What are the main causes of inflation?",
+                "Give step by step instructions to bake bread.", "Compare cats and dogs as pets.",
+                "Explain what a hash table is, with an example in Python.", "Summarize the plot of a heist movie you invent.",
+                "Write a polite email asking for a deadline extension.", "List ten uses for a paperclip, with one line each.",
+                "Explain the difference between TCP and UDP.", "Write a Python function that parses a CSV line."]
+        for i in range(a.n or 8):
+            reqs.append(dict(id=i, t=0.0, kind="chat", prompt=f"User: {asks[i % len(asks)]} (request {i})\nAssistant:",
+                             max_tokens=a.max_tokens or 256, eos=True))
+    elif a.workload == "hol":
+        # head of line: one long prompt, then short requests right behind it
+        reqs.append(dict(id=0, t=0.0, kind="long", prompt="Document. " + text(rng, a.long_words), max_tokens=32))
+        for i in range(1, (a.n or 8) + 1):
+            reqs.append(dict(id=i, t=0.3 + 0.1 * i, kind="chat", prompt=f"Short {i}. " + text(rng, 40), max_tokens=32))
+    elif a.workload == "collide":
+        # cached and uncached prompts at once: warm 4 prompts one by one, then send them
+        # again together with 4 new prompts of the same length
+        warm = [f"Topic {i}. " + text(rng, a.words) for i in range(4)]
+        for i, p in enumerate(warm):
+            reqs.append(dict(id=i, t=0.0, kind="warm", prompt=p, max_tokens=8, serial=True))
+        for i, p in enumerate(warm):
+            reqs.append(dict(id=4 + 2 * i, t=0.0, kind="cached", prompt=p + " Again.", max_tokens=32))
+            reqs.append(dict(id=5 + 2 * i, t=0.0, kind="new", prompt=f"Other {i}. " + text(rng, a.words), max_tokens=32))
+    elif a.workload == "pressure":
+        # conversations that come back: turn 2 repeats turn 1 and adds a question,
+        # while other conversations fill the pool in between
+        convs = [f"Conversation {i}. " + text(rng, a.words) for i in range(a.n or 8)]
+        for i, c in enumerate(convs):
+            reqs.append(dict(id=i, t=round(0.5 * i, 3), kind="turn1", prompt=c, max_tokens=64))
+        for i, c in enumerate(convs):
+            reqs.append(dict(id=len(convs) + i, t=round(12 + 0.5 * i, 3), kind="turn2",
+                             prompt=c + " Now answer one more question: " + text(rng, 20), max_tokens=64))
     elif a.workload == "single":
         for i in range(a.n or 6):
             reqs.append(dict(id=i, t=0.0, kind="single", prompt=text(rng, 100), max_tokens=128, serial=True))
@@ -63,10 +99,10 @@ def gen(a):
         print(json.dumps(r))
 
 
-def one(url, model, r, t0, out, lock, timeout):
+def one(url, model, r, t0, out, lock, timeout, cache_prompt=False):
     u = urllib.parse.urlparse(url)
     body = json.dumps(dict(model=model, prompt=r["prompt"], max_tokens=r["max_tokens"], temperature=0,
-                           seed=1, stream=True, ignore_eos=True, cache_prompt=False,
+                           seed=1, stream=True, ignore_eos=not r.get("eos", False), cache_prompt=cache_prompt,
                            stream_options={"include_usage": True}))
     rec = dict(id=r["id"], kind=r["kind"], t_sched=r["t"], ok=False, status=None, err=None,
                ttft=None, itl=[], n_gen=0, prompt_tokens=None, tok_ts=[])
@@ -112,17 +148,17 @@ def one(url, model, r, t0, out, lock, timeout):
         out.append(rec)
 
 
-def replay(url, model, trace, timeout):
+def replay(url, model, trace, timeout, cache_prompt=False):
     out, lock, th = [], threading.Lock(), []
     t0 = time.perf_counter()
     for r in trace:
         if r.get("serial"):
-            one(url, model, r, t0, out, lock, timeout)
+            one(url, model, r, t0, out, lock, timeout, cache_prompt)
             continue
         dt = r["t"] - (time.perf_counter() - t0)
         if dt > 0:
             time.sleep(dt)
-        t = threading.Thread(target=one, args=(url, model, r, t0, out, lock, timeout))
+        t = threading.Thread(target=one, args=(url, model, r, t0, out, lock, timeout, cache_prompt))
         t.start()
         th.append(t)
     for t in th:
@@ -147,7 +183,7 @@ def warmup(url, model):
 
 def run(a):
     trace = [json.loads(l) for l in open(a.trace)]
-    write(a.out, replay(a.url, a.model, trace, a.timeout), a.arm, a.rep, a.workload)
+    write(a.out, replay(a.url, a.model, trace, a.timeout, a.cache_prompt), a.arm, a.rep, a.workload)
 
 
 def ab(a):
@@ -158,7 +194,7 @@ def ab(a):
             warmup(a.url, model)
             time.sleep(a.pause)
             t = time.strftime("%H:%M:%S")
-            write(a.out, replay(a.url, model, trace, a.timeout), arm, rep, a.workload)
+            write(a.out, replay(a.url, model, trace, a.timeout, a.cache_prompt), arm, rep, a.workload)
             print(f"{t} rep {rep} arm {arm} ({model}) done", flush=True)
 
 
@@ -240,6 +276,16 @@ def summ(a):
         elif a.ref:
             extra = " | ref"
         print(f"| {wl} | {arm} | {len(ms)} | " + " | ".join(cells) + extra + " |")
+    if a.by_kind:
+        kinds = {}
+        for r in rows:
+            if r["ttft"] is not None:
+                kinds.setdefault((r.get("workload"), r["arm"], r["kind"]), []).append(r["ttft"])
+        print()
+        print("| workload | arm | kind | n | TTFT p50 s | TTFT max s |")
+        print("|---|---|---|---|---|---|")
+        for (wl, arm, kind), v in sorted(kinds.items()):
+            print(f"| {wl} | {arm} | {kind} | {len(v)} | {statistics.median(v):.2f} | {max(v):.2f} |")
     errs = {}
     for r in rows:
         if not r["ok"]:
@@ -263,12 +309,15 @@ if __name__ == "__main__":
     r.add_argument("--url", required=True); r.add_argument("--model", default="m")
     r.add_argument("--trace", required=True); r.add_argument("--arm", required=True); r.add_argument("--rep", type=int, default=0)
     r.add_argument("--workload", default=""); r.add_argument("--out", required=True); r.add_argument("--timeout", type=float, default=900)
+    r.add_argument("--cache-prompt", action="store_true", help="let the server reuse cached prompt prefixes")
     b = sp.add_parser("ab")
     b.add_argument("--url", required=True); b.add_argument("--trace", required=True); b.add_argument("--workload", required=True)
     b.add_argument("--reps", type=int, default=5); b.add_argument("--out", required=True)
     b.add_argument("--timeout", type=float, default=900); b.add_argument("--pause", type=float, default=2.0)
+    b.add_argument("--cache-prompt", action="store_true", help="let the server reuse cached prompt prefixes")
     b.add_argument("arms", nargs="+", help="ARM=MODEL")
     s = sp.add_parser("sum")
     s.add_argument("files", nargs="+"); s.add_argument("--ref", default="")
+    s.add_argument("--by-kind", action="store_true", help="also print TTFT per request kind")
     x = ap.parse_args()
     {"gen": gen, "run": run, "ab": ab, "sum": summ}[x.cmd](x)
