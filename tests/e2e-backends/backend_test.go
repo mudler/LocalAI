@@ -166,6 +166,7 @@ const (
 	capPagedCache     = "paged_cache"
 	capPagedAttach    = "paged_attach"
 	capPagedResume    = "paged_resume"
+	capPagedStash     = "paged_stash"
 
 	defaultPrompt             = "The capital of France is"
 	streamPrompt              = "Once upon a time"
@@ -222,6 +223,7 @@ var _ = Describe("Backend container", Ordered, func() {
 		modelFile  string // set when a local file is used
 		modelName  string // set when a HuggingFace model id is used
 		mmprojFile string // optional multimodal projector
+		mediaMark  string // the media marker the backend reported at load
 		audioFile  string // optional audio fixture for transcription specs
 		// Face fixtures: two photos of the same person + one different person.
 		faceFile1 string
@@ -467,6 +469,12 @@ var _ = Describe("Backend container", Ordered, func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.GetSuccess()).To(BeTrue(), "LoadModel failed: %s", res.GetMessage())
+		if mmprojFile != "" {
+			meta, err := client.ModelMetadata(ctx, &pb.ModelOptions{Model: modelRef, ModelFile: modelPath})
+			if err == nil {
+				mediaMark = meta.GetMediaMarker()
+			}
+		}
 	})
 
 	It("generates output via Predict", func() {
@@ -1655,6 +1663,40 @@ var _ = Describe("Backend container", Ordered, func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		GinkgoWriter.Printf("paged resume: follow-up prompt processing %.1f ms\n", next.GetTimingPromptProcessing())
+	})
+
+	// A request with an image cannot be rebuilt by recompute (its KV holds
+	// the encoded image), so under pool pressure it is saved to the RAM stash
+	// with its sequence state and restored when there is room again,
+	// instead of failing with the retryable "KV pool full" error.
+	It("stashes image requests that are preempted instead of failing them", func() {
+		if !caps[capPagedStash] {
+			Skip("paged_stash capability not enabled")
+		}
+		Expect(mmprojFile).NotTo(BeEmpty(), "paged_stash needs a vision model and its mmproj")
+		marker := mediaMark
+		if marker == "" {
+			marker = "<__media__>"
+		}
+		ctxSize := int(envInt32("BACKEND_TEST_CTX_SIZE", 512))
+		img := pagedImage()
+		res := make([]pagedStream, 6)
+		var wg sync.WaitGroup
+		for i := range res {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				res[i] = pagedPredictOpts(client, &pb.PredictOptions{
+					Prompt: marker + " Describe the picture. " + pagedPrompt(800+i, ctxSize/8),
+					Images: []string{img}, Tokens: 96, Temperature: 0, TopK: 1, Seed: 1, IgnoreEOS: true,
+				}, 10*time.Minute)
+			}(i)
+		}
+		wg.Wait()
+		for i, r := range res {
+			Expect(r.err).NotTo(HaveOccurred(), "image request %d failed instead of being stashed", i)
+			Expect(r.chunk).To(HaveLen(96), "image request %d did not get all its tokens", i)
+		}
 	})
 
 	It("keeps decoding while a long prompt is read with a prefill budget", func() {

@@ -1,8 +1,13 @@
 package e2ebackends_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"io"
 	"strconv"
 	"strings"
@@ -122,4 +127,19 @@ func chunksBetween(s pagedStream, from, to time.Time) int {
 		}
 	}
 	return n
+}
+
+// pagedImage is a small base64 PNG (a colour gradient) for the image specs.
+func pagedImage() string {
+	img := image.NewRGBA(image.Rect(0, 0, 128, 128))
+	for y := 0; y < 128; y++ {
+		for x := 0; x < 128; x++ {
+			img.Set(x, y, color.RGBA{R: uint8(2 * x), G: uint8(2 * y), B: 128, A: 255})
+		}
+	}
+	var b bytes.Buffer
+	if err := png.Encode(&b, img); err != nil {
+		panic(err)
+	}
+	return base64.StdEncoding.EncodeToString(b.Bytes())
 }

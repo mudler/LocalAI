@@ -521,6 +521,7 @@ jobs:
           make test-extra-backend-llama-cpp-grammar
           make test-extra-backend-llama-cpp-paged
           make test-extra-backend-llama-cpp-paged-hybrid
+          make test-extra-backend-llama-cpp-paged-vision
   tests-llama-cpp-grpc-transcription:
     needs: detect-changes
     if: needs.detect-changes.outputs.llama-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'

@@ -63,8 +63,18 @@ Line numbers drift with every bump. Find each hook by the grep anchor.
 Draft models and MTP resume too: the recompute batches go through
 `common_speculative_process()` like any target batch, so the draft KV is
 rebuilt with the target's; at load a draft context smaller than the target
-context is logged, as the draft would fill up first. A slot that cannot be
-resumed (a multimodal prompt, a score parent or child, aLoRA) is
+context is logged, as the draft would fill up first.
+
+A slot that cannot be recomputed (a multimodal prompt, aLoRA) is saved to a
+RAM stash instead (`paged_stash`, `paged_unstash`): its sequence state
+(`llama_state_seq_get_data_ext`, target and draft), its prompt and its slot
+state are kept on the slot, its cells are freed, and at admission the state
+is set back (`llama_state_seq_set_data_ext`) and the slot goes on from the
+state it was in. The stash of all slots is capped at `cache_ram`
+(`serving_policy::stash_fits`; -1 no limit, 0 no stash). Score requests are
+never victims: they are short forks of one prompt. A slot that neither
+recomputes nor fits the stash (the parent or a child of a shared prompt, a
+full stash) is
 preempted only when no resumable slot is left. It fails with the retryable
 error "KV pool full, preempted; retry the request" (HTTP 503 class). Each
 such abort logs `aborts = N`; each recompute logs `preemptions = N`; each
@@ -152,9 +162,11 @@ keeps one state per slot and no KV pool, so counting tokens against
 
 ## Known limits
 
-- Multimodal prompts, score forks and aLoRA are not resumable: the resume
-  buffer keeps text tokens only. A RAM stash of the sequence state would
-  cover them; it is not part of this change.
+- Multimodal and aLoRA requests resume from the RAM stash, which holds the
+  whole sequence state in host memory (for example about 56 MiB for 512
+  tokens of Qwen3-0.6B) up to `cache_ram`, on top of the prompt cache. The
+  parent or a child of a shared prompt (`n` > 1 completions) is not stashed
+  and still fails with the retryable error as a last resort.
   Admission and the prefill budget work for them; preemption aborts them only
   as a last resort.
 - Shared cells are counted once only for prompt copies between slots

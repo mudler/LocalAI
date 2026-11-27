@@ -232,6 +232,15 @@ static void test_resume_need() {
     EXPECT(resume_need(700, 64) > slot_claim(700, 64, 0), "more room than a first admission");
 }
 
+static void test_stash_fits() {
+    const uint64_t mib = 1024 * 1024;
+    EXPECT(stash_fits(0, 100 * mib, 8192), "fits an empty stash");
+    EXPECT(stash_fits(8000 * mib, 192 * mib, 8192), "fits up to the cap");
+    EXPECT(!stash_fits(8000 * mib, 193 * mib, 8192), "not over the cap");
+    EXPECT(!stash_fits(0, 1, 0), "cache_ram 0 turns the stash off");
+    EXPECT(stash_fits(1ull << 40, 1ull << 40, -1), "cache_ram -1 has no limit");
+}
+
 static void test_readmission() {
     // A preempted request (old task id) waits: newer requests stay behind it.
     pool_view v;
@@ -330,6 +339,7 @@ int main() {
     test_preemption_cap();
     test_readmission();
     test_victim_cells();
+    test_stash_fits();
     test_resume_need();
     test_attach();
     test_spec_pause();

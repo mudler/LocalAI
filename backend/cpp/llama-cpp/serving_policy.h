@@ -126,6 +126,16 @@ inline int64_t resume_need(int64_t n_tokens, int64_t reserve) {
     return n_tokens + std::max<int64_t>(2 * std::max<int64_t>(reserve, 0), 256);
 }
 
+// Whether the RAM stash of preempted slots that cannot be recomputed (multimodal
+// prompts, aLoRA) can take need more bytes on top of held. The cap is cache_ram
+// in MiB, as for the prompt cache: -1 has no limit, 0 turns the stash off.
+inline bool stash_fits(uint64_t held, uint64_t need, int64_t cap_mib) {
+    if (cap_mib < 0) {
+        return true;
+    }
+    return cap_mib > 0 && held + need <= (uint64_t) cap_mib * 1024 * 1024;
+}
+
 // Cells one slot needs in the next step.
 // generating: one cell for the sampled token plus one per draft token.
 // prefilling: the rest of its prompt (or of its resume buffer).

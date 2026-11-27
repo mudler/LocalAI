@@ -941,6 +941,17 @@ test-extra-backend-llama-cpp-paged-hybrid: docker-build-llama-cpp
 	BACKEND_TEST_CAPS=health,load,paged_overcommit,paged_resume \
 	$(MAKE) test-extra-backend
 
+## Image requests under pool pressure (LFM2-VL-450M): they cannot be recomputed,
+## so a preempted one is stashed in RAM and restored instead of failing.
+test-extra-backend-llama-cpp-paged-vision: docker-build-llama-cpp
+	BACKEND_IMAGE=local-ai-backend:llama-cpp \
+	BACKEND_TEST_MODEL_URL=https://huggingface.co/LiquidAI/LFM2-VL-450M-GGUF/resolve/main/LFM2-VL-450M-Q8_0.gguf \
+	BACKEND_TEST_MMPROJ_URL=https://huggingface.co/LiquidAI/LFM2-VL-450M-GGUF/resolve/main/mmproj-LFM2-VL-450M-Q8_0.gguf \
+	BACKEND_TEST_CTX_SIZE=1024 \
+	BACKEND_TEST_OPTIONS=paged_kv,parallel:4,kv_output_reserve:16,prefill_budget:16 \
+	BACKEND_TEST_CAPS=health,load,paged_stash \
+	$(MAKE) test-extra-backend
+
 ## Raw llama.cpp embeddings are required by Go-side pooling. This exercises the
 ## real C++ backend and verifies that it marks the flattened matrix per-token.
 test-extra-backend-llama-cpp-embeddings: docker-build-llama-cpp
