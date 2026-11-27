@@ -115,7 +115,7 @@ export const FIELDS = [
   // the Clear button are PromptCacheStatus, drawn in this group.
   { key: 'prompt_cache_disk', group: 'memory', block: 'promptCache', kind: 'bool', label: 'Keep long prompts on disk',
     desc: 'Keep the prompt cache of long llama.cpp prompts on disk, so a model reload does not compute them again. Each user has a separate cache. The files hold prompt text: treat them like stored chats.',
-    default: false, ...PROMPT_CACHE_LIVE },
+    default: true, ...PROMPT_CACHE_LIVE },
   { key: 'prompt_cache_disk_ttl', group: 'memory', block: 'promptCache', kind: 'duration', label: 'Keep entries for',
     desc: 'How long an entry is kept after its last use, for example 168h (7 days).',
     placeholder: '168h', default: '168h', ...PROMPT_CACHE_LIVE, needs: 'prompt_cache_disk' },

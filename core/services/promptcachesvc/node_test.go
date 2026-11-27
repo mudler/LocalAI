@@ -40,12 +40,12 @@ func writeEntry(root, model, ns string) string {
 
 var _ = Describe("the prompt cache node", func() {
 	var root string
-	settings := onConfig()
+	settings := config.DefaultPromptCacheConfig()
 	get := func() config.PromptCacheConfig { return settings }
 
 	BeforeEach(func() {
 		root = filepath.Join(GinkgoT().TempDir(), "prompt-cache")
-		settings = onConfig()
+		settings = config.DefaultPromptCacheConfig()
 	})
 
 	It("gives backends the root, and removes it when the switch is off", func() {
@@ -117,11 +117,3 @@ var _ = Describe("the prompt cache node", func() {
 		Expect(err).To(MatchError(promptcachesvc.ErrNoScope))
 	})
 })
-
-// onConfig is the default configuration with the tier on: the default is
-// off, and these specs test a tier that runs.
-func onConfig() config.PromptCacheConfig {
-	c := config.DefaultPromptCacheConfig()
-	c.DiskDisabled = false
-	return c
-}

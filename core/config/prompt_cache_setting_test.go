@@ -13,7 +13,7 @@ var _ = Describe("disk prompt cache settings", func() {
 	It("has the documented defaults", func() {
 		o := config.NewApplicationConfig()
 		s := o.ToRuntimeSettings()
-		Expect(*s.PromptCacheDisk).To(BeFalse(), "off by default until large entries can be saved in the background")
+		Expect(*s.PromptCacheDisk).To(BeTrue())
 		Expect(*s.PromptCacheDiskMaxSizeMiB).To(BeZero())
 		Expect(*s.PromptCacheDiskTTL).To(Equal("168h0m0s"))
 		Expect(*s.PromptCacheDiskUserQuotaMiB).To(BeZero())
@@ -78,7 +78,6 @@ var _ = Describe("disk prompt cache settings", func() {
 
 var _ = Describe("disk prompt cache model options", func() {
 	pc := config.DefaultPromptCacheConfig()
-	pc.DiskDisabled = false // these specs test the options of a tier that is on
 
 	It("adds the global values to a llama.cpp model that sets none", func() {
 		out := config.WithPromptCacheDiskOptions([]string{"cache_ram:4096"}, "llama-cpp", pc)

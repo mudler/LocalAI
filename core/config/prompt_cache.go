@@ -102,10 +102,8 @@ const (
 
 // PromptCacheConfig is the global configuration of the disk tier.
 type PromptCacheConfig struct {
-	// DiskDisabled turns the disk tier off. It is off by default
-	// (DefaultPromptCacheConfig): on a fast GPU a dense model's long prompt
-	// (32k tokens, several GiB) cannot be saved within the bounded save on
-	// unload, so the default waits for a background write path.
+	// DiskDisabled turns the disk tier off. Stored negated so the zero
+	// value keeps it on.
 	DiskDisabled bool
 	// MaxSizeMiB caps the whole disk tier of this node. 0 is automatic: the
 	// smaller of 20 GiB and a tenth of the free disk of the root at start.
@@ -130,7 +128,7 @@ type PromptCacheConfig struct {
 
 // DefaultPromptCacheConfig is the configuration of an option-less run.
 func DefaultPromptCacheConfig() PromptCacheConfig {
-	return PromptCacheConfig{DiskDisabled: true, TTL: DefaultPromptCacheTTL, MinTokens: DefaultPromptCacheMinTokens}
+	return PromptCacheConfig{TTL: DefaultPromptCacheTTL, MinTokens: DefaultPromptCacheMinTokens}
 }
 
 // WithPromptCacheDisk turns the disk tier on or off.

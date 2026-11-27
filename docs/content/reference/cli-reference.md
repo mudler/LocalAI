@@ -129,7 +129,7 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 | `--galleries` | | JSON list of galleries | `$LOCALAI_GALLERIES`, `$GALLERIES` |
 | `--autoload-galleries` | `true` | Automatically load galleries on startup | `$LOCALAI_AUTOLOAD_GALLERIES`, `$AUTOLOAD_GALLERIES` |
 | `--vram-persistent-cache` | `true` | Persist successful remote VRAM metadata probes across restarts | `$LOCALAI_VRAM_PERSISTENT_CACHE`, `$VRAM_PERSISTENT_CACHE` |
-| `--prompt-cache-disk` | `false` | Off by default. Keep the prompt cache of long llama.cpp prompts on disk under `--prompt-cache-path`, else `<data-path>/prompt-cache`, per user. See [Disk Prompt Cache]({{%relref "/models/disk-prompt-cache" %}}) | `$LOCALAI_PROMPT_CACHE_DISK` |
+| `--prompt-cache-disk` | `true` | Keep the prompt cache of long llama.cpp prompts on disk under `--prompt-cache-path`, else `<data-path>/prompt-cache`, per user. See [Disk Prompt Cache]({{%relref "/models/disk-prompt-cache" %}}) | `$LOCALAI_PROMPT_CACHE_DISK` |
 | `--prompt-cache-path` | *(empty)* | Directory of the disk prompt cache. Give a directory on a local disk. Empty: `<data-path>/prompt-cache`. On a network disk, or when it is not writable, the cache is off | `$LOCALAI_PROMPT_CACHE_PATH` |
 | `--prompt-cache-disk-max-size-mib` | `0` | Size cap of the disk prompt cache of this node. `0` is the smaller of 20 GiB and a tenth of the free disk at start | `$LOCALAI_PROMPT_CACHE_DISK_MAX_SIZE_MIB` |
 | `--prompt-cache-disk-ttl` | `168h` | Time to keep an entry after its last use | `$LOCALAI_PROMPT_CACHE_DISK_TTL` |

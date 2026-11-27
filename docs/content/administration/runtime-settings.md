@@ -106,7 +106,7 @@ The busy watchdog (`watchdog_busy_*`) still acts only on the backends that a fro
 
 The `llama-cpp` backend can keep the prompt cache of long prompts on disk, per user. See [Disk Prompt Cache]({{%relref "/models/disk-prompt-cache" %}}) for what it stores and how long.
 
-- **Keep long prompts on disk** (`prompt_cache_disk`): off by default. Backends get a change when they next start
+- **Keep long prompts on disk** (`prompt_cache_disk`): on by default. Backends get a change when they next start
 - **Keep entries for** (`prompt_cache_disk_ttl`): time to keep an entry after its last use (default: `168h`)
 - **Share the cache between users** (`prompt_cache_disk_shared`): one cache for all users (default: off)
 - **Size cap** (`prompt_cache_disk_max_size_mib`), **Quota per user** (`prompt_cache_disk_user_quota_mib`), **Shortest prompt kept** (`prompt_cache_disk_min_tokens`), **Low free space** (`prompt_cache_disk_low_free_mib`) and **Critical free space** (`prompt_cache_disk_critical_free_mib`): advanced limits. `0` is automatic for the size, the quota and the marks; `-1` is no quota
