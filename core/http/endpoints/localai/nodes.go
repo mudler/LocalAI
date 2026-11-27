@@ -1025,6 +1025,7 @@ type SelfDrainRequest struct {
 // @Param force query bool false "Remove the node's replicas at once instead of waiting for replacements"
 // @Param timeout query string false "Drain deadline as a Go duration (default: the --drain-timeout setting, 10m)"
 // @Success 200 {object} DrainNodeResponse
+// @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 409 {object} map[string]any
 // @Router /api/nodes/{id}/drain [post]

@@ -31112,6 +31112,11 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/localai.DrainNodeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
