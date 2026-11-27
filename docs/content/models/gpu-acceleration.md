@@ -507,6 +507,8 @@ rocm-smi --showallinfo
 
 LocalAI reads AMD GPU memory for `/api/resources` and the model fit check from `rocm-smi`. ROCm 7 and later images no longer ship `rocm-smi`; there LocalAI reads the same figures from the amdgpu driver in sysfs (`/sys/class/drm/card*/device/mem_info_*`). On APUs with a small VRAM carve-out and a large GTT pool (for example Strix Halo), the GTT pool counts toward GPU memory in both cases.
 
+`GET /api/resources` also returns `memory`: how the GPU of the server reaches its memory (`kind` is `unified`, `discrete` or `system` for no GPU), the GPU it was read from (`device`), and the memory a model can use (`total`: the smallest discrete GPU, else the system memory). Such an APU counts as unified memory. The quick setup of the model editor uses it to pick its values; see [Engine settings]({{%relref "/models/engine-settings" %}}).
+
 ### Intel
 
 ```bash

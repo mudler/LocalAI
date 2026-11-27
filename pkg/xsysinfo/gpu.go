@@ -84,6 +84,11 @@ type GPUMemoryInfo struct {
 	// counters. UsedVRAM, FreeVRAM and UsagePercent are then 0 and mean
 	// "unknown", not "empty" or "full".
 	UsageUnknown bool `json:"usage_unknown,omitempty"`
+	// SharedMemory is set when the device is an integrated GPU whose memory
+	// is drawn from the system memory, as read from its driver (an AMD APU
+	// whose GTT pool dwarfs its carve-out). Name-based detection is in
+	// ClassifyMemory.
+	SharedMemory bool `json:"shared_memory,omitempty"`
 }
 
 // GPUAggregateInfo contains aggregate GPU information across all GPUs
@@ -828,7 +833,8 @@ func parseRocmSMIMemInfoCSV(output string) []GPUMemoryInfo {
 // the totals when the sizes match a shared-memory APU (#12058).
 func amdGPUMemoryInfo(index int, name string, vramTotal, vramUsed, gttTotal, gttUsed uint64) GPUMemoryInfo {
 	totalBytes, usedBytes := vramTotal, vramUsed
-	if amdSharedMemoryAPU(vramTotal, gttTotal) {
+	shared := amdSharedMemoryAPU(vramTotal, gttTotal)
+	if shared {
 		totalBytes = vramTotal + gttTotal
 		usedBytes = vramUsed + gttUsed
 		xlog.Debug("AMD shared-memory APU detected; folding GTT into VRAM totals",
@@ -853,6 +859,7 @@ func amdGPUMemoryInfo(index int, name string, vramTotal, vramUsed, gttTotal, gtt
 		UsedVRAM:     usedBytes,
 		FreeVRAM:     freeBytes,
 		UsagePercent: usagePercent,
+		SharedMemory: shared,
 	}
 }
 

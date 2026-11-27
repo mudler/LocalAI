@@ -1934,6 +1934,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"reclaimer_threshold": appConfig.MemoryReclaimerThreshold,
 			"watchdog_interval":   watchdogInterval,
 		}
+		// How the GPU reaches its memory (unified, discrete or none), for the
+		// memory-aware quick setup of the model editor. It describes this
+		// host; in distributed mode the models run on the workers.
+		response["memory"] = xsysinfo.HostMemoryOf(resourceInfo.GPUs)
 
 		// The same host readings a distributed worker reports in its
 		// heartbeat, so a single-node install can draw the CPU and models-disk
