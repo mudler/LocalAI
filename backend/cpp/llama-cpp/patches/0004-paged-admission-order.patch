@@ -213,7 +213,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                  continue;
              }
              if (!params_base.paged_preempt) {
-@@ -3530,6 +3640,11 @@ private:
+@@ -3537,6 +3647,11 @@ private:
  
                      server_slot * slot = plan.id_slot == -1 ? nullptr : get_slot_by_id(plan.id_slot);
  
@@ -225,7 +225,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      //
                      // slot scheduling logic
                      //
-@@ -3564,7 +3679,9 @@ private:
+@@ -3571,7 +3686,9 @@ private:
                      if (plan.update_cache && prompt_cache) {
                          if (params_base.paged_serving) {
                              // LocalAI paged serving: save the slot's prompt now, load the cache at admission
@@ -236,7 +236,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                              slot->prompt_clear();
                              prompt_cache->update();
                              slot->paged_cache_load = true;
-@@ -3583,7 +3700,10 @@ private:
+@@ -3590,7 +3707,10 @@ private:
                          break; // drop the task
                      }
  
@@ -248,7 +248,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                  } break;
              case SERVER_TASK_TYPE_CANCEL:
                  {
-@@ -4514,7 +4634,13 @@ private:
+@@ -4521,7 +4641,13 @@ private:
          if (params_base.cont_batching || batch.size() == 0) {
              bool add_ok = true; // false means the batch is full, skip remaining slots
  
@@ -263,7 +263,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                  if (!add_ok || batch.size() >= n_fill_max) {
                      return; // batch is full, skip remaining slots
                  }
-@@ -5007,7 +5133,12 @@ private:
+@@ -5014,7 +5140,12 @@ private:
                      const int32_t n_decision_first = slot.task->type == SERVER_TASK_TYPE_DECISION ? slot.task->decision.pos_first() : -1;
  
                      // add prompt tokens for processing in the current batch
@@ -277,7 +277,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      while (slot.prompt.n_tokens() < slot.task->n_tokens() && batch.size() < n_fill_slot) {
                          // get next token to process
                          llama_token cur_tok = input_tokens[slot.prompt.n_tokens()];
-@@ -5188,7 +5319,14 @@ private:
+@@ -5195,7 +5326,14 @@ private:
                  if (!slot_batched) {
                      slot_batched = &slot;
                  }
