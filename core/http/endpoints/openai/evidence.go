@@ -255,6 +255,11 @@ func (g *evidenceGate) suffix(answer string) string {
 	if g == nil {
 		return ""
 	}
+	// An empty answer gets nothing appended: a source line or a note alone would
+	// read as an answer and hide that the model said nothing.
+	if strings.TrimSpace(answer) == "" {
+		return ""
+	}
 	var suffix string
 	// An answer that links anything is left alone: it cites in its own way,
 	// and a second list would contradict or repeat it.
