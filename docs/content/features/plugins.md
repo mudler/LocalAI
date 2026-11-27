@@ -188,6 +188,20 @@ The tool acts as the person whose chat runs it, with the rights of the REST API.
 
 In a LocalAI chat, the actions `add_marketplace`, `install`, `enable`, `disable` and `remove` do not run when the model calls them. Each call shows a confirmation card in the chat with the action and its target, and the action runs, as the owner of the chat, only when the person confirms the card. The reason is that the model reads text from marketplaces, which anyone can publish, and a description can hold instructions. For the same reason, `browse` and `list_marketplaces` return that text under `marketplace_data` with a note that it is data, not instructions. The read actions and `refresh_marketplace` run at once. `local-ai mcp-server` has no cards: an MCP client acts with the rights of its own API key, and the client must ask for confirmation itself.
 
+## Security
+
+- Plugins are community content and are not signed. Every review shows "Community plugin, not signed", the commit and the digest. The curated marketplace is reviewed by people and is still not signed.
+- The text of skills and commands goes to the model like any other skill text. Text from marketplaces (names, descriptions) is written by third parties; the assistant gets it as data and confirms every plugin change on a card (see [In the LocalAI Assistant](#in-the-localai-assistant)).
+- A plugin that runs code is installed, updated or rolled back only for everyone, by an administrator, from the administrator's browser session (`X-LocalAI-Confirm`, a same-origin request of the web UI, no API key). Plugin code runs only in the Sandbox.
+
+**Limit with authentication off.** On a server without authentication, every caller is the anonymous administrator, and the browser-session check is a set of request headers: `X-LocalAI-Confirm` and the `Sec-Fetch-*` headers that a browser sends. A browser adds them by itself, but any program can send them too. So on such a server, any process that can reach the LocalAI port can install a plugin that runs code, approve a code update or roll back. Examples are a script on the same machine, a command that a model runs with the host backend of the Sandbox (which runs commands on this machine without isolation), or a host on a network that reaches the port. The add-on host grants use the same check and have the same limit. With authentication on, the request also needs the administrator's session cookie.
+
+To limit this:
+
+- Turn on authentication on any server that more than one person or program can reach.
+- Bind LocalAI to the loopback address, or put it behind a firewall, when authentication is off.
+- Use the Sandbox with KVM or gVisor, not the host backend. A sandbox of these backends has no network device, and its proxy lets through only the hosts that the chat's network rules allow.
+
 ## Settings
 
 | Setting | Default | Meaning |

@@ -1124,6 +1124,23 @@ reaches plugin code.
 - Plugin text is data from its author. Skills and commands go into the prompt
   like any other skill text. The docs say so, as they do for imported skills.
 
+### 15.1a The browser-session check with authentication off
+
+The check of section 9.2 reads request headers: `X-LocalAI-Confirm`, the
+`Sec-Fetch-*` headers, and the absence of an API key. With authentication on,
+the request also needs the administrator's session cookie, so a forged request
+needs a stolen cookie. With authentication off, every caller is the anonymous
+administrator and `websession` holds for any caller, so any process that can
+reach the port and sends the headers passes: a script on the host, a command of
+the Sandbox host backend, or a host on the network.
+
+Decision (2026-11-27, after the security review): accept this for P0. The add-on
+host grants have the same exposure, and a fix belongs to both (a nonce that the
+review response carries and the install checks, or a loopback and origin rule).
+The plugins docs state the limit in their Security section and give the
+mitigations: authentication on, a loopback bind or a firewall, and the KVM or
+gVisor Sandbox, which has no network device.
+
 ### 15.2 Fetch
 
 `fetch` supplies its own `claudeplugin.GitFunc`:
