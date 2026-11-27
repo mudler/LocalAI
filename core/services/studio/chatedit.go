@@ -336,7 +336,7 @@ func (s *Service) Fork(ctx context.Context, user, conv string, upTo int64, title
 		off []string
 		fn  func(context.Context, string, string, []string) error
 	}{
-		{src.SkillsOff, s.d.Store.SetSkillsOff}, {src.AddonsOff, s.d.Store.SetAddonsOff}, {src.McpOff, s.d.Store.SetMcpOff},
+		{src.SkillsOff, s.d.Store.SetSkillsOff}, {src.AddonsOff, s.d.Store.SetAddonsOff}, {src.McpOff, s.d.Store.SetMcpOff}, {src.PluginsOff, s.d.Store.SetPluginsOff},
 		{src.BuiltinsOff, s.d.Store.SetBuiltinsOff}, {src.BuiltinsOn, s.d.Store.SetBuiltinsOn},
 	} {
 		if len(set.off) == 0 {

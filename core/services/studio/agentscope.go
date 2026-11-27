@@ -76,6 +76,7 @@ func (s *Service) scopeOf(ctx context.Context, rec session.ChatRecord) *scope {
 		instructions: strings.TrimSpace(ag.Instructions), mcp: ag.MCPServers, memory: ag.Memory,
 		addons: set(ag.Addons), collections: set(ag.Collections), skills: set(ag.Skills),
 		addonNames: ag.Addons, collNames: ag.Collections, skillNames: ag.Skills,
+		plugins: ag.Plugins,
 	}
 }
 

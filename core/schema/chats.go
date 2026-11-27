@@ -65,6 +65,9 @@ type ChatsAgent struct {
 	Addons       []string `json:"addons"`
 	Collections  []string `json:"collections"`
 	Skills       []string `json:"skills"`
+	// Plugins are the install IDs of the plugins the agent may use (exact
+	// grant: empty grants none).
+	Plugins []string `json:"plugins"`
 	// Network is the network preset of the Sandbox commands of the agent's
 	// unattended runs: off (the default), registries or all, capped by the
 	// administrator's ceiling.
@@ -264,7 +267,9 @@ type ChatsAgentWrite struct {
 	Addons       []string `json:"addons,omitempty"`
 	Collections  []string `json:"collections,omitempty"`
 	Skills       []string `json:"skills,omitempty"`
-	Network      string   `json:"network,omitempty"`
+	// Plugins are the install IDs of the plugins the agent may use.
+	Plugins []string `json:"plugins,omitempty"`
+	Network string   `json:"network,omitempty"`
 	// ProjectID makes the agent a project agent. It is read on create only: it
 	// must be one of your own active projects (404 for an unknown or foreign
 	// one, 400 for an archived one). A write to an existing agent may leave it

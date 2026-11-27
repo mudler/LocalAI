@@ -157,6 +157,25 @@ func Run(newStore New) {
 		Expect(rec.McpOff).To(BeEmpty(), "after clearing")
 	})
 
+	It("plugin switches round-trip, survive a chat update and belong to the owner", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.SetPluginsOff(ctx(), "alice", "c1", []string{"in-1", "in-2"})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.PluginsOff).To(Equal([]string{"in-1", "in-2"}))
+		stale := rec
+		stale.PluginsOff = nil
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.PluginsOff).To(HaveLen(2), "want the switches kept")
+		Expect(s.SetPluginsOff(ctx(), "bob", "c1", []string{"x"})).To(MatchError(session.ErrNotFound), "another principal's SetPluginsOff")
+		Expect(s.SetPluginsOff(ctx(), "alice", "c1", nil)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.PluginsOff).To(BeEmpty(), "after clearing")
+	})
+
 	It("built-in tool switches round-trip, survive a chat update and belong to the owner", func() {
 		s := newStore()
 		chat(s, "c1", "alice")
@@ -532,10 +551,11 @@ func Run(newStore New) {
 		s := newStore()
 		rec := session.ChatRecord{ID: "c1", Principal: "alice", Title: "New", Created: t0, Updated: t0, Kind: session.KindChat, Model: "qwen3",
 			AddonsOff: []string{"office"}, McpOff: []string{"connector:k1"}, BuiltinsOff: []string{"web"},
-			BuiltinsOn: []string{"saved_agents"}, SkillsOff: []string{"builtin:pdf"}}
+			BuiltinsOn: []string{"saved_agents"}, SkillsOff: []string{"builtin:pdf"}, PluginsOff: []string{"in-1"}}
 		Expect(s.CreateChat(ctx(), rec)).To(Succeed())
 		got, err := s.GetChat(ctx(), "alice", "c1")
 		Expect(err).NotTo(HaveOccurred())
+		Expect(got.PluginsOff).To(Equal([]string{"in-1"}))
 		Expect(got.AddonsOff).To(Equal([]string{"office"}))
 		Expect(got.McpOff).To(Equal([]string{"connector:k1"}))
 		Expect(got.BuiltinsOff).To(Equal([]string{"web"}))

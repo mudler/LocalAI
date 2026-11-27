@@ -32,7 +32,10 @@ type agentRow struct {
 	Addons       string
 	Collections  string
 	Skills       string
-	Network      string `gorm:"size:16"`
+	// Plugins came later: empty for the agents made before, which grant no
+	// plugin, so AutoMigrate is its migration.
+	Plugins string
+	Network string `gorm:"size:16"`
 	// SandboxProfile came later: empty for the agents made before, which use
 	// the default profile, so AutoMigrate is its migration.
 	SandboxProfile string `gorm:"size:32"`
@@ -178,7 +181,7 @@ func (r agentRow) agent(folders []folderRow) (Agent, error) {
 	for _, f := range []struct {
 		dst *[]string
 		src string
-	}{{&a.MCPServers, r.MCPServers}, {&a.Addons, r.Addons}, {&a.Collections, r.Collections}, {&a.Skills, r.Skills}, {&a.BuiltinsOff, r.BuiltinsOff}, {&a.BuiltinsOn, r.BuiltinsOn}, {&a.Builtins, r.Builtins}} {
+	}{{&a.MCPServers, r.MCPServers}, {&a.Addons, r.Addons}, {&a.Collections, r.Collections}, {&a.Skills, r.Skills}, {&a.Plugins, r.Plugins}, {&a.BuiltinsOff, r.BuiltinsOff}, {&a.BuiltinsOn, r.BuiltinsOn}, {&a.Builtins, r.Builtins}} {
 		if *f.dst, err = listFromJSON(f.src); err != nil {
 			return a, err
 		}
@@ -249,7 +252,7 @@ func (s *gormStore) Put(ctx context.Context, a Agent) error {
 		row := agentRow{ID: a.ID, Principal: a.Principal, NameKey: NameKey(a.Name), Name: a.Name,
 			Description: a.Description, Instructions: a.Instructions, Model: a.Model,
 			MCPServers: listJSON(a.MCPServers), Addons: listJSON(a.Addons),
-			Collections: listJSON(a.Collections), Skills: listJSON(a.Skills), Network: a.Network, SandboxProfile: a.SandboxProfile, Memory: a.Memory, MemorySave: a.MemorySave, ProjectID: a.ProjectID,
+			Collections: listJSON(a.Collections), Skills: listJSON(a.Skills), Plugins: listJSON(a.Plugins), Network: a.Network, SandboxProfile: a.SandboxProfile, Memory: a.Memory, MemorySave: a.MemorySave, ProjectID: a.ProjectID,
 			FolderID: a.FolderID, FolderMode: a.FolderMode, BuiltinsOff: listJSON(a.BuiltinsOff), BuiltinsOn: listJSON(a.BuiltinsOn), Builtins: listJSON(a.Builtins),
 			Connections: connectionsJSON(a.Connections), Resources: resourcesJSON(a.Resources),
 			Created: a.Created, Updated: a.Updated}

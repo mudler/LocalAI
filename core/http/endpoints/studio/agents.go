@@ -76,7 +76,7 @@ func agentOut(a agents.Agent) schema.ChatsAgent {
 		return l
 	}
 	return schema.ChatsAgent{ID: a.ID, Name: a.Name, Description: a.Description, Instructions: a.Instructions, Model: a.Model,
-		MCPServers: nz(a.MCPServers), Addons: nz(a.Addons), Collections: nz(a.Collections), Skills: nz(a.Skills),
+		MCPServers: nz(a.MCPServers), Addons: nz(a.Addons), Collections: nz(a.Collections), Skills: nz(a.Skills), Plugins: nz(a.Plugins),
 		Network: networkOf(a.Network), SandboxProfile: a.SandboxProfile, Memory: a.Memory, MemorySave: a.MemorySave, ProjectID: a.ProjectID, BuiltinsOff: nz(a.BuiltinsOff), BuiltinsOn: nz(a.BuiltinsOn), Builtins: nz(a.Builtins), Connections: a.Connections, Resources: a.Resources, Created: a.Created, Updated: a.Updated}
 }
 
@@ -100,7 +100,7 @@ func (h *Handlers) agentIn(c echo.Context) (a agents.Agent, folders *[]studiosvc
 		}
 	}
 	return agents.Agent{Name: req.Name, Description: req.Description, Instructions: req.Instructions, Model: req.Model,
-			MCPServers: req.MCPServers, Addons: req.Addons, Collections: req.Collections, Skills: req.Skills, Network: req.Network, SandboxProfile: req.SandboxProfile, Memory: req.Memory, MemorySave: req.MemorySave, ProjectID: req.ProjectID,
+			MCPServers: req.MCPServers, Addons: req.Addons, Collections: req.Collections, Skills: req.Skills, Plugins: req.Plugins, Network: req.Network, SandboxProfile: req.SandboxProfile, Memory: req.Memory, MemorySave: req.MemorySave, ProjectID: req.ProjectID,
 			BuiltinsOff: req.BuiltinsOff, BuiltinsOn: req.BuiltinsOn, Builtins: req.Builtins, Connections: req.Connections, Resources: req.Resources},
 		foldersIn(req), true, nil
 }

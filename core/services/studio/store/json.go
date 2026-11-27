@@ -482,6 +482,7 @@ func cloneRec(r session.ChatRecord) session.ChatRecord {
 	r.SkillsOff = append([]string(nil), r.SkillsOff...)
 	r.AddonsOff = append([]string(nil), r.AddonsOff...)
 	r.McpOff = append([]string(nil), r.McpOff...)
+	r.PluginsOff = append([]string(nil), r.PluginsOff...)
 	r.BuiltinsOff = append([]string(nil), r.BuiltinsOff...)
 	r.BuiltinsOn = append([]string(nil), r.BuiltinsOn...)
 	r.AllowedTools = append([]string(nil), r.AllowedTools...)
@@ -716,6 +717,10 @@ func (s *jsonStore) UpdateDock(_ context.Context, principal, id string, change f
 
 func (s *jsonStore) SetMcpOff(_ context.Context, principal, id string, off []string) error {
 	return s.set(principal, id, func(next *chatState) { next.Rec.McpOff = append([]string(nil), off...) })
+}
+
+func (s *jsonStore) SetPluginsOff(_ context.Context, principal, id string, off []string) error {
+	return s.set(principal, id, func(next *chatState) { next.Rec.PluginsOff = append([]string(nil), off...) })
 }
 
 func (s *jsonStore) ListChildren(_ context.Context, principal, parentID string) ([]session.ChatRecord, error) {

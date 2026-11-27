@@ -43,6 +43,7 @@ type chatRow struct {
 	SkillsOff    string `gorm:"type:text"` // JSON list of skill names
 	AddonsOff    string `gorm:"type:text"` // JSON list of add-on IDs
 	McpOff       string `gorm:"type:text"` // JSON list of MCP server names and connector:<id>
+	PluginsOff   string `gorm:"type:text"` // JSON list of plugin install IDs
 	BuiltinsOff  string `gorm:"type:text"` // JSON list of built-in tool groups
 	BuiltinsOn   string `gorm:"type:text"` // JSON list of opt-in built-in tool groups
 	Connections  string `gorm:"type:text"` // JSON object, add-on ID to a list of binding IDs (older rows: one ID)
@@ -292,6 +293,11 @@ func (r chatRow) record() (session.ChatRecord, error) {
 			return rec, err
 		}
 	}
+	if r.PluginsOff != "" {
+		if err := json.Unmarshal([]byte(r.PluginsOff), &rec.PluginsOff); err != nil {
+			return rec, err
+		}
+	}
 	if r.BuiltinsOff != "" {
 		if err := json.Unmarshal([]byte(r.BuiltinsOff), &rec.BuiltinsOff); err != nil {
 			return rec, err
@@ -397,7 +403,7 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 	for _, l := range []struct {
 		to   *string
 		list []string
-	}{{&row.SkillsOff, rec.SkillsOff}, {&row.AddonsOff, rec.AddonsOff}, {&row.McpOff, rec.McpOff}, {&row.BuiltinsOff, rec.BuiltinsOff}, {&row.BuiltinsOn, rec.BuiltinsOn}} {
+	}{{&row.SkillsOff, rec.SkillsOff}, {&row.AddonsOff, rec.AddonsOff}, {&row.McpOff, rec.McpOff}, {&row.PluginsOff, rec.PluginsOff}, {&row.BuiltinsOff, rec.BuiltinsOff}, {&row.BuiltinsOn, rec.BuiltinsOn}} {
 		if len(l.list) == 0 {
 			continue
 		}
@@ -718,6 +724,10 @@ func (s *gormStore) SetHostConsent(ctx context.Context, principal, id string, c 
 
 func (s *gormStore) SetMcpOff(ctx context.Context, principal, id string, off []string) error {
 	return s.setList(ctx, "mcp_off", principal, id, off)
+}
+
+func (s *gormStore) SetPluginsOff(ctx context.Context, principal, id string, off []string) error {
+	return s.setList(ctx, "plugins_off", principal, id, off)
 }
 
 func (s *gormStore) ListChildren(ctx context.Context, principal, parentID string) ([]session.ChatRecord, error) {

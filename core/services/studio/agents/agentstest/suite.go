@@ -70,6 +70,25 @@ func Run(newStore NewStore) {
 		Expect(got.Addons).To(BeEmpty())
 		Expect(got.Created.IsZero()).To(BeFalse(), "after replace: %+v", got)
 	})
+	It("PluginsAreAnExactGrantThatIsStoredAndCleared", func() {
+		s := newStore()
+		a := sample("p1", "u1", "Plugged")
+		Expect(s.Put(ctx, a)).To(Succeed())
+		got, err := s.Get(ctx, "u1", "p1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Plugins).To(BeEmpty(), "an agent saved without plugins grants none")
+		a.Plugins = []string{"in-1", "in-2"}
+		Expect(s.Put(ctx, a)).To(Succeed())
+		got, _ = s.Get(ctx, "u1", "p1")
+		Expect(got.Plugins).To(Equal([]string{"in-1", "in-2"}))
+		got.Plugins[0] = "changed"
+		again, _ := s.Get(ctx, "u1", "p1")
+		Expect(again.Plugins[0]).To(Equal("in-1"), "a caller cannot change a stored agent")
+		a.Plugins = nil
+		Expect(s.Put(ctx, a)).To(Succeed())
+		got, _ = s.Get(ctx, "u1", "p1")
+		Expect(got.Plugins).To(BeEmpty())
+	})
 	It("ResourcesAreStoredAndCleared", func() {
 		s := newStore()
 		a := sample("r1", "u1", "Scoped")

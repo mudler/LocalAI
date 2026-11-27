@@ -357,6 +357,8 @@ type CreateInput struct {
 // opt-in groups of built-in tools that are on.
 type Switches struct {
 	AddonsOff, McpOff, BuiltinsOff, BuiltinsOn, SkillsOff []string
+	// PluginsOff are the plugin installs the chat starts with off.
+	PluginsOff []string
 	// Connections is the set of connections (connector binding IDs) the chat
 	// may use for each add-on whose tools run with a credential, by add-on ID.
 	Connections connsets.Sets
@@ -379,6 +381,9 @@ func (s *Service) cleanSwitches(sw Switches) (Switches, error) {
 		return out, err
 	}
 	if out.SkillsOff, err = cleanSkillSwitches(sw.SkillsOff); err != nil {
+		return out, err
+	}
+	if out.PluginsOff, err = cleanPluginSwitches(sw.PluginsOff); err != nil {
 		return out, err
 	}
 	out.Connections = connsets.Clone(sw.Connections)
@@ -1017,7 +1022,7 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 	rec := session.ChatRecord{ID: newID(), Principal: principal(user), Title: title, Created: now, Updated: now, Kind: session.KindChat, Model: model,
 		AgentID: in.AgentID, ScopedAgent: scoped, ProjectID: projectID, Collections: collections, Origin: origin.Kind, OriginID: origin.ID, Assistant: in.Assistant,
 		AddonsOff: orNil(sw.AddonsOff), McpOff: orNil(sw.McpOff), BuiltinsOff: orNil(sw.BuiltinsOff),
-		BuiltinsOn: orNil(sw.BuiltinsOn), SkillsOff: orNil(sw.SkillsOff), Connections: nilIfEmpty(sw.Connections)}
+		BuiltinsOn: orNil(sw.BuiltinsOn), SkillsOff: orNil(sw.SkillsOff), PluginsOff: orNil(sw.PluginsOff), Connections: nilIfEmpty(sw.Connections)}
 	if origin.Kind == "" {
 		// A chat a person starts gets the instance default, or the network
 		// of its saved agent when the agent sets one, under the ceiling. An

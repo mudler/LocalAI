@@ -178,6 +178,10 @@ type Store interface {
 	// the way SetAddonsOff does for add-ons.
 	SetMcpOff(ctx context.Context, principal, chatID string, off []string) error
 
+	// SetPluginsOff sets the plugin installs this chat has switched off, the
+	// way SetAddonsOff does for add-ons.
+	SetPluginsOff(ctx context.Context, principal, chatID string, off []string) error
+
 	// SetBuiltinsOff sets the groups of built-in tools this chat has switched
 	// off, the way SetAddonsOff does for add-ons.
 	SetBuiltinsOff(ctx context.Context, principal, chatID string, off []string) error

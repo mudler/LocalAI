@@ -54,6 +54,10 @@ Plugin text is data from its author: skills and commands go into the prompt like
 
 The plugins that contribute to a chat are the ones installed for everyone or for its user, enabled by that user, not switched off for the chat, and, in a chat with a saved agent, granted by the agent. The server reads this at each turn. A chat sees the stored copies of the plugins, read only, at `/workspace/shared-plugins/<digest>/`, the value of `CLAUDE_PLUGIN_ROOT`.
 
+Each user turns an install for everyone on for themselves; it starts off. A personal install starts on for its owner. Turning a plugin off keeps its settings. When an update adds code to an install for everyone, it stays off for each user until that user turns it on again with the explicit re-enable, which accepts the code.
+
+A chat keeps the plugins it switched off (`plugins_off`, install IDs, at most 200), so a plugin you enable later is on in chats that exist already. A saved agent has an exact grant list, `plugins`: an agent with an empty list gets no plugin, and a chat switch only narrows what the agent grants. An exported agent keeps its list.
+
 | Component | In a chat |
 |---|---|
 | Skills | The plugin layer of the chat's skills, named `<plugin>:<skill>`. See [Skills]({{% relref "/features/chats-and-agents/chats-skills#skills" %}}). |

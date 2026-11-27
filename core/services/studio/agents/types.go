@@ -57,6 +57,10 @@ type Agent struct {
 	Addons      []string // add-on IDs
 	Collections []string // collection names
 	Skills      []string // skill names
+	// Plugins are the install IDs of the plugins in the Claude Code plugin
+	// format the agent may use: their skills, commands and connectors. An
+	// exact grant, as Addons: empty grants none.
+	Plugins []string
 	// BuiltinsOff are the groups of built-in tools (web, files, triggers...)
 	// the agent's chats never have, and BuiltinsOn the opt-in groups (saved
 	// agents) they have from the start. They are a ceiling: a chat of the
@@ -318,7 +322,7 @@ func Validate(a Agent) error {
 		name    string
 		entries []string
 		addon   bool
-	}{{"MCP servers", a.MCPServers, false}, {"add-ons", a.Addons, true}, {"collections", a.Collections, false}, {"skills", a.Skills, false}, {"built-in tool groups off", a.BuiltinsOff, false}, {"built-in tool groups on", a.BuiltinsOn, false}, {"built-in grants", a.Builtins, false}} {
+	}{{"MCP servers", a.MCPServers, false}, {"add-ons", a.Addons, true}, {"collections", a.Collections, false}, {"skills", a.Skills, false}, {"plugins", a.Plugins, false}, {"built-in tool groups off", a.BuiltinsOff, false}, {"built-in tool groups on", a.BuiltinsOn, false}, {"built-in grants", a.Builtins, false}} {
 		if len(l.entries) > MaxListEntries {
 			return bad("%s has more than %d entries", l.name, MaxListEntries)
 		}
@@ -373,6 +377,7 @@ func (a Agent) clone() Agent {
 	a.Addons = append([]string(nil), a.Addons...)
 	a.Collections = append([]string(nil), a.Collections...)
 	a.Skills = append([]string(nil), a.Skills...)
+	a.Plugins = append([]string(nil), a.Plugins...)
 	a.BuiltinsOff = append([]string(nil), a.BuiltinsOff...)
 	a.BuiltinsOn = append([]string(nil), a.BuiltinsOn...)
 	a.Builtins = append([]string(nil), a.Builtins...)

@@ -246,6 +246,10 @@ func (s *Incognito) SetMcpOff(ctx context.Context, principal, chatID string, off
 	return s.pick(chatID).SetMcpOff(ctx, principal, chatID, off)
 }
 
+func (s *Incognito) SetPluginsOff(ctx context.Context, principal, chatID string, off []string) error {
+	return s.pick(chatID).SetPluginsOff(ctx, principal, chatID, off)
+}
+
 func (s *Incognito) SetBuiltinsOff(ctx context.Context, principal, chatID string, off []string) error {
 	return s.pick(chatID).SetBuiltinsOff(ctx, principal, chatID, off)
 }
