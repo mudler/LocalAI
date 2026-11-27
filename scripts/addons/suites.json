@@ -1685,7 +1685,16 @@
       "logs the start error as the cause and keeps the previous generation running",
       "is one bounded line without credentials",
       "carries the launch stage and reason in the log, bounded and without credentials",
-      "starts the new generation"
+      "starts the new generation",
+      "removes the package of the failed candidate and keeps the running add-on",
+      "removes the packages of failed candidates and keeps the current and the previous generation",
+      "keeps a package that a data recovery journal names",
+      "keeps the package of a canceled upgrade that the same operation can continue",
+      "a corrupt journal",
+      "a journal without a kind",
+      "a corrupt state",
+      "removes nothing when a journaled package is outside the package folder",
+      "does not follow a link out of the package folder"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -4344,7 +4353,16 @@
           "logs the start error as the cause and keeps the previous generation running",
           "is one bounded line without credentials",
           "carries the launch stage and reason in the log, bounded and without credentials",
-          "starts the new generation"
+          "starts the new generation",
+          "removes the package of the failed candidate and keeps the running add-on",
+          "removes the packages of failed candidates and keeps the current and the previous generation",
+          "keeps a package that a data recovery journal names",
+          "keeps the package of a canceled upgrade that the same operation can continue",
+          "a corrupt journal",
+          "a journal without a kind",
+          "a corrupt state",
+          "removes nothing when a journaled package is outside the package folder",
+          "does not follow a link out of the package folder"
         ]
       },
       {
