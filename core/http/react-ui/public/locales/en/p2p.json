@@ -161,12 +161,14 @@
       "noRelay": {
         "title": "Devices behind strict NAT cannot connect without a relay.",
         "body": "This server has no relay. About 3 in 10 networks block direct connections. Add a relay, or run one.",
-        "add": "Add a relay"
+        "add": "Add a relay",
+        "userBody": "This server has no relay. About 3 in 10 networks block direct connections, so your phone may not connect from outside your network."
       },
       "punchOnly": {
         "title": "This invite works only where hole punching works.",
         "body": "Devices can connect by hole punching through a public relay. About 3 in 10 networks block it. Add a relay, or run one, so that every device can connect.",
-        "add": "Add a relay"
+        "add": "Add a relay",
+        "userBody": "Your phone connects by hole punching through a public relay. About 3 in 10 networks block it."
       },
       "openRelay": {
         "title": "This invite names an open relay.",
@@ -178,7 +180,8 @@
         "lan": "Only a device on the same network can pair with this invite.",
         "later": "The server has not found a public relay for hole punching yet. This can take a few minutes after it starts: make the invite again later, or add a relay.",
         "noDht": "The public DHT is off, so the server finds no public relay for hole punching. Add a relay, or turn on the public DHT."
-      }
+      },
+      "askAdmin": "Ask your administrator to add a relay."
     },
     "connected": {
       "title": "{{label}} connected",

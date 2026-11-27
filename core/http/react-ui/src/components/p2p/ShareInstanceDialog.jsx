@@ -5,14 +5,12 @@ import Dialog from '../Dialog'
 import Icon from '../Icon'
 import { Button, Callout, StatusChip } from '../ui'
 import Segmented from '../ui/Segmented'
-import QrCode from './QrCode'
+import { InviteQr, InviteWarning, LinkBox } from './InviteLink'
 import ShareModelChoice from './ShareModelChoice'
 import { p2pNetApi } from '../../utils/api'
-import { copyToClipboard } from '../../utils/clipboard'
 import {
   QR_KINDS, TTL_CHOICES, clock, mintBlockedReason, mintModelFields, modelGrant, shareKinds, inviteWarnings, phraseWords, secondsLeft, shortPeer,
 } from '../../utils/p2p'
-import { P2P_SETTINGS_PATH } from './P2PTabs'
 import { useDistributedMode } from '../../hooks/useDistributedMode'
 
 const KIND_ICON = { device: 'monitor', remote: 'globe', worker: 'server' }
@@ -191,12 +189,7 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
       >
         <div className="p2p-dialog">
         <div className={qr ? 'p2p-invite p2p-invite--qr' : 'p2p-invite'}>
-          {qr && (
-            <figure className="p2p-invite__qr">
-              <QrCode text={minted.link} label={t('share.result.qrLabel')} />
-              <figcaption>{t('share.result.qrCaption')}</figcaption>
-            </figure>
-          )}
+          {qr && <InviteQr link={minted.link} />}
           <div className="p2p-invite__main">
             <LinkBox link={minted.link} addToast={addToast} />
             <p className="p2p-hint">{t(`share.result.how.${minted.kind}`)}</p>
@@ -240,7 +233,7 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
             {t('share.result.expiredBody')}
           </Callout>
         )}
-        {!expired && warnings.map(w => <InviteWarning key={w} warning={w} relay={relay} punch={warnings.includes('punch_only')} dht={status?.public_dht?.on !== false} onAgain={again} t={t} />)}
+        {!expired && warnings.map(w => <InviteWarning key={w} warning={w} relay={relay} punch={warnings.includes('punch_only')} dht={status?.public_dht?.on !== false} onAgain={again} />)}
         {minted.kind === 'device' && (
           <Callout tone="info" title={t('share.admission.title')} testId="share-admission">{t('share.admission.result')}</Callout>
         )}
@@ -322,86 +315,5 @@ function KindChoice({ kinds, kind, onChange, t }) {
         ))}
       </div>
     </fieldset>
-  )
-}
-
-// The link as text that wraps (it is one token, so it breaks anywhere) and a
-// Copy button. The link is shown once: it is in the mint answer only.
-function LinkBox({ link, addToast }) {
-  const { t } = useTranslation('p2p')
-  const [copied, setCopied] = useState(false)
-  const timer = useRef(null)
-  useEffect(() => () => clearTimeout(timer.current), [])
-  const copy = async () => {
-    if (await copyToClipboard(link)) {
-      setCopied(true)
-      clearTimeout(timer.current)
-      timer.current = setTimeout(() => setCopied(false), 2000)
-    } else {
-      addToast?.(t('share.copyFailed'), 'error')
-    }
-  }
-  return (
-    <div className="dk-field">
-      <span className="dk-label">{t('share.result.link')}</span>
-      <div className="p2p-link">
-        <code className="p2p-link__text dk-mono" tabIndex={0} data-testid="share-link">{link}</code>
-        <span className="p2p-link__copy">
-          <Button size="sm" icon={copied ? 'check' : 'copy'} onClick={copy} data-testid="share-copy">
-            {copied ? t('share.copied') : t('share.copy')}
-          </Button>
-        </span>
-      </div>
-    </div>
-  )
-}
-
-// A warning of the minted invite and what to do about it. punch says that the
-// link names public relays for hole punching; dht that the public DHT, which
-// finds them, is on.
-function InviteWarning({ warning, relay, punch, dht, onAgain, t }) {
-  const relayName = relay?.label || relay?.id || ''
-  if (warning === 'relay_unreachable') {
-    return (
-      <Callout tone="warn" title={t('share.warn.unreachable.title')} testId="share-warn-relay_unreachable"
-        actions={(
-          <>
-            <Button size="sm" variant="primary" onClick={onAgain}>{t('share.warn.unreachable.again')}</Button>
-            <Button size="sm" to={P2P_SETTINGS_PATH}>{t('share.warn.unreachable.check')}</Button>
-          </>
-        )}>
-        {t('share.warn.unreachable.body', { relay: relayName })}
-      </Callout>
-    )
-  }
-  if (warning === 'no_relay') {
-    return (
-      <Callout tone="warn" title={t('share.warn.noRelay.title')} testId="share-warn-no_relay"
-        actions={<Button size="sm" to={P2P_SETTINGS_PATH}>{t('share.warn.noRelay.add')}</Button>}>
-        {t('share.warn.noRelay.body')}
-      </Callout>
-    )
-  }
-  if (warning === 'punch_only') {
-    return (
-      <Callout tone="warn" title={t('share.warn.punchOnly.title')} testId="share-warn-punch_only"
-        actions={<Button size="sm" to={P2P_SETTINGS_PATH}>{t('share.warn.punchOnly.add')}</Button>}>
-        {t('share.warn.punchOnly.body')}
-      </Callout>
-    )
-  }
-  if (warning === 'open_relay') {
-    return (
-      <Callout tone="warn" title={t('share.warn.openRelay.title')} testId="share-warn-open_relay">
-        {t('share.warn.openRelay.body', { relay: relayName })}
-      </Callout>
-    )
-  }
-  return (
-    <Callout tone="info" title={t('share.warn.noPublic.title')} testId="share-warn-no_public_addr">
-      {punch
-        ? t('share.warn.noPublic.punch')
-        : `${t('share.warn.noPublic.lan')} ${t(dht ? 'share.warn.noPublic.later' : 'share.warn.noPublic.noDht')}`}
-    </Callout>
   )
 }

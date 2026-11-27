@@ -161,12 +161,14 @@
       "noRelay": {
         "title": "Les appareils derrière un NAT strict ne peuvent pas se connecter sans relais.",
         "body": "Ce serveur n'a pas de relais. Environ 3 réseaux sur 10 bloquent les connexions directes. Ajoutez un relais, ou faites-en tourner un.",
-        "add": "Ajouter un relais"
+        "add": "Ajouter un relais",
+        "userBody": "Ce serveur n'a pas de relais. Environ 3 réseaux sur 10 bloquent les connexions directes, votre téléphone risque donc de ne pas se connecter hors de votre réseau."
       },
       "punchOnly": {
         "title": "Cette invitation ne fonctionne que là où le hole punching fonctionne.",
         "body": "Les appareils peuvent se connecter par hole punching via un relais public. Environ 3 réseaux sur 10 le bloquent. Ajoutez un relais, ou faites-en tourner un, pour que tous les appareils puissent se connecter.",
-        "add": "Ajouter un relais"
+        "add": "Ajouter un relais",
+        "userBody": "Votre téléphone se connecte par hole punching via un relais public. Environ 3 réseaux sur 10 le bloquent."
       },
       "openRelay": {
         "title": "Cette invitation désigne un relais ouvert.",
@@ -178,7 +180,8 @@
         "lan": "Seul un appareil sur le même réseau peut s'appairer avec cette invitation.",
         "later": "Le serveur n'a pas encore trouvé de relais public pour le hole punching. Cela peut prendre quelques minutes après le démarrage : refaites l'invitation plus tard, ou ajoutez un relais.",
         "noDht": "La DHT publique est désactivée, donc le serveur ne trouve aucun relais public pour le hole punching. Ajoutez un relais, ou activez la DHT publique."
-      }
+      },
+      "askAdmin": "Demandez à votre administrateur d'ajouter un relais."
     },
     "connected": {
       "title": "{{label}} connecté",

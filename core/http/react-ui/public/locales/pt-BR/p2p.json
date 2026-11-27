@@ -161,12 +161,14 @@
       "noRelay": {
         "title": "Dispositivos atrás de um NAT restrito não conseguem se conectar sem um relay.",
         "body": "Este servidor não tem relay. Cerca de 3 em cada 10 redes bloqueiam conexões diretas. Adicione um relay ou execute um.",
-        "add": "Adicionar um relay"
+        "add": "Adicionar um relay",
+        "userBody": "Este servidor não tem relay. Cerca de 3 em cada 10 redes bloqueiam conexões diretas, então seu celular pode não se conectar fora da sua rede."
       },
       "punchOnly": {
         "title": "Este convite só funciona onde o hole punching funciona.",
         "body": "Os dispositivos podem se conectar por hole punching por um relay público. Cerca de 3 em cada 10 redes o bloqueiam. Adicione um relay ou execute um, para que todo dispositivo possa se conectar.",
-        "add": "Adicionar um relay"
+        "add": "Adicionar um relay",
+        "userBody": "Seu celular se conecta por hole punching através de um relay público. Cerca de 3 em cada 10 redes bloqueiam isso."
       },
       "openRelay": {
         "title": "Este convite indica um relay aberto.",
@@ -178,7 +180,8 @@
         "lan": "Só um dispositivo na mesma rede pode parear com este convite.",
         "later": "O servidor ainda não encontrou um relay público para hole punching. Isso pode levar alguns minutos depois que ele inicia: crie o convite de novo mais tarde, ou adicione um relay.",
         "noDht": "A DHT pública está desligada, então o servidor não encontra relay público para hole punching. Adicione um relay, ou ligue a DHT pública."
-      }
+      },
+      "askAdmin": "Peça ao seu administrador para adicionar um relay."
     },
     "connected": {
       "title": "{{label}} conectado",

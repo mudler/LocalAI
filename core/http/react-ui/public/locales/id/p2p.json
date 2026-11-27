@@ -161,12 +161,14 @@
       "noRelay": {
         "title": "Perangkat di belakang NAT ketat tidak dapat terhubung tanpa relay.",
         "body": "Server ini tidak punya relay. Sekitar 3 dari 10 jaringan memblokir koneksi langsung. Tambahkan relay atau jalankan sendiri.",
-        "add": "Tambah relay"
+        "add": "Tambah relay",
+        "userBody": "Server ini tidak punya relay. Sekitar 3 dari 10 jaringan memblokir koneksi langsung, jadi ponsel Anda mungkin tidak bisa terhubung dari luar jaringan Anda."
       },
       "punchOnly": {
         "title": "Undangan ini hanya berfungsi di jaringan yang mengizinkan hole punching.",
         "body": "Perangkat dapat terhubung dengan hole punching lewat relay publik. Sekitar 3 dari 10 jaringan memblokirnya. Tambahkan relay atau jalankan sendiri agar setiap perangkat dapat terhubung.",
-        "add": "Tambah relay"
+        "add": "Tambah relay",
+        "userBody": "Ponsel Anda terhubung dengan hole punching melalui relay publik. Sekitar 3 dari 10 jaringan memblokirnya."
       },
       "openRelay": {
         "title": "Undangan ini menyebut relay terbuka.",
@@ -178,7 +180,8 @@
         "lan": "Hanya perangkat di jaringan yang sama yang dapat dipasangkan dengan undangan ini.",
         "later": "Server belum menemukan relay publik untuk hole punching. Ini bisa memakan beberapa menit setelah server mulai: buat undangan lagi nanti, atau tambahkan relay.",
         "noDht": "DHT publik mati, jadi server tidak menemukan relay publik untuk hole punching. Tambahkan relay, atau nyalakan DHT publik."
-      }
+      },
+      "askAdmin": "Minta administrator Anda menambahkan relay."
     },
     "connected": {
       "title": "{{label}} terhubung",
