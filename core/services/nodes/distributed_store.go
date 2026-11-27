@@ -67,14 +67,35 @@ func (s *DistributedModelStore) Delete(id string) {
 	s.local.Delete(id)
 }
 
-// Range iterates local models first, then queries the DB for any additional
-// models not in the local cache.
+// Range lists the models of this process and the models the registry holds.
+//
+// The registry is the source of truth for remote models. A local entry without
+// a process is only a stub for a model this frontend routed, and the hook that
+// drops such a stub runs only in the frontend that deleted the registry rows.
+// With several frontends, the others keep their stubs after a drain or a
+// deregistration. So Range lists a stub only while the registry still holds its
+// model, and drops the stub when it does not. If the registry query fails,
+// Range lists every local entry: a failed query is no evidence that a model is
+// gone.
 func (s *DistributedModelStore) Range(fn func(string, *model.Model) bool) {
-	// Track which IDs we've already visited
-	seen := make(map[string]bool)
+	ctx := context.Background()
+	dbModels, dbErr := s.registry.ListAllLoadedModels(ctx)
+	if dbErr != nil {
+		xlog.Warn("DistributedModelStore: failed to list DB models during Range, listing local models without a check", "error", dbErr)
+	}
+	inRegistry := make(map[string]bool, len(dbModels))
+	for _, nm := range dbModels {
+		inRegistry[nm.ModelName] = true
+	}
 
+	seen := make(map[string]bool)
+	stale := map[string]*model.Model{}
 	stopped := false
 	s.local.Range(func(id string, m *model.Model) bool {
+		if dbErr == nil && m.Process() == nil && !inRegistry[id] {
+			stale[id] = m
+			return true
+		}
 		seen[id] = true
 		if !fn(id, m) {
 			stopped = true
@@ -82,15 +103,12 @@ func (s *DistributedModelStore) Range(fn func(string, *model.Model) bool) {
 		}
 		return true
 	})
-	if stopped {
-		return // caller said stop, respect it
-	}
 
-	// Query DB for models not in local cache
-	ctx := context.Background()
-	dbModels, err := s.registry.ListAllLoadedModels(ctx)
-	if err != nil {
-		xlog.Warn("DistributedModelStore: failed to list DB models during Range", "error", err)
+	// Delete after the local Range returns: the local store holds its lock
+	// while it iterates.
+	s.dropStaleStubs(stale)
+
+	if stopped || dbErr != nil {
 		return
 	}
 
@@ -111,5 +129,19 @@ func (s *DistributedModelStore) Range(fn func(string, *model.Model) bool) {
 		if !fn(nm.ModelName, m) {
 			return
 		}
+	}
+}
+
+// dropStaleStubs deletes the stubs that the registry no longer holds, so Get
+// and the shutdown path stop seeing them too. A stub is deleted only if it is
+// still the same entry: a request can route the model again while Range runs,
+// and the new stub belongs to a replica the registry holds.
+func (s *DistributedModelStore) dropStaleStubs(stale map[string]*model.Model) {
+	for id, m := range stale {
+		if cur, ok := s.local.Get(id); !ok || cur != m {
+			continue
+		}
+		s.local.Delete(id)
+		xlog.Debug("Dropped local model stub that no healthy node holds", "model", id)
 	}
 }

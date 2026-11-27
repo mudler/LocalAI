@@ -23,6 +23,10 @@ import (
 // still serves the model the frontend is right to consider it loaded, and each
 // request re-routes through SmartRouter to pick a live replica anyway.
 //
+// The hook runs only in the frontend that deleted the registry rows. The other
+// frontends drop their stubs when DistributedModelStore.Range finds that the
+// registry no longer holds the model.
+//
 // This deletes the store entry directly rather than going through
 // ShutdownModel: the replica is already gone from the registry, so there is
 // nothing left to unload, and ShutdownModel would emit a pointless remote
