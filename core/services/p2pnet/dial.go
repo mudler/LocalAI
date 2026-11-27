@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/xlog"
 	ma "github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr/net"
 )
 
 // limitedConnReason is passed to libp2p to allow streams over limited
@@ -141,7 +142,8 @@ func WithRelays(relays ...peer.AddrInfo) DialOption {
 }
 
 // WithHints adds hint relays: public relays on which the peer holds a
-// reservation. Dial uses them only after the direct addresses and the
+// reservation. Dial uses only their public IPv4 and IPv6 addresses (see
+// Config.PrivateHints), once for each relay. Dial uses them only after the direct addresses and the
 // relays of WithRelays failed, or at once when it has neither. Through a
 // hint, Dial opens no stream: it connects only so that the peers can run a
 // hole punch, waits for the direct connection (see WithPunchWait), and then
@@ -193,14 +195,17 @@ func (n *Host) Dial(ctx context.Context, p peer.ID, proto protocol.ID, opts ...D
 	if err != nil {
 		return nil, err
 	}
-	var hints []peer.AddrInfo
+	var named []peer.AddrInfo
 	for _, h := range o.hints {
 		if h.ID == p || h.ID == n.h.ID() || slices.Contains(carriers, h.ID) {
 			continue
 		}
-		hints = append(hints, h)
+		named = append(named, h)
 	}
-	n.hints.note(p, carriers, len(hints) > 0)
+	// A hint guards the peer even when none of its addresses is usable: the
+	// link said that the peer's relays are public.
+	n.hints.note(p, carriers, len(named) > 0)
+	hints := usableHints(named, n.privateHints)
 
 	var firstErr error
 	if len(hints) == 0 || len(o.addrs) > 0 || len(carriers) > 0 {
@@ -221,6 +226,48 @@ func (n *Host) Dial(ctx context.Context, p peer.ID, proto protocol.ID, opts ...D
 		return nil, err
 	}
 	return n.checkNeed(s, o.need)
+}
+
+// usableHints returns hints with only the addresses that Dial may use, one
+// entry for each relay. A hint comes from a link that anyone can write, so it
+// must not make the host dial into its own networks: only IPv4 and IPv6
+// addresses are kept (no DNS names, which could resolve to a private
+// address, and no IPv6 zones), and only public ones unless private is set.
+// A relay with no usable address is left out.
+func usableHints(hints []peer.AddrInfo, private bool) []peer.AddrInfo {
+	var out []peer.AddrInfo
+	index := map[peer.ID]int{}
+	for _, h := range hints {
+		i, ok := index[h.ID]
+		if !ok {
+			i = len(out)
+			out = append(out, peer.AddrInfo{ID: h.ID})
+		}
+		for _, a := range h.Addrs {
+			if !usableHintAddr(a, private) || slices.ContainsFunc(out[i].Addrs, a.Equal) {
+				continue
+			}
+			out[i].Addrs = append(out[i].Addrs, a)
+		}
+		if !ok && len(out[i].Addrs) == 0 {
+			out = out[:i]
+			continue
+		}
+		index[h.ID] = i
+	}
+	return out
+}
+
+func usableHintAddr(a ma.Multiaddr, private bool) bool {
+	if len(a) == 0 {
+		return false
+	}
+	switch a[0].Code() {
+	case ma.P_IP4, ma.P_IP6:
+	default:
+		return false
+	}
+	return private || manet.IsPublicAddr(a)
 }
 
 // addCircuits adds a circuit address of p through each relay to the

@@ -88,6 +88,10 @@ type Config struct {
 	Gate Gate
 	// UserAgent is sent in the identify protocol. Empty means "localai".
 	UserAgent string
+	// PrivateHints lets Dial use hint relays at private and loopback
+	// addresses. By default Dial uses only the public IP addresses of a
+	// hint (see WithHints). Only tests and closed labs set it.
+	PrivateHints bool
 }
 
 // Host is a libp2p host with LocalAI's admission rules. It is safe for
@@ -105,7 +109,8 @@ type Host struct {
 	// redial is nil when the gate cannot name the paired peers.
 	redial *redialer
 
-	static []peer.AddrInfo
+	static       []peer.AddrInfo
+	privateHints bool
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -144,13 +149,14 @@ func New(ctx context.Context, cfg Config) (*Host, error) {
 
 	hctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	n := &Host{
-		gate:      gate,
-		punch:     newPunchTracer(),
-		hints:     newHintRelays(),
-		static:    cfg.StaticRelays,
-		ctx:       hctx,
-		cancel:    cancel,
-		listeners: map[protocol.ID]*listener{},
+		gate:         gate,
+		punch:        newPunchTracer(),
+		hints:        newHintRelays(),
+		static:       cfg.StaticRelays,
+		privateHints: cfg.PrivateHints,
+		ctx:          hctx,
+		cancel:       cancel,
+		listeners:    map[protocol.ID]*listener{},
 	}
 	cm, err := connmgr.NewConnManager(connLowWater, connHighWater, connmgr.WithGracePeriod(connGracePeriod))
 	if err != nil {

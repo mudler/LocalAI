@@ -37,6 +37,8 @@ type fakeServer struct {
 func newHost(cfg p2pnet.Config) *p2pnet.Host {
 	GinkgoHelper()
 	cfg.IdentityPath = filepath.Join(GinkgoT().TempDir(), "id.key")
+	// The test relays listen on loopback.
+	cfg.PrivateHints = true
 	if cfg.ListenAddrs == nil {
 		cfg.ListenAddrs = []string{"/ip4/127.0.0.1/tcp/0"}
 	}

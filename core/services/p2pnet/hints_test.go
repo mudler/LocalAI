@@ -320,6 +320,19 @@ var _ = Describe("Dial with hint relays", func() {
 		})
 	})
 
+	It("does not dial a hint at a private address unless the host allows it", func() {
+		client = newHostWith(p2pnet.Config{})
+		server := startServer(noListen, hint)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		_, err := client.Dial(ctx, server.ID(), protoTest,
+			p2pnet.WithHints(hint.info(), hint.info()), p2pnet.WithPunchWait(testPunchWait))
+		Expect(err).To(HaveOccurred())
+		Expect(errors.Is(err, p2pnet.ErrNoDirectPath)).To(BeFalse(), "the host never reached the server: %v", err)
+		Expect(connsThrough(client, server.ID(), hint.info().ID)).To(BeZero())
+		Expect(log.accepted.Load()).To(BeZero())
+	})
+
 	Context("phase order", func() {
 		var carrier *testRelay
 

@@ -30,8 +30,16 @@ func TestP2PNet(t *testing.T) {
 var loopback = []string{"/ip4/127.0.0.1/tcp/0"}
 
 // newHost starts a host on loopback with a fresh identity and no public
-// DHT, and closes it when the spec ends.
+// DHT, and closes it when the spec ends. The test relays listen on loopback,
+// so the host may use hints there.
 func newHost(cfg p2pnet.Config) *p2pnet.Host {
+	GinkgoHelper()
+	cfg.PrivateHints = true
+	return newHostWith(cfg)
+}
+
+// newHostWith is newHost without PrivateHints.
+func newHostWith(cfg p2pnet.Config) *p2pnet.Host {
 	GinkgoHelper()
 	if cfg.IdentityPath == "" {
 		cfg.IdentityPath = filepath.Join(GinkgoT().TempDir(), "identity.key")
