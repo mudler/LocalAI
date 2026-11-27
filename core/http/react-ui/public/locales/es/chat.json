@@ -219,12 +219,17 @@
       "shared": "Compartida",
       "folder": "Espacio de trabajo",
       "addon": "{{name}}",
-      "addonFrom": "de {{name}}"
+      "addonFrom": "de {{name}}",
+      "plugin": "Plugin"
     },
     "replacedBy": "Reemplazada por {{name}}",
     "fallback_one": "{{skills}} integrada en uso: la habilidad propia del complemento {{name}} está desactivada o no se ejecuta aquí.",
     "fallback_other": "{{skills}} integradas en uso: las habilidades propias del complemento {{name}} están desactivadas o no se ejecutan aquí.",
-    "fromProject": "Del proyecto"
+    "fromProject": "Del proyecto",
+    "pluginGroup": "Plugin: {{name}}",
+    "pluginSwitch": "Usar {{name}} en este chat",
+    "pluginOff": "Desactivado en este chat. Sus skills, comandos y conectores no funcionan aquí.",
+    "pluginNoSkills": "Este plugin añade comandos o conectores, no skills."
   },
   "agent": {
     "label": "Agente",
@@ -252,7 +257,8 @@
       "context": "Contexto",
       "skills": "Skills y agentes",
       "help": "Ayuda",
-      "yours": "Tuyos"
+      "yours": "Tuyos",
+      "plugins": "Plugins"
     },
     "models": {
       "label": "Modelos",
@@ -307,7 +313,9 @@
       "shared": "compartida",
       "yours": "tuya",
       "prompt": "prompt",
-      "tool": "herramienta"
+      "tool": "herramienta",
+      "plugin": "plugin",
+      "command": "comando"
     },
     "collides": "solo con /skill",
     "errors": {
@@ -695,7 +703,8 @@
   },
   "invoked": {
     "skill": "Skill: {{name}}",
-    "agent": "Agente: {{name}}"
+    "agent": "Agente: {{name}}",
+    "command": "Comando: {{name}}"
   },
   "marker": {
     "compacted": "Contexto compactado: de {{before}} a {{after}} tokens",
@@ -948,5 +957,9 @@
     "message_one": "¿Eliminar el chat mostrado en {{project}} ({{count}})? Esta acción no se puede deshacer.",
     "message_other": "¿Eliminar los {{count}} chats mostrados en {{project}}? Esta acción no se puede deshacer.",
     "confirm": "Eliminar los mostrados"
+  },
+  "plugins": {
+    "toolsGroup": "Plugins",
+    "toolsDescribe": "Sus conectores en este chat: {{names}}."
   }
 }

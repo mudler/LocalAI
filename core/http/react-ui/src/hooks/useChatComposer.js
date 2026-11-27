@@ -4,6 +4,7 @@ import { useProjectAttached } from './useProjectAttached'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useChatDrafts } from './useChatDrafts'
 import { useChatSwitches } from './useChatSwitches'
+import { useChatPlugins } from './useChatPlugins'
 import { useAuth } from '../context/AuthContext'
 import { useModels } from './useModels'
 
@@ -23,7 +24,7 @@ import { useModels } from './useModels'
 // projectId (setProjectId) is the project the new chat starts in; '' is none.
 // pulledDraft (setPulledDraft) are the refs of shared projects it pulls in.
 export function useChatComposer({ chatId = null, draftKey = '', userId, activeChat = null, filesOn = true, canAgents = false, initialModel = '', initialAgent = '' }) {
-  const { user, sessionEpoch } = useAuth()
+  const { user, sessionEpoch, hasFeature } = useAuth()
   const actorSession = JSON.stringify([user?.id ?? userId ?? null, sessionEpoch])
   // The id the draft is kept under (useChatDrafts): the chat, or draftKey.
   const draftId = chatId || draftKey || ''
@@ -51,6 +52,8 @@ export function useChatComposer({ chatId = null, draftKey = '', userId, activeCh
   // What the chat's project attaches (the open chat's, or the project of the draft).
   const attached = useProjectAttached(chatId ? activeChat?.project_id : projectId)
   const switches = useChatSwitches(chatId, filesOn, chatId ? null : { model: effectiveModel, agentId }, actorSession, attached)
+  // The plugins of the chat with the chat's switch, and their / commands.
+  const plugins = useChatPlugins({ chatId, activeChat, agent: pickedAgent || null, enabled: filesOn && Boolean(hasFeature?.('plugins')), onChanged: switches.reloadSkills })
 
   // Files go to the server with the message that starts a turn and are saved
   // in the chat's folder of the workspace.
@@ -82,6 +85,6 @@ export function useChatComposer({ chatId = null, draftKey = '', userId, activeCh
 
   return {
     drafts, draftId, draftModel, setDraftModel, agentId, setAgentId, projectId, setProjectId, pulledDraft, setPulledDraft, agents, pickedAgent, effectiveModel,
-    models, modelsLoading, switches, attach, paste,
+    models, modelsLoading, switches, plugins, attach, paste,
   }
 }

@@ -6,6 +6,7 @@ import ts from 'typescript'
 import React, { useCallback, useMemo, useState } from 'react'
 import { renderToString } from 'react-dom/server'
 import * as slash from '../../src/utils/slashCommands.js'
+import { pluginConnectorRows } from '../../src/utils/chatPlugins.js'
 
 // Compile the entire production component, not a selected callback or source slice.
 // Leaf components and service hooks are boundaries; React executes all composer hooks.
@@ -14,7 +15,7 @@ const names = [...source.matchAll(/^import (\w+) from/gm)].map(m => m[1])
 const leaf = () => null
 let captured
 const scope = {
-  ...Object.fromEntries(names.map(n => [n, leaf])), ...slash,
+  ...Object.fromEntries(names.map(n => [n, leaf])), ...slash, pluginConnectorRows,
   React, useCallback, useEffect: () => {}, useMemo, useState,
   useTranslation: () => ({ t: k => k }), useAuth: () => ({ isAdmin: true, user: { id: 'a' } }),
   useProjectList: () => ({ projects: null, status: 'idle' }),

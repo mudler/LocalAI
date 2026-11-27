@@ -314,7 +314,8 @@
       "context": "প্রসঙ্গ",
       "skills": "দক্ষতা এবং এজেন্টরা",
       "help": "সহায়তা",
-      "yours": "আপনার"
+      "yours": "আপনার",
+      "plugins": "প্লাগইন"
     },
     "model": {
       "label": "সুইচ মডেল",
@@ -401,7 +402,9 @@
       "shared": "ভাগ করা হয়েছে",
       "yours": "আপনার",
       "prompt": "তাত্ক্ষণিক নির্দেশ",
-      "tool": "সরঞ্জাম"
+      "tool": "সরঞ্জাম",
+      "plugin": "প্লাগইন",
+      "command": "কমান্ড"
     },
     "collides": "শুধুমাত্র দক্ষতার সাথে",
     "errors": {
@@ -518,12 +521,17 @@
       "shared": "ভাগ করা হয়েছে",
       "folder": "কর্মক্ষেত্র",
       "addon": "{{name}}",
-      "addonFrom": "থেকে {{name}}"
+      "addonFrom": "থেকে {{name}}",
+      "plugin": "প্লাগইন"
     },
     "replacedBy": "{{name}}দ্বারা প্রতিস্থাপিত",
     "fallback_one": "নির্মিত {{skills}} ব্যবহারে: {{name}} অ্যাড-অনটির নিজস্ব স্কিল এখানে বন্ধ বা চলছে না।",
     "fallback_other": "নির্মিত {{skills}} ব্যবহারে: {{name}} অ্যাড-অন-এর নিজস্ব দক্ষতা এখানে বন্ধ বা চলছে না।",
-    "fromProject": "প্রকল্প থেকে"
+    "fromProject": "প্রকল্প থেকে",
+    "pluginGroup": "প্লাগইন: {{name}}",
+    "pluginSwitch": "এই চ্যাটে {{name}} ব্যবহার করুন",
+    "pluginOff": "এই চ্যাটে বন্ধ। এর দক্ষতা, কমান্ড এবং কনেক্টর এখানে কাজ করে না।",
+    "pluginNoSkills": "এই প্লাগইন কমান্ড বা কনেক্টর যোগ করে, কোনো দক্ষতা নয়।"
   },
   "agent": {
     "label": "এজেন্ট",
@@ -840,7 +848,8 @@
   },
   "invoked": {
     "skill": "দক্ষতা: {{name}}",
-    "agent": "এজেন্ট: {{name}}"
+    "agent": "এজেন্ট: {{name}}",
+    "command": "কমান্ড: {{name}}"
   },
   "marker": {
     "compacted": "প্রসঙ্গ সংকুচিত: {{before}} থেকে {{after}} টোকেন",
@@ -1091,5 +1100,9 @@
     "message_one": "Delete the {{count}} chat shown in {{project}}? This cannot be undone.",
     "message_other": "Delete the {{count}} chats shown in {{project}}? This cannot be undone.",
     "confirm": "দেখানো মুছুন"
+  },
+  "plugins": {
+    "toolsGroup": "প্লাগইন",
+    "toolsDescribe": "এই চ্যাটে এর কনেক্টর: {{names}}।"
   }
 }

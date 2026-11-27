@@ -219,12 +219,17 @@
       "shared": "共享",
       "folder": "工作区",
       "addon": "{{name}}",
-      "addonFrom": "来自 {{name}}"
+      "addonFrom": "来自 {{name}}",
+      "plugin": "插件"
     },
     "replacedBy": "已被 {{name}} 替换",
     "fallback_one": "正在使用内置 {{skills}}：{{name}} 插件自己的技能在此处已关闭或未运行。",
     "fallback_other": "正在使用内置 {{skills}}：{{name}} 插件自己的技能在此处已关闭或未运行。",
-    "fromProject": "来自项目"
+    "fromProject": "来自项目",
+    "pluginGroup": "插件：{{name}}",
+    "pluginSwitch": "在此聊天中使用 {{name}}",
+    "pluginOff": "在此聊天中已关闭。它的技能、命令和连接器在这里不起作用。",
+    "pluginNoSkills": "此插件添加命令或连接器，不添加技能。"
   },
   "agent": {
     "label": "智能体",
@@ -252,7 +257,8 @@
       "context": "上下文",
       "skills": "技能和智能体",
       "help": "帮助",
-      "yours": "你的"
+      "yours": "你的",
+      "plugins": "插件"
     },
     "models": {
       "label": "模型",
@@ -307,7 +313,9 @@
       "shared": "共享",
       "yours": "你的",
       "prompt": "提示词",
-      "tool": "工具"
+      "tool": "工具",
+      "plugin": "插件",
+      "command": "命令"
     },
     "collides": "仅通过 /skill",
     "errors": {
@@ -695,7 +703,8 @@
   },
   "invoked": {
     "skill": "技能：{{name}}",
-    "agent": "智能体：{{name}}"
+    "agent": "智能体：{{name}}",
+    "command": "命令：{{name}}"
   },
   "marker": {
     "compacted": "上下文已压缩：从 {{before}} 到 {{after}} 个 token",
@@ -946,5 +955,9 @@
     "message_one": "删除 {{project}} 中显示的 {{count}} 个对话？此操作无法撤销。",
     "message_other": "删除 {{project}} 中显示的 {{count}} 个对话？此操作无法撤销。",
     "confirm": "删除显示的"
+  },
+  "plugins": {
+    "toolsGroup": "插件",
+    "toolsDescribe": "它在此聊天中的连接器：{{names}}。"
   }
 }

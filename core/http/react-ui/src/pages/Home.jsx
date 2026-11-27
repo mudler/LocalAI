@@ -15,6 +15,7 @@ import { useChatSandboxProfile } from '../hooks/useChatSandboxProfile'
 // eslint-disable-next-line no-unused-vars
 import { SlashHelpCard } from '../components/chat/CommandCards'
 import { parseInvocation } from '../utils/slashCommands'
+import { withPluginDraft } from '../utils/chatPlugins'
 // eslint-disable-next-line no-unused-vars
 import { ReadyLine } from '../components/chat/EmptyChat'
 // eslint-disable-next-line no-unused-vars
@@ -445,7 +446,8 @@ export default function Home() {
   // switches, then the reasoning effort in its settings.
   const createChat = useCallback(async () => {
     // An incognito chat belongs to no project; the marker is on the request.
-    const chat = await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined, incognito ? undefined : (projectId || undefined))
+    const drafted = withPluginDraft(switches.draftSwitches(), composer.plugins?.draftSwitches?.())
+    const chat = await chatsApi.create(draftModel, undefined, agentId, false, drafted || undefined, incognito ? undefined : (projectId || undefined))
     if (incognito) rememberIncognitoChat(chat.id, chat.incognito || incognito)
     // The shared projects picked in the composer are pulled into the new chat.
     if (pulledDraft?.length && !incognito) {
@@ -470,7 +472,7 @@ export default function Home() {
       }
     }
     return chat
-  }, [draftModel, agentId, projectId, pulledDraft, draftEffort, switches, addToast, tpj, tch, tc, saveProfileDraft, saveNetworkDraft, incognito])
+  }, [draftModel, agentId, projectId, pulledDraft, draftEffort, switches, composer.plugins, addToast, tpj, tch, tc, saveProfileDraft, saveNetworkDraft, incognito])
   const doSubmit = useCallback(async (override) => {
     const own = typeof override !== 'string'
     let text = (own ? message : override).trim()
@@ -481,13 +483,13 @@ export default function Home() {
     // drafted switches of the new chat decide which it has).
     const savedGroup = switches.builtins.find(b => b.group === 'saved_agents')
     const subOff = !!switches.builtins.find(b => b.group === 'subagents')?.off
-    const inv = own ? parseInvocation(text, { skills: switches.skills, agents: composer.agents, savedAgentsOn: !!savedGroup && !savedGroup.off && !subOff }) : null
+    const inv = own ? parseInvocation(text, { skills: switches.skills, agents: composer.agents, savedAgentsOn: !!savedGroup && !savedGroup.off && !subOff, pluginCommands: composer.plugins?.commands }) : null
     if (inv?.error) {
       addToast(tch(`slash.errors.${inv.error}`, { name: inv.name }), 'warning')
       return
     }
     const command = inv ? { skill: inv.skill, agent: inv.agent } : undefined
-    const invoked = inv ? (inv.skill ? { kind: 'skill', name: inv.skill } : { kind: 'agent', name: inv.agent.name, id: inv.agent.id }) : undefined
+    const invoked = inv ? (inv.skill ? { kind: inv.kind === 'command' ? 'command' : 'skill', name: inv.skill } : { kind: 'agent', name: inv.agent.name, id: inv.agent.id }) : undefined
     if (inv) text = inv.text
     if (!selectedModel) {
       addToast(t('input.selectModelToast'), 'warning')
@@ -516,7 +518,7 @@ export default function Home() {
       addToast(err.message || tc('errors.send'), 'error')
       setSending(false)
     }
-  }, [message, files, sending, selectedModel, composer.agents, switches, drafts, addToast, navigate, t, tc, tch, beginSend, failSend, handOff, createChat])
+  }, [message, files, sending, selectedModel, composer.agents, composer.plugins, switches, drafts, addToast, navigate, t, tc, tch, beginSend, failSend, handOff, createChat])
 
   // Live: the chat is created as Send creates it, without a message, and opens
   // with state.live; the chat page starts Live there (Chat.jsx). The text

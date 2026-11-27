@@ -90,6 +90,8 @@
 .swl-group__count { flex: none; font-weight: 400; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
 .swl-bulk { display: flex; gap: 0; margin-left: auto; margin-right: calc(-1 * var(--sp-2)); }
 .swl-bulk--compact .dk-btn { height: var(--ctl-h-sm); padding-inline: var(--sp-2); font-size: var(--fs-meta); font-weight: 500; }
+/* The switch of a group that turns a whole source on or off (a plugin). */
+.swl-group__switch { display: inline-flex; margin-left: auto; padding-block: var(--sp-1); }
 
 .swl-row {
   display: flex;

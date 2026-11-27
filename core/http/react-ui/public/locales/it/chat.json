@@ -219,12 +219,17 @@
       "shared": "Condivisa",
       "folder": "Area di lavoro",
       "addon": "{{name}}",
-      "addonFrom": "da {{name}}"
+      "addonFrom": "da {{name}}",
+      "plugin": "Plugin"
     },
     "replacedBy": "Sostituita da {{name}}",
     "fallback_one": "{{skills}} integrata in uso: la skill del componente {{name}} è disattivata o non in esecuzione qui.",
     "fallback_other": "{{skills}} integrate in uso: le skill del componente {{name}} sono disattivate o non in esecuzione qui.",
-    "fromProject": "Dal progetto"
+    "fromProject": "Dal progetto",
+    "pluginGroup": "Plugin: {{name}}",
+    "pluginSwitch": "Usa {{name}} in questa chat",
+    "pluginOff": "Disattivato in questa chat. Le sue skill, i comandi e i connettori non funzionano qui.",
+    "pluginNoSkills": "Questo plugin aggiunge comandi o connettori, non skill."
   },
   "agent": {
     "label": "Agente",
@@ -252,7 +257,8 @@
       "context": "Contesto",
       "skills": "Skill e agenti",
       "help": "Aiuto",
-      "yours": "I tuoi"
+      "yours": "I tuoi",
+      "plugins": "Plugin"
     },
     "models": {
       "label": "Modelli",
@@ -307,7 +313,9 @@
       "shared": "condivisa",
       "yours": "tua",
       "prompt": "prompt",
-      "tool": "strumento"
+      "tool": "strumento",
+      "plugin": "plugin",
+      "command": "comando"
     },
     "collides": "solo con /skill",
     "errors": {
@@ -695,7 +703,8 @@
   },
   "invoked": {
     "skill": "Skill: {{name}}",
-    "agent": "Agente: {{name}}"
+    "agent": "Agente: {{name}}",
+    "command": "Comando: {{name}}"
   },
   "marker": {
     "compacted": "Contesto compattato: da {{before}} a {{after}} token",
@@ -948,5 +957,9 @@
     "message_one": "Eliminare la chat mostrata in {{project}} ({{count}})? Non si può annullare.",
     "message_other": "Eliminare le {{count}} chat mostrate in {{project}}? Non si può annullare.",
     "confirm": "Elimina le mostrate"
+  },
+  "plugins": {
+    "toolsGroup": "Plugin",
+    "toolsDescribe": "I suoi connettori in questa chat: {{names}}."
   }
 }

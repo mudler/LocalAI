@@ -54,6 +54,9 @@ import { Chip } from '../components/agents/AgentBits'
 // eslint-disable-next-line no-unused-vars
 import { SwitchRow } from '../components/chat/SwitchList'
 // eslint-disable-next-line no-unused-vars
+import AgentPlugins from '../components/agents/AgentPlugins'
+import { useAuth } from '../context/AuthContext'
+// eslint-disable-next-line no-unused-vars
 import AgentWizard from './AgentWizard'
 import { useAgentAbilities } from '../hooks/useAgentAbilities'
 import { useActiveProjects } from '../hooks/useActiveProjects'
@@ -76,7 +79,7 @@ import SideSheet from '../components/SideSheet'
 // the card heading says what they are. `export` exists only for a saved agent.
 const GROUPS = [
   { id: 'identity', icon: 'info', parts: ['BasicInfo', 'ModelSettings', 'PromptsGoals', 'Connected'], bare: true },
-  { id: 'capabilities', icon: 'plug', parts: ['Uses', 'Skills', 'Files'] },
+  { id: 'capabilities', icon: 'plug', parts: ['Uses', 'Skills', 'Plugins', 'Files'] },
   { id: 'memory', icon: 'memory', parts: ['Notes', 'MemorySettings'] },
   { id: 'effective', icon: 'eye', parts: ['Effective'], bare: true },
   { id: 'advanced', icon: 'server', parts: ['export'], collapsible: true },
@@ -215,6 +218,9 @@ function AgentEditor() {
   }, [id, isEdit, imported, attempt, search])
 
   const updateField = useCallback((name, value) => setForm(prev => ({ ...prev, [name]: value })), [])
+  // The Plugins grant list shows to someone with the plugins feature.
+  const { hasFeature } = useAuth()
+  const pluginsOn = hasFeature('plugins')
 
   // A new agent takes the project of the field: the project is read for the
   // folders and the limits, and the files mode starts at write.
@@ -421,6 +427,7 @@ function AgentEditor() {
       state = 'ready'
     }
     else if (s.id === 'MemorySettings') { keys = ['collections']; summary = countOf(form.collections.length, 'create.countCollections'); state = form.collections.length ? 'ready' : 'empty' }
+    else if (s.id === 'Plugins') { const n = (form.plugins || []).length; keys = ['plugins']; summary = countOf(n, 'create.countPlugins'); state = n ? 'ready' : 'empty' }
     else if (s.id === 'Skills') { keys = ['skills']; summary = countOf(form.skills.length, 'create.countSkills'); state = form.skills.length ? 'ready' : 'empty' }
     else if (s.id === 'Uses') {
       keys = ['builtins_off', 'builtins_on', 'builtins', 'addons', 'mcp_servers', 'network', 'sandbox_profile', 'connections', 'resources']
@@ -608,6 +615,8 @@ function AgentEditor() {
             </div>
           </>
         )
+      case 'Plugins':
+        return <AgentPlugins value={form.plugins || []} onChange={(ids) => updateField('plugins', ids)} />
       case 'Effective':
         return <AgentEffective lines={effective} dirty={dirty} isEdit={isEdit} hasConnections={access.length > 0} onGoTo={goTo} />
       case 'Connected':
@@ -663,7 +672,7 @@ function AgentEditor() {
   const saveLabel = isEdit ? t('create.save') : imported ? t('create.titleImport') : t('create.titleCreate')
   const headName = (form.name || '').trim()
   // A card with nothing in it (Advanced holds only the export of a saved agent) is not shown.
-  const visibleGroups = GROUPS.map(g => ({ ...g, parts: g.parts.filter(pid => pid !== 'export' || (isEdit && savedConfig)) })).filter(g => g.parts.length > 0)
+  const visibleGroups = GROUPS.map(g => ({ ...g, parts: g.parts.filter(pid => (pid !== 'export' || (isEdit && savedConfig)) && (pid !== 'Plugins' || (pluginsOn && !projectAgent))) })).filter(g => g.parts.length > 0)
 
   // A card needs the person when one of its parts does.
   const groupNeeds = (g) => g.parts.some(pid => pid !== 'export' && foldInfo({ id: pid }).state === 'needs')

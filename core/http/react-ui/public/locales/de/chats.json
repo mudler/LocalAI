@@ -282,6 +282,13 @@
       "done": "{{count}} importiert. Sie sind ausgeschaltet: Testen und schalten Sie sie unten ein.",
       "failed": "{{name}} wurde nicht importiert: {{error}}",
       "left": "Die nicht importierten Server bleiben in diesem Browser."
+    },
+    "plugin": {
+      "tag": "Plugin: {{name}}",
+      "switch": "{{name}} wird mit dem Plugin {{plugin}} ein- und ausgeschaltet",
+      "title": "Verwaltet vom Plugin {{name}}",
+      "body": "Das Plugin hat diesen Konnektor erstellt und entfernt ihn, wenn du das Plugin ausschaltest. Du kannst ihn hier nicht ändern.",
+      "manage": "Plugin öffnen"
     }
   },
   "connectorsPage": {

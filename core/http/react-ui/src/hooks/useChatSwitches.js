@@ -341,6 +341,8 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     }
   }, [chatId, draftOn, choose])
 
+  const reloadSkills = useCallback(() => setSkillsRev((n) => n + 1), [])
+
   // A switch names the skill by its id ("layer:name"): a plain name would
   // turn off whichever skill of that name wins, not this one.
   const toggleSkill = useCallback((id, on) => setSkillsOn(new Set([id]), on), [setSkillsOn])
@@ -379,5 +381,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     addons: shown.addons, builtins, fallbacks, toolCap, memory, commands: commands.context === context ? commands : noCommands, servers: shown.servers, connectors: shown.connectors, skills: shown.skills, attachedCollections: attachedCollections(attached), replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
     counts: toolsCounts({ builtins, addons: shown.addons, servers: shown.servers, connectors: shown.connectors }),
     toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn, setAddonsOn, setBuiltinsOn, setMCPOn, setConnections,
+    // A plugin switched on or off in the chat changes its skills.
+    reloadSkills,
   }
 }

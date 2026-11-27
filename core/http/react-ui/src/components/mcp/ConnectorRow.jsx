@@ -2,7 +2,7 @@
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import ActionMenu from '../ActionMenu'
-import { Button, Switch } from '../ui'
+import { Button, Switch, Tag } from '../ui'
 import { mcpTarget, sentence, testedWhen as when } from '../../utils/chatMCP'
 import { ConnectorIcon, StateChip } from './ConnectorBits'
 
@@ -11,7 +11,11 @@ import { ConnectorIcon, StateChip } from './ConnectorBits'
 // it is, its tools, what is saved, when it was tested). The row body opens the
 // details beside the list. On the right: the one action its state asks for,
 // the switch that applies at once, and the overflow menu.
-export default function ConnectorRow({ c, state, check, selected, testing, busy, onOpen, onToggle, onTest, onEdit, onReauth, onRemove }) {
+// A connector that a plugin owns (plugin_install) is read only: the plugin
+// makes and removes it when the person turns the plugin on or off, and a
+// change here answers 403. It shows the plugin's name and keeps Details and
+// Test; its switch is drawn but cannot change.
+export default function ConnectorRow({ c, state, check, selected, testing, busy, onOpen, onToggle, onTest, onEdit, onReauth, onRemove, pluginName = '' }) {
   const { t, i18n } = useTranslation('chats')
   const target = mcpTarget(c)
   const stdio = c.transport === 'stdio'
@@ -42,13 +46,15 @@ export default function ConnectorRow({ c, state, check, selected, testing, busy,
     )
   }
 
+  const owned = Boolean(c.plugin_install)
+  if (owned && state === 'auth') act = null
   const items = [
     { key: 'details', icon: 'info', label: t('mcpPage.actions.details'), onClick: () => onOpen(c.id) },
     { key: 'test', icon: 'refresh', label: t('mcpPage.actions.test'), disabled: testing, onClick: () => onTest(c) },
-    { key: 'edit', icon: 'pencil', label: t('mcpPage.actions.edit'), onClick: () => onEdit(c) },
-    { key: 'reauth', icon: 'key', label: t('mcpPage.actions.reauth'), hidden: stdio, onClick: () => onReauth(c) },
-    { divider: true, key: 'divider' },
-    { key: 'remove', icon: 'trash', label: t('mcpPage.actions.remove'), danger: true, onClick: () => onRemove(c) },
+    { key: 'edit', icon: 'pencil', label: t('mcpPage.actions.edit'), hidden: owned, onClick: () => onEdit(c) },
+    { key: 'reauth', icon: 'key', label: t('mcpPage.actions.reauth'), hidden: stdio || owned, onClick: () => onReauth(c) },
+    { divider: true, key: 'divider', hidden: owned },
+    { key: 'remove', icon: 'trash', label: t('mcpPage.actions.remove'), danger: true, hidden: owned, onClick: () => onRemove(c) },
   ]
 
   return (
@@ -60,6 +66,7 @@ export default function ConnectorRow({ c, state, check, selected, testing, busy,
       data-state={state === 'off' ? 'stopped' : state}
       data-attention={state === 'auth' || state === 'error' ? 'true' : undefined}
       data-selected={selected ? 'true' : undefined}
+      data-plugin={owned ? 'true' : undefined}
     >
       <button type="button" className="ad-tile__open" aria-pressed={selected} aria-label={t('mcpPage.row.open', { name: c.name, state: stateText })} onClick={() => onOpen(c.id)}>
         <ConnectorIcon c={c} />
@@ -67,6 +74,7 @@ export default function ConnectorRow({ c, state, check, selected, testing, busy,
           <span className="ad-tile__head">
             <span className="ad-tile__title">{c.name}</span>
             <StateChip state={state} />
+            {owned && <Tag icon="puzzle" testId="mcp-row-plugin">{t('mcpPage.plugin.tag', { name: pluginName || c.plugin_server || '' })}</Tag>}
           </span>
           <span className={`ad-tile__desc mcp-row__line mcp-row__line--${state}`} data-testid="mcp-row-line" title={line}>{line}</span>
           <span className="ad-meta">
@@ -89,7 +97,7 @@ export default function ConnectorRow({ c, state, check, selected, testing, busy,
       <div className="ad-tile__side mcp-row__side">
         {act && <span className="ad-tile__act mcp-row__act">{act}</span>}
         <span className="mcp-row__switch">
-          <Switch checked={c.enabled} disabled={busy} onChange={(on) => onToggle(c, on)} label={t('mcpPage.row.toggle', { name: c.name })} testId="mcp-switch" />
+          <Switch checked={c.enabled} disabled={busy || owned} onChange={(on) => onToggle(c, on)} label={owned ? t('mcpPage.plugin.switch', { name: c.name, plugin: pluginName || c.plugin_server || '' }) : t('mcpPage.row.toggle', { name: c.name })} testId="mcp-switch" />
         </span>
         <ActionMenu items={items} ariaLabel={t('mcpPage.row.menu', { name: c.name })} compact />
       </div>

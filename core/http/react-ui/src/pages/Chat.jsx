@@ -45,6 +45,7 @@ import LiveSetupSheet from '../components/chat/LiveSetupSheet'
 import LiveDock from '../components/chat/LiveDock'
 import { OPEN_CHAT_FILE_EVENT } from '../components/chat/chatActions'
 import { contextSinceClear, parseGoalCommand, parseInvocation } from '../utils/slashCommands'
+import { withPluginDraft } from '../utils/chatPlugins'
 import { findLoop, parseLoopCommand } from '../utils/chatLoops'
 // eslint-disable-next-line no-unused-vars
 import { ChatAboutCard, ContextMarker, GoalCard, SlashHelpCard } from '../components/chat/CommandCards'
@@ -762,7 +763,7 @@ function ChatPage() {
     const savedGroup = switches.builtins.find(b => b.group === 'saved_agents')
     const subOff = !!switches.builtins.find(b => b.group === 'subagents')?.off
     const inv = typeof override === 'string' ? null : parseInvocation(text, {
-      skills: switches.skills, agents: composer.agents, savedAgentsOn: !!savedGroup && !savedGroup.off && !subOff,
+      skills: switches.skills, agents: composer.agents, savedAgentsOn: !!savedGroup && !savedGroup.off && !subOff, pluginCommands: composer.plugins?.commands,
     })
     if (inv?.error) {
       setLocalError(t(`slash.errors.${inv.error}`, { name: inv.name }))
@@ -801,7 +802,7 @@ function ChatPage() {
     } finally {
       setBusy(false)
     }
-  }, [input, files, activeId, busy, effectiveModel, draftModel, agentId, switches, composer.agents, chat, select, navigate, addToast, t, tc, drafts, sayError])
+  }, [input, files, activeId, busy, effectiveModel, draftModel, agentId, switches, composer.agents, composer.plugins, chat, select, navigate, addToast, t, tc, drafts, sayError])
 
   // The Home page hands over the first message in the location state. It goes
   // once, when a model is known; without one the text waits in the box. A
@@ -1151,7 +1152,7 @@ function ChatPage() {
   // Creates the chat with the drafted switches, then gives it the reasoning
   // effort picked before it existed.
   const createWithDraft = async () => {
-    const id = await chat.createChat(draftModel, agentId, switches.draftSwitches(), composer.projectId, incognitoDraft)
+    const id = await chat.createChat(draftModel, agentId, withPluginDraft(switches.draftSwitches(), composer.plugins?.draftSwitches?.()), composer.projectId, incognitoDraft)
     // The shared projects picked in the composer are pulled into the new chat
     // (not into an incognito one: it belongs to no project).
     if (composer.pulledDraft?.length && !incognitoDraft) {
@@ -1299,7 +1300,7 @@ function ChatPage() {
       return
     }
     let prompt = c.prompt
-    const inv = parseInvocation(prompt, { skills: switches.skills, agents: [], savedAgentsOn: false })
+    const inv = parseInvocation(prompt, { skills: switches.skills, agents: [], savedAgentsOn: false, pluginCommands: composer.plugins?.commands })
     if (inv?.skill) prompt = `/${inv.skill}${inv.text ? ` ${inv.text}` : ''}`
     try {
       await chat.startLoop(activeId, c.interval, prompt)

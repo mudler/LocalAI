@@ -97,7 +97,8 @@
       "Notes": "记忆",
       "Connections": "连接",
       "Effective": "生效视图",
-      "Uses": "可使用的内容"
+      "Uses": "可使用的内容",
+      "Plugins": "插件"
     },
     "name": "Name",
     "description": "Description",
@@ -467,7 +468,14 @@
     },
     "sandboxProfile": "沙箱配置",
     "sandboxProfileDefault": "默认",
-    "sandboxProfileHelp": "用于无人值守的运行，也是其聊天的初始配置。"
+    "sandboxProfileHelp": "用于无人值守的运行，也是其聊天的初始配置。",
+    "countPlugins_one": "{{count}} 个插件",
+    "countPlugins_other": "{{count}} 个插件",
+    "pluginsHelp": "与此智能体的聊天可以使用的插件。列表是精确的：空列表表示不授予任何插件。插件还需要对聊天的人处于开启状态。",
+    "pluginsNone": "尚未安装插件。请在 Add-ons 页面的插件标签页中安装。",
+    "pluginOffForYou": "{{plugin}}，你已关闭",
+    "pluginGone": "此插件已不再安装。",
+    "pluginsLoadFailed": "无法加载插件。"
   },
   "run": {
     "workingLine": "Working"

@@ -282,6 +282,13 @@
       "done": "Importati {{count}}. Sono spenti: provali e attivali qui sotto.",
       "failed": "{{name}} non è stato importato: {{error}}",
       "left": "I server non importati restano in questo browser."
+    },
+    "plugin": {
+      "tag": "Plugin: {{name}}",
+      "switch": "{{name}} si attiva e disattiva con il plugin {{plugin}}",
+      "title": "Gestito dal plugin {{name}}",
+      "body": "Il plugin ha creato questo connettore e lo rimuove quando disattivi il plugin. Non puoi modificarlo qui.",
+      "manage": "Apri il plugin"
     }
   },
   "connectorsPage": {

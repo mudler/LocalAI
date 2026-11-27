@@ -97,7 +97,8 @@
       "Notes": "Memori",
       "Connections": "Koneksi",
       "Effective": "Tampilan efektif",
-      "Uses": "Yang dapat digunakan"
+      "Uses": "Yang dapat digunakan",
+      "Plugins": "Plugin"
     },
     "name": "Name",
     "description": "Description",
@@ -467,7 +468,14 @@
     },
     "sandboxProfile": "Profil sandbox",
     "sandboxProfileDefault": "Bawaan",
-    "sandboxProfileHelp": "Dipakai oleh eksekusi tanpa pengawasan dan sebagai profil awal obrolannya."
+    "sandboxProfileHelp": "Dipakai oleh eksekusi tanpa pengawasan dan sebagai profil awal obrolannya.",
+    "countPlugins_one": "{{count}} plugin",
+    "countPlugins_other": "{{count}} plugin",
+    "pluginsHelp": "Plugin yang boleh digunakan chat dengan agen ini. Daftarnya pasti: daftar kosong tidak mengizinkan apa pun. Plugin juga harus aktif untuk orang yang melakukan chat.",
+    "pluginsNone": "Belum ada plugin terpasang. Pasang satu di tab Plugin pada halaman Add-on.",
+    "pluginOffForYou": "{{plugin}}, nonaktif untuk Anda",
+    "pluginGone": "Plugin ini tidak lagi terpasang.",
+    "pluginsLoadFailed": "Tidak dapat memuat plugin."
   },
   "run": {
     "workingLine": "Working"

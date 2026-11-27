@@ -314,7 +314,8 @@
       "context": "Context",
       "skills": "Skills and agents",
       "help": "Help",
-      "yours": "Yours"
+      "yours": "Yours",
+      "plugins": "Plugins"
     },
     "model": {
       "label": "Switch model",
@@ -401,7 +402,9 @@
       "shared": "shared",
       "yours": "yours",
       "prompt": "prompt",
-      "tool": "tool"
+      "tool": "tool",
+      "plugin": "plugin",
+      "command": "command"
     },
     "collides": "only with /skill",
     "errors": {
@@ -518,12 +521,17 @@
       "shared": "Shared",
       "folder": "Workspace",
       "addon": "{{name}}",
-      "addonFrom": "from {{name}}"
+      "addonFrom": "from {{name}}",
+      "plugin": "Plugin"
     },
     "replacedBy": "Replaced by {{name}}",
     "fallback_one": "Built-in {{skills}} in use: the {{name}} add-on's own skill is off or not running here.",
     "fallback_other": "Built-in {{skills}} in use: the {{name}} add-on's own skills are off or not running here.",
-    "fromProject": "From project"
+    "fromProject": "From project",
+    "pluginGroup": "Plugin: {{name}}",
+    "pluginSwitch": "Use {{name}} in this chat",
+    "pluginOff": "Off in this chat. Its skills, commands and connectors do not serve here.",
+    "pluginNoSkills": "This plugin adds commands or connectors, no skills."
   },
   "agent": {
     "label": "Agent",
@@ -840,7 +848,8 @@
   },
   "invoked": {
     "skill": "Skill: {{name}}",
-    "agent": "Agent: {{name}}"
+    "agent": "Agent: {{name}}",
+    "command": "Command: {{name}}"
   },
   "marker": {
     "compacted": "Context compacted: {{before}} to {{after}} tokens",
@@ -1091,5 +1100,9 @@
     "message_one": "Delete the {{count}} chat shown in {{project}}? This cannot be undone.",
     "message_other": "Delete the {{count}} chats shown in {{project}}? This cannot be undone.",
     "confirm": "Delete shown"
+  },
+  "plugins": {
+    "toolsGroup": "Plugins",
+    "toolsDescribe": "Its connectors in this chat: {{names}}."
   }
 }

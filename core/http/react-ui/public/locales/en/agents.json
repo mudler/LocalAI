@@ -210,7 +210,8 @@
       "Notes": "Memory",
       "Connections": "Connections",
       "Effective": "Effective view",
-      "Uses": "What it can use"
+      "Uses": "What it can use",
+      "Plugins": "Plugins"
     },
     "grantsNoticeTitle": "Some messaging features will turn off.",
     "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
@@ -574,7 +575,14 @@
     },
     "sandboxProfile": "Sandbox profile",
     "sandboxProfileDefault": "Default",
-    "sandboxProfileHelp": "Used by unattended runs and as the starting profile of its chats."
+    "sandboxProfileHelp": "Used by unattended runs and as the starting profile of its chats.",
+    "countPlugins_one": "{{count}} plugin",
+    "countPlugins_other": "{{count}} plugins",
+    "pluginsHelp": "The plugins a chat with this agent may use. The list is exact: an empty list grants none. A plugin also needs to be on for the person who chats.",
+    "pluginsNone": "No plugins are installed. Install one on the Plugins tab of the Add-ons page.",
+    "pluginOffForYou": "{{plugin}}, off for you",
+    "pluginGone": "This plugin is no longer installed.",
+    "pluginsLoadFailed": "Could not load the plugins."
   },
   "status": {
     "title": "Status",

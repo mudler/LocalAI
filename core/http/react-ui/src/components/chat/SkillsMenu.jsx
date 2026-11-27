@@ -3,7 +3,9 @@ import { useState, useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import Button from '../ui/Button'
 import SearchField from '../ui/SearchField'
-import { BulkActions, SwitchHead, SwitchPopover, SwitchRow, SwitchRowStatic, SwitchStatus } from './SwitchList'
+import Switch from '../ui/Switch'
+import { BulkActions, SwitchGroup, SwitchHead, SwitchPopover, SwitchRow, SwitchRowStatic, SwitchStatus } from './SwitchList'
+import { skillGroups } from '../../utils/chatPlugins'
 import { SEARCH_MIN, fallbackNotice, filterSkills, skillCounts, skillKey, skillSource } from '../../utils/chatSkills'
 
 // The composer chip that opens the skills this chat may use: one switch per
@@ -23,15 +25,18 @@ import { SEARCH_MIN, fallbackNotice, filterSkills, skillCounts, skillKey, skillS
 // replaced: the built-in skills an add-on replaces now [{ name, shadowed_by }]
 // onSet(ids: Set, on): switches those skills with one request
 // error: the text of a refused change, which the hook has already reverted
-export default function SkillsMenu({ skills, replaced = [], onSet, error, testId = 'chat-skills' }) {
+// plugins: the plugins of the chat (useChatPlugins): { rows, setOn, error }.
+//   Their skills are grouped under "Plugin: <name>", with one switch for the
+//   plugin in this chat and one for each skill.
+export default function SkillsMenu({ skills, replaced = [], onSet, error, plugins, testId = 'chat-skills' }) {
   const { t } = useTranslation('chat')
-  if (skills.length === 0) return null
+  if (skills.length === 0 && !(plugins?.rows || []).length) return null
   // The chip counts what the panel counts: the skills a person can switch.
   // A skill the host grants has no switch and is not in the panel's total.
   const { on } = skillCounts(skills.filter((s) => !s.locked))
   return (
     <SwitchPopover icon="book" label={t('skills.label')} title={t('skills.title')} count={on} testId={testId}>
-      <SkillsPanel skills={skills} replaced={replaced} onSet={onSet} error={error} testId={testId} />
+      <SkillsPanel skills={skills} replaced={replaced} onSet={onSet} error={error || plugins?.error} plugins={plugins} testId={testId} />
     </SwitchPopover>
   )
 }
@@ -39,7 +44,7 @@ export default function SkillsMenu({ skills, replaced = [], onSet, error, testId
 // The body of the skills list, without the chip: the header, the search, one
 // row per skill and the status line. The agent form draws it inline.
 // `heading` replaces the title of the list; `later` is the note under the header (what a skill added later does).
-export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'chat-skills', heading, later, manage = true, fromLabel = false }) {
+export function SkillsPanel({ skills, replaced = [], onSet, error, plugins, testId = 'chat-skills', heading, later, manage = true, fromLabel = false }) {
   const { t } = useTranslation('chat')
   const [query, setQuery] = useState('')
   const noteId = useId()
@@ -62,6 +67,11 @@ export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'cha
   // skill of the same name in the list.
   const titleOf = (id, name) => skills.find((s) => s.layer === 'addon' && s.addon === id && s.name === name)?.addon_title || id
   const shownReplaced = filtering ? filterSkills(replaced, q) : replaced
+  // Plugin skills sit under their plugin; a search keeps a plugin whose
+  // name or skills match.
+  const { plain, groups } = skillGroups(shown, plugins?.rows || [])
+  const lq = q.trim().toLowerCase()
+  const shownGroups = filtering ? groups.filter((g) => g.skills.length > 0 || g.name.toLowerCase().includes(lq)) : groups
 
   return (
     <>
@@ -92,7 +102,8 @@ export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'cha
         )}
       </SwitchHead>
       <div className="swl-list" data-testid={`${testId}-list`}>
-        {shown.map((s) => <SkillRow key={skillKey(s)} skill={s} onSet={onSet} testId={testId} fromLabel={fromLabel} />)}
+        {plain.map((s) => <SkillRow key={skillKey(s)} skill={s} onSet={onSet} testId={testId} fromLabel={fromLabel} />)}
+        {shownGroups.map((g) => <PluginGroup key={g.id || g.name} group={g} onSet={onSet} onPlugin={plugins?.setOn} testId={testId} />)}
         {shownReplaced.map((s) => (
           <SwitchRowStatic
             key={`replaced:${s.name}`}
@@ -102,7 +113,7 @@ export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'cha
             testId={`${testId}-replaced`}
           />
         ))}
-        {shown.length === 0 && <p className="swl-empty">{t('skills.noMatch', { query: query.trim() })}</p>}
+        {shown.length === 0 && shownGroups.length === 0 && <p className="swl-empty">{t('skills.noMatch', { query: query.trim() })}</p>}
       </div>
       <SwitchStatus error={error} failed={t('skills.failed')} testId={`${testId}-error`} reserve>
         {manage && <Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/skills" data-testid={`${testId}-manage`}>{t('skills.manage')}</Button>}
@@ -111,7 +122,7 @@ export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'cha
   )
 }
 
-function SkillRow({ skill, onSet, testId, fromLabel }) {
+function SkillRow({ skill, onSet, testId, fromLabel, grouped = false }) {
   const { t } = useTranslation('chat')
   const desc = (skill.description || '').trim()
   const src = skillSource(skill)
@@ -121,7 +132,7 @@ function SkillRow({ skill, onSet, testId, fromLabel }) {
     <SwitchRow
       name={skill.name}
       desc={skill.unavailable || (desc ? skill.description : '')}
-      meta={fromProject ? t('skills.fromProject') : skill.locked && skill.sourceLabel ? skill.sourceLabel : source}
+      meta={grouped ? '' : fromProject ? t('skills.fromProject') : skill.locked && skill.sourceLabel ? skill.sourceLabel : source}
       metaTestId={`${testId}-source`}
       metaKind={skill.locked ? 'provider' : src.kind}
       checked={skill.enabled}
@@ -131,5 +142,27 @@ function SkillRow({ skill, onSet, testId, fromLabel }) {
       onChange={(next) => onSet(new Set([skillKey(skill)]), next)}
       testId={`${testId}-item`}
     />
+  )
+}
+
+// The skills of one plugin under its name, with the plugin's switch for this
+// chat in the heading. A plugin switched off in the chat shows no skill.
+function PluginGroup({ group, onSet, onPlugin, testId }) {
+  const { t } = useTranslation('chat')
+  const on = !group.off
+  return (
+    <SwitchGroup
+      title={t('skills.pluginGroup', { name: group.name })}
+      icon="puzzle"
+      testId={`${testId}-plugin`}
+      intro={on ? (group.skills.length === 0 ? t('skills.pluginNoSkills') : '') : t('skills.pluginOff')}
+      actions={onPlugin ? (
+        <span className="swl-group__switch">
+          <Switch checked={on} onChange={(next) => onPlugin(group.id, next)} label={t('skills.pluginSwitch', { name: group.name })} testId={`${testId}-plugin-switch`} />
+        </span>
+      ) : null}
+    >
+      {on && group.skills.map((s) => <SkillRow key={skillKey(s)} skill={s} onSet={onSet} testId={testId} grouped />)}
+    </SwitchGroup>
   )
 }

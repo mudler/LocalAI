@@ -27,15 +27,16 @@ export function ContextMarker({ marker, before = 0, after = 0 }) {
   )
 }
 
-// The chip on a message sent with a skill or a saved agent.
+// The chip on a message sent with a skill, a plugin command or a saved agent.
 export function InvokedChip({ invoked }) {
   const { t } = useTranslation('chat')
   if (!invoked?.name) return null
-  const agent = invoked.kind === 'agent'
+  // A plugin command (kind command) runs like a skill but reads as a command.
+  const kind = invoked.kind === 'agent' || invoked.kind === 'command' ? invoked.kind : 'skill'
   return (
-    <span className="cx-invoked" data-testid="message-invoked">
-      <Icon name={agent ? 'robot' : 'book'} />
-      <span>{t(agent ? 'invoked.agent' : 'invoked.skill', { name: invoked.name })}</span>
+    <span className="cx-invoked" data-testid="message-invoked" data-kind={kind}>
+      <Icon name={{ agent: 'robot', command: 'terminal', skill: 'book' }[kind]} />
+      <span>{t(`invoked.${kind}`, { name: invoked.name })}</span>
     </span>
   )
 }

@@ -10,6 +10,8 @@ import ConnectorDetails from '../components/mcp/ConnectorDetails'
 import ConnectorSheet from '../components/mcp/ConnectorSheet'
 import { useAuth } from '../context/AuthContext'
 import { chatMCPConnectorsApi } from '../utils/api'
+import { pluginsApi } from '../utils/pluginsClient'
+import { pluginNames } from '../utils/chatPlugins'
 import {
   STATE_FILTERS, browserImportBody, checkRecord, connectorState, currentCheck, dropCheck, emptyMCP, filterConnectors,
   forgetBrowserServers, formOf, mcpPayload, mcpTarget, readBrowserServers, readChecks, writeChecks,
@@ -57,7 +59,7 @@ function ImportBanner({ servers, busy, onImport, t }) {
 // saves, then tests, then turns the connector on.
 export default function ChatMCPConnectors() {
   const { t } = useTranslation('chats')
-  const { isAdmin } = useAuth()
+  const { isAdmin, hasFeature } = useAuth()
   const { addToast } = useOutletContext() || {}
   const [params, setParams] = useSearchParams()
   const [items, setItems] = useState(null)
@@ -99,6 +101,17 @@ export default function ChatMCPConnectors() {
   }, [fail])
 
   useEffect(() => { load() }, [load])
+
+  // The names of the plugins that own connectors, for their read-only rows.
+  // Best effort: a row without a name shows the plugin's server name.
+  const [plugins, setPlugins] = useState({})
+  const hasPluginRows = (items || []).some((c) => c.plugin_install)
+  useEffect(() => {
+    if (!hasPluginRows || !hasFeature('plugins')) return undefined
+    const ctl = new AbortController()
+    pluginsApi.installs({}, ctl.signal).then((list) => setPlugins(pluginNames(list))).catch(() => {})
+    return () => ctl.abort()
+  }, [hasPluginRows, hasFeature])
 
   // The last test of each connector stays in this browser, so a returning
   // person sees the last known state with its time.
@@ -341,6 +354,7 @@ export default function ChatMCPConnectors() {
                     onEdit={openEdit}
                     onReauth={openReauth}
                     onRemove={setToRemove}
+                    pluginName={plugins[c.plugin_install] || ''}
                   />
                 ))}
               </ul>
@@ -360,6 +374,7 @@ export default function ChatMCPConnectors() {
               onEdit={openEdit}
               onReauth={openReauth}
               onRemove={setToRemove}
+              pluginName={plugins[detail.plugin_install] || ''}
             />
           )}
         </PaneLayout>

@@ -35,10 +35,11 @@ import { CHAT_SLASH_ACTIONS, CHAT_SLASH_GROUPS } from '../components/chat/chatAc
 import { SLASH_ACTIONS, SLASH_GROUPS, availableActions, commandNames } from '../components/home/homeActions.js'
 import { shortId } from './chatLoops.js'
 import { argValues, expandCommand, matchTyped } from './userCommands.js'
+import { parsePluginInvocation, slashPluginSkills } from './chatPlugins.js'
 
 // The groups of the new commands, after the page's own. The commands of the
 // user (commands.json) are listed first.
-export const COMMAND_GROUPS = ['yours', 'context', 'skills', 'help']
+export const COMMAND_GROUPS = ['yours', 'context', 'skills', 'plugins', 'help']
 
 // The commands both surfaces share. ctx is described at availableCommands.
 export const SHARED_COMMANDS = [
@@ -172,6 +173,32 @@ export function skillCommands(skills, taken = new Set()) {
   })
 }
 
+// The commands and the user-invocable skills of the plugins that are on in
+// the chat, as /<plugin>:<name>, under "plugins". The hint of the arguments
+// shows as the note of the row. A plugin skill and a command of one name:
+// the skill serves, as on the server.
+//   commands  [{ name, description, hint }] (useChatPlugins)
+export function pluginCommands(skills, commands = []) {
+  const out = []
+  const seen = new Set()
+  for (const s of slashPluginSkills(skills)) {
+    seen.add(s.name)
+    out.push({
+      id: `plugin-${s.name}`, cmd: `/${s.name}`, icon: 'book', group: 'plugins', kind: 'insert', insert: `/${s.name} `,
+      label: s.name, desc: s.description || '', badge: 'plugin', note: s.argument_hint || undefined, plugin: true,
+    })
+  }
+  for (const c of commands || []) {
+    if (seen.has(c.name)) continue
+    seen.add(c.name)
+    out.push({
+      id: `plugin-${c.name}`, cmd: `/${c.name}`, icon: 'terminal', group: 'plugins', kind: 'insert', insert: `/${c.name} `,
+      label: c.name, desc: c.description || '', badge: 'command', note: c.hint || undefined, plugin: true,
+    })
+  }
+  return out
+}
+
 // The commands of the user (LocalAI/commands.json) as registry commands, listed
 // first under "yours". Choosing one puts its text in the message box, where the
 // person reads it and sends it: nothing runs from the menu. "/name 2 text"
@@ -239,7 +266,7 @@ export function availableCommands(surface, ctx = {}) {
     ? projectHomeCommands(ctx.addonRegistry, { nativeNames: RESERVED, skillNames: usableSkills(ctx.skills).map(s => s.name), language: ctx.addonRegistry.language }).commands : []
   const mine = userCommandEntries(ctx.userCommands, ctx)
   const taken = new Set((ctx.userCommands || []).map((c) => c.name))
-  return [...mine, ...own, ...shared, ...addons, ...skillCommands(ctx.skills, taken)]
+  return [...mine, ...own, ...shared, ...addons, ...skillCommands(ctx.skills, taken), ...pluginCommands(ctx.skills, ctx.pluginCommands)]
 }
 
 // The groups of a surface, in menu order.
@@ -304,14 +331,18 @@ function matchAgent(rest, agents) {
 // What a message typed as a command sends.
 //   null                                 a plain message
 //   { skill, text }                      the message runs with the skill
+//   { skill, text, kind }                /<plugin>:<name>: a plugin skill
+//                                        (kind skill) or command (kind command)
 //   { agent: {id, name}, text }          the task goes to the saved agent
 //   { error: 'skill' | 'agent' | 'agentTask' | 'agentsOff', name }
 // /skill <name> and /<name> both reach a skill; a skill named like a command
 // only through /skill.
-export function parseInvocation(text, { skills = [], agents = [], savedAgentsOn = true } = {}) {
+export function parseInvocation(text, { skills = [], agents = [], savedAgentsOn = true, pluginCommands: commands = [] } = {}) {
   const t = String(text || '').trim()
   const m = /^\/(\S+)(?:\s+([\s\S]*))?$/.exec(t)
   if (!m) return null
+  // A plugin name has a colon, which no other command or skill has.
+  if (m[1].includes(':')) return parsePluginInvocation(t, { skills, commands })
   const name = m[1].toLowerCase()
   const rest = (m[2] || '').trim()
   const usable = usableSkills(skills)

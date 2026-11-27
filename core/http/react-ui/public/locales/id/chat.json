@@ -267,12 +267,17 @@
       "shared": "Bersama",
       "folder": "Ruang kerja",
       "addon": "{{name}}",
-      "addonFrom": "dari {{name}}"
+      "addonFrom": "dari {{name}}",
+      "plugin": "Plugin"
     },
     "replacedBy": "Digantikan oleh {{name}}",
     "fallback_one": "{{skills}} bawaan dipakai: skill milik add-on {{name}} mati atau tidak berjalan di sini.",
     "fallback_other": "{{skills}} bawaan dipakai: skill milik add-on {{name}} mati atau tidak berjalan di sini.",
-    "fromProject": "Dari proyek"
+    "fromProject": "Dari proyek",
+    "pluginGroup": "Plugin: {{name}}",
+    "pluginSwitch": "Gunakan {{name}} di chat ini",
+    "pluginOff": "Nonaktif di chat ini. Skill, perintah, dan konektornya tidak berjalan di sini.",
+    "pluginNoSkills": "Plugin ini menambahkan perintah atau konektor, bukan skill."
   },
   "agent": {
     "label": "Agen",
@@ -304,7 +309,8 @@
       "help": "Bantuan",
       "chat": "Obrolan",
       "view": "Lihat",
-      "yours": "Milik Anda"
+      "yours": "Milik Anda",
+      "plugins": "Plugin"
     },
     "models": {
       "label": "Model",
@@ -359,7 +365,9 @@
       "shared": "bersama",
       "yours": "milik Anda",
       "prompt": "prompt",
-      "tool": "alat"
+      "tool": "alat",
+      "plugin": "plugin",
+      "command": "perintah"
     },
     "collides": "hanya dengan /skill",
     "errors": {
@@ -777,7 +785,8 @@
   },
   "invoked": {
     "skill": "Skill: {{name}}",
-    "agent": "Agen: {{name}}"
+    "agent": "Agen: {{name}}",
+    "command": "Perintah: {{name}}"
   },
   "marker": {
     "compacted": "Konteks dipadatkan: {{before}} menjadi {{after}} token",
@@ -1058,5 +1067,9 @@
     "message_one": "Hapus {{count}} obrolan yang ditampilkan di {{project}}? Tindakan ini tidak dapat dibatalkan.",
     "message_other": "Hapus {{count}} obrolan yang ditampilkan di {{project}}? Tindakan ini tidak dapat dibatalkan.",
     "confirm": "Hapus yang ditampilkan"
+  },
+  "plugins": {
+    "toolsGroup": "Plugin",
+    "toolsDescribe": "Konektornya di chat ini: {{names}}."
   }
 }

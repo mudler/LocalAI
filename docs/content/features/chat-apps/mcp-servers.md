@@ -159,7 +159,7 @@ with `***` first. The API returns it as `output` in the answer of
 
 ### Connectors of a plugin
 
-A [plugin]({{% relref "/features/plugins" %}}) can declare remote MCP servers. When you turn the plugin on, each `http` or `sse` server of it becomes one of your connectors, named `<plugin>:<server>`, and turning the plugin off removes them. The connector belongs to the plugin: the list shows `plugin_install` and `plugin_server`, and a change, a switch or a delete answers `403`; turn the plugin off instead. Plugin connectors do not count against your 20 connectors.
+A [plugin]({{% relref "/features/plugins" %}}) can declare remote MCP servers. When you turn the plugin on, each `http` or `sse` server of it becomes one of your connectors, named `<plugin>:<server>`, and turning the plugin off removes them. The connector belongs to the plugin: the list shows `plugin_install` and `plugin_server`, and a change, a switch or a delete answers `403`; turn the plugin off instead. The Connectors page shows such a connector with **Plugin: `<name>`**, without Edit and Remove, and its details link to the plugin on the Plugins tab. Plugin connectors do not count against your 20 connectors.
 
 - The address and the headers come from the plugin. `${CLAUDE_PLUGIN_ROOT}` expands, `${VAR:-default}` takes its default, and `${VAR}` never reads the server's environment: a server that needs a value nothing gives, or a `userConfig` value, gets no connector ("needs settings", in a later version). Headers are sealed like the headers you type.
 - A `ws` server gets no connector, and a `stdio` server runs in the Sandbox in a later version.

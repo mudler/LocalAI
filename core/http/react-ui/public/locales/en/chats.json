@@ -1075,6 +1075,13 @@
       "done": "Imported {{count}}. They are switched off: test and turn them on below.",
       "failed": "{{name}} was not imported: {{error}}",
       "left": "The servers that were not imported stay in this browser."
+    },
+    "plugin": {
+      "tag": "Plugin: {{name}}",
+      "switch": "{{name}} is turned on and off with the plugin {{plugin}}",
+      "title": "Managed by the plugin {{name}}",
+      "body": "The plugin made this connector and removes it when you turn the plugin off. You cannot change it here.",
+      "manage": "Open the plugin"
     }
   },
   "proposal": {

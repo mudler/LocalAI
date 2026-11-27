@@ -219,12 +219,17 @@
       "shared": "공유",
       "folder": "작업 공간",
       "addon": "{{name}}",
-      "addonFrom": "{{name}} 제공"
+      "addonFrom": "{{name}} 제공",
+      "plugin": "플러그인"
     },
     "replacedBy": "{{name}}(으)로 대체됨",
     "fallback_one": "기본 제공 {{skills}} 사용 중: {{name}} 애드온의 자체 스킬이 여기서 꺼져 있거나 실행 중이 아닙니다.",
     "fallback_other": "기본 제공 {{skills}} 사용 중: {{name}} 애드온의 자체 스킬이 여기서 꺼져 있거나 실행 중이 아닙니다.",
-    "fromProject": "프로젝트에서"
+    "fromProject": "프로젝트에서",
+    "pluginGroup": "플러그인: {{name}}",
+    "pluginSwitch": "이 채팅에서 {{name}} 사용",
+    "pluginOff": "이 채팅에서 꺼져 있습니다. 이 플러그인의 스킬, 명령, 커넥터는 여기서 작동하지 않습니다.",
+    "pluginNoSkills": "이 플러그인은 스킬 없이 명령이나 커넥터를 추가합니다."
   },
   "agent": {
     "label": "에이전트",
@@ -252,7 +257,8 @@
       "context": "컨텍스트",
       "skills": "스킬과 에이전트",
       "help": "도움말",
-      "yours": "내 명령어"
+      "yours": "내 명령어",
+      "plugins": "플러그인"
     },
     "models": {
       "label": "모델",
@@ -307,7 +313,9 @@
       "shared": "공유",
       "yours": "내 것",
       "prompt": "프롬프트",
-      "tool": "도구"
+      "tool": "도구",
+      "plugin": "플러그인",
+      "command": "명령"
     },
     "collides": "/skill로만",
     "errors": {
@@ -695,7 +703,8 @@
   },
   "invoked": {
     "skill": "스킬: {{name}}",
-    "agent": "에이전트: {{name}}"
+    "agent": "에이전트: {{name}}",
+    "command": "명령: {{name}}"
   },
   "marker": {
     "compacted": "컨텍스트 압축됨: {{before}}에서 {{after}} 토큰으로",
@@ -946,5 +955,9 @@
     "message_one": "{{project}}에 표시된 채팅 {{count}}개를 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
     "message_other": "{{project}}에 표시된 채팅 {{count}}개를 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
     "confirm": "표시된 항목 삭제"
+  },
+  "plugins": {
+    "toolsGroup": "플러그인",
+    "toolsDescribe": "이 채팅에서 사용하는 커넥터: {{names}}."
   }
 }

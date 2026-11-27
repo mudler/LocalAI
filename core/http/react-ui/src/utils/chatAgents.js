@@ -3,7 +3,7 @@ import { resourcesPayload } from './agentUses.js'
 
 // builtins_off and builtins_on are the switches of the built-in tool groups
 // (see utils/agentTools.js); they are lists like the grants.
-export const LIST_KEYS = ['mcp_servers', 'addons', 'collections', 'skills', 'builtins_off', 'builtins_on', 'builtins']
+export const LIST_KEYS = ['mcp_servers', 'addons', 'collections', 'skills', 'plugins', 'builtins_off', 'builtins_on', 'builtins']
 
 // The grants that an agent without a grant list holds for its messaging
 // connections (not sensitive, so implied). As soon as the list names any
@@ -108,7 +108,7 @@ export function withMemoryChoice(form, choice) {
 }
 
 export function emptyAgent() {
-  return { id: '', name: '', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [], builtins_off: [], builtins_on: [], builtins: [], network: 'off', folders: [] }
+  return { id: '', name: '', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [], plugins: [], builtins_off: [], builtins_on: [], builtins: [], network: 'off', folders: [] }
 }
 
 // Adds a name to a list: trimmed, not empty, once.

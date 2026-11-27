@@ -282,6 +282,13 @@
       "done": "{{count}} diimpor. Semuanya nonaktif: uji dan aktifkan di bawah.",
       "failed": "{{name}} tidak diimpor: {{error}}",
       "left": "Server yang tidak diimpor tetap ada di browser ini."
+    },
+    "plugin": {
+      "tag": "Plugin: {{name}}",
+      "switch": "{{name}} diaktifkan dan dinonaktifkan bersama plugin {{plugin}}",
+      "title": "Dikelola oleh plugin {{name}}",
+      "body": "Plugin ini membuat konektor ini dan menghapusnya saat Anda menonaktifkan plugin. Anda tidak dapat mengubahnya di sini.",
+      "manage": "Buka plugin"
     }
   },
   "connectorsPage": {

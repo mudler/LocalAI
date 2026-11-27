@@ -35,6 +35,9 @@ import { ToolFallbacks } from './ToolFallbacks'
 import { ToolCapNotice } from './ToolCapNotice'
 import Button from '../ui/Button'
 import { availableCommands, commandGroups, COMMAND_GROUPS, filterArgs, usableSkills, reservedNames } from '../../utils/slashCommands'
+import { pluginConnectorRows } from '../../utils/chatPlugins'
+
+const NO_PLUGINS = { rows: [], commands: [], setOn: () => {}, setManyOn: () => {}, error: '' }
 import { CHAT_SLASH_ACTIONS } from './chatActions'
 import { SLASH_ACTIONS } from '../home/homeActions'
 
@@ -89,6 +92,7 @@ export default function ChatComposer({
   const { isAdmin, user } = useAuth()
   const { drafts, draftId, switches, models, modelsLoading, pickedAgent, effectiveModel, agents, agentId, setAgentId, projectId, setProjectId, pulledDraft, setPulledDraft, setDraftModel, attach, paste } = composer
   const { text, files, setText, setFiles } = drafts
+  const plugins = composer.plugins || NO_PLUGINS
   // The project chip belongs to a chat that does not exist yet.
   const projectList = useProjectList(!chatId && !!setProjectId)
   // A chat of an agent that has a folder works only in that folder: it has no
@@ -153,7 +157,17 @@ export default function ChatComposer({
   // The tools and skills of the chat, each with its switch. A new chat gets
   // the draft's when it starts; an agent's chat lists only what the agent grants.
   const grants = useChatGrants(pickedAgent)
-  const toolGroups = useToolGroups({ ...switches, grants }, { commandsInfo: commands.info })
+  const baseGroups = useToolGroups({ ...switches, grants }, { commandsInfo: commands.info })
+  // A plugin with connectors has one switch for the chat: off, none of its
+  // connectors serves (the same switch as in the Skills menu).
+  const pluginRows = pluginConnectorRows(plugins.rows, switches.connectors)
+  const toolGroups = pluginRows.length === 0 ? baseGroups : [...baseGroups, {
+    key: 'plugins', title: t('plugins.toolsGroup'), icon: 'puzzle', onSet: plugins.setManyOn,
+    rows: pluginRows.map((p) => ({
+      key: `plugin-${p.id}`, id: p.id, label: p.name, description: t('plugins.toolsDescribe', { names: p.connectors.join(', ') }),
+      on: !p.off, onToggle: (on) => plugins.setOn(p.id, on),
+    })),
+  }]
   const network = egress && networkMode(egress) !== 'hidden'
   const profiles = sandboxProfile && profileMode(sandboxProfile) !== 'hidden'
   const memoryIsOff = !!memoryOff(switches.memory, switches.builtins.find((b) => b.group === MEMORY_GROUP))
@@ -174,7 +188,7 @@ export default function ChatComposer({
       />
       <CommandsChip notice={commands} />
       <MemoryChip memory={switches.memory} builtins={switches.builtins} />
-      <SkillsMenu skills={switches.skills} replaced={switches.replacedSkills} onSet={switches.setSkillsOn} error={switches.skillsError} />
+      <SkillsMenu skills={switches.skills} replaced={switches.replacedSkills} onSet={switches.setSkillsOn} error={switches.skillsError} plugins={plugins} />
       {toolsExtra}
     </>
   )
@@ -193,8 +207,8 @@ export default function ChatComposer({
   const slashCtx = useMemo(() => ({
     ...(slashContext || {}),
     skills: switches.skills, agents, canAgents: agents.length > 0 && !!savedGroup, savedAgentsOn,
-    models: modelNames, canAttach: filesOn, staged: files.length, userCommands, toolNames, toolText,
-  }), [slashContext, switches.skills, agents, savedGroup, savedAgentsOn, modelNames, filesOn, files.length, userCommands, toolNames, toolText])
+    models: modelNames, canAttach: filesOn, staged: files.length, userCommands, toolNames, toolText, pluginCommands: plugins.commands,
+  }), [slashContext, switches.skills, agents, savedGroup, savedAgentsOn, modelNames, filesOn, files.length, userCommands, toolNames, toolText, plugins.commands])
   const slash = useMemo(() => {
     const own = slashSurface === 'home' ? th : t
     const ownIds = new Set((slashSurface === 'home' ? SLASH_ACTIONS : CHAT_SLASH_ACTIONS).map((a) => a.id))

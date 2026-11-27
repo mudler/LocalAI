@@ -217,7 +217,8 @@ function userMarkdown(m) {
 // The command a message was sent with, as one line.
 function invokedMarkdown(m) {
   if (!m.invoked?.name) return ''
-  return `_${m.invoked.kind === 'agent' ? 'Agent' : 'Skill'}: ${m.invoked.name}_\n\n`
+  const label = { agent: 'Agent', command: 'Command' }[m.invoked.kind] || 'Skill'
+  return `_${label}: ${m.invoked.name}_\n\n`
 }
 
 // The chat as Markdown: its title, model and date, then every message. Tool

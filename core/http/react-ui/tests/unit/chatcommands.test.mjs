@@ -233,7 +233,7 @@ test('typed safety: actual auth epoch reaches composer and changes on same-user 
       useAuth: () => currentAuth,
       useChatDrafts: () => ({ setFiles() {} }),
       useModels: () => ({ models: [] }), CAP_CHAT: 'chat',
-      useChatSwitches: (...args) => { seen.push(args); return {} }, useProjectAttached: () => null,
+      useChatSwitches: (...args) => { seen.push(args); return {} }, useProjectAttached: () => null, useChatPlugins: () => ({}),
     })
     composer.render({ chatId: 'same-chat', userId: 'A' })
     const initial = seen.at(-1)[3]

@@ -222,12 +222,17 @@
       "shared": "Compartilhada",
       "folder": "Espaço de trabalho",
       "addon": "{{name}}",
-      "addonFrom": "de {{name}}"
+      "addonFrom": "de {{name}}",
+      "plugin": "Plugin"
     },
     "replacedBy": "Substituída por {{name}}",
     "fallback_one": "{{skills}} integrada em uso: a habilidade própria do complemento {{name}} está desligada ou não está em execução aqui.",
     "fallback_other": "{{skills}} integradas em uso: as habilidades próprias do complemento {{name}} estão desligadas ou não estão em execução aqui.",
-    "fromProject": "Do projeto"
+    "fromProject": "Do projeto",
+    "pluginGroup": "Plugin: {{name}}",
+    "pluginSwitch": "Usar {{name}} neste chat",
+    "pluginOff": "Desativado neste chat. Suas skills, comandos e conectores não funcionam aqui.",
+    "pluginNoSkills": "Este plugin adiciona comandos ou conectores, não skills."
   },
   "agent": {
     "label": "Agente",
@@ -255,7 +260,8 @@
       "context": "Contexto",
       "skills": "Skills e agentes",
       "help": "Ajuda",
-      "yours": "Seus"
+      "yours": "Seus",
+      "plugins": "Plugins"
     },
     "models": {
       "label": "Modelos",
@@ -310,7 +316,9 @@
       "shared": "compartilhada",
       "yours": "sua",
       "prompt": "prompt",
-      "tool": "ferramenta"
+      "tool": "ferramenta",
+      "plugin": "plugin",
+      "command": "comando"
     },
     "collides": "só com /skill",
     "errors": {
@@ -698,7 +706,8 @@
   },
   "invoked": {
     "skill": "Skill: {{name}}",
-    "agent": "Agente: {{name}}"
+    "agent": "Agente: {{name}}",
+    "command": "Comando: {{name}}"
   },
   "marker": {
     "compacted": "Contexto compactado: de {{before}} para {{after}} tokens",
@@ -951,5 +960,9 @@
     "message_one": "Excluir o chat exibido em {{project}} ({{count}})? Isso não pode ser desfeito.",
     "message_other": "Excluir os {{count}} chats exibidos em {{project}}? Isso não pode ser desfeito.",
     "confirm": "Excluir os exibidos"
+  },
+  "plugins": {
+    "toolsGroup": "Plugins",
+    "toolsDescribe": "Seus conectores neste chat: {{names}}."
   }
 }

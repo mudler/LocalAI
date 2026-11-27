@@ -11,7 +11,7 @@ import { CommandOutput, StateChip, ToolList } from './ConnectorBits'
 // the last test with the reason when it failed, the tools it offers, how it
 // connects and what is saved for it. Remove is at the foot, apart from the
 // actions that keep it.
-export default function ConnectorDetails({ c, state, check, testing, busy, onClose, onToggle, onTest, onEdit, onReauth, onRemove }) {
+export default function ConnectorDetails({ c, state, check, testing, busy, onClose, onToggle, onTest, onEdit, onReauth, onRemove, pluginName = '' }) {
   const { t, i18n } = useTranslation('chats')
   const [query, setQuery] = useState('')
   const stdio = c.transport === 'stdio'
@@ -21,6 +21,9 @@ export default function ConnectorDetails({ c, state, check, testing, busy, onClo
   const shown = tools ? filterTools(tools, query) : []
   const hiddenQuery = !stdio && /\?/.test(c.url || '')
   const switchId = `mcp-use-${c.id}`
+  // A connector of a plugin is read only: the plugin keeps it (see ConnectorRow).
+  const owned = Boolean(c.plugin_install)
+  const plugin = pluginName || c.plugin_server || ''
 
   return (
     <SidePane
@@ -33,9 +36,9 @@ export default function ConnectorDetails({ c, state, check, testing, busy, onClo
       meta={<><StateChip state={state} /><span className="mcp-details__host" title={mcpTarget(c)}>{mcpTarget(c)}</span></>}
       footer={(
         <div className="mcp-details__foot">
-          <Button size="sm" variant="danger-ghost" icon="trash" onClick={() => onRemove(c)} data-testid="mcp-details-remove">{t('mcpPage.actions.remove')}</Button>
+          {!owned && <Button size="sm" variant="danger-ghost" icon="trash" onClick={() => onRemove(c)} data-testid="mcp-details-remove">{t('mcpPage.actions.remove')}</Button>}
           <span className="mcp-details__grow" />
-          <Button size="sm" variant="ghost" icon="pencil" onClick={() => onEdit(c)}>{t('mcpPage.actions.edit')}</Button>
+          {!owned && <Button size="sm" variant="ghost" icon="pencil" onClick={() => onEdit(c)}>{t('mcpPage.actions.edit')}</Button>}
           <Button size="sm" variant="primary" icon="refresh" busy={testing} onClick={() => onTest(c)} data-testid="mcp-details-test">
             {testing ? t('mcpPage.actions.testing') : t('mcpPage.actions.test')}
           </Button>
@@ -43,12 +46,18 @@ export default function ConnectorDetails({ c, state, check, testing, busy, onClo
       )}
     >
       <div className="mcp-details__body">
+        {owned && (
+          <Callout tone="info" icon="puzzle" title={t('mcpPage.plugin.title', { name: plugin })} testId="mcp-details-plugin"
+            actions={<Button size="sm" iconEnd="arrow-right" to={`/app/addons?tab=plugins&view=installed&install=${encodeURIComponent(c.plugin_install)}`} data-testid="mcp-details-plugin-link">{t('mcpPage.plugin.manage')}</Button>}>
+            {t('mcpPage.plugin.body')}
+          </Callout>
+        )}
         <div className="mcp-use">
           <div className="mcp-use__text">
             <span className="mcp-use__label" id={`${switchId}-label`}>{t('mcpPage.details.use')}</span>
             <span className="mcp-use__help" id={`${switchId}-help`}>{t('mcpPage.details.useHelp')}</span>
           </div>
-          <Switch checked={c.enabled} disabled={busy} onChange={(on) => onToggle(c, on)} labelledBy={`${switchId}-label`} describedBy={`${switchId}-help`} testId="mcp-details-switch" />
+          <Switch checked={c.enabled} disabled={busy || owned} onChange={(on) => onToggle(c, on)} labelledBy={`${switchId}-label`} describedBy={`${switchId}-help`} testId="mcp-details-switch" />
         </div>
 
         <section className="mcp-section" aria-labelledby="mcp-sec-check">
@@ -65,7 +74,7 @@ export default function ConnectorDetails({ c, state, check, testing, busy, onClo
               icon={state === 'auth' ? 'key' : undefined}
               title={state === 'auth' ? t('mcpPage.details.authTitle') : t('mcpPage.details.errorTitle')}
               testId="mcp-details-error"
-              actions={state === 'auth' && !stdio ? <Button size="sm" onClick={() => onReauth(c)}>{t('mcpPage.actions.reauth')}</Button> : null}
+              actions={state === 'auth' && !stdio && !owned ? <Button size="sm" onClick={() => onReauth(c)}>{t('mcpPage.actions.reauth')}</Button> : null}
             >
               <span className="mcp-reason">{sentence(check.error)}</span>{' '}
               <span className="mcp-quiet" title={tested.exact}>{t('mcpPage.details.testedAt', { when: tested.label })}</span>

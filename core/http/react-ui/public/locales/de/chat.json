@@ -219,12 +219,17 @@
       "shared": "Geteilt",
       "folder": "Arbeitsbereich",
       "addon": "{{name}}",
-      "addonFrom": "von {{name}}"
+      "addonFrom": "von {{name}}",
+      "plugin": "Plugin"
     },
     "replacedBy": "Ersetzt durch {{name}}",
     "fallback_one": "Integriertes {{skills}} aktiv: der eigene Skill des Add-ons {{name}} ist hier aus oder läuft nicht.",
     "fallback_other": "Integrierte {{skills}} aktiv: die eigenen Skills des Add-ons {{name}} sind hier aus oder laufen nicht.",
-    "fromProject": "Vom Projekt"
+    "fromProject": "Vom Projekt",
+    "pluginGroup": "Plugin: {{name}}",
+    "pluginSwitch": "{{name}} in diesem Chat nutzen",
+    "pluginOff": "In diesem Chat aus. Seine Skills, Befehle und Konnektoren sind hier nicht aktiv.",
+    "pluginNoSkills": "Dieses Plugin fügt Befehle oder Konnektoren hinzu, keine Skills."
   },
   "agent": {
     "label": "Agent",
@@ -252,7 +257,8 @@
       "context": "Kontext",
       "skills": "Skills und Agenten",
       "help": "Hilfe",
-      "yours": "Deine"
+      "yours": "Deine",
+      "plugins": "Plugins"
     },
     "models": {
       "label": "Modelle",
@@ -307,7 +313,9 @@
       "shared": "geteilt",
       "yours": "deins",
       "prompt": "Prompt",
-      "tool": "Werkzeug"
+      "tool": "Werkzeug",
+      "plugin": "Plugin",
+      "command": "Befehl"
     },
     "collides": "nur mit /skill",
     "errors": {
@@ -695,7 +703,8 @@
   },
   "invoked": {
     "skill": "Skill: {{name}}",
-    "agent": "Agent: {{name}}"
+    "agent": "Agent: {{name}}",
+    "command": "Befehl: {{name}}"
   },
   "marker": {
     "compacted": "Kontext verdichtet: {{before}} auf {{after}} Token",
@@ -946,5 +955,9 @@
     "message_one": "Den {{count}} angezeigten Chat in {{project}} löschen? Das kann nicht rückgängig gemacht werden.",
     "message_other": "Die {{count}} angezeigten Chats in {{project}} löschen? Das kann nicht rückgängig gemacht werden.",
     "confirm": "Angezeigte löschen"
+  },
+  "plugins": {
+    "toolsGroup": "Plugins",
+    "toolsDescribe": "Seine Konnektoren in diesem Chat: {{names}}."
   }
 }

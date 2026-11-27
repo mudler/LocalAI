@@ -282,6 +282,13 @@
       "done": "{{count}} importés. Ils sont désactivés : testez-les et activez-les ci-dessous.",
       "failed": "{{name}} n'a pas été importé : {{error}}",
       "left": "Les serveurs non importés restent dans ce navigateur."
+    },
+    "plugin": {
+      "tag": "Plugin : {{name}}",
+      "switch": "{{name}} s'active et se désactive avec le plugin {{plugin}}",
+      "title": "Géré par le plugin {{name}}",
+      "body": "Le plugin a créé ce connecteur et le supprime quand vous désactivez le plugin. Vous ne pouvez pas le modifier ici.",
+      "manage": "Ouvrir le plugin"
     }
   },
   "connectorsPage": {

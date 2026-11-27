@@ -97,7 +97,8 @@
       "Notes": "메모리",
       "Connections": "연결",
       "Effective": "유효 보기",
-      "Uses": "사용할 수 있는 것"
+      "Uses": "사용할 수 있는 것",
+      "Plugins": "플러그인"
     },
     "name": "Name",
     "description": "Description",
@@ -467,7 +468,14 @@
     },
     "sandboxProfile": "샌드박스 프로필",
     "sandboxProfileDefault": "기본값",
-    "sandboxProfileHelp": "무인 실행에 쓰이며 이 에이전트 채팅의 시작 프로필입니다."
+    "sandboxProfileHelp": "무인 실행에 쓰이며 이 에이전트 채팅의 시작 프로필입니다.",
+    "countPlugins_one": "플러그인 {{count}}개",
+    "countPlugins_other": "플러그인 {{count}}개",
+    "pluginsHelp": "이 에이전트와의 채팅에서 사용할 수 있는 플러그인입니다. 목록은 정확히 적용됩니다. 빈 목록은 아무것도 허용하지 않습니다. 플러그인은 채팅하는 사람에게도 켜져 있어야 합니다.",
+    "pluginsNone": "설치된 플러그인이 없습니다. 애드온 페이지의 플러그인 탭에서 설치하세요.",
+    "pluginOffForYou": "{{plugin}}, 나에게는 꺼짐",
+    "pluginGone": "이 플러그인은 더 이상 설치되어 있지 않습니다.",
+    "pluginsLoadFailed": "플러그인을 불러올 수 없습니다."
   },
   "run": {
     "workingLine": "Working"

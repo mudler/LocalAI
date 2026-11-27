@@ -97,7 +97,8 @@
       "Notes": "Memoria",
       "Connections": "Conexiones",
       "Effective": "Vista efectiva",
-      "Uses": "Qué puede usar"
+      "Uses": "Qué puede usar",
+      "Plugins": "Plugins"
     },
     "name": "Name",
     "description": "Description",
@@ -467,7 +468,14 @@
     },
     "sandboxProfile": "Perfil de sandbox",
     "sandboxProfileDefault": "Predeterminado",
-    "sandboxProfileHelp": "Lo usan las ejecuciones sin supervisión y es el perfil inicial de sus chats."
+    "sandboxProfileHelp": "Lo usan las ejecuciones sin supervisión y es el perfil inicial de sus chats.",
+    "countPlugins_one": "{{count}} plugin",
+    "countPlugins_other": "{{count}} plugins",
+    "pluginsHelp": "Los plugins que puede usar un chat con este agente. La lista es exacta: una lista vacía no permite ninguno. Un plugin también debe estar activado para la persona que chatea.",
+    "pluginsNone": "No hay plugins instalados. Instala uno en la pestaña Plugins de la página Add-ons.",
+    "pluginOffForYou": "{{plugin}}, desactivado para ti",
+    "pluginGone": "Este plugin ya no está instalado.",
+    "pluginsLoadFailed": "No se pudieron cargar los plugins."
   },
   "run": {
     "workingLine": "Working"

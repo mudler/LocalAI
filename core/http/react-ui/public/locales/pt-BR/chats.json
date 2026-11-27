@@ -282,6 +282,13 @@
       "done": "{{count}} importados. Estão desligados: teste e ligue-os abaixo.",
       "failed": "{{name}} não foi importado: {{error}}",
       "left": "Os servidores que não foram importados continuam neste navegador."
+    },
+    "plugin": {
+      "tag": "Plugin: {{name}}",
+      "switch": "{{name}} é ativado e desativado com o plugin {{plugin}}",
+      "title": "Gerenciado pelo plugin {{name}}",
+      "body": "O plugin criou este conector e o remove quando você desativa o plugin. Você não pode alterá-lo aqui.",
+      "manage": "Abrir o plugin"
     }
   },
   "connectorsPage": {

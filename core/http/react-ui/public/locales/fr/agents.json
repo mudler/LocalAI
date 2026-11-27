@@ -97,7 +97,8 @@
       "Notes": "Mémoire",
       "Connections": "Connexions",
       "Effective": "Vue effective",
-      "Uses": "Ce qu'il peut utiliser"
+      "Uses": "Ce qu'il peut utiliser",
+      "Plugins": "Plugins"
     },
     "name": "Name",
     "description": "Description",
@@ -467,7 +468,14 @@
     },
     "sandboxProfile": "Profil de sandbox",
     "sandboxProfileDefault": "Par défaut",
-    "sandboxProfileHelp": "Utilisé par les exécutions sans surveillance et comme profil de départ de ses conversations."
+    "sandboxProfileHelp": "Utilisé par les exécutions sans surveillance et comme profil de départ de ses conversations.",
+    "countPlugins_one": "{{count}} plugin",
+    "countPlugins_other": "{{count}} plugins",
+    "pluginsHelp": "Les plugins qu'un chat avec cet agent peut utiliser. La liste est exacte : une liste vide n'en autorise aucun. Un plugin doit aussi être activé pour la personne qui discute.",
+    "pluginsNone": "Aucun plugin installé. Installez-en un dans l'onglet Plugins de la page Add-ons.",
+    "pluginOffForYou": "{{plugin}}, désactivé pour vous",
+    "pluginGone": "Ce plugin n'est plus installé.",
+    "pluginsLoadFailed": "Impossible de charger les plugins."
   },
   "run": {
     "workingLine": "Working"
