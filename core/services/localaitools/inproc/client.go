@@ -908,11 +908,40 @@ func (c *Client) SystemInfo(_ context.Context) (*localaitools.SystemInfo, error)
 	return info, nil
 }
 
-func (c *Client) ListNodes(_ context.Context) ([]localaitools.Node, error) {
-	// Node-registry wiring is the responsibility of the Application layer; an
-	// empty list is the right answer in single-process mode and a sensible
-	// stub until the Application plumbs the registry into this client.
-	return []localaitools.Node{}, nil
+// ListNodes lists the nodes of the registry in the shape the HTTP client
+// gives for GET /api/nodes, so that the assistant reads the same node IDs,
+// status and drain (deadline, leaving replicas) in both modes. The live
+// state of each route is filled by the HTTP endpoint only. Without a
+// registry (single-process mode) the list is empty.
+func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
+	if c.NodeRegistry == nil {
+		return []localaitools.Node{}, nil
+	}
+	list, err := c.NodeRegistry.ListWithExtras(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.Node, 0, len(list))
+	for _, n := range list {
+		node := localaitools.Node{
+			ID:              n.ID,
+			Address:         n.Address,
+			HTTPAddress:     n.HTTPAddress,
+			Healthy:         n.Status == nodes.StatusHealthy,
+			Route:           localaitools.NodeRoute(strings.Split(n.Attached, ","), n.PeerID),
+			PeerID:          n.PeerID,
+			SplitServer:     n.SplitServer,
+			Status:          n.Status,
+			LeavingReplicas: n.LeavingReplicas,
+		}
+		if n.DrainDeadline != nil {
+			// encoding/json writes a time in this layout, so the HTTP client
+			// reads the same string.
+			node.DrainDeadline = n.DrainDeadline.Format(time.RFC3339Nano)
+		}
+		out = append(out, node)
+	}
+	return out, nil
 }
 
 func (c *Client) ListScheduling(ctx context.Context) ([]localaitools.ModelSchedulingConfig, error) {
