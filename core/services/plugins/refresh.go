@@ -241,7 +241,9 @@ func (s *Service) markUpdates(ctx context.Context, m store.Marketplace, snap sto
 			c := cur[0]
 			switch {
 			case target == c.SourceSHA:
-				if c.State != store.StateUpdateAvailable {
+				// The entry points at the installed commit again: neither an
+				// update nor a blocked update waits any more.
+				if c.State != store.StateUpdateAvailable && c.State != store.StateBlocked {
 					return nil
 				}
 				c.State, c.UpdateSHA, c.UpdateDigest = store.StateInstalled, "", ""

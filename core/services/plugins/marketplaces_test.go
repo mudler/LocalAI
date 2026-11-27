@@ -429,6 +429,22 @@ var _ = Describe("Marketplaces", func() {
 			Expect(res.Refreshed).To(BeEmpty())
 		})
 
+		It("clears a blocked update when the entry goes back to the installed commit", func() {
+			Expect(st.InstallTx(ctx, func(tx store.Tx) error {
+				return tx.CreateInstall(store.Install{
+					ID: "i1", PluginID: "a@team", Scope: store.ScopeUser, Owner: "u1", Digest: "sha256:" + shaA + shaA[:24],
+					SourceSHA: shaA, State: store.StateBlocked, UpdateSHA: shaB,
+				})
+			})).To(Succeed())
+			ff.setMarketplace("owner/repo", marketplaceJSON("team", githubEntry("a", "o/a", shaA)), shaC, nil)
+			_, err := svc.RefreshMarketplace(ctx, admin, "team")
+			Expect(err).NotTo(HaveOccurred())
+			in, err := st.Installs(ctx, store.InstallFilter{ID: "i1"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(in[0].State).To(Equal(store.StateInstalled))
+			Expect(in[0].UpdateSHA).To(BeEmpty())
+		})
+
 		It("marks an install with a newer version and clears the mark when the entry goes back", func() {
 			Expect(st.InstallTx(ctx, func(tx store.Tx) error {
 				return tx.CreateInstall(store.Install{
