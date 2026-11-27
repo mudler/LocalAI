@@ -11,7 +11,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
@@ -23,6 +22,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	pc "github.com/mudler/LocalAI/pkg/promptcache"
+	"github.com/mudler/LocalAI/pkg/sqlitedb"
 )
 
 // noModels is the registry view the senders need for the verbs that name a
@@ -96,7 +96,7 @@ var _ = Describe("the prompt cache verbs between a frontend and a worker", func(
 				carrier = newCarrier("w1")
 				Expect(registerPromptCacheVerbs(carrier.serve, half)).To(Succeed())
 
-				db, err := gorm.Open(sqlite.Open(filepath.Join(GinkgoT().TempDir(), "cluster.db")), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+				db, err := sqlitedb.Open(filepath.Join(GinkgoT().TempDir(), "cluster.db"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 				Expect(err).ToNot(HaveOccurred())
 				ledger, err := promptcachesvc.NewDBLedger(db)
 				Expect(err).ToNot(HaveOccurred())

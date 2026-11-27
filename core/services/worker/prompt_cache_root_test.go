@@ -24,14 +24,14 @@ var _ = Describe("the prompt cache root of a worker", func() {
 	It("takes --prompt-cache-path first", func() {
 		c := Config{ModelsPath: models, DataPath: "/var/lib/localai", PromptCachePath: "/scratch/pc"}
 		root, src := c.promptCacheRoot(rootStats{network: true})
-		Expect(root).To(Equal("/scratch/pc"))
+		Expect(root).To(Equal(filepath.FromSlash("/scratch/pc")))
 		Expect(src).To(Equal(config.PromptCacheRootExplicit))
 	})
 
 	It("then <data-path>/prompt-cache", func() {
 		c := Config{ModelsPath: models, DataPath: "/var/lib/localai"}
 		root, src := c.promptCacheRoot(rootStats{network: true})
-		Expect(root).To(Equal("/var/lib/localai/prompt-cache"))
+		Expect(root).To(Equal(filepath.FromSlash("/var/lib/localai/prompt-cache")))
 		Expect(src).To(Equal(config.PromptCacheRootDataPath))
 	})
 
