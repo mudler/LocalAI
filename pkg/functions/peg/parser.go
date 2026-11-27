@@ -1,5 +1,7 @@
 package peg
 
+import "sync"
+
 // Parser is the interface all parser types implement.
 type Parser interface {
 	parse(arena *Arena, ctx *ParseContext, start int) ParseResult
@@ -406,10 +408,16 @@ func isHexDigit(c byte) bool {
 // UntilParser matches everything until one of the delimiters is found.
 type UntilParser struct {
 	Delimiters []string
+
+	// matcher is built on the first parse and only read after that, so a
+	// parser can serve concurrent parses.
+	matcherOnce sync.Once
+	matcher     *trie
 }
 
 func (p *UntilParser) parse(_ *Arena, ctx *ParseContext, start int) ParseResult {
-	matcher := newTrie(p.Delimiters)
+	p.matcherOnce.Do(func() { p.matcher = newTrie(p.Delimiters) })
+	matcher := p.matcher
 
 	pos := start
 	lastValidPos := start

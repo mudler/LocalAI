@@ -2,6 +2,7 @@ package functions
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/mudler/LocalAI/pkg/functions/peg"
 	"github.com/mudler/xlog"
@@ -64,7 +65,7 @@ func ParseFunctionCallPEG(llmresult string, config FunctionsConfig) []FuncCallRe
 		if preset != nil {
 			pegType := classifyXMLFormat(preset)
 			xlog.Debug("[PEG] classified preset", "preset", config.XMLFormatPreset, "peg_type", pegTypeName(pegType))
-			arena := BuildPEGParserFromFormat(preset, pegType)
+			arena := presetPEGParser(config.XMLFormatPreset, preset, pegType)
 			if arena != nil {
 				results := parsePEG(arena, llmresult)
 				if len(results) > 0 {
@@ -95,13 +96,14 @@ func ParseFunctionCallPEG(llmresult string, config FunctionsConfig) []FuncCallRe
 
 	// Auto-detect: try all three format types
 	xlog.Debug("[PEG] auto-detecting format across all presets")
+	presets := getAllXMLFormats()
 	for _, pegType := range []PEGFormatType{FormatJSONNative, FormatTagWithJSON, FormatTagWithTagged} {
-		for _, preset := range getAllXMLFormats() {
+		for _, preset := range presets {
 			classified := classifyXMLFormat(preset.format)
 			if classified != pegType {
 				continue
 			}
-			arena := BuildPEGParserFromFormat(preset.format, pegType)
+			arena := presetPEGParser(preset.name, preset.format, pegType)
 			if arena == nil {
 				continue
 			}
@@ -115,6 +117,26 @@ func ParseFunctionCallPEG(llmresult string, config FunctionsConfig) []FuncCallRe
 
 	xlog.Debug("[PEG] no tool calls found by any format")
 	return nil
+}
+
+// presetPEGParsers holds the PEG parser of each preset format and type.
+// ParseFunctionCall tries every preset, and building their parsers cost more
+// than parsing with them. The presets never change, and a parser keeps no
+// state between parses.
+var presetPEGParsers sync.Map // presetPEGKey -> *peg.Arena (nil when it does not build)
+
+type presetPEGKey struct {
+	name    string
+	pegType PEGFormatType
+}
+
+func presetPEGParser(name string, format *XMLToolCallFormat, pegType PEGFormatType) *peg.Arena {
+	key := presetPEGKey{name: name, pegType: pegType}
+	if arena, ok := presetPEGParsers.Load(key); ok {
+		return arena.(*peg.Arena)
+	}
+	arena, _ := presetPEGParsers.LoadOrStore(key, BuildPEGParserFromFormat(format, pegType))
+	return arena.(*peg.Arena)
 }
 
 func pegTypeName(t PEGFormatType) string {
