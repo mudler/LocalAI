@@ -228,13 +228,18 @@ func (c *checked) files() []store.File {
 
 // Inspect fetches a plugin, checks and parses it, and returns what it
 // contributes with a preview token (spec 9.3 steps 1 and 2). Any user may
-// inspect. The files go into the workspace store under their digest, so
+// inspect, within the limits of ratelimit.go. The files go into the workspace store under their digest, so
 // that every frontend can show them for review; a package that no install
 // takes is collected after 24 hours.
 func (s *Service) Inspect(ctx context.Context, a Actor, pluginID string) (Preview, error) {
 	if a.ID == "" {
 		return Preview{}, ErrForbidden
 	}
+	release, err := s.inspects.take(a.ID, a.Admin, s.now())
+	if err != nil {
+		return Preview{}, err
+	}
+	defer release()
 	r, err := s.resolveEntry(ctx, pluginID)
 	if err != nil {
 		return Preview{}, err

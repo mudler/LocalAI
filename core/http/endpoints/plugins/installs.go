@@ -20,6 +20,7 @@ import (
 // @Failure 400 {object} schema.ErrorResponse "Not name@marketplace, or an invalid plugin"
 // @Failure 404 {object} schema.ErrorResponse "No such entry, or its marketplace is off"
 // @Failure 422 {object} schema.ErrorResponse "A source type LocalAI does not fetch (unsupported), or files the checks refuse (content_refused)"
+// @Failure 429 {object} schema.ErrorResponse "Too many inspects of this user, or too many at once on this server (rate_limited)"
 // @Failure 502 {object} schema.ErrorResponse "The plugin could not be fetched"
 // @Router /api/plugins/inspect [post]
 func (h *Handlers) Inspect(c echo.Context) error {

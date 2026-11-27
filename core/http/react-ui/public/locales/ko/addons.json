@@ -1386,7 +1386,8 @@
       "content_refused": "이 플러그인의 파일 하나가 검사를 통과하지 못해 LocalAI가 거부했습니다.",
       "limit_reached": "마켓플레이스 또는 설치 수 제한에 도달했습니다.",
       "fetch_failed": "LocalAI가 플러그인 또는 마켓플레이스를 읽을 수 없습니다. 원인은 서버 로그에 있습니다.",
-      "plugins_unavailable": "이 서버에서는 플러그인을 사용할 수 없습니다."
+      "plugins_unavailable": "이 서버에서는 플러그인을 사용할 수 없습니다.",
+      "rate_limited": "지금 플러그인 검토가 너무 많습니다. 잠시 후 다시 시도하세요."
     }
   }
 }

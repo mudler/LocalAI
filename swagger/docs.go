@@ -19306,6 +19306,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
+                    "429": {
+                        "description": "Too many inspects of this user, or too many at once on this server (rate_limited)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
                     "502": {
                         "description": "The plugin could not be fetched",
                         "schema": {

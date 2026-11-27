@@ -139,7 +139,7 @@ export function textOnly(items, on) {
 const ERROR_TYPES = new Set([
   'invalid_token', 'needs_admin', 'code_for_everyone', 'blocked', 'not_human_surface', 'forbidden', 'not_found',
   'conflict', 'instance_installed', 'no_update', 'needs_reenable', 'unsupported', 'content_refused', 'limit_reached',
-  'fetch_failed', 'plugins_unavailable', 'network',
+  'fetch_failed', 'plugins_unavailable', 'network', 'rate_limited',
 ])
 export function errorKey(err) {
   const type = err && typeof err.type === 'string' ? err.type : ''

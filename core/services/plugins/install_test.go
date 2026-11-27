@@ -194,6 +194,24 @@ var _ = Describe("Installs", func() {
 			Expect(p.CodeFiles).To(ContainElements("hooks/hooks.json", "scripts/check.sh"))
 		})
 
+		It("limits the inspects of a user and not those of an administrator", func() {
+			for i := 0; i < plugins.InspectBurst; i++ {
+				_, err := svc.Inspect(ctx, user, "fmt@team")
+				Expect(err).NotTo(HaveOccurred(), "inspect %d", i)
+			}
+			_, err := svc.Inspect(ctx, user, "fmt@team")
+			Expect(err).To(MatchError(plugins.ErrRateLimited))
+			_, err = svc.Inspect(ctx, bob, "fmt@team")
+			Expect(err).NotTo(HaveOccurred(), "the limit is per user")
+			for i := 0; i < plugins.InspectBurst+2; i++ {
+				_, err := svc.Inspect(ctx, admin, "fmt@team")
+				Expect(err).NotTo(HaveOccurred(), "admin inspect %d", i)
+			}
+			clk.Advance(plugins.InspectEvery)
+			_, err = svc.Inspect(ctx, user, "fmt@team")
+			Expect(err).NotTo(HaveOccurred(), "one more after the interval")
+		})
+
 		It("refuses a plugin with a reserved name", func() {
 			files := pluginFiles(textPlugin, "v1")
 			files[".claude-plugin/plugin.json"] = `{"name": "builtin"}`

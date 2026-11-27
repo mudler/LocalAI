@@ -1386,7 +1386,8 @@
       "content_refused": "Un file di questo plugin non ha superato i controlli, quindi LocalAI lo ha rifiutato.",
       "limit_reached": "È stato raggiunto il limite di marketplace o di installazioni.",
       "fetch_failed": "LocalAI non è riuscito a leggere il plugin o il marketplace. Il log del server riporta la causa.",
-      "plugins_unavailable": "I plugin non sono disponibili su questo server."
+      "plugins_unavailable": "I plugin non sono disponibili su questo server.",
+      "rate_limited": "Troppe revisioni di plugin in questo momento. Attendi un attimo e riprova."
     }
   }
 }

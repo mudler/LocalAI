@@ -358,6 +358,15 @@ var _ = Describe("Plugin routes", func() {
 			Expect(list.Installs).To(HaveLen(1))
 		})
 
+		It("answers 429 rate_limited when a user inspects too often", func() {
+			for i := 0; i < plugins.InspectBurst; i++ {
+				inspect("alice", "fmt@team")
+			}
+			rec := s.call(http.MethodPost, "/api/plugins/inspect", "alice", `{"plugin":"fmt@team"}`, nil)
+			Expect(rec.Code).To(Equal(http.StatusTooManyRequests), rec.Body.String())
+			Expect(errType(rec)).To(Equal(pluginsendpoint.ErrTypeRateLimited))
+		})
+
 		It("refuses a user the install of a plugin that runs code, with the reason", func() {
 			p := inspect("alice", "hook@team")
 			Expect(p.RunsCode).To(BeTrue())

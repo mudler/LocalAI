@@ -1386,7 +1386,8 @@
       "content_refused": "Eine Datei dieses Plugins hat die Prüfungen nicht bestanden, daher hat LocalAI es abgelehnt.",
       "limit_reached": "Das Limit für Marktplätze oder Installationen ist erreicht.",
       "fetch_failed": "LocalAI konnte das Plugin oder den Marktplatz nicht lesen. Die Ursache steht im Server-Log.",
-      "plugins_unavailable": "Plugins sind auf diesem Server nicht verfügbar."
+      "plugins_unavailable": "Plugins sind auf diesem Server nicht verfügbar.",
+      "rate_limited": "Gerade zu viele Plugin-Prüfungen. Warte einen Moment und versuche es erneut."
     }
   }
 }

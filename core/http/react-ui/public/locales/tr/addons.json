@@ -1386,7 +1386,8 @@
       "content_refused": "Bu plugin'in bir dosyası denetimlerden geçemedi, bu yüzden LocalAI onu reddetti.",
       "limit_reached": "Pazar yeri veya kurulum sınırına ulaşıldı.",
       "fetch_failed": "LocalAI plugin'i veya pazar yerini okuyamadı. Nedeni sunucu günlüğünde.",
-      "plugins_unavailable": "Bu sunucuda plugin'ler kullanılamıyor."
+      "plugins_unavailable": "Bu sunucuda plugin'ler kullanılamıyor.",
+      "rate_limited": "Şu anda çok fazla plugin incelemesi var. Biraz bekleyip tekrar dene."
     }
   }
 }

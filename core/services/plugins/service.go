@@ -8,7 +8,8 @@
 //   - package files: shared and immutable, in the workspace store by digest;
 //   - the marketplace refresh and the package garbage collection: single
 //     runner under advisorylock.KeyPluginsRefresh, one pass per tick;
-//   - fetch scratch folders: per instance, under the data path.
+//   - fetch scratch folders: per instance, under the data path;
+//   - the inspect rate limit: per instance, in memory (ratelimit.go).
 package plugins
 
 import (
@@ -108,7 +109,8 @@ type Options struct {
 	Connectors ConnectorSync
 }
 
-// Service is the Plugins service. It keeps no state across requests.
+// Service is the Plugins service. It keeps no state across requests but the
+// inspect rate limit of this frontend.
 type Service struct {
 	st           store.Store
 	db           *gorm.DB
@@ -123,6 +125,7 @@ type Service struct {
 	queue        Queue
 	userInstalls func() bool
 	conns        ConnectorSync
+	inspects     *inspectLimiter
 }
 
 // New returns a Service.
@@ -134,6 +137,7 @@ func New(o Options) (*Service, error) {
 		st: o.Store, db: o.DB, fetcher: o.Fetcher, ws: o.Workspace, root: o.Root,
 		limits: o.Limits, official: o.Official, interval: o.RefreshInterval, now: o.Now,
 		queue: o.Queue, userInstalls: o.UserInstalls, conns: o.Connectors,
+		inspects: newInspectLimiter(),
 	}
 	if s.queue == nil {
 		s.queue = inlineQueue{}

@@ -51,6 +51,7 @@ const (
 	ErrTypeDigestMismatch   = "digest_mismatch"
 	ErrTypeUpstream         = "fetch_failed"
 	ErrTypeChatsUnsupported = "chat_switch_unavailable"
+	ErrTypeRateLimited      = "rate_limited"
 )
 
 // ChatSwitch keeps the plugins a chat has switched off (spec 6.6). The chats
@@ -212,6 +213,8 @@ func fail(c echo.Context, err error) error {
 		return apiError(c, http.StatusConflict, ErrTypeConflict, err.Error())
 	case errors.Is(err, plugins.ErrUnsupported):
 		return apiError(c, http.StatusUnprocessableEntity, ErrTypeUnsupported, err.Error())
+	case errors.Is(err, plugins.ErrRateLimited):
+		return apiError(c, http.StatusTooManyRequests, ErrTypeRateLimited, err.Error())
 	case errors.Is(err, plugins.ErrLimit):
 		return apiError(c, http.StatusUnprocessableEntity, ErrTypeLimit, err.Error())
 	case errors.Is(err, content.ErrRefused):

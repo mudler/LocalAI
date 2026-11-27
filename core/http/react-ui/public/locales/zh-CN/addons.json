@@ -1386,7 +1386,8 @@
       "content_refused": "此插件的某个文件未通过检查，因此 LocalAI 拒绝了它。",
       "limit_reached": "已达到市场或安装数量的上限。",
       "fetch_failed": "LocalAI 无法读取该插件或市场。原因见服务器日志。",
-      "plugins_unavailable": "此服务器不提供插件功能。"
+      "plugins_unavailable": "此服务器不提供插件功能。",
+      "rate_limited": "当前插件审核过多。请稍候再试。"
     }
   }
 }

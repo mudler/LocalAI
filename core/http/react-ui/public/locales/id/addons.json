@@ -1386,7 +1386,8 @@
       "content_refused": "Sebuah berkas dari plugin ini gagal dalam pemeriksaan, jadi LocalAI menolaknya.",
       "limit_reached": "Batas marketplace atau pemasangan telah tercapai.",
       "fetch_failed": "LocalAI tidak dapat membaca plugin atau marketplace. Log server berisi penyebabnya.",
-      "plugins_unavailable": "Plugin tidak tersedia di server ini."
+      "plugins_unavailable": "Plugin tidak tersedia di server ini.",
+      "rate_limited": "Terlalu banyak peninjauan plugin saat ini. Tunggu sebentar lalu coba lagi."
     }
   }
 }

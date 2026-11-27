@@ -166,6 +166,7 @@ Errors use the usual error body; `error.type` says why:
 | 422 | `unsupported` | A source type that LocalAI does not fetch, or a secret setting. |
 | 422 | `content_refused` | A file of the plugin failed the checks. |
 | 422 | `limit_reached` | Too many marketplaces or installs. |
+| 429 | `rate_limited` | Too many reviews: a user may inspect 6 plugins in a row, then one more every 10 seconds, and one frontend runs at most 4 inspects at once. Administrators have only the second limit. |
 | 502 | `fetch_failed` | The plugin or the marketplace could not be read. The server log has the cause. |
 
 ## In the LocalAI Assistant
