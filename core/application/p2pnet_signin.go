@@ -65,9 +65,21 @@ func (s p2pService) DeviceSession(ctx context.Context, from, credential string) 
 	if u.Status != auth.StatusActive || !auth.HasFeatureAccess(db, &u, auth.FeatureP2PPair) {
 		return p2papi.DeviceSession{}, p2papi.ErrSignInRefused
 	}
-	token, err := auth.CreateDeviceSession(db.WithContext(ctx), u.ID, dev.ID, s.n.app.ApplicationConfig().Auth.APIKeyHMACSecret)
+	beforeDeviceSessionCreate()
+	secret := s.n.app.ApplicationConfig().Auth.APIKeyHMACSecret
+	token, err := auth.CreateDeviceSession(db.WithContext(ctx), u.ID, dev.ID, secret)
 	if err != nil {
 		return p2papi.DeviceSession{}, err
+	}
+	// A revoke can land between the credential check and the insert, and
+	// then its delete of the sessions ran before this one existed. Check the
+	// device again and take the session back if it is gone. The session
+	// would not work anyway (deviceSessionCheck), but the row must not stay.
+	if !rt.deviceSessionCheck(p)(ctx, dev.ID) {
+		if err := auth.DeleteSession(db.WithContext(ctx), token, secret); err != nil {
+			xlog.Warn("P2P: could not drop the session of a device revoked during sign-in", "device", dev.ID, "error", err)
+		}
+		return p2papi.DeviceSession{}, p2papi.ErrSignInRefused
 	}
 	xlog.Info("P2P: a paired device signed in", "device", dev.ID, "user", u.ID)
 	return p2papi.DeviceSession{Token: token, User: p2papi.SessionUser{ID: u.ID, Name: u.Name, Email: u.Email, Role: u.Role}}, nil
@@ -85,6 +97,10 @@ func (rt *p2pRuntime) deviceSessionCheck(p p2pnet.ID) auth.DeviceSessionCheck {
 		return err == nil && d.RevokedAt == nil && d.SignIn && d.PeerID == p.String()
 	}
 }
+
+// beforeDeviceSessionCreate runs between the credential check and the insert
+// of the session; tests use it to land a revoke in that window.
+var beforeDeviceSessionCreate = func() {}
 
 // revokeDevice is the one revoke of a device for every caller: the store row
 // (and the client key of a remote), the web sessions the device opened, the

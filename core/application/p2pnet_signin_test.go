@@ -237,6 +237,31 @@ var _ = Describe("P2P device sign-in", func() {
 		Expect(server.gate.Allowed(h.ID())).To(BeFalse())
 	})
 
+	It("leaves no session when the device is revoked during the exchange", func() {
+		a, server := shareServer()
+		signInUser(a, "alice", auth.RoleUser, true)
+		_, c, cred := pairSignIn(server, "alice")
+		devs, err := server.pair.ListDevices(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+
+		// The revoke lands after the credential check and before the insert,
+		// as when another frontend revokes the device: the row and the
+		// sessions change, and the connection of this frontend stays open.
+		beforeDeviceSessionCreate = func() {
+			_, err := a.p2pPairStoreMust().RevokeDevice(context.Background(), devs[0].ID, "root", time.Now())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(auth.DeleteDeviceSessions(a.AuthDB(), devs[0].ID)).To(Succeed())
+		}
+		DeferCleanup(func() { beforeDeviceSessionCreate = func() {} })
+
+		ans := askSession(c, server, cred, false)
+		Expect(ans.status).To(Equal(http.StatusForbidden), ans.body)
+		Expect(ans.cookie).To(BeEmpty())
+		var n int64
+		Expect(a.AuthDB().Model(&auth.Session{}).Where("device_id = ?", devs[0].ID).Count(&n).Error).To(Succeed())
+		Expect(n).To(BeZero(), "no session row of the revoked device is left")
+	})
+
 	It("reports a revoke whose sessions could not be ended", func() {
 		a, server := shareServer()
 		signInUser(a, "alice", auth.RoleUser, true)
