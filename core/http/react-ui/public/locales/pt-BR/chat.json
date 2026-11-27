@@ -963,6 +963,7 @@
   },
   "plugins": {
     "toolsGroup": "Plugins",
-    "toolsDescribe": "Seus conectores neste chat: {{names}}."
+    "toolsDescribe": "Seus conectores neste chat: {{names}}.",
+    "connectorFrom": "Do plugin {{name}}."
   }
 }

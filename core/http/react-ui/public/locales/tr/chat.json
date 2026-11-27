@@ -1103,6 +1103,7 @@
   },
   "plugins": {
     "toolsGroup": "Plugin'ler",
-    "toolsDescribe": "Bu sohbetteki bağlayıcıları: {{names}}."
+    "toolsDescribe": "Bu sohbetteki bağlayıcıları: {{names}}.",
+    "connectorFrom": "{{name}} eklentisinden."
   }
 }

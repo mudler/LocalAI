@@ -958,6 +958,7 @@
   },
   "plugins": {
     "toolsGroup": "插件",
-    "toolsDescribe": "它在此聊天中的连接器：{{names}}。"
+    "toolsDescribe": "它在此聊天中的连接器：{{names}}。",
+    "connectorFrom": "来自插件 {{name}}。"
   }
 }

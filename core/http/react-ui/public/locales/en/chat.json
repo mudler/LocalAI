@@ -1103,6 +1103,7 @@
   },
   "plugins": {
     "toolsGroup": "Plugins",
-    "toolsDescribe": "Its connectors in this chat: {{names}}."
+    "toolsDescribe": "Its connectors in this chat: {{names}}.",
+    "connectorFrom": "From the plugin {{name}}."
   }
 }

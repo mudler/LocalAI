@@ -1070,6 +1070,7 @@
   },
   "plugins": {
     "toolsGroup": "Plugin",
-    "toolsDescribe": "Konektornya di chat ini: {{names}}."
+    "toolsDescribe": "Konektornya di chat ini: {{names}}.",
+    "connectorFrom": "Dari plugin {{name}}."
   }
 }

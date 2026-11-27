@@ -958,6 +958,7 @@
   },
   "plugins": {
     "toolsGroup": "플러그인",
-    "toolsDescribe": "이 채팅에서 사용하는 커넥터: {{names}}."
+    "toolsDescribe": "이 채팅에서 사용하는 커넥터: {{names}}.",
+    "connectorFrom": "{{name}} 플러그인에서 제공합니다."
   }
 }

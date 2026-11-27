@@ -958,6 +958,7 @@
   },
   "plugins": {
     "toolsGroup": "Plugins",
-    "toolsDescribe": "Ses connecteurs dans ce chat : {{names}}."
+    "toolsDescribe": "Ses connecteurs dans ce chat : {{names}}.",
+    "connectorFrom": "Du plugin {{name}}."
   }
 }

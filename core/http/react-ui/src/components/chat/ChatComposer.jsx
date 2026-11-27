@@ -161,7 +161,14 @@ export default function ChatComposer({
   // A plugin with connectors has one switch for the chat: off, none of its
   // connectors serves (the same switch as in the Skills menu).
   const pluginRows = pluginConnectorRows(plugins.rows, switches.connectors)
-  const toolGroups = pluginRows.length === 0 ? baseGroups : [...baseGroups, {
+  // A connector a plugin made says so, instead of reading as one of the
+  // person's own.
+  const pluginOf = Object.fromEntries((plugins.rows || []).map((p) => [p.id, p.name]))
+  const ownerOf = Object.fromEntries(switches.connectors.filter((c) => c.plugin_install && pluginOf[c.plugin_install]).map((c) => [`c-${c.id}`, pluginOf[c.plugin_install]]))
+  const marked = Object.keys(ownerOf).length === 0 ? baseGroups : baseGroups.map((g) => (g.key !== 'connectors' ? g : {
+    ...g, rows: g.rows.map((r) => (ownerOf[r.key] ? { ...r, description: t('plugins.connectorFrom', { name: ownerOf[r.key] }) } : r)),
+  }))
+  const toolGroups = pluginRows.length === 0 ? marked : [...marked, {
     key: 'plugins', title: t('plugins.toolsGroup'), icon: 'puzzle', onSet: plugins.setManyOn,
     rows: pluginRows.map((p) => ({
       key: `plugin-${p.id}`, id: p.id, label: p.name, description: t('plugins.toolsDescribe', { names: p.connectors.join(', ') }),

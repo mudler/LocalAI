@@ -1103,6 +1103,7 @@
   },
   "plugins": {
     "toolsGroup": "প্লাগইন",
-    "toolsDescribe": "এই চ্যাটে এর কনেক্টর: {{names}}।"
+    "toolsDescribe": "এই চ্যাটে এর কনেক্টর: {{names}}।",
+    "connectorFrom": "{{name}} প্লাগইন থেকে।"
   }
 }

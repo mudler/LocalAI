@@ -960,6 +960,7 @@
   },
   "plugins": {
     "toolsGroup": "Plugins",
-    "toolsDescribe": "Sus conectores en este chat: {{names}}."
+    "toolsDescribe": "Sus conectores en este chat: {{names}}.",
+    "connectorFrom": "Del plugin {{name}}."
   }
 }
