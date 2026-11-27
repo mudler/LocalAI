@@ -408,12 +408,48 @@ func ParseJSONIterative(s string, isPartial bool) ([]map[string]any, error) {
 	return parseJSONLegacy(s)
 }
 
+// jsonLiterals maps the first byte of a JSON literal to the literal.
+var jsonLiterals = [256]string{'t': "true", 'f': "false", 'n': "null"}
+
+// skipNonJSON returns how many bytes at the start of s the decoder would
+// reject without reading further: a byte that cannot start a JSON value
+// (whitespace counts too: the decoder skips it), or a literal that breaks off
+// before its end. It returns 0 at a byte the decoder must look at.
+//
+// A stream with tools parses its whole output again for each token, and
+// before this a run of prose cost one decoder per byte.
+func skipNonJSON(s string) int {
+	c := s[0]
+	switch {
+	case c == '{' || c == '[' || c == '"' || c == '-' || (c >= '0' && c <= '9'):
+		return 0
+	case jsonLiterals[c] != "":
+		lit := jsonLiterals[c]
+		k := 1
+		for k < len(lit) && k < len(s) && s[k] == lit[k] {
+			k++
+		}
+		if k == len(lit) || k == len(s) {
+			// The whole literal, or its start at the end of the input: the
+			// decoder decides.
+			return 0
+		}
+		return k + 1
+	default:
+		return 1
+	}
+}
+
 // parseJSONLegacy is the original decoder-based JSON parsing (kept for compatibility)
 func parseJSONLegacy(s string) ([]map[string]any, error) {
 	var objs []map[string]any
 	offset := 0
 
 	for offset < len(s) {
+		if n := skipNonJSON(s[offset:]); n > 0 {
+			offset += n
+			continue
+		}
 		var obj map[string]any
 		decoder := json.NewDecoder(strings.NewReader(s[offset:]))
 
