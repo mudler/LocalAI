@@ -22,6 +22,10 @@ fi
 ## file before the copy below. Forks that drop the patches still get the
 ## header: grpc-server.cpp includes it for the option checks.
 cp -r serving_policy.h llama.cpp/tools/server/
+## Disk prompt cache policy (prompt_cache_policy.h). patches/0006 includes it
+## from tools/server/server-slot-sched.cpp; grpc-server.cpp includes it for the
+## option checks.
+cp -r prompt_cache_policy.h llama.cpp/tools/server/
 
 ## Apple RDMA link fixup.
 
@@ -114,6 +118,8 @@ cp -r realtime_chat_check.cpp llama.cpp/tools/grpc-server/
 cp -r slot_cache.h llama.cpp/tools/grpc-server/
 # Paged serving policy and its standalone unit test (run-unit-tests.sh).
 cp -r serving_policy_test.cpp llama.cpp/tools/grpc-server/
+# Disk prompt cache policy test (run-unit-tests.sh).
+cp -r prompt_cache_policy_test.cpp llama.cpp/tools/grpc-server/
 cp -r slot_cache_test.cpp llama.cpp/tools/grpc-server/
 cp -rfv llama.cpp/vendor/nlohmann/json.hpp llama.cpp/tools/grpc-server/
 cp -rfv llama.cpp/vendor/cpp-httplib/httplib.h llama.cpp/tools/grpc-server/
@@ -267,6 +273,16 @@ if grep -q "bool *reasoning_control" llama.cpp/common/common.h; then
 else
     HAS_REASONING_CONTROL=0
 fi
+# Disk prompt cache (patches/0005 backports ggml-org/llama.cpp#32303, patches/0006
+# adds the LocalAI hooks: cache namespaces, retention, the writer thread).
+if grep -q "cache_disk_ns_quota_mib" llama.cpp/common/common.h; then
+    HAS_PROMPT_CACHE_DISK=1
+else
+    HAS_PROMPT_CACHE_DISK=0
+fi
+# The disk prompt cache directory changes with the llama.cpp commit and the
+# patches, whose state format can change: a new build starts cold.
+LLAMA_PIN=$( (git -C llama.cpp rev-parse HEAD 2>/dev/null || echo unknown; cat patches/*.patch prompt_cache_policy.h 2>/dev/null) | sha256sum | cut -c1-16)
 # Paged serving hooks (patches/0002-paged-serving.patch adds
 # common_params::paged_serving). Forks that drop the patches build without
 # them and only warn when a model asks for paged_kv or prefill_budget.
@@ -315,6 +331,8 @@ cat > llama.cpp/tools/grpc-server/llama_compat.h <<EOF
 #define LOCALAI_HAS_SERVING_POLICY ${HAS_SERVING_POLICY}
 #define LOCALAI_HAS_TASK_PRIORITY ${HAS_TASK_PRIORITY}
 #define LOCALAI_HAS_ADMISSION_ORDER ${HAS_ADMISSION_ORDER}
+#define LOCALAI_HAS_PROMPT_CACHE_DISK ${HAS_PROMPT_CACHE_DISK}
+#define LOCALAI_LLAMA_PIN "${LLAMA_PIN}"
 EOF
 
 set +e

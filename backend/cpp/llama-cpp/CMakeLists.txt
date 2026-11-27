@@ -168,6 +168,11 @@ if(LLAMA_GRPC_BUILD_TESTS)
     target_compile_features(serving_policy_test PRIVATE cxx_std_17)
     add_test(NAME serving_policy_test COMMAND serving_policy_test)
 
+    add_executable(prompt_cache_policy_test prompt_cache_policy_test.cpp prompt_cache_policy.h)
+    target_include_directories(prompt_cache_policy_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_compile_features(prompt_cache_policy_test PRIVATE cxx_std_17)
+    add_test(NAME prompt_cache_policy_test COMMAND prompt_cache_policy_test)
+
     add_executable(slot_cache_test slot_cache_test.cpp slot_cache.h)
     target_include_directories(slot_cache_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(slot_cache_test PRIVATE ${_LLAMA_COMMON_TARGET}) # vendored nlohmann/json

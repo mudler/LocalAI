@@ -414,6 +414,14 @@ message PredictOptions {
   // role, LocalAI's own callers), never from request Metadata.
   int32 Priority = 56;
 
+  // PromptCacheSalt keeps the prompt cache entries of one cache namespace
+  // apart from the others: 64 hex characters (a SHA-256), or empty for the
+  // shared namespace. A backend with a prompt cache must only reuse a cached
+  // prefix that was made with the same salt, in RAM, on disk and between
+  // live slots. The frontend derives it from the authenticated principal
+  // (see core/promptcache), never from request Metadata.
+  string PromptCacheSalt = 57;
+
   // 24 was never assigned; reserve it so it is not silently reused.
   reserved 24;
 }

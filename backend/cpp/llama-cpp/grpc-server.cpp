@@ -83,6 +83,7 @@
 #include "parallel_params.h"
 #include "serving_policy.h"
 #include "slot_cache.h"
+#include "prompt_cache_policy.h"
 #include "message_content.h"
 #include "moe_cache_option.h"
 #include "option_parse.h"
@@ -109,6 +110,7 @@
 #include <map>
 #include <ctime>
 #include <mutex>
+#include <condition_variable>
 #include <signal.h>
 #include <thread>
 
@@ -214,6 +216,12 @@ static std::string base64_encode_bytes(const unsigned char* data, size_t len) {
 // while LoadModel runs on a gRPC thread; LoadModel itself is serialized by
 // load_model_mutex in BackendServiceImpl.
 std::atomic<bool> loaded_model{false};
+
+// Set when start_loop() returns, so Free() knows the server loop no longer
+// touches the slots and the prompt cache.
+static std::mutex              loop_exit_mtx;
+static std::condition_variable loop_exit_cv;
+static bool                    loop_exited = false;
 
 // backend_sampling of the loaded model (one per process): the option, and what
 // backend_sampling:auto needs to decide per request. See backend_sampling.h.
@@ -327,6 +335,11 @@ static inline void signal_handler(int signal) {
 
 // Forward declarations
 static void start_llama_server(server_context& ctx_server);
+
+// Time Free() may spend saving the prompt cache. LocalAI waits 5 s for Free()
+// (backendFreeTimeout, workerBackendFreeTimeout); this leaves room for the
+// reply and the stop.
+static constexpr int64_t prompt_cache_free_budget_us = 3000000;
 static json parse_options(bool streaming, const backend::PredictOptions* predict, const common_params& params_base, llama_context* ctx);
 static ggml_type kv_cache_type_from_str(const std::string & s);
 static std::string get_all_kv_cache_types();
@@ -375,6 +388,38 @@ static void start_llama_server(server_context& ctx_server) {
 
     // this call blocks the main thread until ctx_server.terminate() is called
     ctx_server.start_loop();
+
+    {
+        std::lock_guard<std::mutex> lk(loop_exit_mtx);
+        loop_exited = true;
+    }
+    loop_exit_cv.notify_all();
+}
+
+// The cache key of a task (patches/0006): the salt keeps the cached prompts of
+// one cache namespace (a user, or the shared one) apart from the others, in
+// RAM, on disk and between live slots. A request that must not persist
+// (NoPromptCache: zero-retention, incognito) gets a private salt and is never
+// written to disk, so its cells can never reach disk through a later prompt
+// that shares its prefix. Requests without a salt of their own (score,
+// decisions) pass no_persist.
+static void apply_prompt_cache_key(server_tokens & tokens, const std::string & salt_hex, bool no_persist) {
+#if LOCALAI_HAS_PROMPT_CACHE_DISK
+    prompt_cache_policy::salt_t salt;
+    if (!prompt_cache_policy::parse_salt(salt_hex, salt)) {
+        SRV_WRN("%s", "prompt cache: malformed salt from LocalAI, the request is kept out of the persistent cache\n");
+        salt.fill(0);
+        no_persist = true;
+    }
+    if (no_persist) {
+        salt = prompt_cache_policy::private_salt(salt);
+    }
+    tokens.set_cache_key(salt, !no_persist, 0);
+#else
+    (void) tokens;
+    (void) salt_hex;
+    (void) no_persist;
+#endif
 }
 
 json parse_options(bool streaming, const backend::PredictOptions* predict, const common_params& params_base, llama_context* ctx)
@@ -755,6 +800,9 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     std::optional<bool> admission_order;
     std::optional<int> prefill_cap;
     bool lazy_idle_save = false;
+    // Disk tier of the prompt cache (prompt_cache_policy.h, patches/0005 and
+    // 0006). On by default when LocalAI gives a directory.
+    prompt_cache_policy::disk_options prompt_disk;
 
     // Initialize fit_params options (can be overridden by options)
     // fit_params: whether to auto-adjust params to fit device memory (default: true as in llama.cpp)
@@ -877,6 +925,39 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                     // If conversion fails, keep the default value
                 }
             }
+        } else if (!strcmp(optname, "prompt_cache_disk")) {
+            if (const auto v = llama_grpc::parse_switch(optval_str)) {
+                prompt_disk.enabled = *v ? 1 : 0;
+            } else {
+                SRV_WRN("prompt_cache_disk: '%s' is not on or off, ignoring\n", optval_str.c_str());
+            }
+        } else if (!strcmp(optname, "prompt_cache_disk_ttl_hours") || !strcmp(optname, "prompt_cache_disk_min_tokens") ||
+                   !strcmp(optname, "prompt_cache_disk_quota_mib") || !strcmp(optname, "prompt_cache_disk_max_size_mib") ||
+                   !strcmp(optname, "prompt_cache_disk_low_free_mib") || !strcmp(optname, "prompt_cache_disk_critical_free_mib")) {
+            long v = -1;
+            try {
+                v = std::stol(optval_str);
+            } catch (const std::exception &) {
+                v = -1;
+            }
+            if (v < 0) {
+                SRV_WRN("%s: '%s' is not a number of 0 or more, ignoring\n", optname, optval_str.c_str());
+            } else if (!strcmp(optname, "prompt_cache_disk_ttl_hours")) {
+                prompt_disk.ttl_hours = v;
+            } else if (!strcmp(optname, "prompt_cache_disk_min_tokens")) {
+                prompt_disk.min_tokens = v;
+            } else if (!strcmp(optname, "prompt_cache_disk_quota_mib")) {
+                prompt_disk.quota_mib = v;
+            } else if (!strcmp(optname, "prompt_cache_disk_low_free_mib")) {
+                prompt_disk.low_free_mib = v;
+            } else if (!strcmp(optname, "prompt_cache_disk_critical_free_mib")) {
+                prompt_disk.crit_free_mib = v;
+            } else {
+                prompt_disk.max_size_mib = v;
+            }
+        } else if (!strcmp(optname, "prompt_cache_disk_shared")) {
+            // Read by LocalAI, which then sends the shared (empty) salt with
+            // every request of this model. Nothing to do here.
         } else if (!strcmp(optname, "slot_save_path")) {
             // Directory for SlotCache save/restore files. Take everything after
             // the first ':' so a path that contains one is kept whole. Without
@@ -2011,6 +2092,93 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         params.cpuparams_batch.n_threads,
         params.cpuparams.n_threads);
 
+    // The disk tier of the prompt cache: <root>/llama-cpp/<pin>-<model>/, where
+    // root comes from the node that started this process. The directory name
+    // changes with the llama.cpp commit and the patches (their state format
+    // can change) and with the model.
+#if LOCALAI_HAS_PROMPT_CACHE_DISK
+    {
+        const char * root_env = std::getenv("LOCALAI_PROMPT_CACHE_ROOT");
+        const std::string root = root_env ? root_env : "";
+        const auto disk = prompt_cache_policy::resolve_disk(prompt_disk, root, params.cache_ram_mib);
+        if (!disk.info.empty()) {
+            SRV_WRN("%s\n", disk.info.c_str());
+        }
+        if (disk.on) {
+            namespace fs = std::filesystem;
+            const std::string model_dir = std::string(LOCALAI_LLAMA_PIN) + "-" + llama_grpc::slot_sha256_hex(request->model()).substr(0, 16);
+            const std::string base      = (fs::u8path(root) / "llama-cpp").string();
+            const std::string dir       = (fs::u8path(base) / model_dir).string();
+            bool ok = true;
+            std::string warn, derr;
+#ifdef _WIN32
+            std::error_code ec;
+            fs::create_directories(fs::u8path(dir), ec);
+            ok = !ec;
+            derr = ec.message();
+#else
+            for (const auto & d : { root, base, dir }) {
+                if (!llama_grpc::slot_ensure_private_dir(d, warn, derr)) {
+                    ok = false;
+                    break;
+                }
+            }
+#endif
+            if (!ok) {
+                SRV_WRN("prompt_cache_disk: %s is not usable (%s), the disk prompt cache stays off\n", dir.c_str(), derr.c_str());
+            } else {
+                params.cache_disk_path         = dir;
+                params.cache_disk_max_size_mib = prompt_disk.max_size_mib > 0 ? (int32_t) prompt_disk.max_size_mib : -1;
+                params.cache_disk_ttl_s        = prompt_cache_policy::ttl_seconds(prompt_disk);
+                params.cache_disk_min_tokens   = (int32_t) prompt_cache_policy::min_tokens(prompt_disk);
+                params.cache_disk_ns_quota_mib = (int32_t) prompt_disk.quota_mib;
+                params.cache_disk_async        = true;
+                params.cache_disk_low_free_mib  = (int32_t) prompt_disk.low_free_mib;
+                params.cache_disk_crit_free_mib = (int32_t) prompt_disk.crit_free_mib;
+                // What an entry depends on, in clear, next to the entries. The
+                // file names carry hashes of it (directory: pin and model;
+                // compat: model file, KV types and layout, RoPE; namespace;
+                // prefix hash). A tier shared between nodes can read this to
+                // check that another node's entries fit before loading them.
+                {
+                    std::error_code fec;
+                    const auto mf = fs::u8path(params.model.path);
+                    json manifest = {
+                        { "format", 1 },
+                        { "llama_pin", LOCALAI_LLAMA_PIN },
+                        { "state_version", LLAMA_STATE_SEQ_VERSION },
+                        { "model_identity_sha256", llama_grpc::slot_sha256_hex(request->model()) },
+                        { "model_file_size", (uint64_t) fs::file_size(mf, fec) },
+                        { "model_file_mtime", (int64_t) fs::last_write_time(mf, fec).time_since_epoch().count() },
+                        { "cache_type_k", ggml_type_name(params.cache_type_k) },
+                        { "cache_type_v", ggml_type_name(params.cache_type_v) },
+                        { "flash_attn", (int) params.flash_attn_type },
+                        { "swa_full", params.swa_full },
+                        { "compat", server_prompt_cache_disk_compat(params) },
+                        { "prefix_block_tokens", (int) server_tokens::hash_block_size },
+                        { "file_name", "<compat>-<namespace>-<prefix hash>.cache" },
+                    };
+                    const auto path = fs::u8path(dir) / "manifest.json";
+                    const auto tmp  = fs::u8path(dir) / "manifest.json.tmp";
+                    { std::ofstream out(tmp, std::ios::trunc); out << manifest.dump(2) << "\n"; }
+                    fs::rename(tmp, path, fec);
+                }
+                if (const char * mbps = std::getenv("LOCALAI_PROMPT_CACHE_READ_MBPS")) {
+                    try {
+                        params.cache_disk_read_mbps = std::max(0.0, std::stod(mbps));
+                    } catch (const std::exception &) {
+                        params.cache_disk_read_mbps = 0;
+                    }
+                }
+            }
+        }
+    }
+#else
+    if (prompt_disk.enabled == 1) {
+        SRV_WRN("%s", "prompt_cache_disk: this llama.cpp build has no disk prompt cache, ignoring\n");
+    }
+#endif
+
     // Paged serving and the prefill budget are on unless the model turns them
     // off. Decided here, after the passthrough flags, on the final kv_unified,
     // context_shift and cont_batching.
@@ -2906,6 +3074,49 @@ public:
                             "\", requested \"" + request->modelidentity() + "\"");
     }
 
+    // Free saves the prompt cache to disk before LocalAI stops this process,
+    // within a fixed time (prompt_cache_free_budget_us), so the save never
+    // races the next model load into the same memory. It stops the server
+    // loop first: nothing else touches the slots while it saves, and the
+    // process is on its way out. It answers Unimplemented on purpose: this
+    // backend cannot unload a model and load another in the same process, so
+    // both callers (the model loader and the distributed worker) must still
+    // stop the process, which is what they do for Unimplemented.
+    grpc::Status Free(ServerContext* context, const backend::HealthMessage* /*request*/, backend::Result* result) override {
+        auto auth = checkAuth(context);
+        if (!auth.ok()) return auth;
+
+#if LOCALAI_HAS_PROMPT_CACHE_DISK
+        if (loaded_model && ctx_server.impl->has_prompt_cache_disk()) {
+            const int64_t deadline = ggml_time_us() + prompt_cache_free_budget_us;
+
+            ctx_server.terminate();
+
+            bool exited = false;
+            {
+                std::unique_lock<std::mutex> lk(loop_exit_mtx);
+                exited = loop_exit_cv.wait_for(lk, std::chrono::microseconds(std::max<int64_t>(0, deadline - ggml_time_us())),
+                                               []() { return loop_exited; });
+            }
+            if (exited) {
+                const int64_t t_start = ggml_time_us();
+                ctx_server.impl->save_prompt_cache(deadline);
+                SRV_INF("Free: prompt cache saved in %.0f ms\n", (ggml_time_us() - t_start) / 1000.0);
+            } else {
+                SRV_WRN("%s", "Free: the server loop did not stop in time, the prompt cache is not saved\n");
+            }
+            // The process now exits by itself. The SIGTERM that LocalAI sends next
+            // may arrive while ctx_server is being destroyed: make it a no-op.
+            shutdown_handler = [](int) {};
+            result->set_success(true);
+            result->set_message("prompt cache saved; stop the process to free its memory");
+            return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "llama-cpp frees its memory when the process stops; the prompt cache was saved");
+        }
+#endif
+        (void) result;
+        return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "llama-cpp frees its memory when the process stops");
+    }
+
     grpc::Status Health(ServerContext* context, const backend::HealthMessage* /*request*/, backend::Reply* reply) override {
         auto auth = checkAuth(context);
         if (!auth.ok()) return auth;
@@ -3570,6 +3781,7 @@ public:
                 task.index = i;
 
                 task.tokens    = std::move(inputs[i]);
+                apply_prompt_cache_key(task.tokens, request->promptcachesalt(), request->nopromptcache());
 #ifdef LOCALAI_HAS_SERVER_SCHEMA
                 // The schema evaluator no longer takes the per-slot n_ctx: upstream
                 // dropped the parameter and server-schema stopped consulting n_ctx at
@@ -4180,6 +4392,7 @@ public:
                 task.index = i;
 
                 task.tokens    = std::move(inputs[i]);
+                apply_prompt_cache_key(task.tokens, request->promptcachesalt(), request->nopromptcache());
 #ifdef LOCALAI_HAS_SERVER_SCHEMA
                 // The schema evaluator no longer takes the per-slot n_ctx: upstream
                 // dropped the parameter and server-schema stopped consulting n_ctx at
@@ -4852,6 +5065,7 @@ public:
                     task.id = rd.get_new_id();
                     localai_fill_decision_task(decision, state, questions, question, variant, files,
                         ctx_server.impl->mctx, ctx_server.impl->init_opt, task);
+                    apply_prompt_cache_key(task.tokens, "", true);
                     tasks.push_back(std::move(task));
                     ++expected_results;
                 }
@@ -5065,6 +5279,7 @@ public:
             task.id             = rd.queue_tasks.get_new_id();
             task.index          = 0;
             task.tokens         = server_tokens(llama_tokens(first.begin(), first.begin() + n_shared), false);
+            apply_prompt_cache_key(task.tokens, "", true);
             task.n_score_prompt = n_score_prompt;
             task.n_stable_prompt = n_stable_prompt;
             task.score_suffixes.reserve(included.size());
