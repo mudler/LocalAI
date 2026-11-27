@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/plugins"
 	"github.com/mudler/LocalAI/core/services/plugins/content"
@@ -68,7 +69,7 @@ func (q pluginQueue) Enqueue(j plugins.Job) {
 
 // newPluginsService builds the Plugins service. It reads the settings of cfg
 // at each request. A nil queue runs the jobs at once.
-func newPluginsService(cfg *config.ApplicationConfig, db *gorm.DB, ws workspace.Store, queue plugins.Queue, conns plugins.ConnectorSync) (*plugins.Service, *fetch.Fetcher, error) {
+func newPluginsService(cfg *config.ApplicationConfig, db *gorm.DB, ws workspace.Store, queue plugins.Queue, conns plugins.ConnectorSync, allowed func(context.Context, string) bool) (*plugins.Service, *fetch.Fetcher, error) {
 	dp := cfg.DataPath
 	st, err := pluginStoreFor(db, dp)
 	if err != nil {
@@ -105,6 +106,7 @@ func newPluginsService(cfg *config.ApplicationConfig, db *gorm.DB, ws workspace.
 		Official:     func() bool { return cfg.OfficialLibraries },
 		UserInstalls: func() bool { return !cfg.Plugins.DisableUserInstalls },
 		Connectors:   conns,
+		Allowed:      allowed,
 	}
 	if ws != nil {
 		o.Workspace = content.Workspace{Files: ws, Actor: workspace.Actor{Principal: files.AdminPrincipal}}
@@ -132,7 +134,7 @@ func (a *Application) initPlugins() error {
 	if a.galleryService != nil {
 		queue = pluginQueue{a.galleryService}
 	}
-	svc, fetcher, err := newPluginsService(cfg, a.authDB, ws, queue, a.pluginConnectors())
+	svc, fetcher, err := newPluginsService(cfg, a.authDB, ws, queue, a.pluginConnectors(), a.pluginsAllowed)
 	if err != nil {
 		return err
 	}
@@ -192,4 +194,15 @@ func (p pluginConnectorSync) DropPluginConnectors(ctx context.Context, principal
 
 func (p pluginConnectorSync) ResyncPluginConnectors(ctx context.Context, installID, plugin, digest string, servers []plugins.RemoteServer) error {
 	return p.s.ResyncPlugin(ctx, installID, plugin, digest, pluginServers(servers))
+}
+
+// pluginsAllowed reports whether a user holds the plugins feature, the rule
+// of /api/plugins, for the plugins of a turn. Without accounts everyone
+// does. A user that cannot be read gets no plugins.
+func (a *Application) pluginsAllowed(ctx context.Context, principal string) bool {
+	if a.authDB == nil {
+		return true
+	}
+	u, err := a.loadStudioUser(ctx, principal)
+	return err == nil && auth.HasFeatureAccess(a.authDB, u, auth.FeaturePlugins)
 }

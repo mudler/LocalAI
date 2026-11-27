@@ -26,7 +26,7 @@ var _ = Describe("the plugins service wiring", func() {
 	It("starts with the file store under the data path when no database is set", func() {
 		dp := GinkgoT().TempDir()
 		cfg := config.NewApplicationConfig(config.WithDataPath(dp))
-		svc, _, err := newPluginsService(cfg, nil, nil, nil, nil)
+		svc, _, err := newPluginsService(cfg, nil, nil, nil, nil, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(svc.Store()).To(BeAssignableToTypeOf(&store.FileStore{}))
 		Expect(svc.Seed(context.Background())).To(Succeed())
@@ -38,13 +38,13 @@ var _ = Describe("the plugins service wiring", func() {
 	It("seeds the flag's marketplaces on a fresh store only", func() {
 		dp := GinkgoT().TempDir()
 		cfg := config.NewApplicationConfig(config.WithDataPath(dp), config.WithPluginMarketplaces("team=owner/repo"))
-		svc, _, err := newPluginsService(cfg, nil, nil, nil, nil)
+		svc, _, err := newPluginsService(cfg, nil, nil, nil, nil, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(svc.Seed(context.Background())).To(Succeed())
 		Expect(ids(svc)).To(Equal([]string{"team"}))
 
 		cfg = config.NewApplicationConfig(config.WithDataPath(dp), config.WithPluginMarketplaces("other=owner/other"))
-		svc, _, err = newPluginsService(cfg, nil, nil, nil, nil)
+		svc, _, err = newPluginsService(cfg, nil, nil, nil, nil, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(svc.Seed(context.Background())).To(Succeed())
 		Expect(ids(svc)).To(Equal([]string{"team"}))
@@ -52,7 +52,7 @@ var _ = Describe("the plugins service wiring", func() {
 
 	It("refuses a bad flag", func() {
 		cfg := config.NewApplicationConfig(config.WithDataPath(GinkgoT().TempDir()), config.WithPluginMarketplaces("ssh://example.test/a.git"))
-		_, _, err := newPluginsService(cfg, nil, nil, nil, nil)
+		_, _, err := newPluginsService(cfg, nil, nil, nil, nil, nil)
 		Expect(err).To(MatchError(ContainSubstring("--plugin-marketplaces")))
 	})
 

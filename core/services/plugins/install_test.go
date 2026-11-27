@@ -625,6 +625,24 @@ var _ = Describe("Installs", func() {
 			Expect(view).To(BeEmpty())
 		})
 
+		It("gives nothing to a user whose plugins feature is off, their own installs included", func() {
+			_, err := install(user, store.ScopeUser)
+			Expect(err).NotTo(HaveOccurred())
+			allowed := map[string]bool{user.ID: false}
+			off, err := plugins.New(plugins.Options{
+				Store: st, Fetcher: ff, Queue: queue, Now: clk.Now, Workspace: ws, Root: "/plugins",
+				Allowed: func(_ context.Context, p string) bool { v, ok := allowed[p]; return !ok || v },
+			})
+			Expect(err).NotTo(HaveOccurred())
+			view, err := off.TurnView(ctx, user.ID, plugins.ChatRef{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(view).To(BeEmpty())
+			allowed[user.ID] = true
+			view, err = off.TurnView(ctx, user.ID, plugins.ChatRef{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(view).To(HaveLen(1))
+		})
+
 		It("leaves out what the chat switched off and what the agent does not grant", func() {
 			_, err := install(admin, store.ScopeInstance)
 			Expect(err).NotTo(HaveOccurred())

@@ -107,6 +107,11 @@ type Options struct {
 	// Connectors keeps the MCP connectors that plugins own. Nil: plugins
 	// get no connectors.
 	Connectors ConnectorSync
+	// Allowed reports whether a principal holds the plugins feature now. A
+	// principal without it gets no plugin in its turns, its own installs
+	// included, so an administrator who turns the feature off for a user
+	// stops the plugins of that user at once. Nil allows everyone.
+	Allowed func(ctx context.Context, principal string) bool
 }
 
 // Service is the Plugins service. It keeps no state across requests but the
@@ -126,6 +131,7 @@ type Service struct {
 	userInstalls func() bool
 	conns        ConnectorSync
 	inspects     *inspectLimiter
+	allowed      func(ctx context.Context, principal string) bool
 }
 
 // New returns a Service.
@@ -137,7 +143,7 @@ func New(o Options) (*Service, error) {
 		st: o.Store, db: o.DB, fetcher: o.Fetcher, ws: o.Workspace, root: o.Root,
 		limits: o.Limits, official: o.Official, interval: o.RefreshInterval, now: o.Now,
 		queue: o.Queue, userInstalls: o.UserInstalls, conns: o.Connectors,
-		inspects: newInspectLimiter(),
+		inspects: newInspectLimiter(), allowed: o.Allowed,
 	}
 	if s.queue == nil {
 		s.queue = inlineQueue{}

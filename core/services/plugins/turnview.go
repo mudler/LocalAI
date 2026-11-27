@@ -43,10 +43,11 @@ var _ TurnViewer = (*Service)(nil)
 // TurnView returns the plugins that contribute to a turn of principal in a
 // chat (spec 10.1): installed for everyone or for the principal, enabled by
 // the principal and not waiting for a re-enable, not switched off in the
-// chat, and granted by the chat's agent when it has one. It reads the store
+// chat, and granted by the chat's agent when it has one. A principal without
+// the plugins feature gets none. It reads the store
 // on every call; nothing is kept between turns.
 func (s *Service) TurnView(ctx context.Context, principal string, chat ChatRef) ([]ActivePlugin, error) {
-	if principal == "" {
+	if principal == "" || (s.allowed != nil && !s.allowed(ctx, principal)) {
 		return nil, nil
 	}
 	installs, err := s.st.Installs(ctx, store.InstallFilter{VisibleTo: principal})
