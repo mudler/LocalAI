@@ -135,6 +135,15 @@ installs a backend (not an add-on) from a library entry. It is exposed as the
 rule 1. Listing library entries stays on `/api/addons` and has no assistant
 tool, for the reason above.
 
+Plugins (`/api/plugins`) sit between the two: the `plugins` tool wraps the
+routes a person may use through an API key (marketplaces, browse, installs of
+plugins that run no code, the caller's switch, remove). The install of a
+plugin that runs code, the update, the rollback and the re-enable that accepts
+code need the administrator's own browser session (`X-LocalAI-Confirm`), so
+they are in `adminRoutesWithoutTool`, and the tool answers with the review
+page instead. The tool is in the read-only catalog; `Options.DisableMutating`
+refuses its mutating actions in the handler.
+
 Do not rewrite the unrelated assistant tools to match this rule.
 
 ## The client tools (second group)

@@ -70,6 +70,8 @@ type fakeClient struct {
 	listFailoverChains    func() ([]FailoverChainInfo, error)
 	pinFailoverTarget     func(string, string) error
 	unpinFailoverTarget   func(string) error
+	installPlugin         func(string, string) (*PluginInstallResult, error)
+	listPluginInstalls    func(bool) ([]PluginInstall, error)
 }
 
 type fakeCall struct {

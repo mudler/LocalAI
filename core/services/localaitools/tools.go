@@ -129,6 +129,12 @@ const (
 	// ToolListFederation is read-only: the instances and the federation
 	// groups; manage_federation_group is in the mutating block above.
 	ToolListFederation = "list_federation"
+
+	// ToolPlugins manages the plugins in the Claude Code plugin format with
+	// an action parameter. It is in the read-only catalog because its read
+	// actions stay in the read-only flavour; that flavour refuses the
+	// mutating actions in the handler, and the safety prompt names the tool.
+	ToolPlugins = "plugins"
 )
 
 // DefaultServerName is the MCP Implementation.Name surfaced when

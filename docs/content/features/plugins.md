@@ -118,6 +118,24 @@ Errors use the usual error body; `error.type` says why:
 | 422 | `limit_reached` | Too many marketplaces or installs. |
 | 502 | `fetch_failed` | The plugin or the marketplace could not be read. The server log has the cause. |
 
+## In the LocalAI Assistant
+
+The admin tools of the [LocalAI Assistant]({{% relref "/features/chats-and-agents/localai-assistant" %}}) and of `local-ai mcp-server` have one tool, `plugins`, with an `action`:
+
+| Action | Fields | What it does |
+|---|---|---|
+| `list_marketplaces` | | Lists the marketplaces. |
+| `add_marketplace` | `source`, `ref`, `marketplace` (the ID) | Adds a marketplace and reads it. Administrators. |
+| `refresh_marketplace` | `marketplace` | Reads a marketplace now. Administrators. |
+| `browse` | `query`, `marketplace` | Searches the catalog. |
+| `list_installed` | `all` | Lists the installs and the caller's switch. |
+| `install` | `plugin`, `scope` | Inspects the plugin, then installs it. A plugin that runs no code only. |
+| `check_updates` | `id` | Without `id`: the installs with an update or a blocked update. With `id`: the files that change and whether the code changes. |
+| `enable`, `disable` | `id` | Turns an install on or off for the caller. |
+| `remove` | `id` | Removes an install. |
+
+The tool acts as the person whose chat runs it, with the rights of the REST API. It never has the administrator's browser session, so it does not install a plugin that runs code, apply an update or roll back. For a plugin that runs code, the tool answers with an error that gives the review page, `/app/addons?tab=plugins&plugin=<name@marketplace>`. It also does not turn on an install that gained code: accepting the code is a person's act on the Plugins tab. The read-only flavour of `local-ai mcp-server` keeps the read actions and refuses the others.
+
 ## Settings
 
 | Setting | Default | Meaning |

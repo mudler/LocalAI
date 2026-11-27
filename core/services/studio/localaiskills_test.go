@@ -177,7 +177,12 @@ func recipeNames() []string {
 // bytes before the upgrade runs, which add about 74 bytes more.
 // It is now apply_engine_command, with a name and a line that are 4 bytes
 // shorter, so the prompt did not grow; it still does not fit 10,000.
-const adminTurnPromptBudget = 10200
+// 10,200 to 10,400: the plugins tool adds the recipe manage_plugins (its name
+// and one line in the compact prompt and in the index) and `plugins` in
+// safety rule 1; the measured size went to 10,384 bytes. The tool has
+// mutating actions, so rule 1 must name it, and the recipe holds the steps
+// that keep code plugins in the browser.
+const adminTurnPromptBudget = 10400
 
 var _ = Describe("the admin recipes as skills", func() {
 	ctx := context.Background()

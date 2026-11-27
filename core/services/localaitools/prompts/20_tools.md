@@ -44,6 +44,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `list_p2p_relays` — List the P2P relays and their sync state.
 - `list_federation` — List the LocalAI instances (this server and LocalAI remotes) and the federation groups with member health and load.
 - `list_p2p_split_workers` — List the model-split workers (llama.cpp RPC, MLX), their state, path and memory.
+- `plugins` — Plugins in the Claude Code plugin format, one `action`. Read: `list_marketplaces`, `browse`, `list_installed`, `check_updates`. Change (confirm first): `add_marketplace`, `refresh_marketplace`, `install` (plugins that run no code only), `enable`, `disable`, `remove`.
 - `get_p2p_relay_limits` — Read the data, time and bandwidth limits of one circuit on a P2P relay, the ceiling the relay operator set for each, and whether this server may change them.
 - `get_p2p_user_pairing` — Read how users pair their own phones over P2P: the relays of their invites, open relays, local addresses and the limits of each user.
 

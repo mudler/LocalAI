@@ -72,6 +72,7 @@ func NewServer(client LocalAIClient, opts Options) *mcp.Server {
 	registerCarrierWeightTools(srv, client, opts)
 	registerP2PTools(srv, client, opts)
 	registerFederationTools(srv, client, opts)
+	registerPluginTools(srv, client, opts)
 
 	// The second group: inference for any user. Kept apart so a caller can
 	// register or filter the two groups separately.

@@ -308,6 +308,29 @@ type LocalAIClient interface {
 	// delete.
 	ManageFederationGroup(ctx context.Context, req FederationGroupAction) (*FederationGroupInfo, error)
 
+	// ---- Plugins (Claude Code plugin format) ----
+	// They act as the acting user, with the rights of the plugins API:
+	// browsing, the user's own text-only installs and the user's switch for
+	// anyone; marketplaces and installs for everyone for administrators.
+	ListPluginMarketplaces(ctx context.Context) ([]PluginMarketplace, error)
+	AddPluginMarketplace(ctx context.Context, source, ref, id string) (*PluginMarketplace, error)
+	RefreshPluginMarketplace(ctx context.Context, id string) (*PluginMarketplace, error)
+	BrowsePlugins(ctx context.Context, q PluginBrowseQuery) (*PluginCatalog, error)
+	ListPluginInstalls(ctx context.Context, all bool) ([]PluginInstall, error)
+	// InstallPlugin fetches and checks the plugin (inspect), then queues the
+	// install of exactly what was checked. A plugin that runs code fails with
+	// an error that matches ErrPluginNeedsBrowser: only the administrator's
+	// browser session installs it.
+	InstallPlugin(ctx context.Context, plugin, scope string) (*PluginInstallResult, error)
+	// CheckPluginUpdate previews the update of one install. It applies
+	// nothing.
+	CheckPluginUpdate(ctx context.Context, installID string) (*PluginUpdateCheck, error)
+	// SetPluginEnabled turns an install on or off for the acting user. It
+	// never accepts code: an install that gained code fails with
+	// ErrPluginNeedsReenable.
+	SetPluginEnabled(ctx context.Context, installID string, on bool) (*PluginState, error)
+	RemovePlugin(ctx context.Context, installID string) error
+
 	// ---- Client (inference) ----
 	// These run inference through the LocalAI API as the acting user, so the
 	// route's permission, the model allow-list and the quota apply. Files

@@ -36,6 +36,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
+	"github.com/mudler/LocalAI/core/services/plugins"
 	"github.com/mudler/LocalAI/core/services/remotes"
 	"github.com/mudler/LocalAI/core/services/routing/billing"
 	"github.com/mudler/LocalAI/core/services/routing/corpus"
@@ -185,6 +186,14 @@ type Client struct {
 	// Files reads the input files of the client tools and stores their
 	// results. Nil: the home folder of the acting user in the chats' workspace.
 	Files localaitools.FileStore
+
+	// Plugins returns the service of the plugins in the Claude Code plugin
+	// format, or nil when it is off. Read at each call: it starts after the
+	// assistant.
+	Plugins func() *plugins.Service
+	// PluginJobs shows a queued plugin install in /api/operations. Nil
+	// leaves it out of that list; get_job_status still reads it.
+	PluginJobs func(pluginID, jobID string)
 
 	// ModelSearch is the search host: the shared Searcher with the add-on
 	// sources and the enabled set of each person. It is read at each call,

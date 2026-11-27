@@ -991,6 +991,15 @@ func (a *Application) start() (startErr error) {
 		return nil
 	}
 	assistantClient.Chats = a.StudioService
+	// The Plugins service starts after the assistant; the tool reads it at
+	// each call. An install it queues shows in /api/operations like one
+	// from the REST API.
+	assistantClient.Plugins = a.Plugins
+	assistantClient.PluginJobs = func(pluginID, jobID string) {
+		if c := a.operationCache(); c != nil && jobID != "" {
+			c.Set(galleryop.PluginOpKey(pluginID), jobID)
+		}
+	}
 	// The client tools reach the API in memory, as the acting user, with
 	// the transport the chats use. The provider is built before the
 	// assistant but is read at each call.

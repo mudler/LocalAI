@@ -69,6 +69,10 @@ var toolToHTTPRoute = map[string]string{
 	ToolListP2PSplitWorkers:       "GET /api/p2p/split-workers",
 	ToolGetP2PRelayLimits:         "GET /api/p2p/relays/:id/limits",
 	ToolGetP2PUserPairing:         "GET /api/p2p/user-pairing",
+	ToolPlugins: "GET /api/plugins/marketplaces (list_marketplaces), POST /api/plugins/marketplaces (add_marketplace), POST /api/plugins/marketplaces/:id/refresh (refresh_marketplace), " +
+		"GET /api/plugins/catalog (browse), GET /api/plugins/installs (list_installed, check_updates without id), " +
+		"POST /api/plugins/inspect + POST /api/plugins/installs (install, a plugin that runs no code), POST /api/plugins/installs/:id/update/preview (check_updates with id), " +
+		"PUT /api/plugins/installs/:id/me (enable, disable), DELETE /api/plugins/installs/:id (remove)",
 
 	// Mutating tools.
 	ToolInstallModel:             "POST /models/apply",
@@ -207,6 +211,18 @@ var adminRoutesWithoutTool = map[string]string{
 	// needs to read or change it.
 	"GET /api/models/search/sources": "the sources and the enabled set of the person: read in the search panel; search_models uses the enabled set",
 	"PUT /api/models/search/sources": "the enabled set is a personal choice made in the search panel, not something a model changes",
+	// Plugins: the install of a plugin that runs code, an update and a
+	// rollback need the administrator's own browser session (the request
+	// carries X-LocalAI-Confirm), as the add-on host grants do. The assistant
+	// holds no such session; it reads update previews with check_updates and
+	// points to the Plugins tab.
+	"POST /api/plugins/installs (a plugin that runs code)": "needs the administrator's browser session",
+	"POST /api/plugins/installs/:id/update":                "needs the administrator's browser session",
+	"POST /api/plugins/installs/:id/rollback":              "needs the administrator's browser session",
+	"PUT /api/plugins/marketplaces/:id":                    "changing the ref or the switch of a marketplace is done on the Plugins tab; remove and add cover the assistant's needs",
+	"DELETE /api/plugins/marketplaces/:id":                 "removing a marketplace is a person's act on the Plugins tab, next to the installs that came from it",
+	"PUT /api/plugins/installs/:id/me (reenable)":          "turning on an install that gained code accepts that code in the person's chats: a person's act on the Plugins tab",
+	"PUT /api/plugins/installs/:id/me (config)":            "plugin settings are a form on the Plugins tab",
 	// A diagnostic button of Settings > Tools, not a setting to manage.
 	"POST /api/chats/admin/web/test": "a diagnostic button: it runs one search and changes nothing",
 	// Settings of the chats that change what commands may do on this machine
