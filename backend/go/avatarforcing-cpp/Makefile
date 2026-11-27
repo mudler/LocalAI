@@ -13,7 +13,7 @@
 # Only the CPU and CUDA builds are supported: avatarforcing.cpp patches ggml
 # with a grid_sample operator that has CPU and CUDA kernels only.
 
-AVATARFORCING_VERSION?=0d864419d1b9c9b623e37479c3b02ed91b32744b
+AVATARFORCING_VERSION?=f2f4a21dbb5a86ac78a871ab55164fdaa9c268fb
 AVATARFORCING_REPO?=https://github.com/mudler/avatarforcing.cpp
 AVATARFORCING_SRC?=
 
