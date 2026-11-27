@@ -17,6 +17,7 @@
 /addons/catalogue/services/google-drive/
 /addons/catalogue/services/home-assistant/
 /addons/catalogue/services/jellyfin/
+/addons/catalogue/services/kubernetes/
 /addons/catalogue/services/mail/
 /addons/catalogue/services/pikvm/
 /addons/catalogue/services/ssh/

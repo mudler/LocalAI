@@ -7,9 +7,14 @@ import (
 	"slices"
 )
 
-// Limits of the per-user settings an add-on declares.
+// Limits of the per-user settings an add-on declares. An add-on declares at
+// most MaxUserSettings settings besides its approval settings. The approval
+// settings have no cap of their own: an add-on that lets a person relax each
+// write tool needs one per tool, each one belongs to an approvalOverridable
+// tool, and the cap on tools bounds them.
 const (
-	// MaxUserSettings is the most settings one add-on declares.
+	// MaxUserSettings is the most settings one add-on declares that are not
+	// the approval setting of one of its tools.
 	MaxUserSettings = 8
 	// MaxUserSettingValues is the most values one setting allows.
 	MaxUserSettingValues = 8
@@ -123,9 +128,6 @@ func validateUserSettings(list []UserSetting) error {
 	if len(list) == 0 {
 		return nil
 	}
-	if len(list) > MaxUserSettings {
-		return fmt.Errorf("too many user settings: at most %d", MaxUserSettings)
-	}
 	seen, roles := map[string]bool{}, map[string]bool{}
 	for _, s := range list {
 		if err := s.validate(); err != nil {
@@ -149,6 +151,21 @@ func validateUserSettings(list []UserSetting) error {
 // has its setting, with the values and the default the host expects: the
 // default must be to ask, so a manifest cannot start with the confirmation off.
 func validateApprovalSettings(defs []ToolDefinition, list []UserSetting, credentialed bool) error {
+	approval := map[string]bool{}
+	for _, d := range defs {
+		if d.ApprovalOverridable {
+			approval[ApprovalSettingKey(d.Name)] = true
+		}
+	}
+	others := 0
+	for _, s := range list {
+		if !approval[s.Key] {
+			others++
+		}
+	}
+	if others > MaxUserSettings {
+		return fmt.Errorf("too many user settings: at most %d besides the approval settings of the tools", MaxUserSettings)
+	}
 	for _, d := range defs {
 		if !d.ApprovalOverridable {
 			continue

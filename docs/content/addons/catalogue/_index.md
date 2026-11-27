@@ -40,6 +40,7 @@ Pick an add-on below. An administrator installs it, and anyone with the `addons`
 | [Home Assistant]({{% relref "/addons/catalogue/services/home-assistant" %}}) | Read a smart home, and switch things within limits you set. |
 | [PiKVM]({{% relref "/addons/catalogue/services/pikvm" %}}) | Check the status of a PiKVM. If you allow it, press its power buttons and type on its keyboard. |
 | [SSH]({{% relref "/addons/catalogue/services/ssh" %}}) | Run a command on a remote machine, with a confirmation each time. |
+| [Kubernetes]({{% relref "/addons/catalogue/services/kubernetes" %}}) | Read a Kubernetes cluster, and change it with a confirmation and a policy for each cluster. |
 
 ## Models and media
 

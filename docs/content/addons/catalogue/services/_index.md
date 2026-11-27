@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Services and devices"
-description = "Mail, Google Drive, GitHub, Jellyfin, Home Assistant, PiKVM and SSH."
+description = "Mail, Google Drive, GitHub, Jellyfin, Home Assistant, PiKVM, SSH and Kubernetes."
 weight = 30
 +++
 

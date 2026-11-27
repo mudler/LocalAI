@@ -2,9 +2,16 @@
 package contract
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
 	"strings"
 	"time"
@@ -159,6 +166,18 @@ var _ = Describe("The credential slot of an add-on", func() {
 			It("is accepted with its setting, the values ask and skip and the default ask", func() {
 				Expect(ValidateManifest(relaxable(nil), host())).To(Succeed())
 			})
+			It("does not count against the cap of eight other settings", func() {
+				others := func(n int) func(*Manifest) {
+					return func(m *Manifest) {
+						for i := range n {
+							m.Capabilities.UserSettings = append(m.Capabilities.UserSettings,
+								UserSetting{Key: fmt.Sprintf("other-%d", i), Values: []string{"a", "b"}, Default: "a"})
+						}
+					}
+				}
+				Expect(ValidateManifest(relaxable(others(MaxUserSettings)), host())).To(Succeed())
+				Expect(ValidateManifest(relaxable(others(MaxUserSettings+1)), host())).NotTo(Succeed())
+			})
 			DescribeTable("is refused",
 				func(mod func(*Manifest)) { Expect(ValidateManifest(relaxable(mod), host())).NotTo(Succeed()) },
 				Entry("without the setting", func(m *Manifest) { m.Capabilities.UserSettings = nil }),
@@ -235,6 +254,13 @@ var _ = Describe("The credential slot of an add-on", func() {
 			var back Envelope
 			Expect(json.Unmarshal(b, &back)).To(Succeed())
 			Expect(back.Request.Credential).To(Equal("secret"))
+		})
+		It("carries a kubeconfig with an embedded RSA client certificate and key", func() {
+			kubeconfig := clientCertKubeconfig()
+			Expect(len(kubeconfig)).To(BeNumerically(">", 5<<10), "the size of a kubeconfig that a local cluster tool writes")
+			v := envelope()
+			v.Request.ResourceKey, v.Request.Credential = "https://cluster.example:6443#context=dev", kubeconfig
+			Expect(v.Validate(now, DefaultLimits())).To(Succeed())
 		})
 		It("refuses a resource key with a control character or too long, and a huge credential", func() {
 			for _, change := range []func(*Envelope){
@@ -359,3 +385,39 @@ var _ = Describe("An optional resource argument of a credential slot", func() {
 		}
 	})
 })
+
+// clientCertKubeconfig writes a kubeconfig the way a local cluster tool does:
+// a CA, a client certificate and an RSA 2048 key, all embedded as base64.
+func clientCertKubeconfig() string {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	Expect(err).NotTo(HaveOccurred())
+	cert := func(name string) []byte {
+		tpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: name, Organization: []string{"example"}},
+			NotBefore: time.Now(), NotAfter: time.Now().Add(time.Hour), IsCA: name == "ca", BasicConstraintsValid: true}
+		der, err := x509.CreateCertificate(rand.Reader, tpl, tpl, &key.PublicKey, key)
+		Expect(err).NotTo(HaveOccurred())
+		return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	}
+	b64 := func(b []byte) string { return base64.StdEncoding.EncodeToString(b) }
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	return fmt.Sprintf(`apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    certificate-authority-data: %s
+    server: https://cluster.example:6443
+  name: dev
+contexts:
+- context:
+    cluster: dev
+    user: dev
+  name: dev
+current-context: dev
+preferences: {}
+users:
+- name: dev
+  user:
+    client-certificate-data: %s
+    client-key-data: %s
+`, b64(cert("ca")), b64(cert("kubernetes-admin")), b64(keyPEM))
+}

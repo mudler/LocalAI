@@ -31,6 +31,8 @@ var officialRequests = map[string]contract.HostOperations{
 	"home-assistant": {Optional: []string{"workspace.admin"}},
 	// The per-device switches of the add-on can be changed by an administrator only.
 	"pikvm": {Optional: []string{"workspace.admin"}},
+	// The policy of each cluster can be changed by an administrator only.
+	"kubernetes": {Optional: []string{"workspace.admin"}},
 	// A connector moves files only when the person turns files on, so both
 	// file operations are optional. Delivery is pull, so neither add-on calls
 	// connector.inbound.

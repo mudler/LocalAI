@@ -129,6 +129,20 @@ var _ = Describe("the user settings routes", func() {
 		Expect(code).To(Equal(404))
 	})
 
+	It("serves and stores every setting of an add-on that declares more than eight", func() {
+		var many []contract.UserSetting
+		for _, tool := range []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"} {
+			many = append(many, contract.UserSetting{Key: contract.ApprovalSettingKey(tool), Values: []string{"ask", "skip"}, Default: "ask"})
+		}
+		e = userSettingsApp(store, declares("memory", many))
+		code, out, _ := serve(e, browserPut("memory", `{"key":"approval-j","value":"skip"}`))
+		Expect(code).To(Equal(200))
+		Expect(out.Settings).To(HaveLen(10))
+		_, out = getSettings(e, "memory")
+		Expect(out.Settings).To(HaveLen(10))
+		Expect(out.Settings[9]).To(Equal(UserSettingView{Key: "approval-j", Values: []string{"ask", "skip"}, Default: "ask", Value: "skip"}))
+	})
+
 	It("gives an empty list to an add-on that declares none", func() {
 		e = userSettingsApp(store, declares("memory", nil))
 		code, out := getSettings(e, "memory")

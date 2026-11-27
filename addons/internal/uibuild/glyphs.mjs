@@ -61,6 +61,8 @@ export const GLYPHS = {
   terminal: [box(3, 4, 18, 16, 2.5), { line: [[7, 9.5], [10.5, 12.5], [7, 15.5]] }, { line: [[13, 15.5], [17, 15.5]] }],
   // A screen on a stand, for a remote machine.
   screen: [box(3, 4, 18, 12, 2.5), { line: [[12, 16], [12, 20]] }, { line: [[8, 20], [16, 20]] }],
+  // Three boxes joined by lines, for a cluster of machines.
+  cluster: [box(9, 3, 6, 5.5, 1.5), box(3, 15.5, 6, 5.5, 1.5), box(15, 15.5, 6, 5.5, 1.5), { line: [[12, 8.5], [12, 12], [6, 12], [6, 15.5]] }, { line: [[12, 12], [18, 12], [18, 15.5]] }],
   // The fallback: a rounded square with a plus, for an add-on that names no glyph.
   app: [box(4, 4, 16, 16, 4), { line: [[12, 8.5], [12, 15.5]] }, { line: [[8.5, 12], [15.5, 12]] }],
 }

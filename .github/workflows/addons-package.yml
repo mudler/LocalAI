@@ -147,7 +147,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, discord, github, gdrive, gmail, home-assistant, jellyfin, calendar, contacts, mail, office, pikvm, pirateface-search, ollama-search, sandbox, ssh, web]
+        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, discord, github, gdrive, gmail, home-assistant, jellyfin, calendar, contacts, mail, office, pikvm, pirateface-search, ollama-search, sandbox, ssh, kubernetes, web]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -272,7 +272,7 @@ jobs:
           # that publishes nothing: that add-on gets no legs. On a publishing
           # event it fails the plan. A missing or malformed platform file, or
           # any other error, fails the plan on every event.
-          all_ids="tables voice face fine-tuning quantization studio talk telegram slack discord github gdrive gmail home-assistant jellyfin calendar contacts mail office pikvm pirateface-search ollama-search sandbox ssh web"
+          all_ids="tables voice face fine-tuning quantization studio talk telegram slack discord github gdrive gmail home-assistant jellyfin calendar contacts mail office pikvm pirateface-search ollama-search sandbox ssh kubernetes web"
           ids=$all_ids
           if [ "$EVENT" = "pull_request" ]; then
             # A pull request builds only the add-ons whose own files changed,

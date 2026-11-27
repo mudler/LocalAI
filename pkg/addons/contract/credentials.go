@@ -23,8 +23,9 @@ const (
 	MaxCredentialSlots = 1
 	// MaxResourceKeyBytes is the longest external resource name in a request.
 	MaxResourceKeyBytes = 800
-	// MaxCredentialBytes is the longest credential in a request.
-	MaxCredentialBytes = 4096
+	// MaxCredentialBytes is the longest credential in a request. It fits a
+	// Kubernetes kubeconfig with an embedded client certificate and key.
+	MaxCredentialBytes = 16 << 10
 	// MaxResourceLabelChars is the longest CredentialSlot.ResourceLabel.
 	MaxResourceLabelChars = 24
 )

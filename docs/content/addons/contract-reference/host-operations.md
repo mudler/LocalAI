@@ -261,7 +261,10 @@ reads the answer for its own rules. The add-on does not store it and is not call
 
 A key is lowercase letters, digits and dashes, at most 40, and starts with a letter.
 A setting has 2 to 8 values of the same form, and a default that is one of them. An
-add-on declares at most 8 settings. A person who has not chosen has the default. The
+add-on declares at most 8 settings besides the approval settings of its tools. The
+approval settings have no cap of their own: there is one for each
+`approvalOverridable` tool, so the cap on tools bounds them. A person who has not
+chosen has the default. The
 manifest fixes the allowed values and nothing else: the words on the page and the
 help text are the add-on's own.
 

@@ -22,5 +22,7 @@
   "chats:sandboxProfile.admin.title": "a sandbox profile is the host's name for the environment of isolated commands, declared by any provider that lists profiles; the feature name, not the Sandbox add-on",
   "chats:sandboxProfile.label": "a sandbox profile is the host's name for the environment of isolated commands, declared by any provider that lists profiles; the feature name, not the Sandbox add-on",
   "chats:sandboxProfile.newerImage": "a sandbox profile is the host's name for the environment of isolated commands, declared by any provider that lists profiles; the feature name, not the Sandbox add-on",
-  "chats:sandboxProfile.switchWarning": "a sandbox profile is the host's name for the environment of isolated commands, declared by any provider that lists profiles; the feature name, not the Sandbox add-on"
+  "chats:sandboxProfile.switchWarning": "a sandbox profile is the host's name for the environment of isolated commands, declared by any provider that lists profiles; the feature name, not the Sandbox add-on",
+  "cluster:add.tabs.kubernetes": "Kubernetes as the platform a person runs LocalAI workers on; not the Kubernetes add-on",
+  "cluster:add.token.usesHint": "Kubernetes as the platform a person runs LocalAI workers on; not the Kubernetes add-on"
 }

@@ -38,7 +38,8 @@ const (
 
 // Limits of the record.
 const (
-	// MaxBytes is the largest credential the host passes (contract.MaxCredentialBytes).
+	// MaxBytes is the largest record this add-on seals. It is below the
+	// largest credential the host passes (contract.MaxCredentialBytes).
 	MaxBytes       = 4096
 	MaxFolders     = 20
 	MaxFolderBytes = 200
