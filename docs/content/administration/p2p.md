@@ -438,8 +438,9 @@ them for the instance, not for the account that made the invite. Taking
 longer open a new session.
 
 The in-process relay ("Via your server") does not let a sign-in device, or a
-device of a user who is not an administrator, hold a reservation: such a device
-never waits for connections. It can still use a circuit.
+device of a user who is not an administrator, hold a reservation or open a
+circuit: such a device never waits for connections, and it talks to the server
+directly, so it has no use for a circuit through the server.
 
 A device that was away too long can have routes that are all out of date. Send
 it a new invite: the app sees that it already has this server, dials the routes

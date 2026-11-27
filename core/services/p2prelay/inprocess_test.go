@@ -45,3 +45,21 @@ var _ = Describe("NewInProcess with a reservation check", func() {
 		Expect(circuit(phone, laptop, r)).To(Succeed())
 	})
 })
+
+var _ = Describe("NewInProcess with a circuit check", func() {
+	It("refuses a circuit from a peer the check refuses", func() {
+		server, phone, laptop, worker := newPeer(), newPeer(), newPeer(), newPeer()
+		paired := map[string]bool{phone.ID().String(): true, laptop.ID().String(): true, worker.ID().String(): true}
+		admit := func(p peer.ID) bool { return paired[p.String()] }
+		instance := func(p peer.ID) bool { return p != phone.ID() }
+		closer, err := p2prelay.NewInProcess(server, admit, p2prelay.DefaultLimits(),
+			p2prelay.WithReserveAdmit(instance), p2prelay.WithCircuitAdmit(instance))
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(closer.Close)
+		r := &testRelay{h: server}
+
+		Expect(reserve(worker, r)).To(Succeed())
+		Expect(circuit(phone, worker, r)).ToNot(Succeed(), "a user's phone opens no circuit")
+		Expect(circuit(laptop, worker, r)).To(Succeed())
+	})
+})

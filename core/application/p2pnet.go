@@ -862,9 +862,12 @@ func (rt *p2pRuntime) updateRelayService(reach p2pnet.Reachability) {
 	}
 	lim := p2prelay.DefaultLimits()
 	lim.RateLimit = rt.cfg.RelayRateLimit
-	// Every paired peer may use a circuit; only the ones that listen may
-	// hold a reservation (see reservesOnRelay).
-	c, err := p2prelay.NewInProcess(rt.host.Libp2p(), rt.paired, lim, p2prelay.WithReserveAdmit(rt.mayReserve))
+	// Only the paired peers that belong to the instance (see
+	// reservesOnRelay) may hold a reservation or open a circuit. A sign-in
+	// device, or a device of a user who is not an administrator, talks to
+	// the server directly and has no use for either.
+	c, err := p2prelay.NewInProcess(rt.host.Libp2p(), rt.paired, lim,
+		p2prelay.WithReserveAdmit(rt.mayReserve), p2prelay.WithCircuitAdmit(rt.mayReserve))
 	if err != nil {
 		rt.reason = "error"
 		xlog.Warn("P2P: could not relay for paired devices", "error", err)
