@@ -96,6 +96,23 @@ var _ = Describe("Device sessions", func() {
 		u, _ := auth.ValidateSession(db, rotated, secret)
 		Expect(u).To(BeNil())
 	})
+
+	It("creates nothing when the session was deleted before the rotation", func() {
+		token, err := auth.CreateDeviceSession(db, user.ID, "dev-1", secret)
+		Expect(err).ToNot(HaveOccurred())
+		_, s := auth.ValidateSession(db, token, secret)
+		Expect(s).ToNot(BeNil())
+
+		// The revoke runs after the middleware loaded the session.
+		Expect(auth.DeleteDeviceSessions(db, "dev-1")).To(Succeed())
+
+		rotated, err := auth.RotateSession(db, s, secret)
+		Expect(err).To(HaveOccurred())
+		Expect(rotated).To(BeEmpty())
+		var n int64
+		Expect(db.Model(&auth.Session{}).Where("device_id = ?", "dev-1").Count(&n).Error).To(Succeed())
+		Expect(n).To(BeZero())
+	})
 })
 
 var _ = Describe("Device sessions in the auth middleware", func() {

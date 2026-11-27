@@ -103,8 +103,13 @@ func DeleteUserSessions(db *gorm.DB, userID string) error {
 	return db.Where("user_id = ?", userID).Delete(&Session{}).Error
 }
 
-// RotateSession creates a new session for the same user, deletes the old one,
-// and returns the new plaintext token.
+// errSessionGone is returned by RotateSession when the old session no longer
+// exists.
+var errSessionGone = errors.New("the session no longer exists")
+
+// RotateSession deletes the old session, creates a new one for the same user
+// in the same transaction, and returns the new plaintext token. When the old
+// session is already gone it creates nothing and returns an error.
 func RotateSession(db *gorm.DB, oldSession *Session, hmacSecret string) (string, error) {
 	b := make([]byte, sessionIDBytes)
 	if _, err := rand.Read(b); err != nil {
@@ -124,11 +129,18 @@ func RotateSession(db *gorm.DB, oldSession *Session, hmacSecret string) (string,
 		DeviceID: oldSession.DeviceID,
 	}
 
+	// Delete first and create only when the old row was still there: a
+	// session that a revoke or a logout deleted after the middleware loaded
+	// it must not come back as a new row.
 	err := db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&newSession).Error; err != nil {
-			return err
+		res := tx.Where("id = ?", oldSession.ID).Delete(&Session{})
+		if res.Error != nil {
+			return res.Error
 		}
-		return tx.Where("id = ?", oldSession.ID).Delete(&Session{}).Error
+		if res.RowsAffected != 1 {
+			return errSessionGone
+		}
+		return tx.Create(&newSession).Error
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to rotate session: %w", err)
