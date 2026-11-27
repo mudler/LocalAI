@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Engines"
-description = "Backends that have their own page: vllm.cpp, RKLLM, Strata, audio.cpp, NeMo-Speech.cpp and Whisper-Medusa."
+description = "Backends that have their own page: vllm.cpp, RKLLM, Strata, colibri, audio.cpp, NeMo-Speech.cpp and Whisper-Medusa."
 icon = "memory"
 weight = 85
 devbuild = "feature"

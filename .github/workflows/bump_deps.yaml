@@ -391,3 +391,62 @@ jobs:
           branch: "bump/STRATA_VERSION"
           body: ${{ steps.bump.outputs.message }}
           signoff: true
+
+  bump-colibri:
+    # The colibri backend fetches the release archives colibri publishes and,
+    # for the Linux CUDA images, compiles the engines from the same release's
+    # source. backend/go/colibri/Makefile pins the release tag, the commit of
+    # that tag and each platform archive's SHA-256; the script moves all of
+    # them together from the newest release (SHA-256s from its SHA256SUMS.txt,
+    # checked against GitHub's asset digests). bump_deps.sh handles one commit
+    # variable only. Releases, not main.
+    if: github.repository == 'mudler/LocalAI'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Bump colibri release pins 🔧
+        id: bump
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash .github/bump_colibri.sh JustVugg/colibri backend/go/colibri/Makefile COLIBRI_VERSION
+          # The script exits 0 without writing these files when no pin changes.
+          # Open no pull request then.
+          if [ ! -s COLIBRI_VERSION_commit.txt ]; then
+            echo 'skipped=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          make -C backend/go/colibri check-pins
+          {
+            echo 'message<<EOF'
+            cat "COLIBRI_VERSION_message.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo 'commit<<EOF'
+            cat "COLIBRI_VERSION_commit.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          rm -rfv COLIBRI_VERSION_message.txt COLIBRI_VERSION_commit.txt
+      - name: Create GitHub App token
+        if: steps.bump.outputs.skipped != 'true'
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.UPDATE_BOT_APP_ID }}
+          private-key: ${{ secrets.UPDATE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Create Pull Request
+        if: steps.bump.outputs.skipped != 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          commit-message: ':arrow_up: Update JustVugg/colibri'
+          title: 'chore: :arrow_up: Update JustVugg/colibri to `${{ steps.bump.outputs.commit }}`'
+          branch: "bump/COLIBRI_VERSION"
+          body: ${{ steps.bump.outputs.message }}
+          signoff: true

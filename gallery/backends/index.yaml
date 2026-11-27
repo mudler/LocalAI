@@ -43621,3 +43621,593 @@
     - https://github.com/OVHai-LLM/llama.cpp
     - https://huggingface.co/OVHaiLLM
   version: 0.0.0-development
+- alias: colibri
+  capabilities:
+    default: cpu-colibri
+    metal: metal-colibri
+    nvidia: cuda12-colibri
+    nvidia-cuda-12: cuda12-colibri
+    nvidia-cuda-13: cuda13-colibri
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-colibri
+    vulkan: vulkan-colibri
+  channel: latest
+  description: |
+    EXPERIMENTAL. Runs colibri (https://github.com/JustVugg/colibri), an engine for very large
+    mixture-of-experts models that streams the experts from disk, so models far larger than RAM
+    can run on one machine. The backend starts colibri's `coli serve` gateway on a loopback port;
+    colibri renders the chat template and parses tool calls, and the backend returns content,
+    reasoning and tool calls to LocalAI. Text generation only. Models are GGUF files (imported
+    once with `coli import`) or colibri model directories. The image ships the pinned,
+    checksum-verified colibri release and a portable Python. Targets: CPU and Vulkan
+    (Linux x86_64 and arm64), NVIDIA CUDA 12 and 13 (Linux x86_64) and NVIDIA arm64
+    (CUDA 13: Jetson Orin and Thor, DGX Spark), Apple Silicon. colibri publishes no
+    Linux CUDA build: the CUDA images compile its engines from the pinned release source.
+  id: colibri
+  kind: backend
+  license: apache-2.0
+  name: colibri
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+    - CPU
+    - Vulkan
+    - CUDA
+    - Metal
+  urls:
+    - https://github.com/JustVugg/colibri
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/colibri
+  version: 0.0.0-latest
+- alias: colibri
+  capabilities:
+    default: cpu-colibri-development
+    metal: metal-colibri-development
+    nvidia: cuda12-colibri-development
+    nvidia-cuda-12: cuda12-colibri-development
+    nvidia-cuda-13: cuda13-colibri-development
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-colibri-development
+    vulkan: vulkan-colibri-development
+  channel: development
+  description: |
+    EXPERIMENTAL. Runs colibri (https://github.com/JustVugg/colibri), an engine for very large
+    mixture-of-experts models that streams the experts from disk, so models far larger than RAM
+    can run on one machine. The backend starts colibri's `coli serve` gateway on a loopback port;
+    colibri renders the chat template and parses tool calls, and the backend returns content,
+    reasoning and tool calls to LocalAI. Text generation only. Models are GGUF files (imported
+    once with `coli import`) or colibri model directories. The image ships the pinned,
+    checksum-verified colibri release and a portable Python. Targets: CPU and Vulkan
+    (Linux x86_64 and arm64), NVIDIA CUDA 12 and 13 (Linux x86_64) and NVIDIA arm64
+    (CUDA 13: Jetson Orin and Thor, DGX Spark), Apple Silicon. colibri publishes no
+    Linux CUDA build: the CUDA images compile its engines from the pinned release source.
+  id: colibri-development
+  kind: backend
+  license: apache-2.0
+  name: colibri-development
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+    - CPU
+    - Vulkan
+    - CUDA
+    - Metal
+  urls:
+    - https://github.com/JustVugg/colibri
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/colibri
+  version: 0.0.0-development
+- alias: colibri
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-cpu-colibri
+  capabilities:
+    default: cpu-colibri
+    metal: metal-colibri
+    nvidia: cuda12-colibri
+    nvidia-cuda-12: cuda12-colibri
+    nvidia-cuda-13: cuda13-colibri
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-colibri
+    vulkan: vulkan-colibri
+  channel: latest
+  description: |
+    EXPERIMENTAL. Runs colibri (https://github.com/JustVugg/colibri), an engine for very large
+    mixture-of-experts models that streams the experts from disk, so models far larger than RAM
+    can run on one machine. The backend starts colibri's `coli serve` gateway on a loopback port;
+    colibri renders the chat template and parses tool calls, and the backend returns content,
+    reasoning and tool calls to LocalAI. Text generation only. Models are GGUF files (imported
+    once with `coli import`) or colibri model directories. The image ships the pinned,
+    checksum-verified colibri release and a portable Python. Targets: CPU and Vulkan
+    (Linux x86_64 and arm64), NVIDIA CUDA 12 and 13 (Linux x86_64) and NVIDIA arm64
+    (CUDA 13: Jetson Orin and Thor, DGX Spark), Apple Silicon. colibri publishes no
+    Linux CUDA build: the CUDA images compile its engines from the pinned release source.
+  id: cpu-colibri
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:latest-cpu-colibri
+  mutable: true
+  name: cpu-colibri
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+    - CPU
+    - Vulkan
+    - CUDA
+    - Metal
+  urls:
+    - https://github.com/JustVugg/colibri
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/colibri
+  version: 0.0.0-latest
+- alias: colibri
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-cpu-colibri
+  capabilities:
+    default: cpu-colibri
+    metal: metal-colibri
+    nvidia: cuda12-colibri
+    nvidia-cuda-12: cuda12-colibri
+    nvidia-cuda-13: cuda13-colibri
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-colibri
+    vulkan: vulkan-colibri
+  channel: development
+  description: |
+    EXPERIMENTAL. Runs colibri (https://github.com/JustVugg/colibri), an engine for very large
+    mixture-of-experts models that streams the experts from disk, so models far larger than RAM
+    can run on one machine. The backend starts colibri's `coli serve` gateway on a loopback port;
+    colibri renders the chat template and parses tool calls, and the backend returns content,
+    reasoning and tool calls to LocalAI. Text generation only. Models are GGUF files (imported
+    once with `coli import`) or colibri model directories. The image ships the pinned,
+    checksum-verified colibri release and a portable Python. Targets: CPU and Vulkan
+    (Linux x86_64 and arm64), NVIDIA CUDA 12 and 13 (Linux x86_64) and NVIDIA arm64
+    (CUDA 13: Jetson Orin and Thor, DGX Spark), Apple Silicon. colibri publishes no
+    Linux CUDA build: the CUDA images compile its engines from the pinned release source.
+  id: cpu-colibri-development
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:master-cpu-colibri
+  mutable: true
+  name: cpu-colibri-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+    - CPU
+    - Vulkan
+    - CUDA
+    - Metal
+  urls:
+    - https://github.com/JustVugg/colibri
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/colibri
+  version: 0.0.0-development
+- alias: colibri
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-colibri
+  capabilities:
+    default: cpu-colibri
+    metal: metal-colibri
+    nvidia: cuda12-colibri
+    nvidia-cuda-12: cuda12-colibri
+    nvidia-cuda-13: cuda13-colibri
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-colibri
+    vulkan: vulkan-colibri
+  channel: latest
+  description: |
+    EXPERIMENTAL. Runs colibri (https://github.com/JustVugg/colibri), an engine for very large
+    mixture-of-experts models that streams the experts from disk, so models far larger than RAM
+    can run on one machine. The backend starts colibri's `coli serve` gateway on a loopback port;
+    colibri renders the chat template and parses tool calls, and the backend returns content,
+    reasoning and tool calls to LocalAI. Text generation only. Models are GGUF files (imported
+    once with `coli import`) or colibri model directories. The image ships the pinned,
+    checksum-verified colibri release and a portable Python. Targets: CPU and Vulkan
+    (Linux x86_64 and arm64), NVIDIA CUDA 12 and 13 (Linux x86_64) and NVIDIA arm64
+    (CUDA 13: Jetson Orin and Thor, DGX Spark), Apple Silicon. colibri publishes no
+    Linux CUDA build: the CUDA images compile its engines from the pinned release source.
+  id: vulkan-colibri
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:latest-gpu-vulkan-colibri
+  mutable: true
+  name: vulkan-colibri
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+    - CPU
+    - Vulkan
+    - CUDA
+    - Metal
+  urls:
+    - https://github.com/JustVugg/colibri
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/colibri
+  version: 0.0.0-latest
+- alias: colibri
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-colibri
+  capabilities:
+    default: cpu-colibri
+    metal: metal-colibri
+    nvidia: cuda12-colibri
+    nvidia-cuda-12: cuda12-colibri
+    nvidia-cuda-13: cuda13-colibri
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-colibri
+    vulkan: vulkan-colibri
+  channel: development
+  description: |
+    EXPERIMENTAL. Runs colibri (https://github.com/JustVugg/colibri), an engine for very large
+    mixture-of-experts models that streams the experts from disk, so models far larger than RAM
+    can run on one machine. The backend starts colibri's `coli serve` gateway on a loopback port;
+    colibri renders the chat template and parses tool calls, and the backend returns content,
+    reasoning and tool calls to LocalAI. Text generation only. Models are GGUF files (imported
+    once with `coli import`) or colibri model directories. The image ships the pinned,
+    checksum-verified colibri release and a portable Python. Targets: CPU and Vulkan
+    (Linux x86_64 and arm64), NVIDIA CUDA 12 and 13 (Linux x86_64) and NVIDIA arm64
+    (CUDA 13: Jetson Orin and Thor, DGX Spark), Apple Silicon. colibri publishes no
+    Linux CUDA build: the CUDA images compile its engines from the pinned release source.
+  id: vulkan-colibri-development
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:master-gpu-vulkan-colibri
+  mutable: true
+  name: vulkan-colibri-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+    - CPU
+    - Vulkan
+    - CUDA
+    - Metal
+  urls:
+    - https://github.com/JustVugg/colibri
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/colibri
+  version: 0.0.0-development
+- alias: colibri
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-colibri
+  capabilities:
+    default: cpu-colibri
+    metal: metal-colibri
+    nvidia: cuda12-colibri
+    nvidia-cuda-12: cuda12-colibri
+    nvidia-cuda-13: cuda13-colibri
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-colibri
+    vulkan: vulkan-colibri
+  channel: latest
+  description: |
+    EXPERIMENTAL. Runs colibri (https://github.com/JustVugg/colibri), an engine for very large
+    mixture-of-experts models that streams the experts from disk, so models far larger than RAM
+    can run on one machine. The backend starts colibri's `coli serve` gateway on a loopback port;
+    colibri renders the chat template and parses tool calls, and the backend returns content,
+    reasoning and tool calls to LocalAI. Text generation only. Models are GGUF files (imported
+    once with `coli import`) or colibri model directories. The image ships the pinned,
+    checksum-verified colibri release and a portable Python. Targets: CPU and Vulkan
+    (Linux x86_64 and arm64), NVIDIA CUDA 12 and 13 (Linux x86_64) and NVIDIA arm64
+    (CUDA 13: Jetson Orin and Thor, DGX Spark), Apple Silicon. colibri publishes no
+    Linux CUDA build: the CUDA images compile its engines from the pinned release source.
+  id: metal-colibri
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:latest-metal-darwin-arm64-colibri
+  mutable: true
+  name: metal-colibri
+  os: darwin
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+    - CPU
+    - Vulkan
+    - CUDA
+    - Metal
+  urls:
+    - https://github.com/JustVugg/colibri
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/colibri
+  version: 0.0.0-latest
+- alias: colibri
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-colibri
+  capabilities:
+    default: cpu-colibri
+    metal: metal-colibri
+    nvidia: cuda12-colibri
+    nvidia-cuda-12: cuda12-colibri
+    nvidia-cuda-13: cuda13-colibri
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-colibri
+    vulkan: vulkan-colibri
+  channel: development
+  description: |
+    EXPERIMENTAL. Runs colibri (https://github.com/JustVugg/colibri), an engine for very large
+    mixture-of-experts models that streams the experts from disk, so models far larger than RAM
+    can run on one machine. The backend starts colibri's `coli serve` gateway on a loopback port;
+    colibri renders the chat template and parses tool calls, and the backend returns content,
+    reasoning and tool calls to LocalAI. Text generation only. Models are GGUF files (imported
+    once with `coli import`) or colibri model directories. The image ships the pinned,
+    checksum-verified colibri release and a portable Python. Targets: CPU and Vulkan
+    (Linux x86_64 and arm64), NVIDIA CUDA 12 and 13 (Linux x86_64) and NVIDIA arm64
+    (CUDA 13: Jetson Orin and Thor, DGX Spark), Apple Silicon. colibri publishes no
+    Linux CUDA build: the CUDA images compile its engines from the pinned release source.
+  id: metal-colibri-development
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:master-metal-darwin-arm64-colibri
+  mutable: true
+  name: metal-colibri-development
+  os: darwin
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+    - CPU
+    - Vulkan
+    - CUDA
+    - Metal
+  urls:
+    - https://github.com/JustVugg/colibri
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/colibri
+  version: 0.0.0-development
+- alias: colibri
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-colibri
+  capabilities:
+    default: cpu-colibri
+    metal: metal-colibri
+    nvidia: cuda12-colibri
+    nvidia-cuda-12: cuda12-colibri
+    nvidia-cuda-13: cuda13-colibri
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-colibri
+    vulkan: vulkan-colibri
+  channel: latest
+  description: |
+    EXPERIMENTAL. Runs colibri (https://github.com/JustVugg/colibri), an engine for very large
+    mixture-of-experts models that streams the experts from disk, so models far larger than RAM
+    can run on one machine. The backend starts colibri's `coli serve` gateway on a loopback port;
+    colibri renders the chat template and parses tool calls, and the backend returns content,
+    reasoning and tool calls to LocalAI. Text generation only. Models are GGUF files (imported
+    once with `coli import`) or colibri model directories. The image ships the pinned,
+    checksum-verified colibri release and a portable Python. Targets: CPU and Vulkan
+    (Linux x86_64 and arm64), NVIDIA CUDA 12 and 13 (Linux x86_64) and NVIDIA arm64
+    (CUDA 13: Jetson Orin and Thor, DGX Spark), Apple Silicon. colibri publishes no
+    Linux CUDA build: the CUDA images compile its engines from the pinned release source.
+  id: cuda12-colibri
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:latest-gpu-nvidia-cuda-12-colibri
+  mutable: true
+  name: cuda12-colibri
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+    - CPU
+    - Vulkan
+    - CUDA
+    - Metal
+  urls:
+    - https://github.com/JustVugg/colibri
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/colibri
+  version: 0.0.0-latest
+- alias: colibri
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-colibri
+  capabilities:
+    default: cpu-colibri
+    metal: metal-colibri
+    nvidia: cuda12-colibri
+    nvidia-cuda-12: cuda12-colibri
+    nvidia-cuda-13: cuda13-colibri
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-colibri
+    vulkan: vulkan-colibri
+  channel: development
+  description: |
+    EXPERIMENTAL. Runs colibri (https://github.com/JustVugg/colibri), an engine for very large
+    mixture-of-experts models that streams the experts from disk, so models far larger than RAM
+    can run on one machine. The backend starts colibri's `coli serve` gateway on a loopback port;
+    colibri renders the chat template and parses tool calls, and the backend returns content,
+    reasoning and tool calls to LocalAI. Text generation only. Models are GGUF files (imported
+    once with `coli import`) or colibri model directories. The image ships the pinned,
+    checksum-verified colibri release and a portable Python. Targets: CPU and Vulkan
+    (Linux x86_64 and arm64), NVIDIA CUDA 12 and 13 (Linux x86_64) and NVIDIA arm64
+    (CUDA 13: Jetson Orin and Thor, DGX Spark), Apple Silicon. colibri publishes no
+    Linux CUDA build: the CUDA images compile its engines from the pinned release source.
+  id: cuda12-colibri-development
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:master-gpu-nvidia-cuda-12-colibri
+  mutable: true
+  name: cuda12-colibri-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+    - CPU
+    - Vulkan
+    - CUDA
+    - Metal
+  urls:
+    - https://github.com/JustVugg/colibri
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/colibri
+  version: 0.0.0-development
+- alias: colibri
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-colibri
+  capabilities:
+    default: cpu-colibri
+    metal: metal-colibri
+    nvidia: cuda12-colibri
+    nvidia-cuda-12: cuda12-colibri
+    nvidia-cuda-13: cuda13-colibri
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-colibri
+    vulkan: vulkan-colibri
+  channel: latest
+  description: |
+    EXPERIMENTAL. Runs colibri (https://github.com/JustVugg/colibri), an engine for very large
+    mixture-of-experts models that streams the experts from disk, so models far larger than RAM
+    can run on one machine. The backend starts colibri's `coli serve` gateway on a loopback port;
+    colibri renders the chat template and parses tool calls, and the backend returns content,
+    reasoning and tool calls to LocalAI. Text generation only. Models are GGUF files (imported
+    once with `coli import`) or colibri model directories. The image ships the pinned,
+    checksum-verified colibri release and a portable Python. Targets: CPU and Vulkan
+    (Linux x86_64 and arm64), NVIDIA CUDA 12 and 13 (Linux x86_64) and NVIDIA arm64
+    (CUDA 13: Jetson Orin and Thor, DGX Spark), Apple Silicon. colibri publishes no
+    Linux CUDA build: the CUDA images compile its engines from the pinned release source.
+  id: cuda13-colibri
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:latest-gpu-nvidia-cuda-13-colibri
+  mutable: true
+  name: cuda13-colibri
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+    - CPU
+    - Vulkan
+    - CUDA
+    - Metal
+  urls:
+    - https://github.com/JustVugg/colibri
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/colibri
+  version: 0.0.0-latest
+- alias: colibri
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-colibri
+  capabilities:
+    default: cpu-colibri
+    metal: metal-colibri
+    nvidia: cuda12-colibri
+    nvidia-cuda-12: cuda12-colibri
+    nvidia-cuda-13: cuda13-colibri
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-colibri
+    vulkan: vulkan-colibri
+  channel: development
+  description: |
+    EXPERIMENTAL. Runs colibri (https://github.com/JustVugg/colibri), an engine for very large
+    mixture-of-experts models that streams the experts from disk, so models far larger than RAM
+    can run on one machine. The backend starts colibri's `coli serve` gateway on a loopback port;
+    colibri renders the chat template and parses tool calls, and the backend returns content,
+    reasoning and tool calls to LocalAI. Text generation only. Models are GGUF files (imported
+    once with `coli import`) or colibri model directories. The image ships the pinned,
+    checksum-verified colibri release and a portable Python. Targets: CPU and Vulkan
+    (Linux x86_64 and arm64), NVIDIA CUDA 12 and 13 (Linux x86_64) and NVIDIA arm64
+    (CUDA 13: Jetson Orin and Thor, DGX Spark), Apple Silicon. colibri publishes no
+    Linux CUDA build: the CUDA images compile its engines from the pinned release source.
+  id: cuda13-colibri-development
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:master-gpu-nvidia-cuda-13-colibri
+  mutable: true
+  name: cuda13-colibri-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+    - CPU
+    - Vulkan
+    - CUDA
+    - Metal
+  urls:
+    - https://github.com/JustVugg/colibri
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/colibri
+  version: 0.0.0-development
+- alias: colibri
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-colibri
+  capabilities:
+    default: cpu-colibri
+    metal: metal-colibri
+    nvidia: cuda12-colibri
+    nvidia-cuda-12: cuda12-colibri
+    nvidia-cuda-13: cuda13-colibri
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-colibri
+    vulkan: vulkan-colibri
+  channel: latest
+  description: |
+    EXPERIMENTAL. Runs colibri (https://github.com/JustVugg/colibri), an engine for very large
+    mixture-of-experts models that streams the experts from disk, so models far larger than RAM
+    can run on one machine. The backend starts colibri's `coli serve` gateway on a loopback port;
+    colibri renders the chat template and parses tool calls, and the backend returns content,
+    reasoning and tool calls to LocalAI. Text generation only. Models are GGUF files (imported
+    once with `coli import`) or colibri model directories. The image ships the pinned,
+    checksum-verified colibri release and a portable Python. Targets: CPU and Vulkan
+    (Linux x86_64 and arm64), NVIDIA CUDA 12 and 13 (Linux x86_64) and NVIDIA arm64
+    (CUDA 13: Jetson Orin and Thor, DGX Spark), Apple Silicon. colibri publishes no
+    Linux CUDA build: the CUDA images compile its engines from the pinned release source.
+  id: cuda13-nvidia-l4t-arm64-colibri
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-colibri
+  mutable: true
+  name: cuda13-nvidia-l4t-arm64-colibri
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+    - CPU
+    - Vulkan
+    - CUDA
+    - Metal
+  urls:
+    - https://github.com/JustVugg/colibri
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/colibri
+  version: 0.0.0-latest
+- alias: colibri
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-colibri
+  capabilities:
+    default: cpu-colibri
+    metal: metal-colibri
+    nvidia: cuda12-colibri
+    nvidia-cuda-12: cuda12-colibri
+    nvidia-cuda-13: cuda13-colibri
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-colibri
+    vulkan: vulkan-colibri
+  channel: development
+  description: |
+    EXPERIMENTAL. Runs colibri (https://github.com/JustVugg/colibri), an engine for very large
+    mixture-of-experts models that streams the experts from disk, so models far larger than RAM
+    can run on one machine. The backend starts colibri's `coli serve` gateway on a loopback port;
+    colibri renders the chat template and parses tool calls, and the backend returns content,
+    reasoning and tool calls to LocalAI. Text generation only. Models are GGUF files (imported
+    once with `coli import`) or colibri model directories. The image ships the pinned,
+    checksum-verified colibri release and a portable Python. Targets: CPU and Vulkan
+    (Linux x86_64 and arm64), NVIDIA CUDA 12 and 13 (Linux x86_64) and NVIDIA arm64
+    (CUDA 13: Jetson Orin and Thor, DGX Spark), Apple Silicon. colibri publishes no
+    Linux CUDA build: the CUDA images compile its engines from the pinned release source.
+  id: cuda13-nvidia-l4t-arm64-colibri-development
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-colibri
+  mutable: true
+  name: cuda13-nvidia-l4t-arm64-colibri-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+    - CPU
+    - Vulkan
+    - CUDA
+    - Metal
+  urls:
+    - https://github.com/JustVugg/colibri
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/colibri
+  version: 0.0.0-development

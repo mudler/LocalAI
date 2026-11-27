@@ -66,6 +66,7 @@ jobs:
       parakeet-cpp: ${{ steps.detect.outputs.parakeet-cpp }}
       nemo-speech-cpp: ${{ steps.detect.outputs.nemo-speech-cpp }}
       strata: ${{ steps.detect.outputs.strata }}
+      colibri: ${{ steps.detect.outputs.colibri }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -922,6 +923,34 @@ jobs:
       - name: Run the gRPC e2e suite against the stub engine
         run: |
           make test-extra-backend-strata
+  # The colibri backend's unit suite. The test binary stands in for `coli
+  # serve` (a stub HTTP gateway), so it needs no model, no Python and no
+  # colibri release: it covers the request translation, ChatDeltas, cancel,
+  # start-error reporting and crash recovery of the child process.
+  tests-colibri:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.colibri == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Proto Dependencies
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Check the release pins
+        run: make -C backend/go/colibri check-pins
+      - name: Test colibri
+        run: make -C backend/go/colibri test
   # Per-backend unit suite for nemo-speech-cpp. This job exists for one reason
   # above all: abi_test.go asserts the size and field offsets of every Go mirror
   # struct against the C ABI it is dlopened into. Those assertions are the only
