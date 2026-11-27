@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/xlog"
@@ -128,10 +127,6 @@ func (h *Handlers) prepare(c echo.Context) (*plugins.Service, plugins.Actor, boo
 	return svc, a, ok
 }
 
-// toolContextHeaders mark a request made by a tool, an agent run or an MCP
-// session.
-var toolContextHeaders = []string{"Mcp-Session-Id", "X-LocalAI-Tool-Call", "X-LocalAI-Agent", "X-LocalAI-Execution-Context", "X-Mcp-Session-Id"}
-
 // humanSurface reports whether the request comes from a person's browser tab
 // that confirms what it names (spec 9.2), as the add-on host grants require:
 //
@@ -157,10 +152,8 @@ func (h *Handlers) humanSurface(c echo.Context, confirm string) bool {
 	if auth.GetAPIKey(c) != nil || !auth.IsWebSession(c, h.d.AuthOn) {
 		return false
 	}
-	for _, name := range toolContextHeaders {
-		if hd.Get(name) != "" {
-			return false
-		}
+	if auth.HasToolContext(hd) {
+		return false
 	}
 	if site := hd.Get("Sec-Fetch-Site"); site != "" {
 		if site != "same-origin" || hd.Get("Sec-Fetch-Dest") != "empty" {
@@ -171,12 +164,7 @@ func (h *Handlers) humanSurface(c echo.Context, confirm string) bool {
 		}
 		return true
 	}
-	src := hd.Get("Origin")
-	if src == "" {
-		src = hd.Get("Referer")
-	}
-	u, err := url.Parse(src)
-	return src != "" && err == nil && u.Host != "" && strings.EqualFold(u.Host, r.Host)
+	return auth.SameHostBrowserRequest(r)
 }
 
 // fail maps an error of the service to its answer (spec 16).

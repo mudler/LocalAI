@@ -15,12 +15,6 @@ import (
 // confirmation surface sets it from the proposal the human is looking at.
 const ConfirmHeader = "X-LocalAI-Confirm"
 
-// toolContextHeaders mark a request made by a tool, an agent run or an MCP
-// session. A confirmation that carries any of them is refused, whatever else
-// it carries. They are a second line: the credential rules below already
-// exclude every caller that has no browser session.
-var toolContextHeaders = []string{"Mcp-Session-Id", "X-LocalAI-Tool-Call", "X-LocalAI-Agent", "X-LocalAI-Execution-Context", "X-Mcp-Session-Id"}
-
 // ConfirmRequest names what the human was shown.
 type ConfirmRequest struct {
 	// Digest is the digest of the proposal as it was displayed.
@@ -61,10 +55,10 @@ func humanSurface(c echo.Context, s settings, a contract.Actor, id string) bool 
 	if auth.GetAPIKey(c) != nil {
 		return false
 	}
-	for _, name := range toolContextHeaders {
-		if h.Get(name) != "" {
-			return false
-		}
+	// The tool markers are a second line: the credential rules above
+	// already exclude every caller that has no browser session.
+	if auth.HasToolContext(h) {
+		return false
 	}
 	if site := h.Get("Sec-Fetch-Site"); site != "" {
 		if site != "same-origin" || h.Get("Sec-Fetch-Dest") != "empty" {
@@ -73,7 +67,7 @@ func humanSurface(c echo.Context, s settings, a contract.Actor, id string) bool 
 		if mode := h.Get("Sec-Fetch-Mode"); mode != "cors" && mode != "same-origin" {
 			return false
 		}
-	} else if !sameHostBrowserRequest(c.Request()) {
+	} else if !auth.SameHostBrowserRequest(c.Request()) {
 		// Browsers omit Sec-Fetch-* over plain HTTP on an address that is not
 		// localhost. Without Sec-Fetch-Site the request must still name this
 		// host in Origin or, when Origin is absent, Referer. A stray

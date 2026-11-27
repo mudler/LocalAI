@@ -1,6 +1,12 @@
 package auth
 
-import "github.com/labstack/echo/v4"
+import (
+	"net/http"
+	"net/url"
+	"strings"
+
+	"github.com/labstack/echo/v4"
+)
 
 // IsWebSession reports whether the request comes from the web UI: a session
 // cookie, a legacy key the UI keeps in its token cookie, or any request when
@@ -24,4 +30,37 @@ func IsWebSession(c echo.Context, authOn bool) bool {
 		return !header
 	}
 	return false
+}
+
+// ToolContextHeaders mark a request made by a tool, an agent run or an MCP
+// session. A confirmation that carries any of them is refused, whatever else
+// it carries.
+var ToolContextHeaders = []string{"Mcp-Session-Id", "X-LocalAI-Tool-Call", "X-LocalAI-Agent", "X-LocalAI-Execution-Context", "X-Mcp-Session-Id"}
+
+// HasToolContext reports whether h carries any of ToolContextHeaders.
+func HasToolContext(h http.Header) bool {
+	for _, name := range ToolContextHeaders {
+		if h.Get(name) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// SameHostBrowserRequest reports whether Origin, or failing that Referer,
+// names the same host and port as the request. A malformed or "null" value
+// never matches. When Origin is present, Referer is not consulted.
+func SameHostBrowserRequest(r *http.Request) bool {
+	source := r.Header.Get("Origin")
+	if source == "" {
+		source = r.Header.Get("Referer")
+	}
+	if source == "" {
+		return false
+	}
+	u, err := url.Parse(source)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	return strings.EqualFold(u.Host, r.Host)
 }
