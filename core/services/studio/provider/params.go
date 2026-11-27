@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/cogito/clients"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/priority"
 	"github.com/mudler/LocalAI/core/privacy"
 )
 
@@ -37,7 +38,12 @@ type Params struct {
 	// Privacy is the incognito level of the chat. Every request of the client
 	// carries it in its context, so the chat route keeps what the level
 	// allows (no trace, counters only, for zero-retention).
-	Privacy         privacy.Level
+	Privacy privacy.Level
+	// Priority is the class the backend serves the chat's requests with
+	// (core/priority): Interactive when a person waits, Batch for work that
+	// runs on its own. It rides in the request context, which the chat route
+	// trusts only from the internal user, so it needs a user.
+	Priority        priority.Class
 	Temperature     *float64
 	TopP            *float64
 	TopK            *int
@@ -105,7 +111,7 @@ func (p *Provider) LLMWith(user *auth.User, model string, params Params) cogito.
 }
 
 func (p Params) isZero() bool {
-	return p.Privacy == privacy.Normal && p.Temperature == nil && p.TopP == nil && p.TopK == nil && p.ReasoningEffort == "" && p.OnUsage == nil && p.TakeVideos == nil && !p.OnlyLastImages && !p.PreserveThinking
+	return p.Privacy == privacy.Normal && p.Priority == priority.Default && p.Temperature == nil && p.TopP == nil && p.TopK == nil && p.ReasoningEffort == "" && p.OnUsage == nil && p.TakeVideos == nil && !p.OnlyLastImages && !p.PreserveThinking
 }
 
 type paramsTransport struct {
@@ -116,6 +122,9 @@ type paramsTransport struct {
 func (t *paramsTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if t.params.Privacy.Incognito() {
 		req = req.WithContext(privacy.WithLevel(req.Context(), t.params.Privacy))
+	}
+	if t.params.Priority != priority.Default {
+		req = req.WithContext(priority.WithClass(req.Context(), t.params.Priority))
 	}
 	if req.Method != http.MethodPost || !strings.HasSuffix(req.URL.Path, "/chat/completions") || req.Body == nil {
 		return t.next.RoundTrip(req)

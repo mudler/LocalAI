@@ -158,6 +158,13 @@ var _ = Describe("service_tier and the request priority class", func() {
 		Expect(got.Class).To(Equal(0))
 	})
 
+	It("keeps a context class on a server with no authentication", func() {
+		appConfig.Auth.Enabled = false
+		ctx := priority.WithClass(context.Background(), priority.Batch)
+		_, got := serve("/v1/chat/completions", chat(""), nil, ctx)
+		Expect(got.Class).To(Equal(-1))
+	})
+
 	It("ignores a class in the context of a request that is not the internal user's", func() {
 		ctx := priority.WithClass(context.Background(), priority.Interactive)
 		_, got := serve("/v1/chat/completions", chat(""), user, ctx)

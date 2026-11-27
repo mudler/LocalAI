@@ -17,18 +17,21 @@ import (
 // An in-process request of LocalAI's own callers (the chat loop, as the
 // internal user) keeps the class its context carries: the caller knows whether
 // a person waits. A network request cannot carry a Go context value, and the
-// class of any context that is not the internal user's is ignored, so the
-// class of a network request comes from its service_tier only. A caller may
-// lower its class (flex); only an administrator may raise it (priority), and
-// so may anyone on a server with no authentication at all, where every caller
-// already has an administrator's reach.
+// class of any other context is ignored, so the class of a network request
+// comes from its service_tier only. A caller may lower its class (flex); only
+// an administrator may raise it (priority), and so may anyone on a server with
+// no authentication at all, where every caller already has an administrator's
+// reach. On such a server the chat loop has no user to act as, so its context
+// class is trusted there too: it grants nothing service_tier would not.
 func requestPriority(c echo.Context, reqCtx context.Context, appConfig *config.ApplicationConfig, serviceTier string) (priority.Class, error) {
-	if _, internal := auth.InternalUser(reqCtx); internal {
+	mayRaise := mayRaisePriority(c, appConfig)
+	_, internal := auth.InternalUser(reqCtx)
+	if internal || (mayRaise && auth.GetUser(c) == nil) {
 		if cls, ok := priority.FromContext(reqCtx); ok {
 			return cls, nil
 		}
 	}
-	cls, err := priority.Decide(serviceTier, mayRaisePriority(c, appConfig))
+	cls, err := priority.Decide(serviceTier, mayRaise)
 	if errors.Is(err, priority.ErrInvalidServiceTier) {
 		return priority.Default, echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}

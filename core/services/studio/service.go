@@ -1997,6 +1997,8 @@ func (s *Service) llmFor(a workspace.Actor) (nibharness.Model, error) {
 		PreserveThinking: s.d.PreserveThinking == nil || s.d.PreserveThinking(rec.Model),
 		// The model route keeps what the chat's privacy level lets it keep.
 		Privacy: s.incognito.Level(a.ChatID),
+		// A chat a person waits on goes before work that runs on its own.
+		Priority: chatPriority(rec),
 	}
 	m := nibharness.Model{
 		LLM: s.d.Provider.LLMWith(user, rec.Model, params), Name: rec.Model,
