@@ -705,8 +705,8 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await expect(tab(page, 'Find add-ons')).toHaveAttribute('aria-selected', 'true')
     await expect(page).toHaveURL(/tab=browse/)
     await page.keyboard.press('End')
-    // Host access is the last tab for an administrator.
-    await expect(tab(page, 'Host access')).toHaveAttribute('aria-selected', 'true')
+    // Plugins is the last tab for an administrator.
+    await expect(tab(page, 'Plugins')).toHaveAttribute('aria-selected', 'true')
     await page.keyboard.press('Home')
     await expect(tab(page, 'Installed')).toHaveAttribute('aria-selected', 'true')
     // The selected tab is the only one in the tab order.

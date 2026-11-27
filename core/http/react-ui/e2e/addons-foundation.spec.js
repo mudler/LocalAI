@@ -80,7 +80,9 @@ test.describe('Add-ons foundation through real servers', () => {
       const { context, page } = await browserAs(browser, node, 'member')
       await page.goto('/app/addons')
       await expect(card(page)).toBeVisible({ timeout: 30_000 })
-      await expect(page.getByRole('tablist')).toHaveCount(0)
+      // A member with the plugins feature has the Plugins tab next to the
+      // list, and no tab of an administrator.
+      await expect(page.getByRole('tab')).toHaveText([/^Installed/, 'Plugins'])
       await expect(page.getByRole('button', { name: /^Turn (on|off)$/ })).toHaveCount(0)
       await expect(page.getByRole('link', { name: 'Manage' })).toHaveCount(0)
       // The detail sheet hides them as well.
