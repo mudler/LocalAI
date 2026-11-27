@@ -2162,7 +2162,7 @@ func (r *NodeRegistry) FindNodesWithModel(ctx context.Context, modelName string)
 	var nodes []BackendNode
 	if err := r.db.WithContext(ctx).Joins("JOIN node_models ON node_models.node_id = backend_nodes.id").
 		Where("node_models.model_name = ? AND node_models.state = ? AND backend_nodes.status IN ?",
-			modelName, "loaded", []string{StatusHealthy, StatusDraining}).
+			modelName, "loaded", servingNodeStatuses).
 		Where("NOT EXISTS (SELECT 1 FROM model_config_states WHERE model_config_states.model_name = node_models.model_name) OR node_models.config_revision = (SELECT config_revision FROM model_config_states WHERE model_config_states.model_name = node_models.model_name)").
 		Order("node_models.in_flight ASC").
 		Find(&nodes).Error; err != nil {

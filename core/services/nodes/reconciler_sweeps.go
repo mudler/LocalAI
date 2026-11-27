@@ -24,8 +24,8 @@ func (rc *ReplicaReconciler) sweepCandidates(ctx context.Context, nodeID string,
 		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 		Where("node_models.state = ? AND node_models.in_flight = 0 AND backend_nodes.status = ?", "loaded", StatusHealthy).
 		Where(`(SELECT COUNT(*) FROM node_models nm2 WHERE nm2.model_name = node_models.model_name AND nm2.state = 'loaded'
-    AND nm2.node_id NOT IN (SELECT id FROM backend_nodes WHERE status = 'draining'))
-  > COALESCE((SELECT MAX(sc.min_replicas) FROM model_scheduling_configs sc WHERE COALESCE(NULLIF(sc.target_model, ''), sc.model_name) = node_models.model_name), 0)`)
+    AND nm2.node_id NOT IN (SELECT id FROM backend_nodes WHERE status = ?))
+  > COALESCE((SELECT MAX(sc.min_replicas) FROM model_scheduling_configs sc WHERE COALESCE(NULLIF(sc.target_model, ''), sc.model_name) = node_models.model_name), 0)`, StatusDraining)
 	if nodeID != "" {
 		q = q.Where("node_models.node_id = ?", nodeID)
 	}
