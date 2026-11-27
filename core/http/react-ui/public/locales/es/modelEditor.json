@@ -5,7 +5,6 @@
     },
     "engineSettings": {
         "title": "Ajuste del tiempo de ejecución",
-        "lead": "Cómo {{engine}} carga y ejecuta este modelo. Cada campo es un flag de {{binary}}. Un campo vacío mantiene el valor predeterminado.",
         "leadNoCommand": "Cómo {{engine}} carga y ejecuta este modelo. Un campo vacío mantiene el valor predeterminado.",
         "loading": "Cargando los ajustes de {{engine}}",
         "default": "Predeterminado",
@@ -134,7 +133,7 @@
         },
         "hints": {
             "load_mode": "Cómo se lee el archivo del modelo. Escribe mmap, mmlock y la opción direct_io.",
-            "backend_sampling": "Dónde se muestrean los tokens. Un backend sin muestreo en GPU ignora el ajuste."
+            "backend_sampling": "Dónde se elige el siguiente token: en la CPU o en la GPU."
         },
         "errors": {
             "notInteger": "Escribe un número entero.",
@@ -259,13 +258,9 @@
             "title": "Configuración rápida",
             "custom": "Personalizada",
             "customText": "Ajusta tú los campos de abajo.",
-            "current": "Tus ajustes",
             "estimating": "Estimando...",
-            "noEstimate": "Sin estimación",
-            "same": "Más o menos la misma memoria",
             "more": "≈ {{size}} más de memoria",
             "less": "≈ {{size}} menos de memoria",
-            "now": "Ahora: caché KV ≈ {{kv}} y búferes de cálculo ≈ {{compute}} con {{context}} tokens, además de los pesos.",
             "estimate": "Estas cifras son estimaciones.",
             "approximate": "Estimaciones aproximadas: la estructura del modelo no se leyó del archivo.",
             "failed": "La estimación de memoria no está disponible.",
@@ -277,30 +272,41 @@
             "unsupported": "No disponible aquí",
             "needs": "Necesita {{size}} de memoria",
             "noFit": "No cabe: ≈ {{size}} de {{limit}}",
-            "shared": "Los slots comparten una sola caché KV, así que más flujos necesitan más o menos la misma memoria: cada flujo recibe una parte menor del contexto."
+            "shared": "Los slots comparten una sola caché KV, así que más flujos necesitan más o menos la misma memoria: cada flujo recibe una parte menor del contexto.",
+            "compare": "Comparar configuraciones",
+            "nowLabel": "Memoria ahora",
+            "nowShort": "Caché KV ≈ {{kv}}, búferes de cálculo ≈ {{compute}}, con {{context}} tokens",
+            "estimateShort": "Estimación",
+            "approximateShort": "Estimación aproximada",
+            "moreShort": "+{{size}}",
+            "lessShort": "−{{size}}"
         },
         "profiles": {
             "balanced": {
                 "name": "Equilibrado",
-                "text": "Los tamaños de lote predeterminados: LocalAI los elige para tu GPU."
+                "text": "Los tamaños de lote predeterminados: LocalAI los elige para tu GPU.",
+                "line": "Tamaños de lote que LocalAI elige para su GPU."
             },
             "longPrompts": {
                 "name": "Prompts largos",
                 "text": "Un lote de 2048. Los prompts largos se leen mucho más rápido; los búferes de cálculo usan más memoria.",
                 "memory": {
                     "discrete": "En una GPU dedicada el microlote es 1024: su búfer de cálculo debe caber en una sola tarjeta."
-                }
+                },
+                "line": "Lee los prompts largos mucho más rápido. Usa más memoria."
             },
             "concurrencyDefault": {
                 "name": "Predeterminado",
                 "text": "LocalAI elige los slots para tu GPU y el backend usa sus valores predeterminados.",
-                "bestFor": "Una persona o pocas."
+                "bestFor": "Una persona o pocas.",
+                "line": "Para una persona o unas pocas. LocalAI elige los slots."
             },
             "streams8": {
                 "name": "8 flujos",
                 "text": "8 slots con servicio paginado: las solicitudes comparten la caché KV y esperan en lugar de fallar cuando está llena.",
                 "bestFor": "Un equipo que chatea con un modelo.",
-                "short": "8"
+                "short": "8",
+                "line": "Para un equipo que chatea con un modelo."
             },
             "streams16": {
                 "name": "16 flujos",
@@ -309,7 +315,8 @@
                 "memory": {
                     "system": "Sin GPU: los tokens se muestrean en la CPU."
                 },
-                "short": "16"
+                "short": "16",
+                "line": "Para agentes y herramientas que envían solicitudes en paralelo."
             },
             "streams32": {
                 "name": "32+ flujos",
@@ -319,7 +326,8 @@
                     "discrete": "Caché KV de 8 bits: caben el doble de tokens, con un pequeño coste en calidad y velocidad.",
                     "system": "No disponible sin GPU: una CPU repartida entre 32 flujos hace que cada uno sea demasiado lento."
                 },
-                "short": "32+"
+                "short": "32+",
+                "line": "Para trabajos por lotes y muchos usuarios. El máximo de tokens por segundo en total."
             }
         },
         "choiceHints": {
@@ -335,7 +343,7 @@
         "groupCount": "{{count}} ajustes",
         "drafting": {
             "title": "Borrador (decodificación especulativa)",
-            "lead": "Un adivinador rápido propone los siguientes tokens y el modelo los comprueba todos en un paso. Cuando acierta, las respuestas llegan antes; la salida no cambia.",
+            "lead": "Un borrador rápido propone los siguientes tokens y el modelo los comprueba en un paso. Las respuestas llegan antes; la salida no cambia.",
             "mode": "Modo",
             "more": "Más opciones de borrador",
             "auto": "{{mode}} está activado por defecto: este modelo tiene un cabezal MTP, así que LocalAI hace borradores con él salvo que elijas Desactivado.",
@@ -405,7 +413,7 @@
             },
             "streams": {
                 "label": "Pausar el borrador con más de N flujos",
-                "hint": "El borrador se pausa mientras más solicitudes que este número generan a la vez y se reanuda cuando baja la carga. 0 nunca pausa. Las compilaciones sin servicio paginado lo ignoran."
+                "hint": "El borrador se pausa mientras generan a la vez más solicitudes que este número, y se reanuda cuando baja la carga. 0 nunca pausa."
             },
             "picker": {
                 "label": "Modelo borrador",
@@ -465,8 +473,11 @@
                 }
             },
             "advice": {
-                "unifiedLoadMode": "Con memoria unificada, un modelo mapeado en memoria ocupa el doble mientras se copia a la GPU. Predeterminado deja que llama.cpp evite mmap en GPU integradas."
+                "unifiedLoadMode": "Con memoria unificada, un modelo mapeado en memoria se guarda dos veces mientras carga. Default lo carga una vez."
             }
+        },
+        "flags": {
+            "show": "Mostrar flags de {{engine}}"
         }
     }
 }

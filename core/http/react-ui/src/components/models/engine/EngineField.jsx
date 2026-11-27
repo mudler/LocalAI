@@ -63,7 +63,7 @@ export default function RuntimeField({ item, values, onWrite, onValidity, readOn
   const errorId = `${id}-error`
   const hint = (
     <p className="dk-hint rt-field__hint" id={hintId}>
-      {item.flag && <code className="rt-flag" data-testid={`${id}-flag`}>{item.flag}</code>}
+      {item.flag && <code className="rt-flag rt-flag--hint" data-testid={`${id}-flag`}>{item.flag}</code>}
       {item.doc && <span>{item.doc}</span>}
     </p>
   )

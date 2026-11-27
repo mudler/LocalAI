@@ -43,9 +43,15 @@ test.describe('Runtime tuning: when it shows', () => {
       'parameters-temperature': '--temp', 'parameters-top_p': '--top-p', 'parameters-top_k': '--top-k',
       'parameters-min_p': '--min-p', 'options-use_jinja': '--jinja', 'parameters-batch': '-b',
     }
+    // The flags are hidden until asked for, and the choice is kept.
+    await expect(page.getByTestId('rt-context_size-flag')).toBeHidden()
+    await page.getByTestId('rt-flags-toggle').click()
     for (const [id, flag] of Object.entries(flags)) {
       await expect(page.getByTestId(`rt-${id}-flag`), id).toHaveText(flag)
     }
+    await expect(page.getByTestId('rt-context_size-flag')).toBeVisible()
+    await page.reload()
+    await expect(page.getByTestId('rt-context_size-flag')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('rt-load-mode')).toHaveValue('default')
     await expect(page.getByTestId('rt-load-mode-field')).toContainText('--load-mode')
     await expect(field(page, 'context_size')).toHaveValue('8192')

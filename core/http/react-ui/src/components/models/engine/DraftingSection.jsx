@@ -109,17 +109,30 @@ export default function DraftingSection({ schema, engine, model, values, more, c
       <legend className="rt-group__title">{t('engineSettings.drafting.title')}</legend>
       <p className="dk-hint rt-group__lead">{t('engineSettings.drafting.lead')}</p>
 
-      <div className="rt-draft__choice">
-        <span className="dk-label" id="rt-draft-mode-label">{t('engineSettings.drafting.mode')}</span>
-        <Segmented
-          mode="radio"
-          labelledBy="rt-draft-mode-label"
-          value={shown === CUSTOM_MODE ? '' : shown}
-          options={offered.map(m => ({ id: m.id, label: modeWords(m, 'label', m.label), disabled: readOnly }))}
-          onChange={choose}
-          itemTestId="rt-draft-mode-"
-          testId="rt-draft-mode"
-        />
+      <div className="rt-quick__set rt-draft__choice">
+        <span className="rt-quick__title" id="rt-draft-mode-label">{t('engineSettings.drafting.mode')}</span>
+        <div className="rt-quick__control">
+          <Segmented
+            mode="radio"
+            labelledBy="rt-draft-mode-label"
+            value={shown === CUSTOM_MODE ? '' : shown}
+            options={offered.map(m => ({ id: m.id, label: modeWords(m, 'label', m.label), disabled: readOnly }))}
+            onChange={choose}
+            itemTestId="rt-draft-mode-"
+            testId="rt-draft-mode"
+          />
+          {mode && (
+            <div className="rt-draft__about" data-testid={`rt-draft-panel-${mode.id}`}>
+              <p className="rt-quick__line">{modeWords(mode, 'doc', mode.doc)}</p>
+              {mode.note && (
+                <p className="rt-draft__note" data-testid="rt-draft-note">
+                  <Icon name="scale" className="rt-draft__note-icon" />
+                  <span>{modeWords(mode, 'note', mode.note)}</span>
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {read.mode === CUSTOM_MODE && !pending && (
@@ -128,21 +141,14 @@ export default function DraftingSection({ schema, engine, model, values, more, c
         </Callout>
       )}
 
-      {mode && (
-        <div className="rt-draft__panel" data-testid={`rt-draft-panel-${mode.id}`}>
-          <p className="rt-draft__doc">{modeWords(mode, 'doc', mode.doc)}</p>
-          {mode.note && (
-            <p className="rt-draft__note" data-testid="rt-draft-note">
-              <Icon name="scale" className="rt-draft__note-icon" />
-              <span>{modeWords(mode, 'note', mode.note)}</span>
-            </p>
-          )}
-          {read.auto && shown === read.mode && (
-            <Callout tone="info" testId="rt-draft-auto">
-              {t('engineSettings.drafting.auto', { mode: modeWords(mode, 'label', mode.label) })}
-            </Callout>
-          )}
+      {mode && read.auto && shown === read.mode && (
+        <Callout tone="info" testId="rt-draft-auto">
+          {t('engineSettings.drafting.auto', { mode: modeWords(mode, 'label', mode.label) })}
+        </Callout>
+      )}
 
+      {mode && (mode.model || fields.length > 0) && (
+        <div className="rt-draft__panel">
           {mode.model && (
             <DraftPicker
               t={t}
@@ -231,7 +237,7 @@ function DraftPicker({ t, engine, read, current, candidates, onPick, error, read
           testId="rt-draft-model"
         />
         <p className="dk-hint rt-field__hint" id="rt-draft-model-hint">
-          <code className="rt-flag">draft_model</code>
+          <code className="rt-flag rt-flag--hint">draft_model</code>
           <span>{t('engineSettings.drafting.picker.hint')}</span>
         </p>
       </div>

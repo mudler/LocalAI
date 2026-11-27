@@ -41,7 +41,6 @@
     },
     "engineSettings": {
         "title": "Çalışma zamanı ayarı",
-        "lead": "{{engine}} bu modeli nasıl yükler ve çalıştırır. Her alan bir {{binary}} bayrağıdır. Boş bir alan varsayılanı korur.",
         "leadNoCommand": "{{engine}} bu modeli nasıl yükler ve çalıştırır. Boş bir alan varsayılanı korur.",
         "loading": "{{engine}} ayarları yükleniyor",
         "default": "Varsayılan",
@@ -170,7 +169,7 @@
         },
         "hints": {
             "load_mode": "Model dosyasının nasıl okunacağı. mmap, mmlock ve direct_io seçeneğini yazar.",
-            "backend_sampling": "Token'ların nerede örnekleneceği. GPU örneklemesi olmayan bir backend bu ayarı yok sayar."
+            "backend_sampling": "Sonraki tokenın seçildiği yer: CPU ya da GPU."
         },
         "errors": {
             "notInteger": "Bir tam sayı yaz.",
@@ -293,7 +292,7 @@
         },
         "drafting": {
             "title": "Taslak (spekülatif çözümleme)",
-            "lead": "Hızlı bir tahminci sonraki tokenları önerir ve model hepsini tek adımda denetler. Tahminler doğruysa yanıtlar daha hızlı gelir; çıktı aynı kalır.",
+            "lead": "Hızlı bir taslakçı sonraki tokenları önerir, model bunları tek adımda denetler. Yanıtlar daha hızlı gelir; çıktı aynı kalır.",
             "mode": "Mod",
             "more": "Diğer taslak seçenekleri",
             "auto": "{{mode}} varsayılan olarak açık: bu modelde bir MTP başlığı var, bu yüzden siz Kapalı seçmedikçe LocalAI onunla taslak üretir.",
@@ -363,7 +362,7 @@
             },
             "streams": {
                 "label": "N akışın üstünde taslağı duraklat",
-                "hint": "Aynı anda bu sayıdan fazla istek üretim yaparken taslak duraklar, yük düşünce devam eder. 0 hiç duraklatmaz. Sayfalı sunum içermeyen derlemeler bunu yok sayar."
+                "hint": "Aynı anda bundan fazla istek üretirken taslak duraklar, yük düşünce devam eder. 0 hiç duraklatmaz."
             },
             "picker": {
                 "label": "Taslak model",
@@ -403,13 +402,9 @@
             "title": "Hızlı kurulum",
             "custom": "Özel",
             "customText": "Aşağıdaki alanları kendin ayarla.",
-            "current": "Senin ayarların",
             "estimating": "Tahmin ediliyor...",
-            "noEstimate": "Tahmin yok",
-            "same": "Yaklaşık aynı bellek",
             "more": "≈ {{size}} daha fazla bellek",
             "less": "≈ {{size}} daha az bellek",
-            "now": "Şu an: ağırlıkların yanında, {{context}} token'da KV önbelleği ≈ {{kv}} ve hesaplama tamponları ≈ {{compute}}.",
             "estimate": "Bu rakamlar tahmindir.",
             "approximate": "Kaba tahminler: model düzeni dosyadan okunmadı.",
             "failed": "Bellek tahmini kullanılamıyor.",
@@ -421,30 +416,41 @@
             "unsupported": "Burada sunulmuyor",
             "needs": "{{size}} bellek gerekir",
             "noFit": "Sığmıyor: ≈ {{size}} / {{limit}}",
-            "shared": "Yuvalar tek bir KV önbelleğini paylaşır; bu yüzden daha fazla akış yaklaşık aynı belleği ister: her akış bağlamın daha küçük bir payını alır."
+            "shared": "Yuvalar tek bir KV önbelleğini paylaşır; bu yüzden daha fazla akış yaklaşık aynı belleği ister: her akış bağlamın daha küçük bir payını alır.",
+            "compare": "Kurulumları karşılaştır",
+            "nowLabel": "Şu anki bellek",
+            "nowShort": "KV önbelleği ≈ {{kv}}, hesaplama tamponları ≈ {{compute}}, {{context}} token için",
+            "estimateShort": "Tahmin",
+            "approximateShort": "Kaba tahmin",
+            "moreShort": "+{{size}}",
+            "lessShort": "−{{size}}"
         },
         "profiles": {
             "balanced": {
                 "name": "Dengeli",
-                "text": "Varsayılan toplu iş boyutları: LocalAI bunları GPU'nuz için seçer."
+                "text": "Varsayılan toplu iş boyutları: LocalAI bunları GPU'nuz için seçer.",
+                "line": "LocalAI'nin GPU'nuz için seçtiği toplu iş boyutları."
             },
             "longPrompts": {
                 "name": "Uzun istemler",
                 "text": "2048'lik bir toplu iş. Uzun istemler çok daha hızlı okunur; hesaplama arabellekleri daha fazla bellek kullanır.",
                 "memory": {
                     "discrete": "Ayrık GPU'da mikro toplu iş 1024'tür: hesaplama arabelleği tek bir karta sığmalıdır."
-                }
+                },
+                "line": "Uzun istemleri çok daha hızlı okur. Daha fazla bellek kullanır."
             },
             "concurrencyDefault": {
                 "name": "Varsayılan",
                 "text": "LocalAI yuvaları GPU'nuz için seçer ve arka uç kendi varsayılanlarını kullanır.",
-                "bestFor": "Bir veya birkaç kişi."
+                "bestFor": "Bir veya birkaç kişi.",
+                "line": "Bir veya birkaç kişi için. Slotları LocalAI seçer."
             },
             "streams8": {
                 "name": "8 akış",
                 "text": "Sayfalı sunumla 8 yuva: istekler KV önbelleğini paylaşır ve önbellek dolunca başarısız olmak yerine bekler.",
                 "bestFor": "Tek bir modelle sohbet eden bir ekip.",
-                "short": "8"
+                "short": "8",
+                "line": "Tek bir modelle sohbet eden bir ekip için."
             },
             "streams16": {
                 "name": "16 akış",
@@ -453,7 +459,8 @@
                 "memory": {
                     "system": "GPU yok: belirteçler CPU'da örneklenir."
                 },
-                "short": "16"
+                "short": "16",
+                "line": "Paralel istek gönderen ajanlar ve araçlar için."
             },
             "streams32": {
                 "name": "32+ akış",
@@ -463,7 +470,8 @@
                     "discrete": "8 bitlik KV önbelleği: yaklaşık iki kat belirteç sığar, kalite ve hızda küçük bir kayıpla.",
                     "system": "GPU olmadan sunulmaz: 32 akışa bölünen bir CPU her birini fazla yavaşlatır."
                 },
-                "short": "32+"
+                "short": "32+",
+                "line": "Toplu işler ve çok sayıda kullanıcı için. Toplamda saniyede en çok token."
             }
         },
         "choiceHints": {
@@ -501,8 +509,11 @@
                 }
             },
             "advice": {
-                "unifiedLoadMode": "Birleşik bellekte, belleğe eşlenen bir model GPU'ya kopyalanırken iki kez yer kaplar. Varsayılan, llama.cpp'nin tümleşik GPU'larda mmap'i atlamasını sağlar."
+                "unifiedLoadMode": "Birleşik bellekte, belleğe eşlenen bir model yüklenirken iki kez tutulur. Default onu bir kez yükler."
             }
+        },
+        "flags": {
+            "show": "{{engine}} bayraklarını göster"
         }
     }
 }

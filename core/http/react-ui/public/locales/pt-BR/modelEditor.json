@@ -41,7 +41,6 @@
   },
   "engineSettings": {
     "title": "Ajuste de execução",
-    "lead": "Como o {{engine}} carrega e executa este modelo. Cada campo é uma flag do {{binary}}. Um campo vazio mantém o padrão.",
     "leadNoCommand": "Como o {{engine}} carrega e executa este modelo. Um campo vazio mantém o padrão.",
     "loading": "Carregando as configurações do {{engine}}",
     "default": "Padrão",
@@ -170,7 +169,7 @@
     },
     "hints": {
       "load_mode": "Como o arquivo do modelo é lido. Grava mmap, mmlock e a opção direct_io.",
-      "backend_sampling": "Onde os tokens são amostrados. Um backend sem amostragem na GPU ignora a configuração."
+      "backend_sampling": "Onde o próximo token é escolhido: na CPU ou na GPU."
     },
     "errors": {
       "notInteger": "Digite um número inteiro.",
@@ -295,13 +294,9 @@
       "title": "Configuração rápida",
       "custom": "Personalizada",
       "customText": "Ajuste você mesmo os campos abaixo.",
-      "current": "Suas configurações",
       "estimating": "Estimando...",
-      "noEstimate": "Sem estimativa",
-      "same": "Mais ou menos a mesma memória",
       "more": "≈ {{size}} a mais de memória",
       "less": "≈ {{size}} a menos de memória",
-      "now": "Agora: cache KV ≈ {{kv}} e buffers de cálculo ≈ {{compute}} com {{context}} tokens, além dos pesos.",
       "estimate": "Estes valores são estimativas.",
       "approximate": "Estimativas aproximadas: a estrutura do modelo não foi lida do arquivo.",
       "failed": "A estimativa de memória não está disponível.",
@@ -313,30 +308,41 @@
       "unsupported": "Não disponível aqui",
       "needs": "Precisa de {{size}} de memória",
       "noFit": "Não cabe: ≈ {{size}} de {{limit}}",
-      "shared": "Os slots compartilham um único cache KV, então mais fluxos precisam de mais ou menos a mesma memória: cada fluxo recebe uma parte menor do contexto."
+      "shared": "Os slots compartilham um único cache KV, então mais fluxos precisam de mais ou menos a mesma memória: cada fluxo recebe uma parte menor do contexto.",
+      "compare": "Comparar configurações",
+      "nowLabel": "Memória agora",
+      "nowShort": "Cache KV ≈ {{kv}}, buffers de cálculo ≈ {{compute}}, com {{context}} tokens",
+      "estimateShort": "Estimativa",
+      "approximateShort": "Estimativa aproximada",
+      "moreShort": "+{{size}}",
+      "lessShort": "−{{size}}"
     },
     "profiles": {
       "balanced": {
         "name": "Equilibrado",
-        "text": "Os tamanhos de lote padrão: o LocalAI os escolhe para sua GPU."
+        "text": "Os tamanhos de lote padrão: o LocalAI os escolhe para sua GPU.",
+        "line": "Tamanhos de lote que o LocalAI escolhe para sua GPU."
       },
       "longPrompts": {
         "name": "Prompts longos",
         "text": "Um lote de 2048. Prompts longos são lidos muito mais rápido; os buffers de cálculo usam mais memória.",
         "memory": {
           "discrete": "Em uma GPU dedicada o microlote é 1024: seu buffer de cálculo precisa caber em uma placa."
-        }
+        },
+        "line": "Lê prompts longos muito mais rápido. Usa mais memória."
       },
       "concurrencyDefault": {
         "name": "Padrão",
         "text": "O LocalAI escolhe os slots para sua GPU e o backend usa seus padrões.",
-        "bestFor": "Uma pessoa, ou poucas."
+        "bestFor": "Uma pessoa, ou poucas.",
+        "line": "Para uma pessoa ou poucas. O LocalAI escolhe os slots."
       },
       "streams8": {
         "name": "8 fluxos",
         "text": "8 slots com serviço paginado: as requisições compartilham o cache KV e esperam em vez de falhar quando ele enche.",
         "bestFor": "Uma equipe conversando com um modelo.",
-        "short": "8"
+        "short": "8",
+        "line": "Para uma equipe conversando com um modelo."
       },
       "streams16": {
         "name": "16 fluxos",
@@ -345,7 +351,8 @@
         "memory": {
           "system": "Sem GPU: os tokens são amostrados na CPU."
         },
-        "short": "16"
+        "short": "16",
+        "line": "Para agentes e ferramentas que enviam requisições em paralelo."
       },
       "streams32": {
         "name": "32+ fluxos",
@@ -355,7 +362,8 @@
           "discrete": "Cache KV de 8 bits: cabem cerca do dobro de tokens, com um pequeno custo em qualidade e velocidade.",
           "system": "Não disponível sem GPU: uma CPU dividida entre 32 fluxos deixa cada um lento demais."
         },
-        "short": "32+"
+        "short": "32+",
+        "line": "Para jobs em lote e muitos usuários. O máximo de tokens por segundo no total."
       }
     },
     "choiceHints": {
@@ -371,7 +379,7 @@
     "groupCount": "{{count}} configurações",
     "drafting": {
       "title": "Rascunho (decodificação especulativa)",
-      "lead": "Um adivinhador rápido propõe os próximos tokens e o modelo confere todos em um passo. Quando acerta, as respostas chegam mais rápido; a saída continua a mesma.",
+      "lead": "Um rascunhador rápido propõe os próximos tokens e o modelo os verifica em um passo. As respostas chegam mais rápido; a saída continua a mesma.",
       "mode": "Modo",
       "more": "Mais opções de rascunho",
       "auto": "{{mode}} vem ligado por padrão: este modelo tem uma cabeça MTP, então o LocalAI faz rascunhos com ela, a menos que você escolha Desligado.",
@@ -441,7 +449,7 @@
       },
       "streams": {
         "label": "Pausar o rascunho acima de N fluxos",
-        "hint": "O rascunho pausa enquanto mais pedidos do que este número geram ao mesmo tempo e volta quando a carga cai. 0 nunca pausa. Builds sem serviço paginado ignoram isto."
+        "hint": "O rascunho pausa enquanto mais requisições que este número geram ao mesmo tempo, e volta quando a carga cai. 0 nunca pausa."
       },
       "picker": {
         "label": "Modelo rascunho",
@@ -501,8 +509,11 @@
         }
       },
       "advice": {
-        "unifiedLoadMode": "Com memória unificada, um modelo mapeado em memória ocupa o dobro enquanto é copiado para a GPU. Padrão deixa o llama.cpp evitar mmap em GPUs integradas."
+        "unifiedLoadMode": "Em memória unificada, um modelo mapeado em memória fica duas vezes na memória enquanto carrega. Default o carrega uma vez."
       }
+    },
+    "flags": {
+      "show": "Mostrar flags do {{engine}}"
     }
   }
 }

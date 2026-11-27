@@ -122,7 +122,7 @@ export default function TensorPlacement({ engine, placement, values, onEntry, on
           </select>
         </span>
         <p className="dk-hint rt-field__hint" id="rt-ot-hint">
-          <code className="rt-flag">-ot</code>
+          <code className="rt-flag rt-flag--hint">-ot</code>
           <span>{t(`engineSettings.placement.help.${choice.mode}`)}</span>
         </p>
       </div>

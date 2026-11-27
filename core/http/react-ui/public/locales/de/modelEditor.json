@@ -5,7 +5,6 @@
     },
     "engineSettings": {
         "title": "Laufzeit-Tuning",
-        "lead": "Wie {{engine}} dieses Modell lädt und ausführt. Jedes Feld ist ein Flag von {{binary}}. Ein leeres Feld behält den Standardwert.",
         "leadNoCommand": "Wie {{engine}} dieses Modell lädt und ausführt. Ein leeres Feld behält den Standardwert.",
         "loading": "Die {{engine}}-Einstellungen werden geladen",
         "default": "Standard",
@@ -134,7 +133,7 @@
         },
         "hints": {
             "load_mode": "Wie die Modelldatei gelesen wird. Schreibt mmap, mmlock und die Option direct_io.",
-            "backend_sampling": "Wo Tokens gesampelt werden. Ein Backend ohne GPU-Sampling ignoriert die Einstellung."
+            "backend_sampling": "Wo das nächste Token gewählt wird: auf der CPU oder auf der GPU."
         },
         "errors": {
             "notInteger": "Geben Sie eine ganze Zahl ein.",
@@ -259,13 +258,9 @@
             "title": "Schnelleinrichtung",
             "custom": "Eigene",
             "customText": "Stellen Sie die Felder unten selbst ein.",
-            "current": "Ihre Einstellungen",
             "estimating": "Wird geschätzt...",
-            "noEstimate": "Keine Schätzung",
-            "same": "Etwa gleich viel Speicher",
             "more": "≈ {{size}} mehr Speicher",
             "less": "≈ {{size}} weniger Speicher",
-            "now": "Jetzt: KV-Cache ≈ {{kv}} und Rechenpuffer ≈ {{compute}} bei {{context}} Tokens, zusätzlich zu den Gewichten.",
             "estimate": "Diese Werte sind Schätzungen.",
             "approximate": "Grobe Schätzungen: Der Aufbau des Modells wurde nicht aus der Datei gelesen.",
             "failed": "Die Speicherschätzung ist nicht verfügbar.",
@@ -277,30 +272,41 @@
             "unsupported": "Hier nicht verfügbar",
             "needs": "Benötigt {{size}} Speicher",
             "noFit": "Passt nicht: ≈ {{size}} von {{limit}}",
-            "shared": "Die Slots teilen sich einen KV-Cache, daher brauchen mehr Streams etwa gleich viel Speicher: Jeder Stream erhält einen kleineren Teil des Kontexts."
+            "shared": "Die Slots teilen sich einen KV-Cache, daher brauchen mehr Streams etwa gleich viel Speicher: Jeder Stream erhält einen kleineren Teil des Kontexts.",
+            "compare": "Setups vergleichen",
+            "nowLabel": "Speicher jetzt",
+            "nowShort": "KV-Cache ≈ {{kv}}, Rechenpuffer ≈ {{compute}}, bei {{context}} Tokens",
+            "estimateShort": "Schätzung",
+            "approximateShort": "Grobe Schätzung",
+            "moreShort": "+{{size}}",
+            "lessShort": "−{{size}}"
         },
         "profiles": {
             "balanced": {
                 "name": "Ausgewogen",
-                "text": "Die Standard-Batchgrößen: LocalAI wählt sie für deine GPU."
+                "text": "Die Standard-Batchgrößen: LocalAI wählt sie für deine GPU.",
+                "line": "Batch-Größen, die LocalAI für Ihre GPU wählt."
             },
             "longPrompts": {
                 "name": "Lange Prompts",
                 "text": "Ein Batch von 2048. Lange Prompts werden viel schneller gelesen; die Rechenpuffer brauchen mehr Speicher.",
                 "memory": {
                     "discrete": "Auf einer dedizierten GPU ist der Micro-Batch 1024: Ihr Rechenpuffer muss auf eine Karte passen."
-                }
+                },
+                "line": "Liest lange Prompts viel schneller. Braucht mehr Speicher."
             },
             "concurrencyDefault": {
                 "name": "Standard",
                 "text": "LocalAI wählt die Slots für deine GPU, und das Backend nutzt seine Standardwerte.",
-                "bestFor": "Eine oder wenige Personen."
+                "bestFor": "Eine oder wenige Personen.",
+                "line": "Für eine oder wenige Personen. LocalAI wählt die Slots."
             },
             "streams8": {
                 "name": "8 Streams",
                 "text": "8 Slots mit Paged Serving: Anfragen teilen sich den KV-Cache und warten, statt bei vollem Cache zu scheitern.",
                 "bestFor": "Ein Team, das mit einem Modell chattet.",
-                "short": "8"
+                "short": "8",
+                "line": "Für ein Team, das mit einem Modell chattet."
             },
             "streams16": {
                 "name": "16 Streams",
@@ -309,7 +315,8 @@
                 "memory": {
                     "system": "Keine GPU: Tokens werden auf der CPU gesampelt."
                 },
-                "short": "16"
+                "short": "16",
+                "line": "Für Agenten und Tools, die Anfragen parallel senden."
             },
             "streams32": {
                 "name": "32+ Streams",
@@ -319,7 +326,8 @@
                     "discrete": "8-Bit-KV-Cache: Etwa doppelt so viele Tokens passen, bei etwas Verlust an Qualität und Tempo.",
                     "system": "Ohne GPU nicht verfügbar: Eine CPU, die sich 32 Streams teilt, macht jeden zu langsam."
                 },
-                "short": "32+"
+                "short": "32+",
+                "line": "Für Batch-Jobs und viele Nutzer. Die meisten Tokens pro Sekunde insgesamt."
             }
         },
         "choiceHints": {
@@ -335,7 +343,7 @@
         "groupCount": "{{count}} Einstellungen",
         "drafting": {
             "title": "Entwürfe (spekulative Dekodierung)",
-            "lead": "Ein schneller Rater schlägt die nächsten Tokens vor, und das Modell prüft sie alle in einem Schritt. Liegen die Vorschläge richtig, kommen Antworten schneller; die Ausgabe bleibt gleich.",
+            "lead": "Ein schneller Entwurf schlägt die nächsten Tokens vor, und das Modell prüft sie in einem Schritt. Antworten kommen schneller; die Ausgabe bleibt gleich.",
             "mode": "Modus",
             "more": "Weitere Entwurfsoptionen",
             "auto": "{{mode}} ist standardmäßig an: Dieses Modell hat einen MTP-Kopf, daher erstellt LocalAI damit Entwürfe, außer du wählst Aus.",
@@ -405,7 +413,7 @@
             },
             "streams": {
                 "label": "Entwürfe über N Streams pausieren",
-                "hint": "Entwürfe pausieren, solange mehr Anfragen als dieser Wert gleichzeitig generieren, und laufen weiter, wenn die Last sinkt. 0 pausiert nie. Builds ohne Paged Serving ignorieren den Wert."
+                "hint": "Entwürfe pausieren, solange mehr Anfragen als dieser Wert gleichzeitig generieren, und laufen weiter, wenn die Last sinkt. 0 pausiert nie."
             },
             "picker": {
                 "label": "Entwurfsmodell",
@@ -465,8 +473,11 @@
                 }
             },
             "advice": {
-                "unifiedLoadMode": "Bei gemeinsamem Speicher liegt ein per mmap eingebundenes Modell doppelt im Speicher, während es auf die GPU kopiert wird. Standard lässt llama.cpp mmap auf integrierten GPUs auslassen."
+                "unifiedLoadMode": "Bei Unified Memory wird ein per mmap geladenes Modell beim Laden doppelt gehalten. Default lädt es einmal."
             }
+        },
+        "flags": {
+            "show": "{{engine}}-Flags anzeigen"
         }
     }
 }

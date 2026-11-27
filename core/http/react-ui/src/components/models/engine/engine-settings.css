@@ -9,6 +9,9 @@
 .rt__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2) var(--dk-space-3); }
 .rt__title { margin: 0; font: var(--dk-weight-semibold) var(--dk-text-17) / 1.3 var(--dk-font-body); }
 .rt__lead { flex-basis: 100%; margin: 0; }
+.rt__flags { display: inline-flex; align-items: center; gap: var(--dk-space-2); margin-left: auto; font-size: var(--dk-text-13); color: var(--dk-muted); }
+/* The flags are in the page for search and copy, and shown on request. */
+.rt[data-flags="off"] .rt-flag--hint { display: none; }
 
 .rt__skeleton { display: grid; gap: var(--dk-space-3); }
 
@@ -100,43 +103,74 @@
 
 .rt-offscreen { position: fixed; top: 0; left: -9999px; opacity: 0; }
 
-/* Quick setup: the exclusive profiles of the engine as one choice, with a
-   row per profile that says what it does and what it costs in memory. */
-.rt-quick { display: grid; gap: var(--dk-space-3); min-width: 0; }
-.rt-quick__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2) var(--dk-space-3); }
-.rt-quick__list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-2); }
+/* Quick setup: the main choices, in a framed block above the fields. Each
+   choice is a label, a segmented control whose options carry their memory
+   change, and one line about the option chosen. The comparison of every
+   option sits in a disclosure under it. */
+.rt-quick {
+  display: grid;
+  gap: var(--dk-space-4);
+  min-width: 0;
+  padding: var(--dk-space-4) var(--dk-space-5);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--dk-radius-2);
+}
+.rt-quick__top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--dk-space-2) var(--dk-space-4); }
+.rt-quick__heading { margin: 0; font: var(--dk-weight-semibold) var(--dk-text-15) / 1.3 var(--dk-font-body); color: var(--dk-text); }
+/* The memory kind the setups use, with the override. */
+.rt-quick__memory { display: grid; grid-template-columns: auto minmax(0, auto) auto; align-items: center; gap: var(--dk-space-2); min-width: 0; font-size: var(--dk-text-13); color: var(--dk-muted); }
+.rt-quick__memory-icon { flex: none; }
+.rt-quick__memory-line { min-width: 0; }
+
+.rt-quick__set { display: grid; grid-template-columns: 8rem minmax(0, 1fr); align-items: start; gap: var(--dk-space-2) var(--dk-space-4); min-width: 0; }
+.rt-quick__title { font: var(--dk-weight-semibold) var(--dk-text-13) / var(--ctl-h) var(--dk-font-body); color: var(--dk-text); }
+.rt-quick__control { display: grid; gap: var(--dk-space-1); justify-items: start; min-width: 0; }
+.rt-quick__line { margin: 0; font-size: var(--dk-text-13); line-height: 1.45; color: var(--dk-muted); }
+.rt-quick__off { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); margin: 0; }
+.rt-quick__off-name { font-weight: var(--dk-weight-semibold); }
+.rt-quick__off-name::after { content: ":"; }
+.rt-quick__delta { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.rt-quick__now {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--dk-space-1) var(--dk-space-2);
+  margin: 0; padding-top: var(--dk-space-3); border-top: 1px solid var(--dk-edge);
+  font-size: var(--dk-text-13); color: var(--dk-text);
+}
+.rt-quick__now-label { font-weight: var(--dk-weight-semibold); }
+
+.rt-quick__more { display: grid; min-width: 0; }
+.rt-quick__summary {
+  display: flex; align-items: center; gap: var(--dk-space-2); width: max-content; max-width: 100%;
+  cursor: pointer; list-style: none; font: var(--dk-weight-semibold) var(--dk-text-13) / 1.3 var(--dk-font-body); color: var(--dk-text);
+}
+.rt-quick__summary::-webkit-details-marker { display: none; }
+.rt-quick__more[open] > .rt-quick__summary .rt-group__chevron { transform: rotate(90deg); }
+.rt-quick__compare { display: grid; gap: var(--dk-space-4); padding-top: var(--dk-space-3); min-width: 0; }
+.rt-quick__kind-doc { margin: 0; max-width: 72ch; }
+.rt-quick__table { display: grid; gap: var(--dk-space-2); min-width: 0; }
+.rt-quick__list { display: grid; margin: 0; padding: 0; list-style: none; border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-2); }
 .rt-quick__row {
   display: grid;
-  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(96px, 140px) minmax(0, 1fr);
   align-items: baseline;
   gap: var(--dk-space-1) var(--dk-space-3);
   padding: var(--dk-space-2) var(--dk-space-3);
   border-top: 1px solid var(--dk-edge);
+  font-size: var(--dk-text-13);
 }
 .rt-quick__row:first-child { border-top: 0; }
 .rt-quick__row--current { background: var(--dk-accent-wash); }
 .rt-quick__name { font-weight: var(--dk-weight-semibold); }
 .rt-quick__text { color: var(--dk-muted); min-width: 0; }
-.rt-quick__mem { font: var(--dk-weight-semibold) var(--dk-text-12) / 1.5 var(--dk-font-mono); white-space: nowrap; color: var(--dk-muted); }
-.rt-quick__mem--more { color: var(--dk-warn-text); }
-.rt-quick__mem--less { color: var(--dk-ok-text); }
-.rt-quick__now { margin: 0; }
-.rt-quick__mem--off { color: var(--dk-muted); font-weight: var(--dk-weight-regular); white-space: normal; }
-/* One choice of the quick setup: the batch, or the concurrency. */
-.rt-quick__set { display: grid; gap: var(--dk-space-2); min-width: 0; }
-.rt-quick__title { font-weight: var(--dk-weight-semibold); min-width: 7rem; }
 .rt-quick__meta { display: block; margin-top: 2px; font-size: var(--dk-text-12); }
-/* The memory kind the setups use, with the override. */
-.rt-quick__memory {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-  gap: var(--dk-space-2) var(--dk-space-3);
-}
-.rt-quick__memory-text { display: grid; gap: 2px; min-width: 0; flex: 1 1 16rem; }
-.rt-quick__memory-line { font-weight: var(--dk-weight-semibold); }
 
 @container (max-width: 520px) {
-  .rt-quick__row { grid-template-columns: minmax(0, 1fr) auto; }
-  .rt-quick__text { grid-column: 1 / -1; grid-row: 2; }
+  .rt-quick { padding: var(--dk-space-3); }
+  .rt-quick__memory { grid-template-columns: auto minmax(0, 1fr); }
+  .rt-quick__memory > .dk-select-wrap { grid-column: 2; justify-self: start; }
+  .rt-quick__set { grid-template-columns: minmax(0, 1fr); gap: var(--dk-space-2); }
+  .rt-quick__title { line-height: 1.3; }
+  .rt-quick__row { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* A collapsed group: rarely used or risky settings behind a disclosure. */
@@ -149,18 +183,15 @@
 /* Drafting: one choice of how tokens are drafted, a panel with what that
    choice does, its trade-off and the few fields it needs, and the other
    drafting settings folded under it. */
-.rt-draft__choice { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2) var(--dk-space-3); }
-.rt-draft__panel {
-  display: grid;
-  gap: var(--dk-space-4);
-  min-width: 0;
-  padding: var(--dk-space-4);
-  border: 1px solid var(--dk-edge);
-  border-radius: var(--dk-radius-2);
-}
-.rt-draft__doc { margin: 0; color: var(--dk-text); font-size: var(--dk-text-13); }
-.rt-draft__note { display: flex; align-items: baseline; gap: var(--dk-space-2); margin: 0; color: var(--dk-muted); font-size: var(--dk-text-13); }
-.rt-draft__note-icon { flex: none; align-self: center; color: var(--dk-accent); }
+/* Drafting is its own container: in the narrow form column its choice
+   stacks like the fields around it. */
+.rt-draft { container-type: inline-size; }
+.rt-draft__about { display: grid; gap: var(--dk-space-1); min-width: 0; }
+/* The picker and fields of the chosen mode sit under its choice, in the
+   column of the control, so they read as part of it. */
+.rt-draft__panel { display: grid; gap: var(--dk-space-4); min-width: 0; padding-left: calc(8rem + var(--dk-space-4)); }
+.rt-draft__note { display: flex; align-items: baseline; gap: var(--dk-space-2); margin: 0; color: var(--dk-muted); font-size: var(--dk-text-12); }
+.rt-draft__note-icon { flex: none; align-self: center; color: var(--dk-muted); }
 .rt-draft__model { display: grid; gap: var(--dk-space-3); min-width: 0; }
 .rt-draft__model > .rt-field { max-width: 480px; }
 .rt-draft__facts { display: grid; gap: var(--dk-space-3); margin: 0; padding: var(--dk-space-3); border-radius: var(--dk-radius-2); background: var(--dk-inset); }
@@ -168,12 +199,14 @@
 
 .rt-draft__fact dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: var(--dk-text-13); }
 .rt-draft__fit { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); }
-.rt-draft__size { font-family: var(--dk-font-mono); font-weight: var(--dk-weight-semibold); }
+.rt-draft__size { font-weight: var(--dk-weight-semibold); font-variant-numeric: tabular-nums; }
 .rt-draft__more { display: grid; gap: var(--dk-space-4); min-width: 0; }
 .rt-draft__more-summary { color: var(--dk-text); font-weight: var(--dk-weight-semibold); }
 .rt-draft__more[open] > .rt-draft__more-summary .rt-group__chevron { transform: rotate(90deg); }
 .rt-draft__more-grid { padding-top: var(--dk-space-2); }
 
-@container (max-width: 520px) {
-  .rt-draft__panel { padding: var(--dk-space-3); }
+@container (max-width: 560px) {
+  .rt-draft__choice { grid-template-columns: minmax(0, 1fr); gap: var(--dk-space-2); }
+  .rt-draft__choice .rt-quick__title { line-height: 1.3; }
+  .rt-draft__panel { padding-left: var(--dk-space-4); border-left: 2px solid var(--dk-edge); }
 }

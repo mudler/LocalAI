@@ -5,7 +5,6 @@
     },
     "engineSettings": {
         "title": "Ottimizzazione runtime",
-        "lead": "Come {{engine}} carica ed esegue questo modello. Ogni campo è un flag di {{binary}}. Un campo vuoto mantiene il valore predefinito.",
         "leadNoCommand": "Come {{engine}} carica ed esegue questo modello. Un campo vuoto mantiene il valore predefinito.",
         "loading": "Caricamento delle impostazioni di {{engine}}",
         "default": "Predefinito",
@@ -134,7 +133,7 @@
         },
         "hints": {
             "load_mode": "Come viene letto il file del modello. Scrive mmap, mmlock e l'opzione direct_io.",
-            "backend_sampling": "Dove vengono campionati i token. Un backend senza campionamento su GPU ignora l'impostazione."
+            "backend_sampling": "Dove viene scelto il token successivo: sulla CPU o sulla GPU."
         },
         "errors": {
             "notInteger": "Inserisci un numero intero.",
@@ -259,13 +258,9 @@
             "title": "Configurazione rapida",
             "custom": "Personalizzata",
             "customText": "Imposta tu i campi qui sotto.",
-            "current": "Le tue impostazioni",
             "estimating": "Stima in corso...",
-            "noEstimate": "Nessuna stima",
-            "same": "Circa la stessa memoria",
             "more": "≈ {{size}} di memoria in più",
             "less": "≈ {{size}} di memoria in meno",
-            "now": "Ora: cache KV ≈ {{kv}} e buffer di calcolo ≈ {{compute}} a {{context}} token, oltre ai pesi.",
             "estimate": "Questi valori sono stime.",
             "approximate": "Stime approssimative: la struttura del modello non è stata letta dal file.",
             "failed": "La stima della memoria non è disponibile.",
@@ -277,30 +272,41 @@
             "unsupported": "Non disponibile qui",
             "needs": "Servono {{size}} di memoria",
             "noFit": "Non entra: ≈ {{size}} su {{limit}}",
-            "shared": "Gli slot condividono una sola cache KV, quindi più flussi richiedono circa la stessa memoria: ogni flusso ottiene una parte più piccola del contesto."
+            "shared": "Gli slot condividono una sola cache KV, quindi più flussi richiedono circa la stessa memoria: ogni flusso ottiene una parte più piccola del contesto.",
+            "compare": "Confronta le configurazioni",
+            "nowLabel": "Memoria ora",
+            "nowShort": "Cache KV ≈ {{kv}}, buffer di calcolo ≈ {{compute}}, a {{context}} token",
+            "estimateShort": "Stima",
+            "approximateShort": "Stima approssimativa",
+            "moreShort": "+{{size}}",
+            "lessShort": "−{{size}}"
         },
         "profiles": {
             "balanced": {
                 "name": "Bilanciato",
-                "text": "Le dimensioni di batch predefinite: LocalAI le sceglie per la tua GPU."
+                "text": "Le dimensioni di batch predefinite: LocalAI le sceglie per la tua GPU.",
+                "line": "Dimensioni del batch scelte da LocalAI per la tua GPU."
             },
             "longPrompts": {
                 "name": "Prompt lunghi",
                 "text": "Un batch di 2048. I prompt lunghi vengono letti molto più in fretta; i buffer di calcolo usano più memoria.",
                 "memory": {
                     "discrete": "Su una GPU dedicata il micro-batch è 1024: il suo buffer di calcolo deve stare in una sola scheda."
-                }
+                },
+                "line": "Legge i prompt lunghi molto più in fretta. Usa più memoria."
             },
             "concurrencyDefault": {
                 "name": "Predefinito",
                 "text": "LocalAI sceglie gli slot per la tua GPU e il backend usa i suoi valori predefiniti.",
-                "bestFor": "Una persona o poche."
+                "bestFor": "Una persona o poche.",
+                "line": "Per una persona o poche. LocalAI sceglie gli slot."
             },
             "streams8": {
                 "name": "8 flussi",
                 "text": "8 slot con il serving paginato: le richieste condividono la cache KV e aspettano invece di fallire quando è piena.",
                 "bestFor": "Un team che chatta con un modello.",
-                "short": "8"
+                "short": "8",
+                "line": "Per un team che chatta con un modello."
             },
             "streams16": {
                 "name": "16 flussi",
@@ -309,7 +315,8 @@
                 "memory": {
                     "system": "Nessuna GPU: i token sono campionati sulla CPU."
                 },
-                "short": "16"
+                "short": "16",
+                "line": "Per agenti e strumenti che inviano richieste in parallelo."
             },
             "streams32": {
                 "name": "32+ flussi",
@@ -319,7 +326,8 @@
                     "discrete": "Cache KV a 8 bit: entrano circa il doppio dei token, con un piccolo costo in qualità e velocità.",
                     "system": "Non disponibile senza GPU: una CPU divisa fra 32 flussi rende ognuno troppo lento."
                 },
-                "short": "32+"
+                "short": "32+",
+                "line": "Per lavori batch e molti utenti. Il massimo di token al secondo in totale."
             }
         },
         "choiceHints": {
@@ -335,7 +343,7 @@
         "groupCount": "{{count}} impostazioni",
         "drafting": {
             "title": "Bozze (decodifica speculativa)",
-            "lead": "Un indovino veloce propone i token successivi e il modello li controlla tutti in un passo. Quando indovina, le risposte arrivano prima; l'output resta lo stesso.",
+            "lead": "Un generatore di bozze veloce propone i token successivi e il modello li verifica in un passo. Le risposte arrivano prima; l'output resta lo stesso.",
             "mode": "Modalità",
             "more": "Altre opzioni delle bozze",
             "auto": "{{mode}} è attivo di default: questo modello ha una testa MTP, quindi LocalAI la usa per le bozze a meno che tu non scelga Disattivato.",
@@ -405,7 +413,7 @@
             },
             "streams": {
                 "label": "Sospendi le bozze oltre N flussi",
-                "hint": "Le bozze si sospendono finché più richieste di questo numero generano insieme, e riprendono quando il carico scende. 0 non sospende mai. Le build senza servizio a pagine lo ignorano."
+                "hint": "Le bozze si sospendono finché più richieste di questo numero generano insieme, e riprendono quando il carico scende. 0 non sospende mai."
             },
             "picker": {
                 "label": "Modello bozza",
@@ -465,8 +473,11 @@
                 }
             },
             "advice": {
-                "unifiedLoadMode": "Con la memoria unificata, un modello mappato in memoria occupa il doppio mentre viene copiato sulla GPU. Predefinito lascia che llama.cpp eviti mmap sulle GPU integrate."
+                "unifiedLoadMode": "Con la memoria unificata, un modello mappato in memoria è tenuto due volte durante il caricamento. Default lo carica una volta."
             }
+        },
+        "flags": {
+            "show": "Mostra i flag di {{engine}}"
         }
     }
 }

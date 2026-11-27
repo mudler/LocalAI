@@ -54,7 +54,8 @@ test.describe('Runtime tuning: concurrency', () => {
     await expect(page.getByTestId('rt-conc-best-streams8')).toHaveText('Best for: A team chatting with one model.')
     // The slots share the context: 8192 tokens over 8 streams.
     await expect(page.getByTestId('rt-conc-share-streams8')).toContainText('1,024 context tokens per stream')
-    await expect(page.getByTestId('rt-conc-mem-streams8')).toHaveText('About the same memory')
+    // About the same memory as now: no figure.
+    await expect(page.getByTestId('rt-conc-mem-streams8')).toHaveCount(0)
     await expect(page.getByTestId('rt-conc-shared')).toContainText('share one KV cache')
     await expect(page.getByTestId('rt-conc-mem-streams32')).toContainText('less memory')
 

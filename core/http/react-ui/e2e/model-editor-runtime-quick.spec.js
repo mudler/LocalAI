@@ -58,12 +58,14 @@ test.describe('Runtime tuning: quick setup', () => {
     const state = await open(page)
     await expect(choice(page, 'balanced')).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByTestId('rt-quick-row-balanced')).toContainText('Balanced')
-    await expect(page.getByTestId('rt-quick-mem-balanced')).toHaveText('Your settings')
+    // The checked option is the current one: it carries no memory figure.
+    await expect(page.getByTestId('rt-quick-mem-balanced')).toHaveCount(0)
     await expect(page.getByTestId('rt-quick-mem-longPrompts')).toContainText('more memory')
+    await expect(page.getByTestId('rt-quick-line')).toContainText('LocalAI picks for your GPU')
     await expect(page.getByTestId('rt-conc-mem-streams32')).toContainText('less memory')
     await expect(page.getByTestId('rt-quick-mem-custom')).toHaveCount(0)
     await expect(page.getByTestId('rt-quick-now')).toContainText('KV cache')
-    await expect(page.getByTestId('rt-quick-now')).toContainText('estimates')
+    await expect(page.getByTestId('rt-quick-now')).toContainText('Estimate')
     // The current settings ask for the defaults; each profile for its own values.
     await expect.poll(() => state.estimates.length).toBeGreaterThanOrEqual(4)
     expect(state.estimates).toContainEqual(expect.objectContaining({ model: MODEL, context_size: 8192, cache_type_k: 'f16', batch: 0, ubatch: 0 }))
@@ -82,7 +84,7 @@ test.describe('Runtime tuning: quick setup', () => {
     await expect(field(page, 'parameters-batch')).toHaveValue('2048')
     await expect(field(page, 'options-ubatch')).toHaveValue('1024')
     await expect(page.getByTestId('rt-quick-kind-longPrompts')).toContainText('compute buffer must fit one card')
-    await expect(page.getByTestId('rt-quick-mem-longPrompts')).toHaveText('Your settings')
+    await expect(page.getByTestId('rt-quick-mem-longPrompts')).toHaveCount(0)
     await expect(page.getByTestId('rt-quick-mem-balanced')).toContainText('less memory')
     await save(page).click()
     await expect.poll(() => state.patches.length).toBe(1)
@@ -200,7 +202,7 @@ test.describe('Runtime tuning: quick setup', () => {
 
   test('an estimate with no runtime part shows no memory figure', async ({ page }) => {
     await open(page, { estimate: 'none' })
-    await expect(page.getByTestId('rt-quick-mem-longPrompts')).toHaveText('No estimate')
+    await expect(page.getByTestId('rt-quick-mem-longPrompts')).toHaveCount(0)
     await expect(page.getByTestId('rt-quick-now')).toHaveCount(0)
   })
 

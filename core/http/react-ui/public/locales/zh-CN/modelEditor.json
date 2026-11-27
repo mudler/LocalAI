@@ -5,7 +5,6 @@
     },
     "engineSettings": {
         "title": "运行时调优",
-        "lead": "{{engine}} 加载和运行此模型的方式。每个字段对应一个 {{binary}} 参数。留空的字段保持默认值。",
         "leadNoCommand": "{{engine}} 加载和运行此模型的方式。留空的字段保持默认值。",
         "loading": "正在加载 {{engine}} 设置",
         "default": "默认",
@@ -134,7 +133,7 @@
         },
         "hints": {
             "load_mode": "读取模型文件的方式。写入 mmap、mmlock 和 direct_io 选项。",
-            "backend_sampling": "在哪里采样 token。不支持 GPU 采样的后端会忽略此设置。"
+            "backend_sampling": "选择下一个 token 的位置：CPU 或 GPU。"
         },
         "errors": {
             "notInteger": "请输入整数。",
@@ -259,13 +258,9 @@
             "title": "快速设置",
             "custom": "自定义",
             "customText": "自行设置下面的字段。",
-            "current": "当前设置",
             "estimating": "正在估算...",
-            "noEstimate": "无估算",
-            "same": "内存大致相同",
             "more": "内存约增加 {{size}}",
             "less": "内存约减少 {{size}}",
-            "now": "当前：除权重外，{{context}} 个 token 时 KV 缓存约 {{kv}}，计算缓冲区约 {{compute}}。",
             "estimate": "这些数值是估算值。",
             "approximate": "粗略估算：未从文件中读取模型结构。",
             "failed": "内存估算不可用。",
@@ -277,30 +272,41 @@
             "unsupported": "此处不提供",
             "needs": "需要 {{size}} 内存",
             "noFit": "放不下：约 {{size}}，上限 {{limit}}",
-            "shared": "各槽位共享同一个 KV 缓存，因此流越多所需内存大致不变：每个流分到的上下文更少。"
+            "shared": "各槽位共享同一个 KV 缓存，因此流越多所需内存大致不变：每个流分到的上下文更少。",
+            "compare": "比较配置",
+            "nowLabel": "当前内存",
+            "nowShort": "KV 缓存 ≈ {{kv}}，计算缓冲区 ≈ {{compute}}，{{context}} 个 token",
+            "estimateShort": "估算",
+            "approximateShort": "粗略估算",
+            "moreShort": "+{{size}}",
+            "lessShort": "−{{size}}"
         },
         "profiles": {
             "balanced": {
                 "name": "均衡",
-                "text": "默认批大小：由 LocalAI 按你的 GPU 选择。"
+                "text": "默认批大小：由 LocalAI 按你的 GPU 选择。",
+                "line": "由 LocalAI 为你的 GPU 选择批大小。"
             },
             "longPrompts": {
                 "name": "长提示",
                 "text": "批大小 2048。长提示读取快得多，计算缓冲区占用更多内存。",
                 "memory": {
                     "discrete": "独立显卡上微批大小为 1024：其计算缓冲区必须放进单张卡。"
-                }
+                },
+                "line": "读取长提示词快得多，但占用更多内存。"
             },
             "concurrencyDefault": {
                 "name": "默认",
                 "text": "LocalAI 按你的 GPU 选择槽位，后端使用其默认服务设置。",
-                "bestFor": "一人或少数人。"
+                "bestFor": "一人或少数人。",
+                "line": "适合一人或少数人。槽位由 LocalAI 选择。"
             },
             "streams8": {
                 "name": "8 个流",
                 "text": "8 个槽位并启用分页服务：请求共享 KV 缓存，缓存满时等待而不是失败。",
                 "bestFor": "一个团队与同一模型聊天。",
-                "short": "8"
+                "short": "8",
+                "line": "适合团队与同一模型聊天。"
             },
             "streams16": {
                 "name": "16 个流",
@@ -309,7 +315,8 @@
                 "memory": {
                     "system": "无 GPU：在 CPU 上采样 token。"
                 },
-                "short": "16"
+                "short": "16",
+                "line": "适合并行发送请求的智能体和工具。"
             },
             "streams32": {
                 "name": "32+ 个流",
@@ -319,7 +326,8 @@
                     "discrete": "8 位 KV 缓存：可容纳约两倍的 token，质量和速度略有损失。",
                     "system": "无 GPU 时不提供：32 个流共享一个 CPU 会让每个流都太慢。"
                 },
-                "short": "32+"
+                "short": "32+",
+                "line": "适合批处理任务和大量用户。总吞吐量最高。"
             }
         },
         "choiceHints": {
@@ -335,7 +343,7 @@
         "groupCount": "{{count}} 项设置",
         "drafting": {
             "title": "草稿（推测解码）",
-            "lead": "一个快速的猜测器提出接下来的 token，模型一步检查全部。猜对时回答更快，输出保持不变。",
+            "lead": "快速草稿器提出后续 token，模型一步完成校验。回答更快，输出不变。",
             "mode": "模式",
             "more": "更多草稿选项",
             "auto": "{{mode}} 默认开启：此模型带有 MTP 头，除非你选择关闭，LocalAI 会用它生成草稿。",
@@ -405,7 +413,7 @@
             },
             "streams": {
                 "label": "超过 N 个流时暂停草稿",
-                "hint": "同时生成的请求多于此值时暂停草稿，负载下降后恢复。0 表示从不暂停。不带分页服务的构建会忽略此项。"
+                "hint": "同时生成的请求多于此值时暂停草稿，负载下降后恢复。0 表示从不暂停。"
             },
             "picker": {
                 "label": "草稿模型",
@@ -465,8 +473,11 @@
                 }
             },
             "advice": {
-                "unifiedLoadMode": "在统一内存上，内存映射的模型在复制到 GPU 时会占用两份内存。选择默认可让 llama.cpp 在集成显卡上跳过 mmap。"
+                "unifiedLoadMode": "在统一内存上，内存映射的模型在加载时会占用两份。Default 只加载一份。"
             }
+        },
+        "flags": {
+            "show": "显示 {{engine}} 参数"
         }
     }
 }

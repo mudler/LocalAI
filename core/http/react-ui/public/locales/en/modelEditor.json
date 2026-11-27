@@ -41,7 +41,6 @@
     },
     "engineSettings": {
         "title": "Runtime tuning",
-        "lead": "How {{engine}} loads and runs this model. Each field is a {{binary}} flag. An empty field keeps the default.",
         "leadNoCommand": "How {{engine}} loads and runs this model. An empty field keeps the default.",
         "loading": "Loading the {{engine}} settings",
         "default": "Default",
@@ -170,7 +169,7 @@
         },
         "hints": {
             "load_mode": "How the model file is read. Writes mmap, mmlock and the direct_io option.",
-            "backend_sampling": "Where tokens are sampled. A backend without GPU sampling ignores the setting."
+            "backend_sampling": "Where the next token is picked: on the CPU or on the GPU."
         },
         "errors": {
             "notInteger": "Type a whole number.",
@@ -295,13 +294,9 @@
             "title": "Quick setup",
             "custom": "Custom",
             "customText": "Set the fields below yourself.",
-            "current": "Your settings",
             "estimating": "Estimating...",
-            "noEstimate": "No estimate",
-            "same": "About the same memory",
             "more": "≈ {{size}} more memory",
             "less": "≈ {{size}} less memory",
-            "now": "Now: KV cache ≈ {{kv}} and compute buffers ≈ {{compute}} at {{context}} tokens, beside the weights.",
             "estimate": "These figures are estimates.",
             "approximate": "Rough estimates: the model layout was not read from the file.",
             "failed": "The memory estimate is not available.",
@@ -313,30 +308,41 @@
             "unsupported": "Not offered here",
             "needs": "Needs {{size}} of memory",
             "noFit": "Does not fit: ≈ {{size}} of {{limit}}",
-            "shared": "The slots share one KV cache, so more streams need about the same memory: each stream gets a smaller part of the context."
+            "shared": "The slots share one KV cache, so more streams need about the same memory: each stream gets a smaller part of the context.",
+            "compare": "Compare setups",
+            "nowLabel": "Memory now",
+            "nowShort": "KV cache ≈ {{kv}}, compute buffers ≈ {{compute}}, at {{context}} tokens",
+            "estimateShort": "Estimate",
+            "approximateShort": "Rough estimate",
+            "moreShort": "+{{size}}",
+            "lessShort": "−{{size}}"
         },
         "profiles": {
             "balanced": {
                 "name": "Balanced",
-                "text": "The default batch sizes: LocalAI picks them for your GPU."
+                "text": "The default batch sizes: LocalAI picks them for your GPU.",
+                "line": "Batch sizes that LocalAI picks for your GPU."
             },
             "longPrompts": {
                 "name": "Long prompts",
                 "text": "A batch of 2048. Long prompts are read much faster; the compute buffers use more memory.",
                 "memory": {
                     "discrete": "The micro-batch is 1024 on a discrete GPU: its compute buffer must fit one card."
-                }
+                },
+                "line": "Reads long prompts much faster. Uses more memory."
             },
             "concurrencyDefault": {
                 "name": "Default",
                 "text": "LocalAI picks the slots for your GPU and the backend uses its serving defaults.",
-                "bestFor": "One person, or a few."
+                "bestFor": "One person, or a few.",
+                "line": "For one person or a few. LocalAI picks the slots."
             },
             "streams8": {
                 "name": "8 streams",
                 "text": "8 slots with paged serving: requests share the KV cache and wait instead of failing when it is full.",
                 "bestFor": "A team chatting with one model.",
-                "short": "8"
+                "short": "8",
+                "line": "For a team chatting with one model."
             },
             "streams16": {
                 "name": "16 streams",
@@ -345,7 +351,8 @@
                 "memory": {
                     "system": "No GPU: tokens are sampled on the CPU."
                 },
-                "short": "16"
+                "short": "16",
+                "line": "For agents and tools that send requests in parallel."
             },
             "streams32": {
                 "name": "32+ streams",
@@ -355,7 +362,8 @@
                     "discrete": "8-bit KV cache: about twice the tokens fit, at a small cost in quality and speed.",
                     "system": "Not offered without a GPU: a CPU shared by 32 streams makes each one too slow."
                 },
-                "short": "32+"
+                "short": "32+",
+                "line": "For batch jobs and many users. Most tokens per second in total."
             }
         },
         "choiceHints": {
@@ -371,7 +379,7 @@
         "groupCount": "{{count}} settings",
         "drafting": {
             "title": "Drafting (speculative decoding)",
-            "lead": "A fast guesser proposes the next tokens and the model checks them all in one step. When the guesses are right, answers come faster; the output stays the same.",
+            "lead": "A fast drafter proposes the next tokens and the model checks them in one step. Answers come faster; the output stays the same.",
             "mode": "Mode",
             "more": "More drafting options",
             "auto": "{{mode}} is on by default: this model has an MTP head, so LocalAI drafts with it unless you choose Off.",
@@ -441,7 +449,7 @@
             },
             "streams": {
                 "label": "Pause drafting above N streams",
-                "hint": "Drafting pauses while more requests than this generate at once, and resumes when the load drops. 0 never pauses. Builds without paged serving ignore it."
+                "hint": "Drafting pauses while more requests than this generate at once, and resumes when the load drops. 0 never pauses."
             },
             "picker": {
                 "label": "Draft model",
@@ -501,8 +509,11 @@
                 }
             },
             "advice": {
-                "unifiedLoadMode": "On unified memory, a memory-mapped model is held twice while it is copied to the GPU. Default lets llama.cpp skip mmap on integrated GPUs."
+                "unifiedLoadMode": "On unified memory, a memory-mapped model is held twice while it loads. Default loads it once."
             }
+        },
+        "flags": {
+            "show": "Show {{engine}} flags"
         }
     }
 }

@@ -1,10 +1,11 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 // eslint-disable-next-line no-unused-vars
-import { Button, Callout, Tag } from '../../ui'
+import { Button, Callout, Switch, Tag } from '../../ui'
 import Icon from '../../Icon'
 import { useEngineSchema } from '../../../hooks/useEngineSettings'
 import { engineSettingsApi } from '../../../utils/api'
+import { useStoredChoice } from '../../../hooks/useStoredChoice'
 import {
   CAPABILITY_COMMAND_LINE, MODEL_FILE_KEY, applyParsed, applyPreset, applyProfile, describeChanges, diffPaths,
   groupItems, hasCapability, ownedOptionNames, rawOptionFor, readCombined, splitEntry, undoChanges,
@@ -24,6 +25,10 @@ import QuickSetup from './QuickSetup'
 // eslint-disable-next-line no-unused-vars
 import DraftingSection from './DraftingSection'
 import './engine-settings.css'
+
+// The command-line flags under each field are for people who know the
+// engine; they stay hidden until asked for, and the choice is remembered.
+const FLAGS_KEY = 'localai.runtime.showFlags'
 
 const humanize = (id) => id.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
 const testIdOf = (id) => `rt-${id.replace(/_/g, '-')}`
@@ -74,6 +79,7 @@ export default function EngineRuntimeSection({ engine, model, values, onChange, 
   const blocks = useMemo(() => (schema ? groupItems(schema) : []), [schema])
   const owned = useMemo(() => (schema ? ownedOptionNames(schema) : new Set()), [schema])
   const words = { engine: engine.name, binary: engine.binary || engine.name }
+  const [flags, setFlags] = useStoredChoice(FLAGS_KEY, 'off', ['on', 'off'])
 
   // The last preset or pasted command, so its changes can be listed and undone.
   const [applied, setApplied] = useState(null)
@@ -226,7 +232,7 @@ export default function EngineRuntimeSection({ engine, model, values, onChange, 
               </select>
             </span>
             <p className="dk-hint rt-field__hint" id={`${id}-hint`}>
-              {c.flag && <code className="rt-flag">{c.flag}</code>}
+              {c.flag && <code className="rt-flag rt-flag--hint">{c.flag}</code>}
               <span>{t(`engineSettings.hints.${c.id}`, { defaultValue: c.doc })}</span>
               {chosenDoc && (
                 <span data-testid={`${id}-choice-hint`}>{t(`engineSettings.choiceHints.${c.id}.${chosen}`, { defaultValue: chosenDoc })}</span>
@@ -238,9 +244,11 @@ export default function EngineRuntimeSection({ engine, model, values, onChange, 
     </div>
   )
 
+  const hasFlags = schema.items.some(i => i.flag) || schema.combined.some(c => c.flag)
+
   return (
-    <section className="rt" data-testid="runtime">
-      <Head t={t} engine={engine} />
+    <section className="rt" data-flags={flags} data-testid="runtime">
+      <Head t={t} engine={engine} flags={hasFlags ? flags : null} onFlags={on => setFlags(on ? 'on' : 'off')} />
 
       {readOnly && (
         <Callout tone="info" icon="lock" title={t('engineSettings.readOnly.title')} testId="runtime-read-only">
@@ -376,12 +384,18 @@ export default function EngineRuntimeSection({ engine, model, values, onChange, 
 }
 
 // eslint-disable-next-line no-unused-vars
-function Head({ t, engine }) {
+function Head({ t, engine, flags = null, onFlags }) {
   return (
     <div className="rt__head">
       <h2 className="rt__title">{t('engineSettings.title')}</h2>
       <Tag mono testId="runtime-engine">{engine.name}</Tag>
-      <p className="rt__lead text-note">{engine.binary ? t('engineSettings.lead', { engine: engine.name, binary: engine.binary }) : t('engineSettings.leadNoCommand', { engine: engine.name })}</p>
+      {flags !== null && (
+        <span className="rt__flags">
+          <span className="rt__flags-label" id="rt-flags-label">{t('engineSettings.flags.show', { engine: engine.name })}</span>
+          <Switch checked={flags === 'on'} onChange={onFlags} labelledBy="rt-flags-label" testId="rt-flags-toggle" />
+        </span>
+      )}
+      <p className="rt__lead text-note">{t('engineSettings.leadNoCommand', { engine: engine.name })}</p>
     </div>
   )
 }

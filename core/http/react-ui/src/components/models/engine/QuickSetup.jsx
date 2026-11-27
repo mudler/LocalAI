@@ -9,6 +9,7 @@ import {
   estimateBody, memoryChange, memoryKind, memoryNow, profileFit, tokensPerStream,
 } from '../../../utils/runtimeMemory'
 import { formatBytes } from '../../../utils/format'
+import Icon from '../../Icon'
 import { useRuntimeEstimates } from '../../../hooks/useRuntimeEstimates'
 import { useHostMemory } from '../../../hooks/useHostMemory'
 import { useStoredChoice } from '../../../hooks/useStoredChoice'
@@ -63,34 +64,36 @@ export default function QuickSetup({ schema, model, values, onPick, readOnly = f
     return choice ? { advice: a, combined: c, choice } : null
   }).filter(Boolean)
 
+  const batch = useProfileSet({ t, set: '', schema, values, kind, profiles: schema.profiles, estimates, hasEstimate, customInChoice: true, onPick, readOnly })
+  const conc = useProfileSet({
+    t, set: CONCURRENCY_SET, schema, values, kind, profiles: schema.concurrency, estimates, hasEstimate,
+    memory, fraction, onPick, readOnly,
+  })
+  const context = now?.runtime?.context_length
+  const kindInfo = schema.memory?.kinds.find(x => x.kind === kind)
+
   return (
     <div className="rt-quick" data-testid="rt-quick">
-      <span className="dk-eyebrow">{t('engineSettings.quick.title')}</span>
+      <div className="rt-quick__top">
+        <h3 className="rt-quick__heading">{t('engineSettings.quick.title')}</h3>
+        {schema.memory && (
+          <MemoryLine t={t} schema={schema} host={host} kind={kind} source={source}
+            override={override} onOverride={setOverride} />
+        )}
+      </div>
 
-      {schema.memory && (
-        <MemoryLine t={t} schema={schema} host={host} kind={kind} source={source}
-          override={override} onOverride={setOverride} />
-      )}
-
-      <ProfileChoice
-        t={t} set="" testId="rt-quick" schema={schema} values={values} kind={kind} readOnly={readOnly}
-        title={t('engineSettings.quick.batch')} profiles={schema.profiles} onPick={onPick}
-        estimates={estimates} hasEstimate={hasEstimate} customInChoice
-      />
-
+      <ProfileChoice t={t} testId="rt-quick" title={t('engineSettings.quick.batch')} state={batch} />
       {schema.concurrency.length > 0 && (
-        <ProfileChoice
-          t={t} set={CONCURRENCY_SET} testId="rt-conc" schema={schema} values={values} kind={kind} readOnly={readOnly}
-          title={t('engineSettings.quick.concurrency')} profiles={schema.concurrency} onPick={onPick}
-          estimates={estimates} hasEstimate={hasEstimate} memory={memory} fraction={fraction}
-          context={now?.runtime?.context_length}
-        />
+        <ProfileChoice t={t} testId="rt-conc" title={t('engineSettings.quick.concurrency')} state={conc} />
       )}
 
       {hasEstimate && nowWords && (
-        <p className="text-meta rt-quick__now" data-testid="rt-quick-now">
-          {t('engineSettings.quick.now', nowWords)}{' '}
-          {nowWords.approximate ? t('engineSettings.quick.approximate') : t('engineSettings.quick.estimate')}
+        <p className="rt-quick__now" data-testid="rt-quick-now">
+          <span className="rt-quick__now-label">{t('engineSettings.quick.nowLabel')}</span>
+          <span>{t('engineSettings.quick.nowShort', { ...nowWords, context: Number(nowWords.context || 0).toLocaleString() })}</span>
+          <span className="text-meta" title={nowWords.approximate ? t('engineSettings.quick.approximate') : undefined}>
+            {nowWords.approximate ? t('engineSettings.quick.approximateShort') : t('engineSettings.quick.estimateShort')}
+          </span>
         </p>
       )}
       {hasEstimate && estimates.status === 'error' && (
@@ -112,18 +115,39 @@ export default function QuickSetup({ schema, model, values, onPick, readOnly = f
           </Callout>
         )
       })}
+
+      <details className="rt-quick__more" data-testid="rt-quick-details">
+        <summary className="rt-quick__summary" data-testid="rt-quick-details-toggle">
+          <Icon name="chevron-right" className="rt-group__chevron" />
+          {t('engineSettings.quick.compare')}
+        </summary>
+        <div className="rt-quick__compare">
+          {kindInfo && (
+            <p className="text-meta rt-quick__kind-doc" data-testid="rt-memory-doc">
+              {t(`engineSettings.memory.kinds.${kind}.doc`, { defaultValue: kindInfo.doc || '' })}
+            </p>
+          )}
+          <ProfileTable t={t} testId="rt-quick" title={t('engineSettings.quick.batch')} state={batch} />
+          {schema.concurrency.length > 0 && (
+            <>
+              <ProfileTable t={t} testId="rt-conc" title={t('engineSettings.quick.concurrency')} state={conc} context={context} />
+              <p className="text-meta rt-quick__kind-doc" data-testid="rt-conc-shared">{t('engineSettings.quick.shared')}</p>
+            </>
+          )}
+        </div>
+      </details>
     </div>
   )
 }
 
 // One line that says which memory kind the setups use, with a choice to
 // override what the server detected.
+// eslint-disable-next-line no-unused-vars
 function MemoryLine({ t, schema, host, kind, source, override, onOverride }) {
   const kindLabel = (k) => {
     const info = schema.memory.kinds.find(x => x.kind === k)
     return t(`engineSettings.memory.kinds.${k}.label`, { defaultValue: info?.label || k })
   }
-  const info = schema.memory.kinds.find(x => x.kind === kind)
   let line
   if (source === 'detected') {
     line = host.device
@@ -136,11 +160,9 @@ function MemoryLine({ t, schema, host, kind, source, override, onOverride }) {
   }
   return (
     <div className="rt-quick__memory" data-testid="rt-memory">
-      <div className="rt-quick__memory-text">
-        <span className="rt-quick__memory-line" data-testid="rt-memory-line">{line}</span>
-        <span className="text-meta">{t(`engineSettings.memory.kinds.${kind}.doc`, { defaultValue: info?.doc || '' })}</span>
-      </div>
-      <span className="dk-select-wrap">
+      <Icon name="cpu" className="rt-quick__memory-icon" />
+      <span className="rt-quick__memory-line" data-testid="rt-memory-line">{line}</span>
+      <span className="dk-select-wrap dk-select-wrap--sm">
         <select
           className="dk-select"
           aria-label={t('engineSettings.memory.label')}
@@ -156,10 +178,11 @@ function MemoryLine({ t, schema, host, kind, source, override, onOverride }) {
   )
 }
 
-// One exclusive choice over a set of profiles, with a row per profile.
-function ProfileChoice({
-  t, set, testId, title, schema, values, kind, profiles, onPick, readOnly, estimates, hasEstimate,
-  customInChoice = false, memory = 0, fraction = 1, context,
+// The state of one exclusive choice over a set of profiles: the rows, the
+// one that is current, whether each fits, its memory change and the pick.
+function useProfileSet({
+  t, set, schema, values, kind, profiles, onPick, readOnly, estimates, hasEstimate,
+  customInChoice = false, memory = 0, fraction = 1,
 }) {
   const [customPicked, setCustomPicked] = useState(false)
   const held = readProfile(schema, values, { set, kind })
@@ -180,11 +203,12 @@ function ProfileChoice({
   // The choice uses short labels (8, 16, 32+) so four fit a phone.
   const short = (p) => t(`engineSettings.profiles.${p.id}.short`, { defaultValue: name(p) })
   const text = (p) => t(`engineSettings.profiles.${p.id}.text`, { defaultValue: p.description })
-  const rows = profiles.map(p => ({ id: p.id, name: name(p), short: short(p), text: text(p), profile: p }))
-  const showCustom = customInChoice || current === CUSTOM_PROFILE
-  if (showCustom) {
+  const line = (p) => t(`engineSettings.profiles.${p.id}.line`, { defaultValue: text(p) })
+  const rows = profiles.map(p => ({ id: p.id, name: name(p), short: short(p), text: text(p), line: line(p), profile: p }))
+  if (customInChoice || current === CUSTOM_PROFILE) {
     const custom = t('engineSettings.quick.custom')
-    rows.push({ id: CUSTOM_PROFILE, name: custom, short: custom, text: t('engineSettings.quick.customText') })
+    const customText = t('engineSettings.quick.customText')
+    rows.push({ id: CUSTOM_PROFILE, name: custom, short: custom, text: customText, line: customText })
   }
 
   const pick = (id) => {
@@ -196,50 +220,92 @@ function ProfileChoice({
     onPick(resolveProfile(p, kind, fits[id].tight))
   }
 
+  // What a profile costs beside the current values: a signed size, or a
+  // reason it cannot be picked. Nothing for the current profile, for a
+  // change too small to matter, or while there is no estimate.
   const memoryOf = (row) => {
     if (row.id === CUSTOM_PROFILE) return null
     const fit = fits[row.id]
     if (fit.state === 'unsupported') return { kind: 'off', words: t('engineSettings.quick.unsupported') }
     if (fit.state === 'small') return { kind: 'off', words: t('engineSettings.quick.needs', { size: formatBytes(fit.need) }) }
     if (fit.state === 'nofit') return { kind: 'off', words: t('engineSettings.quick.noFit', { size: formatBytes(fit.need), limit: formatBytes(fit.limit) }) }
-    if (!hasEstimate) return null
-    if (row.id === held) return { kind: 'current', words: t('engineSettings.quick.current') }
-    if (estimates.status === 'loading' || estimates.status === 'idle') return { kind: 'loading', words: t('engineSettings.quick.estimating') }
-    const answer = estimates.answers[`${fit.tight ? 't' : pre}:${row.id}`]
-    const change = memoryChange(now, answer)
-    if (!change) return { kind: 'none', words: t('engineSettings.quick.noEstimate') }
-    if (change.kind === 'same') return { kind: 'same', words: t('engineSettings.quick.same') }
-    return { kind: change.kind, words: t(`engineSettings.quick.${change.kind}`, { size: change.text }) }
+    // While a new estimate loads, the last answers stay, so the figures do not blink.
+    if (!hasEstimate || row.id === held || estimates.status === 'error') return null
+    const change = memoryChange(now, estimates.answers[`${fit.tight ? 't' : pre}:${row.id}`])
+    if (!change || change.kind === 'same') return null
+    return {
+      kind: change.kind,
+      words: t(`engineSettings.quick.${change.kind}Short`, { size: change.text }),
+      full: t(`engineSettings.quick.${change.kind}`, { size: change.text }),
+    }
   }
 
-  const choice = rows.filter(r => r.id !== CUSTOM_PROFILE || customInChoice)
-  const note = current !== CUSTOM_PROFILE
-    ? t(`engineSettings.profiles.${current}.note`, { defaultValue: '' })
-    : ''
+  return { rows, current, fits, pick, memoryOf, readOnly, customInChoice, kind }
+}
+
+// One choice of the quick setup: a label, the segmented choice with the
+// memory change of each option, and one line about the option chosen.
+// eslint-disable-next-line no-unused-vars
+function ProfileChoice({ t, testId, title, state }) {
+  const { rows, current, fits, pick, memoryOf, readOnly, customInChoice } = state
   const labelId = `${testId}-label`
+  const choice = rows.filter(r => r.id !== CUSTOM_PROFILE || customInChoice)
+  const memories = Object.fromEntries(rows.map(r => [r.id, memoryOf(r)]))
+  const chosen = rows.find(r => r.id === current)
+  const off = rows.filter(r => memories[r.id]?.kind === 'off')
+  const note = current !== CUSTOM_PROFILE ? t(`engineSettings.profiles.${current}.note`, { defaultValue: '' }) : ''
 
   return (
     <div className="rt-quick__set" data-testid={`${testId}-set`}>
-      <div className="rt-quick__head">
-        <span className="rt-quick__title" id={labelId}>{title}</span>
+      <span className="rt-quick__title" id={labelId}>{title}</span>
+      <div className="rt-quick__control">
         <Segmented
           mode="radio"
           labelledBy={labelId}
           value={current}
-          options={choice.map(r => ({ id: r.id, label: r.short, disabled: readOnly || (r.profile && fits[r.id].state !== 'ok') }))}
+          options={choice.map(r => {
+            const mem = memories[r.id]
+            const delta = mem && mem.kind !== 'off'
+              ? (
+                <span className={`rt-quick__delta rt-quick__delta--${mem.kind}`} title={mem.full} data-testid={`${testId}-mem-${r.id}`}>
+                  <span aria-hidden="true">{mem.words}</span>
+                  <span className="dk-sr-only">{mem.full}</span>
+                </span>
+              )
+              : undefined
+            return { id: r.id, label: r.short, count: delta, disabled: readOnly || (r.profile && fits[r.id].state !== 'ok') }
+          })}
           onChange={pick}
           itemTestId={`${testId}-`}
           testId={`${testId}-choice`}
         />
+        {chosen && <p className="rt-quick__line" data-testid={`${testId}-line`}>{chosen.line}</p>}
+        {off.map(r => (
+          <p className="text-meta rt-quick__off" key={r.id}>
+            <span className="rt-quick__off-name">{r.name}</span>
+            <span data-testid={`${testId}-mem-${r.id}`}>{memories[r.id].words}</span>
+          </p>
+        ))}
+        {note && <Callout tone="info" testId={`${testId}-note`}>{note}</Callout>}
       </div>
+    </div>
+  )
+}
 
+// The comparison of one set: a row per profile with what it does, who it
+// suits and what it changes on this kind of memory. The current row is marked.
+// eslint-disable-next-line no-unused-vars
+function ProfileTable({ t, testId, title, state, context }) {
+  const { rows, current, fits } = state
+  return (
+    <div className="rt-quick__table">
+      <span className="dk-eyebrow">{title}</span>
       <ul className="rt-quick__list">
         {rows.map(r => {
-          const mem = memoryOf(r)
           const p = r.profile
           const share = p?.streams ? tokensPerStream(context, p.streams) : null
-          const kindNote = p?.memory?.[kind]?.note
-            ? t(`engineSettings.profiles.${p.id}.memory.${kind}`, { defaultValue: p.memory[kind].note })
+          const kindNote = p?.memory?.[state.kind]?.note
+            ? t(`engineSettings.profiles.${p.id}.memory.${state.kind}`, { defaultValue: p.memory[state.kind].note })
             : ''
           const tight = p && fits[p.id].tight && fits[p.id].state === 'ok'
           return (
@@ -263,14 +329,10 @@ function ProfileChoice({
                   </span>
                 )}
               </span>
-              {mem && <span className={`rt-quick__mem rt-quick__mem--${mem.kind}`} data-testid={`${testId}-mem-${r.id}`}>{mem.words}</span>}
             </li>
           )
         })}
       </ul>
-
-      {set && <p className="text-meta rt-quick__now" data-testid={`${testId}-shared`}>{t('engineSettings.quick.shared')}</p>}
-      {note && <Callout tone="info" testId={`${testId}-note`}>{note}</Callout>}
     </div>
   )
 }
