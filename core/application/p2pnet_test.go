@@ -90,6 +90,23 @@ var _ = Describe("P2P layer lifecycle", func() {
 		Expect(me.Mode).To(Equal("connect"))
 	})
 
+	It("runs no mDNS and holds no relay reservation in mode connect", func() {
+		s := config.P2PSettings{Relays: []config.P2PRelay{{Addr: "/ip4/192.0.2.1/tcp/4001/p2p/12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGm"}}}
+		pc, gate, err := p2pHostConfig(config.P2PModeConnect, s, "id.key")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(gate).To(BeNil())
+		Expect(pc.MDNS).To(BeFalse(), "nobody dials this host, so it announces nothing on the local network")
+		Expect(pc.NoReservations).To(BeTrue())
+		Expect(pc.ListenAddrs).To(BeNil(), "a hole punch still needs a listener")
+
+		pc, gate, err = p2pHostConfig(config.P2PModeShare, s, "id.key")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(gate).ToNot(BeNil())
+		Expect(pc.MDNS).To(BeTrue())
+		Expect(pc.NoReservations).To(BeFalse())
+		Expect(pc.StaticRelays).To(HaveLen(1))
+	})
+
 	It("refuses share while authentication is off, with the message of ResolveP2PMode", func() {
 		a := newP2PTestApp("share", GinkgoT().TempDir(), nil)
 		Expect(a.StartP2PNet()).To(MatchError(config.ErrP2PShareNeedsAuth))

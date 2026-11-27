@@ -81,6 +81,13 @@ type Config struct {
 	RelayRetry time.Duration
 	// MDNS finds peers on the local network.
 	MDNS bool
+	// NoReservations keeps AutoRelay off: the host holds no relay
+	// reservation, so no peer can reach it through a relay. It is for hosts
+	// that only dial out. A hole punch does not need one on the dialling
+	// side: the peer that holds the reservation starts it, and this host
+	// needs only its listen addresses and the addresses that its peers
+	// observe.
+	NoReservations bool
 	// PortMapping asks the router for a port mapping (UPnP, NAT-PMP).
 	PortMapping bool
 	// Gate admits peers and streams. Nil means an empty Allowlist: no
@@ -183,7 +190,7 @@ func New(ctx context.Context, cfg Config) (*Host, error) {
 	if cfg.PortMapping {
 		opts = append(opts, libp2p.NATPortMap())
 	}
-	if len(cfg.StaticRelays) > 0 || cfg.PublicDHT {
+	if !cfg.NoReservations && (len(cfg.StaticRelays) > 0 || cfg.PublicDHT) {
 		opts = append(opts, libp2p.EnableAutoRelayWithPeerSource(n.relayCandidates, autoRelayOptions(cfg)...))
 	}
 	if cfg.PublicDHT {
@@ -229,7 +236,7 @@ func (n *Host) start(cfg Config, boot []peer.AddrInfo) error {
 			n.punch.forget(c.RemotePeer())
 		}
 	}})
-	if len(cfg.StaticRelays) > 0 {
+	if len(cfg.StaticRelays) > 0 && !cfg.NoReservations {
 		if err := kickAutoRelay(n.h); err != nil {
 			return err
 		}

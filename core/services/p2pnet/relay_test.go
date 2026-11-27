@@ -35,6 +35,16 @@ var _ = Describe("Relays", func() {
 		Eventually(func() bool { return relay.reserved(server.ID()) }, 15*time.Second, 50*time.Millisecond).Should(BeTrue())
 	})
 
+	It("holds no reservation with NoReservations, also with a static relay", func() {
+		relay := newTestRelay(relayv2.DefaultResources())
+		h := newHost(p2pnet.Config{
+			StaticRelays:   []peer.AddrInfo{relay.info()},
+			RelayRetry:     time.Second,
+			NoReservations: true,
+		})
+		Consistently(func() bool { return relay.reserved(h.ID()) }, 3*time.Second, 100*time.Millisecond).Should(BeFalse())
+	})
+
 	Context("with a relay that limits each circuit", func() {
 		const limitBytes = 8 << 20
 		const limitDuration = 2 * time.Minute

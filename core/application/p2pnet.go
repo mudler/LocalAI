@@ -250,24 +250,12 @@ func (n *p2pNet) runtime() (*p2pRuntime, config.P2PMode) {
 	return n.rt, n.mode
 }
 
-// startRuntime starts a host for the configured mode. It returns nil for off.
-func (n *p2pNet) startRuntime() (*p2pRuntime, config.P2PMode, error) {
-	appCfg := n.app.ApplicationConfig()
-	s := appCfg.P2P
-	mode, _, err := config.ResolveP2PMode(s.Mode, n.app.AuthDB() != nil)
-	if err != nil {
-		return nil, config.P2PModeOff, err
-	}
-	if mode == config.P2PModeOff {
-		return nil, mode, nil
-	}
-	idPath, err := config.ResolveP2PIdentityPath(s.IdentityPath, appCfg.DataPath)
-	if err != nil {
-		return nil, mode, err
-	}
+// p2pHostConfig is the host configuration of a mode other than off. In mode
+// share it also returns the allowlist of the host.
+func p2pHostConfig(mode config.P2PMode, s config.P2PSettings, idPath string) (p2pnet.Config, *p2pnet.Allowlist, error) {
 	boot, err := p2pnet.ParsePeerAddrs(s.BootstrapPeers)
 	if err != nil {
-		return nil, mode, fmt.Errorf("p2p_bootstrap_peers: %w", err)
+		return p2pnet.Config{}, nil, fmt.Errorf("p2p_bootstrap_peers: %w", err)
 	}
 	var relayAddrs []string
 	for _, r := range s.Relays {
@@ -275,7 +263,7 @@ func (n *p2pNet) startRuntime() (*p2pRuntime, config.P2PMode, error) {
 	}
 	static, err := p2pnet.ParsePeerAddrs(relayAddrs)
 	if err != nil {
-		return nil, mode, fmt.Errorf("p2p_relays: %w", err)
+		return p2pnet.Config{}, nil, fmt.Errorf("p2p_relays: %w", err)
 	}
 	pc := p2pnet.Config{
 		IdentityPath:   idPath,
@@ -294,7 +282,35 @@ func (n *p2pNet) startRuntime() (*p2pRuntime, config.P2PMode, error) {
 	// Mode connect listens too, on the default addresses with ports that
 	// the system picks: a hole punch needs a socket the peer can reach. It
 	// still accepts nobody: the host's own empty allowlist refuses every
-	// inbound connection after the security handshake.
+	// inbound connection after the security handshake. Nobody dials it, so
+	// it holds no relay reservation and does not announce itself or connect
+	// to the local network with mDNS.
+	if mode == config.P2PModeConnect {
+		pc.MDNS = false
+		pc.NoReservations = true
+	}
+	return pc, gate, nil
+}
+
+// startRuntime starts a host for the configured mode. It returns nil for off.
+func (n *p2pNet) startRuntime() (*p2pRuntime, config.P2PMode, error) {
+	appCfg := n.app.ApplicationConfig()
+	s := appCfg.P2P
+	mode, _, err := config.ResolveP2PMode(s.Mode, n.app.AuthDB() != nil)
+	if err != nil {
+		return nil, config.P2PModeOff, err
+	}
+	if mode == config.P2PModeOff {
+		return nil, mode, nil
+	}
+	idPath, err := config.ResolveP2PIdentityPath(s.IdentityPath, appCfg.DataPath)
+	if err != nil {
+		return nil, mode, err
+	}
+	pc, gate, err := p2pHostConfig(mode, s, idPath)
+	if err != nil {
+		return nil, mode, err
+	}
 	ctx, cancel := context.WithCancel(context.WithoutCancel(appContext(appCfg)))
 	host, err := p2pnet.New(ctx, pc)
 	if err != nil {

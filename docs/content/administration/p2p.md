@@ -39,7 +39,7 @@ setting `p2p_mode`, or with `--p2p-mode` (environment variable
 | Mode | In the interface | What the server does |
 |---|---|---|
 | `off` | Off | Nothing. This is the default. |
-| `connect` | Connect only | It connects out to remotes over P2P and accepts nobody. It listens on random ports only so that a hole punch can reach it, and it drops every machine that connects. It has no invites and no devices. It needs no authentication. |
+| `connect` | Connect only | It connects out to remotes over P2P and accepts nobody. It listens on random ports only so that a hole punch can reach it, and it drops every machine that connects. It runs no local network discovery and holds no relay reservation. It has no invites and no devices. It needs no authentication. |
 | `share` | Connect and share | It also accepts paired devices: it listens, mints invites, and has the devices and relays pages. |
 
 Mode `share` needs [authentication]({{% relref "/administration/authentication" %}}).
@@ -257,7 +257,7 @@ runtime settings: the names below are the keys of `/api/settings` and of
 | `p2p_relay_paired` | on | "Via your server": this server relays for its paired devices. Mode `share` only. |
 | `p2p_relay_mode` | `auto` | When this server relays for its devices: `auto` while it is reachable from the internet, `on` always, `off` never. |
 | `p2p_relay_rate_limit` | 0 | Bandwidth limit of each relayed connection through this server, in bytes per second. 0 is no limit. |
-| `p2p_mdns` | on | Finds machines on the local network. |
+| `p2p_mdns` | on | Finds machines on the local network. Mode `connect` never runs it. |
 
 Command-line flags, read at start:
 
