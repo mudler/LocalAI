@@ -74,6 +74,7 @@ var _ = Describe("API Instructions Endpoints", func() {
 			Expect(names).To(ContainElements(
 				"addons",
 				"plugins",
+				"prompt-cache",
 				"chats",
 				"notifications",
 				"workspace",

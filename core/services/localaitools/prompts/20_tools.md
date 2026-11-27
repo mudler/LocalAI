@@ -30,6 +30,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `get_chat_egress` — Read the network settings of the chats' isolated commands (ceiling, default, ports, registries, always-allowed hosts) and the requests of the last 24 hours.
 - `list_egress_events` — Read the audit of the isolated commands' network requests, newest first, with filters.
 - `get_branding` — Read the resolved instance name, tagline, and branding asset URLs.
+- `get_prompt_cache` — Read the size, free disk, effective cap and state of the disk prompt cache of each node.
 - `get_usage_stats` — Read token/request usage aggregates when usage tracking is enabled.
 - `get_pii_events` — Inspect recent PII-filter events without returning redacted request bodies.
 - `get_middleware_status` — Inspect middleware configuration and health.
@@ -71,6 +72,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `set_alias` — Create, update, or remove a model alias.
 - `seed_router_corpus` — Add validated labelled exemplars to a KNN router corpus.
 - `clear_router_corpus` — Permanently clear a KNN router corpus and its live index entries.
+- `clear_prompt_cache` — Delete the disk prompt cache of one model or of every model.
 - `create_shared_folder` — Create the shared folder `/shared/<name>` with no members.
 - `rename_shared_folder` — Rename a shared folder by id; its members and pages stay.
 - `delete_shared_folder` — Move a shared folder to the trash. Returns `undo_rev`; drops every user's consent to its pages.

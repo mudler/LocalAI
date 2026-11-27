@@ -16,4 +16,5 @@ Use this when the user asks "what's installed?", "what's running?", "show status
    - **Workers** (only when distributed)
    - **Scheduling rules** (only when distributed)
    - **Routes** (only when distributed)
-5. Do not call mutating tools in this skill.
+5. When the user asks about the disk prompt cache (its size, or why it is paused or off), call `get_prompt_cache`. `paused_low_disk`: the disk has less free space than the low mark, so the cache writes nothing new and shrinks. `disabled_disk_full`: the disk is almost full, so the cache is off until the free space is above the low mark again. To clear the cache of one model (`model`) or of all models, use `clear_prompt_cache` only after the confirmation of safety rule 1. A clear acts on the node that answers; users clear their own cached prompts from their account page.
+6. Do not call mutating tools in this skill without that confirmation.

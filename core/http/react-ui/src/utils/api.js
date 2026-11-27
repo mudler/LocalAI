@@ -881,6 +881,16 @@ export const settingsApi = {
   save: (body) => postJSON(API_CONFIG.endpoints.settings, body),
 }
 
+// The disk prompt cache of llama.cpp.
+//   status()        -> { enabled, shared, nodes: [{ node, bytes, files, namespaces, status, models }] }  (admin)
+//   clear(model)    -> { files, bytes }   one model, or every model when model is empty (admin)
+//   clearMine()     -> { files, bytes }   the cached prompts of the caller
+export const promptCacheApi = {
+  status: () => fetchJSON(API_CONFIG.endpoints.promptCache),
+  clear: (model) => postJSON(API_CONFIG.endpoints.promptCacheClear, model ? { model } : {}),
+  clearMine: () => fetchJSON(API_CONFIG.endpoints.promptCacheMine, { method: 'DELETE' }),
+}
+
 // P2P relays and identity (the P2P settings page). Status, invites and devices
 // are in their own block.
 export const p2pRelaysApi = {

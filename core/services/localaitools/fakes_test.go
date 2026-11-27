@@ -439,6 +439,16 @@ func (f *fakeClient) GetBranding(_ context.Context) (*Branding, error) {
 	return &Branding{InstanceName: "LocalAI"}, nil
 }
 
+func (f *fakeClient) GetPromptCache(_ context.Context) (*PromptCacheStatus, error) {
+	f.record("GetPromptCache", nil)
+	return &PromptCacheStatus{Enabled: true}, nil
+}
+
+func (f *fakeClient) ClearPromptCache(_ context.Context, model string) (*PromptCacheClearResult, error) {
+	f.record("ClearPromptCache", model)
+	return &PromptCacheClearResult{}, nil
+}
+
 func (f *fakeClient) SetBranding(_ context.Context, req SetBrandingRequest) (*Branding, error) {
 	f.record("SetBranding", req)
 	if f.setBranding != nil {

@@ -11,7 +11,7 @@ test.describe('Account', () => {
 
   test('has its tabs, opens on the profile and keeps the tab in the address', async ({ page }) => {
     const tabs = await page.getByRole('tab').allTextContents()
-    expect(tabs).toEqual(['Profile', 'Security', 'API keys', 'Usage', 'About you and the assistant', 'Memory', 'Appearance', 'Defaults', 'Navigation', 'Slots', 'Text and commands', 'Sound'])
+    expect(tabs).toEqual(['Profile', 'Security', 'API keys', 'Usage', 'Cached prompts', 'About you and the assistant', 'Memory', 'Appearance', 'Defaults', 'Navigation', 'Slots', 'Text and commands', 'Sound'])
     await expect(page.getByRole('tab', { name: 'Profile' })).toHaveAttribute('aria-selected', 'true')
     await page.getByRole('tab', { name: 'Usage' }).click()
     await expect(page).toHaveURL(/tab=usage/)

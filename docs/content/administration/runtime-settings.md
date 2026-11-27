@@ -18,7 +18,7 @@ Open **Admin → Settings** in the web UI (`/app/settings`). The page lists ever
 
 | Group | Settings it holds |
 |---|---|
-| Models in memory | Watchdog (idle and busy checks, timeouts, interval), eviction (force when busy, largest first, retries, retry interval), free memory automatically and its threshold, models kept loaded, swap models when memory is full, GPU memory budget |
+| Models in memory | Watchdog (idle and busy checks, timeouts, interval), eviction (force when busy, largest first, retries, retry interval), free memory automatically and its threshold, models kept loaded, swap models when memory is full, GPU memory budget, the [disk prompt cache]({{%relref "/models/disk-prompt-cache" %}}) (on or off, time to live, size cap, quota per user, shortest prompt, shared cache, free-space marks) with its state and a **Clear** button |
 | Speed and defaults | Default threads, default context size, artifact download concurrency, F16 |
 | Backends and galleries | Automatic backend upgrades, development backends, gallery loading on boot, the persistent VRAM cache, the model and backend gallery lists |
 | Access and security | CORS and allowed origins, CSRF protection, shared API keys, whether MCP connectors may reach private networks |
@@ -101,6 +101,17 @@ In distributed mode the settings of **Models in memory** are cluster settings: t
 | `vram_budget` (GPU memory budget) | Cap of this machine | Cap of each worker that sets none of its own. Per node |
 
 The busy watchdog (`watchdog_busy_*`) still acts only on the backends that a frontend starts itself. In distributed mode a frontend's own watchdog handles only the backends it started; the replicas on the workers are the cluster's to unload.
+
+### Disk Prompt Cache Settings
+
+The `llama-cpp` backend can keep the prompt cache of long prompts on disk, per user. See [Disk Prompt Cache]({{%relref "/models/disk-prompt-cache" %}}) for what it stores and how long.
+
+- **Keep long prompts on disk** (`prompt_cache_disk`): on by default. Backends get a change when they next start
+- **Keep entries for** (`prompt_cache_disk_ttl`): time to keep an entry after its last use (default: `168h`)
+- **Share the cache between users** (`prompt_cache_disk_shared`): one cache for all users (default: off)
+- **Size cap** (`prompt_cache_disk_max_size_mib`), **Quota per user** (`prompt_cache_disk_user_quota_mib`), **Shortest prompt kept** (`prompt_cache_disk_min_tokens`), **Low free space** (`prompt_cache_disk_low_free_mib`) and **Critical free space** (`prompt_cache_disk_critical_free_mib`): advanced limits. `0` is automatic for the size, the quota and the marks; `-1` is no quota
+
+The block also shows the size of the cache, the free disk, the cap in effect and the state of each node, and a **Clear** button that deletes the cache of every user and model.
 
 ### Performance Settings
 

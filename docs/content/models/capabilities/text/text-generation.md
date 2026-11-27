@@ -947,6 +947,10 @@ Keep these points in mind:
 - A slot that is busy with a request is served after that request ends.
 - The API is for `llama-cpp` only. Other backends return `501`.
 
+##### Disk prompt cache
+
+The RAM prompt cache is lost when the model unloads. The disk prompt cache keeps the state of long prompts (1,024 tokens or more, seen in at least two requests) on disk, per user, so a reload does not compute them again. It is on by default; `prompt_cache_disk:false` in `options:` turns it off for one model. See [Disk Prompt Cache]({{%relref "/models/disk-prompt-cache" %}}) for the options, the sizes and the retention.
+
 #### Reference
 
 - [llama](https://github.com/ggerganov/llama.cpp)

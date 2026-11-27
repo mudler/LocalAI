@@ -496,6 +496,7 @@ This worker holds one route: the WebSocket tunnel to the frontend. Add `--nats-u
 |------|---------|---------|-------------|
 | `--addr` | `LOCALAI_ADDR` | *(empty)* | Address where this worker is reachable (`host:port`). The port is the base for gRPC backends. A worker on the tunnel only with no address binds its backends to loopback. See [Worker profiles](#worker-profiles). |
 | `--grpc-max-port` | `LOCALAI_GRPC_MAX_PORT` | `65535` | Highest port the worker may assign to a backend gRPC process. Each backend gets its own port, allocated upward from the base port, so the width of `[base port, this]` caps how many backends this worker can run at once (see [Backend gRPC port range](#backend-grpc-port-range)) |
+| `--prompt-cache-disk` | `LOCALAI_PROMPT_CACHE_DISK` | `true` | Keep the prompt cache of long llama.cpp prompts on the local disk of this worker, under `<data dir>/prompt-cache`. The worker runs its own cleaner with the default settings. See [Disk Prompt Cache]({{%relref "/models/disk-prompt-cache#distributed-mode" %}}) |
 | `--advertise-addr` | `LOCALAI_ADVERTISE_ADDR` | *(auto)* | Address the frontend uses to reach this node (see below) |
 | `--http-addr` | `LOCALAI_HTTP_ADDR` | gRPC port - 1 | HTTP file transfer server bind address |
 | `--advertise-http-addr` | `LOCALAI_ADVERTISE_HTTP_ADDR` | *(auto)* | HTTP address the frontend uses for file transfer |

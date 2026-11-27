@@ -37,6 +37,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/plugins"
+	"github.com/mudler/LocalAI/core/services/promptcachesvc"
 	"github.com/mudler/LocalAI/core/services/remotes"
 	"github.com/mudler/LocalAI/core/services/routing/billing"
 	"github.com/mudler/LocalAI/core/services/routing/corpus"
@@ -124,6 +125,10 @@ type Client struct {
 	// the tool return an empty list — same shape the REST endpoint
 	// returns when stats are disabled.
 	RouterDecisions router.DecisionStore
+
+	// PromptCache backs get_prompt_cache and clear_prompt_cache. nil makes
+	// them report a cache that is off.
+	PromptCache PromptCacheSource
 
 	// RouterCorpus + the two factories back the corpus tools
 	// (seed_router_corpus / get_router_corpus_stats /
@@ -2298,4 +2303,57 @@ func (c *Client) ManageFederationGroup(ctx context.Context, req localaitools.Fed
 	}
 	info := federationGroupInfo(g)
 	return &info, nil
+}
+
+// ---- Prompt cache ----
+
+// PromptCacheSource gives the disk prompt cache of this node and the seam
+// purges and usage requests go through. *application.Application is one.
+type PromptCacheSource interface {
+	PromptCacheNode() *promptcachesvc.Node
+	PromptCacheNodes() promptcachesvc.Nodes
+}
+
+func (c *Client) GetPromptCache(ctx context.Context) (*localaitools.PromptCacheStatus, error) {
+	if c.PromptCache == nil {
+		return &localaitools.PromptCacheStatus{Nodes: []localaitools.PromptCacheNode{}}, nil
+	}
+	shared := c.AppConfig != nil && c.AppConfig.PromptCache.Shared
+	rep, err := promptcachesvc.Report(ctx, c.PromptCache.PromptCacheNodes(), c.PromptCache.PromptCacheNode().Enabled(),
+		shared, promptcachesvc.ModelNames(c.ConfigLoader))
+	if err != nil {
+		return nil, err
+	}
+	// The DTO has the JSON shape of the REST answer.
+	raw, err := json.Marshal(rep)
+	if err != nil {
+		return nil, err
+	}
+	var out localaitools.PromptCacheStatus
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) ClearPromptCache(ctx context.Context, model string) (*localaitools.PromptCacheClearResult, error) {
+	if c.PromptCache == nil {
+		return &localaitools.PromptCacheClearResult{}, nil
+	}
+	scope := promptcachesvc.Scope{All: true}
+	if model != "" {
+		if c.ConfigLoader == nil {
+			return nil, fmt.Errorf("model %q not found", model)
+		}
+		cfg, ok := c.ConfigLoader.GetModelConfig(model)
+		if !ok || cfg.Model == "" {
+			return nil, fmt.Errorf("model %q not found", model)
+		}
+		scope = promptcachesvc.ModelScope(cfg.Model)
+	}
+	res, err := c.PromptCache.PromptCacheNodes().Purge(ctx, scope)
+	if err != nil {
+		return nil, err
+	}
+	return &localaitools.PromptCacheClearResult{Files: res.Files, Bytes: res.Bytes}, nil
 }

@@ -38,6 +38,8 @@ const (
 	routeVRAMEstimate           = "/api/models/vram-estimate"
 	routeEngines                = "/api/engines"
 	routeBranding               = "/api/branding"
+	routePromptCache            = "/api/prompt-cache"
+	routePromptCacheClear       = "/api/prompt-cache/clear"
 	routeSettings               = "/api/settings"
 	routeUsage                  = "/api/usage"
 	routeUsageAll               = "/api/usage/all"

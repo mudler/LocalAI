@@ -166,6 +166,12 @@ type LocalAIClient interface {
 	// SetBranding updates the text branding fields. Asset uploads are not
 	// exposed over MCP — admins use the Settings UI for binary files.
 	SetBranding(ctx context.Context, req SetBrandingRequest) (*Branding, error)
+	// GetPromptCache reports the disk prompt cache: size, free disk,
+	// effective cap and state of each node, and the size of each model.
+	GetPromptCache(ctx context.Context) (*PromptCacheStatus, error)
+	// ClearPromptCache deletes the disk prompt cache of one model, or of
+	// every model when model is empty.
+	ClearPromptCache(ctx context.Context, model string) (*PromptCacheClearResult, error)
 
 	// ---- Shared folders ----
 	// ListSharedFolders returns every shared folder with its members.

@@ -40,6 +40,7 @@ const (
 	ToolListHostExecEvents        = "list_host_exec_events"
 	ToolGetChatEgress             = "get_chat_egress"
 	ToolListEgressEvents          = "list_egress_events"
+	ToolGetPromptCache            = "get_prompt_cache"
 
 	// Mutating tools — guarded by Options.DisableMutating and the
 	// LLM-side safety prompt (see prompts/10_safety.md).
@@ -69,6 +70,7 @@ const (
 	ToolSetSharedFolderMember    = "set_shared_folder_member"
 	ToolRemoveSharedFolderMember = "remove_shared_folder_member"
 	ToolSetNodeVRAMBudget        = "set_node_vram_budget"
+	ToolClearPromptCache         = "clear_prompt_cache"
 	// ToolSetNodeLimits sets or clears the per-node overrides of the memory
 	// settings (models kept loaded, VRAM budget, threshold, model swap).
 	ToolSetNodeLimits = "set_node_limits"
@@ -165,6 +167,7 @@ var mutatingToolNames = []string{
 	ToolSetAlias,
 	ToolSeedRouterCorpus,
 	ToolClearRouterCorpus,
+	ToolClearPromptCache,
 	ToolCreateSharedFolder,
 	ToolRenameSharedFolder,
 	ToolDeleteSharedFolder,

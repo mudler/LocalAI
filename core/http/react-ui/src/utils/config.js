@@ -58,6 +58,11 @@ export const API_CONFIG = {
     // Settings
     settings: '/api/settings',
 
+    // Disk prompt cache
+    promptCache: '/api/prompt-cache',
+    promptCacheClear: '/api/prompt-cache/clear',
+    promptCacheMine: '/api/prompt-cache/mine',
+
     // Traces
     traces: '/api/traces',
     tracesSummary: '/api/traces/summary',

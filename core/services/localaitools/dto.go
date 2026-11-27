@@ -1091,3 +1091,53 @@ type UpgradeRun struct {
 	CancelRequested bool             `json:"cancel_requested,omitempty"`
 	Items           []UpgradeRunItem `json:"items"`
 }
+
+// PromptCacheModel is the disk prompt cache of one model on one node.
+type PromptCacheModel struct {
+	Model   string `json:"model,omitempty"`
+	Model16 string `json:"model16"`
+	Bytes   int64  `json:"bytes"`
+	Files   int    `json:"files"`
+}
+
+// PromptCacheDisk is the disk state of a node at its last janitor sweep.
+// State is on, paused_low_disk, disabled_disk_full or unknown.
+type PromptCacheDisk struct {
+	State                  string `json:"state"`
+	CacheBytes             int64  `json:"cache_bytes"`
+	FreeBytes              uint64 `json:"free_bytes"`
+	TotalBytes             uint64 `json:"total_bytes"`
+	LowWatermarkBytes      uint64 `json:"low_watermark_bytes"`
+	CriticalWatermarkBytes uint64 `json:"critical_watermark_bytes"`
+	MaxBytes               int64  `json:"max_bytes"`
+	EffectiveCapBytes      int64  `json:"effective_cap_bytes"`
+	SharesModelsDisk       bool   `json:"shares_models_disk"`
+}
+
+// PromptCacheNode is the disk prompt cache of one node.
+type PromptCacheNode struct {
+	Node       string             `json:"node"`
+	Bytes      int64              `json:"bytes"`
+	Files      int                `json:"files"`
+	Namespaces int                `json:"namespaces"`
+	Status     PromptCacheDisk    `json:"status"`
+	Models     []PromptCacheModel `json:"models"`
+}
+
+// PromptCacheStatus is the answer of get_prompt_cache.
+type PromptCacheStatus struct {
+	Enabled bool              `json:"enabled"`
+	Shared  bool              `json:"shared"`
+	Nodes   []PromptCacheNode `json:"nodes"`
+}
+
+// PromptCacheClearRequest is the input of clear_prompt_cache.
+type PromptCacheClearRequest struct {
+	Model string `json:"model,omitempty" jsonschema:"Model whose cached prompts to delete. Empty deletes the cache of every model."`
+}
+
+// PromptCacheClearResult says what clear_prompt_cache deleted.
+type PromptCacheClearResult struct {
+	Files int   `json:"files"`
+	Bytes int64 `json:"bytes"`
+}

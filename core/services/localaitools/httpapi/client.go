@@ -1672,3 +1672,22 @@ func (c *Client) ManageFederationGroup(ctx context.Context, req localaitools.Fed
 	}
 	return &out, nil
 }
+
+// ---- Prompt cache ----
+
+func (c *Client) GetPromptCache(ctx context.Context) (*localaitools.PromptCacheStatus, error) {
+	var out localaitools.PromptCacheStatus
+	if err := c.do(ctx, http.MethodGet, routePromptCache, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) ClearPromptCache(ctx context.Context, model string) (*localaitools.PromptCacheClearResult, error) {
+	var out localaitools.PromptCacheClearResult
+	body := localaitools.PromptCacheClearRequest{Model: model}
+	if err := c.do(ctx, http.MethodPost, routePromptCacheClear, body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}

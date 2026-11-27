@@ -55,6 +55,7 @@ export const OLD_SECTIONS = {
 
 const AGENT_RESTART = { apply: 'restart' }
 const WATCHDOG_LIVE = { apply: 'live', note: 'The watchdog restarts with the new values.' }
+const PROMPT_CACHE_LIVE = { apply: 'live', note: 'The janitor uses it at its next sweep; a model gets it when it next loads.' }
 
 // One row per real setting. `kind` picks the control:
 //   bool, text, int, duration, percent, select, model, json, lines, hosts, token,
@@ -108,6 +109,34 @@ export const FIELDS = [
     desc: 'Cap the VRAM used for model allocation on this node. A percentage (80%) or an amount (12GB). Empty uses all detected VRAM.',
     extra: (settings) => (settings.memory_scope === 'cluster' ? 'In distributed mode the budget applies on each worker node that sets none of its own.' : null),
     placeholder: 'e.g. 80% or 12GB', default: '', apply: 'live' },
+
+  // Disk tier of the llama.cpp prompt cache (core/config/prompt_cache.go,
+  // defaults from the prompt-cache flags in core/cli/run.go). The status and
+  // the Clear button are PromptCacheStatus, drawn in this group.
+  { key: 'prompt_cache_disk', group: 'memory', block: 'promptCache', kind: 'bool', label: 'Keep long prompts on disk',
+    desc: 'Keep the prompt cache of long llama.cpp prompts on disk, so a model reload does not compute them again. Each user has a separate cache. The files hold prompt text: treat them like stored chats.',
+    default: true, ...PROMPT_CACHE_LIVE },
+  { key: 'prompt_cache_disk_ttl', group: 'memory', block: 'promptCache', kind: 'duration', label: 'Keep entries for',
+    desc: 'How long an entry is kept after its last use, for example 168h (7 days).',
+    placeholder: '168h', default: '168h', ...PROMPT_CACHE_LIVE, needs: 'prompt_cache_disk' },
+  { key: 'prompt_cache_disk_shared', group: 'memory', block: 'promptCache', kind: 'bool', label: 'Share the cache between users',
+    desc: 'All users read and write one cache. Turn on only when every user may see the prompts of the others.',
+    default: false, ...PROMPT_CACHE_LIVE, needs: 'prompt_cache_disk' },
+  { key: 'prompt_cache_disk_max_size_mib', group: 'memory', block: 'promptCache', advanced: true, kind: 'int', label: 'Size cap (MiB)',
+    desc: 'Most disk the cache of this node may use. 0 is automatic: the smaller of 20 GiB and a tenth of the free disk at start.',
+    placeholder: '0', default: 0, min: 0, ...PROMPT_CACHE_LIVE },
+  { key: 'prompt_cache_disk_user_quota_mib', group: 'memory', block: 'promptCache', advanced: true, kind: 'int', label: 'Quota per user (MiB)',
+    desc: 'Most disk one user may use. 0 is automatic: an equal share of the cap when there is more than one user. -1 is no quota.',
+    placeholder: '0', default: 0, min: -1, ...PROMPT_CACHE_LIVE },
+  { key: 'prompt_cache_disk_min_tokens', group: 'memory', block: 'promptCache', advanced: true, kind: 'int', label: 'Shortest prompt kept (tokens)',
+    desc: 'A shorter prompt is never written to disk: it is faster to compute it again.',
+    placeholder: '1024', default: 1024, min: 1, ...PROMPT_CACHE_LIVE },
+  { key: 'prompt_cache_disk_low_free_mib', group: 'memory', block: 'promptCache', advanced: true, kind: 'int', label: 'Low free space (MiB)',
+    desc: 'Under this free disk the cache stops writing and deletes its oldest entries. 0 is automatic: the larger of 15% of the disk and 10 GiB.',
+    placeholder: '0', default: 0, min: 0, ...PROMPT_CACHE_LIVE },
+  { key: 'prompt_cache_disk_critical_free_mib', group: 'memory', block: 'promptCache', advanced: true, kind: 'int', label: 'Critical free space (MiB)',
+    desc: 'Under this free disk the cache turns off until the free space is above the low mark again. 0 is automatic: 5% of the disk.',
+    placeholder: '0', default: 0, min: 0, ...PROMPT_CACHE_LIVE },
 
   // ---- Speed and defaults --------------------------------------------------
   { key: 'threads', group: 'speed', was: 'performance', kind: 'int', label: 'Default threads',
@@ -588,6 +617,7 @@ export function systemLoopRuns(maxRuns) {
 // its advanced fields go in a disclosure right after its other fields.
 export const BLOCKS = {
   loops: { label: 'Loops and waits', advanced: 'Advanced loop limits' },
+  promptCache: { label: 'Disk prompt cache', advanced: 'Advanced disk cache limits' },
 }
 
 // The order a group draws its fields in: each field as { field }, and after

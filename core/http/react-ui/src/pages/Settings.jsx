@@ -14,6 +14,7 @@ import AddonUpgradeSettings from '../components/settings/AddonUpgradeSettings'
 import ConnectorFilesSettings from '../components/settings/ConnectorFilesSettings'
 import OwnerBuiltinToolsSection from '../components/settings/OwnerBuiltinToolsSection'
 import PendingBar from '../components/settings/PendingBar'
+import PromptCacheStatus from '../components/settings/PromptCacheStatus'
 import ClusterSettings from '../components/cluster/ClusterSettings'
 import { useHubAuth } from '../components/hub/useHubAuth'
 import { matchSections } from '../utils/clusterSettings'
@@ -504,6 +505,7 @@ export default function Settings() {
                   )
                 })}
               </div>
+              {group === 'memory' && <PromptCacheStatus addToast={addToast} />}
             </section>
           )}
         </div>

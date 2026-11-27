@@ -3,10 +3,11 @@ import { useState, useEffect } from 'react'
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
-import { myP2PApi, profileApi, usageApi } from '../utils/api'
+import { myP2PApi, profileApi, usageApi, promptCacheApi } from '../utils/api'
 import { totalsOf, groupUsage, compactCount } from '../utils/traffic'
 import { timeUntil, initialOf } from '../utils/access'
 import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows, Tabs, useLoad } from '../components/ui'
+import ConfirmDialog from '../components/ConfirmDialog'
 import ApiKeysPanel from '../components/users/ApiKeysPanel'
 import { AboutYouTab, AppearanceTab, NavigationTab, SlotsTab, StringsTab } from '../components/wellknown/SettingsTabs'
 import DefaultsTab from '../components/wellknown/DefaultsTab'
@@ -23,6 +24,7 @@ const TABS = [
   { id: 'usage', labelKey: 'account.tabs.usage' },
   // Shown only to a user with p2p_pair while the server shares over P2P.
   { id: 'devices', labelKey: 'account.tabs.devices', pairing: true },
+  { id: 'cache', labelKey: 'account.tabs.promptCache' },
   { id: 'about', labelKey: 'account.tabs.about', files: true },
   { id: 'memory', labelKey: 'account.tabs.memory', files: true },
   { id: 'appearance', labelKey: 'account.tabs.appearance', files: true },
@@ -177,6 +179,50 @@ function SecurityTab({ addToast }) {
   )
 }
 
+// The cached prompts of the caller: the disk prompt cache keeps the prompt
+// tokens and the model state of long prompts. The user deletes them here;
+// DELETE /api/prompt-cache/mine also deletes those of the user's client keys.
+function PromptCacheTab({ addToast }) {
+  const { t } = useTranslation('auth')
+  const [confirm, setConfirm] = useState(false)
+  const [clearing, setClearing] = useState(false)
+
+  const clear = async () => {
+    setClearing(true)
+    try {
+      const res = await promptCacheApi.clearMine()
+      addToast(t('account.promptCache.cleared', { count: res?.files || 0 }), 'success')
+    } catch (err) {
+      addToast(err.message || t('account.promptCache.failed'), 'error')
+    } finally {
+      setClearing(false)
+      setConfirm(false)
+    }
+  }
+
+  return (
+    <div className="ac-form" data-testid="account-prompt-cache">
+      <p className="ac-hint">{t('account.promptCache.intro')}</p>
+      <p className="ac-hint">{t('account.promptCache.retention')}</p>
+      <div className="ac-actions">
+        <Button variant="danger" busy={clearing} onClick={() => setConfirm(true)} data-testid="account-prompt-cache-clear">
+          {t('account.promptCache.clear')}
+        </Button>
+      </div>
+      <ConfirmDialog
+        open={confirm}
+        danger
+        title={t('account.promptCache.confirmTitle')}
+        message={t('account.promptCache.confirmBody')}
+        confirmLabel={t('account.promptCache.clear')}
+        pending={clearing}
+        onConfirm={clear}
+        onCancel={() => setConfirm(false)}
+      />
+    </div>
+  )
+}
+
 // The caller's own use over the last 30 days and the limits an admin set on
 // them. The full page, with every window and the cost estimate, is Usage.
 function UsageTab() {
@@ -295,6 +341,7 @@ export default function Account() {
         {tab === 'keys' && <ApiKeysPanel addToast={addToast} intro={t('keys.accountIntro')} connect />}
         {tab === 'usage' && <UsageTab />}
         {tab === 'devices' && <MyDevicesPanel me={pairing} isAdmin={user?.role === 'admin'} addToast={addToast} />}
+        {tab === 'cache' && <PromptCacheTab addToast={addToast} />}
         {tab === 'about' && <AboutYouTab />}
         {tab === 'memory' && <MemorySettings addToast={addToast}><MemoryTab addToast={addToast} embedded /></MemorySettings>}
         {tab === 'appearance' && <AppearanceTab />}

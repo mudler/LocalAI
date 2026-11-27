@@ -133,6 +133,12 @@ var instructionDefs = []instructionDef{
 		Intro:       "GET /api/branding is public so the login screen can render the configured logo before authentication. Text fields are saved through POST /api/settings; binary assets (logo, horizontal logo, favicon) use multipart upload at /api/branding/asset/{kind} and are served back from /branding/asset/{kind}.",
 	},
 	{
+		Name:        "prompt-cache",
+		Description: "The disk prompt cache of llama.cpp: usage, clear for administrators, clear my cached prompts for a user",
+		Tags:        []string{"prompt-cache"},
+		Intro:       "GET /api/prompt-cache (admin) reports each node: cache size, free disk, effective cap and state (on, paused_low_disk, disabled_disk_full) and the size of each model. POST /api/prompt-cache/clear (admin) {model} clears one model, or every model with no body. DELETE /api/prompt-cache/mine clears the cached prompts of the caller and of its client keys; entries of the shared namespace stay. The settings are prompt_cache_disk* in /api/settings. A clear acts on the node that answers; worker nodes keep their own files until their time to live ends.",
+	},
+	{
 		Name:        "usage-and-billing",
 		Description: "Per-user token usage and request counts, with optional cost tracking",
 		Tags:        []string{"usage"},

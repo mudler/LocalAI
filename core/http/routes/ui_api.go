@@ -1977,6 +1977,12 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		app.POST("/api/settings", localai.UpdateSettingsEndpoint(applicationInstance), adminMiddleware)
 	}
 
+	// Disk prompt cache: the admin reads and clears it; any user clears
+	// their own cached prompts.
+	app.GET("/api/prompt-cache", localai.PromptCacheStatusEndpoint(applicationInstance), adminMiddleware)
+	app.POST("/api/prompt-cache/clear", localai.PromptCacheClearEndpoint(applicationInstance), adminMiddleware)
+	app.DELETE("/api/prompt-cache/mine", localai.PromptCacheClearMineEndpoint(applicationInstance))
+
 	// Branding / whitelabeling. The read endpoint and the asset server are
 	// public so the login screen can render the configured logo and instance
 	// name before authentication. Mutations are admin-only. Keep these method-
