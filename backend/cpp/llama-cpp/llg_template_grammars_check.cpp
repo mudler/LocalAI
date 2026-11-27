@@ -9,6 +9,7 @@
 //   call    the tool call that the template renders for an assistant message
 //   glued   text with the call right after it, so the trigger can start inside a token
 //   bad     the call with an argument name that is not in the schema
+//   think   the call after reasoning, when the template renders reasoning
 //
 // GBNF is the reference: at every token both engines must accept or reject the same token, and
 // agree whether the output may end. llguidance is checked twice, with the one-token fast path and
@@ -443,9 +444,39 @@ int main(int argc, char ** argv) {
                 call.clear();
             }
 
+            // the same call after reasoning, as a thinking model writes it (gpt-oss: analysis channel first)
+            std::string think_call;
+            try {
+                common_chat_templates_inputs a = inputs;
+                const std::string p1 = common_chat_templates_apply(tmpls.get(), a).prompt.str();
+                common_chat_msg asst;
+                asst.role              = "assistant";
+                asst.reasoning_content = "The user wants the weather in Paris. I will call the tool.";
+                asst.tool_calls.push_back({ "get_weather", R"({"location":"Paris","unit":"celsius"})", "call_1" });
+                a.messages.push_back(asst);
+                a.add_generation_prompt = false;
+                const std::string p2 = common_chat_templates_apply(tmpls.get(), a).prompt.str();
+                if (p2.compare(0, p1.size(), p1) == 0) {
+                    for (auto t : common_tokenize(vocab, p2.substr(p1.size()), false, true)) {
+                        if (llama_vocab_is_eog(vocab, t)) {
+                            break;
+                        }
+                        think_call += common_token_to_piece(vocab, t, true);
+                    }
+                }
+            } catch (const std::exception &) {
+                think_call.clear();
+            }
+
             std::vector<std::pair<std::string, std::string>> samples = {
                 { "free", "The capital of France is Paris." },
             };
+            if (getenv("LLG_CHECK_SHOW")) {
+                fprintf(stderr, "[%s] think: %s\n", name.c_str(), think_call.c_str());
+            }
+            if (!think_call.empty() && think_call != call) {
+                samples.push_back({ "think", think_call });
+            }
             if (!call.empty()) {
                 samples.push_back({ "call", call });
                 samples.push_back({ "glued", "Let me check.\n" + call });

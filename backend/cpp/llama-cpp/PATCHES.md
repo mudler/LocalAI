@@ -29,13 +29,17 @@ in `common/sampling.cpp`, `common/sampling.h`, `common/common.h` and
 `common/CMakeLists.txt`. No change to `src/`, the server or GBNF itself.
 
 With `grammar_llguidance` off (the default), sampling goes through the
-upstream code. Two changes reach the existing llguidance path (the
+upstream code. Three changes reach the existing llguidance path (the
 JSON-schema grammars LocalAI sends with `%llguidance`), and only when such a
 grammar is in use:
 
 - the llguidance tokenizer marks added (user-defined) tokens such as
   `<tool_call>` special: a grammar matches them by id, not by text
   (`common_llg_token_is_special`);
+- the end token of the llguidance tokenizer is EOT only when EOT ends the
+  generation, EOS otherwise: gpt-oss has `<|end|>` as EOT but goes on after
+  it (`<|end|><|start|>assistant...`), and llguidance stops the grammar at its
+  end token;
 - the one-token fast path: when the mask is not computed yet and at most 8
   candidates are left, each one is checked with `llg_matcher_validate_tokens`
   instead of computing the mask over the whole vocabulary.
@@ -90,7 +94,11 @@ editing `gbnf-to-lark.cpp`):
   on GBNF.
 - llguidance matches a special token only by id. A literal that spells one
   also accepts the token, and free text (`[^...]`, `.`) also accepts the
-  special tokens the grammar does not name, except end-of-generation tokens.
+  special tokens the grammar does not name with `<[id]>`, except
+  end-of-generation tokens.
+- A llguidance lexeme never matches the empty string, so a regex terminal of
+  the state elimination that can be empty is written `TERM?`: two special
+  tokens in a row have no text between them.
 
 The check: `llg_template_grammars_check.cpp` (ctest with
 `-DLLAMA_GRPC_BUILD_TESTS=ON` and llguidance) builds the tool grammar of every

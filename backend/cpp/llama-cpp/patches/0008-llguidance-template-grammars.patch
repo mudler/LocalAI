@@ -39,10 +39,10 @@ index 45fee2ae2..63be4be69 100644
      int32_t n_prev             = 64;     // number of previous tokens to remember
 diff --git a/common/gbnf-to-lark.cpp b/common/gbnf-to-lark.cpp
 new file mode 100644
-index 000000000..012b5d97f
+index 000000000..c7acbc95f
 --- /dev/null
 +++ b/common/gbnf-to-lark.cpp
-@@ -0,0 +1,1418 @@
+@@ -0,0 +1,1442 @@
 +// LocalAI: GBNF to llguidance Lark translation. See gbnf-to-lark.h.
 +
 +#include "gbnf-to-lark.h"
@@ -600,21 +600,16 @@ index 000000000..012b5d97f
 +                }
 +            }
 +        }
-+        if (n->kind == gnode::LIT) {
-+            for (const auto & p : split_literal(n->text)) {
-+                if (p.second >= 0) {
-+                    out.insert((uint32_t) p.second);
-+                }
-+            }
-+        }
 +        for (const auto & c : n->children) {
 +            collect_named_tokens(c, out);
 +        }
 +    }
 +
 +    // GBNF matches the text of a special token it does not name; llguidance matches such a token
-+    // only by id. So free text also accepts the special tokens the grammar does not name.
-+    // End-of-generation tokens stay out: they end the output, as on GBNF.
++    // only by id. So free text also accepts the special tokens the grammar does not name with
++    // <[id]>, also those a literal spells: "text until </x>" in GBNF takes the text of any token
++    // but the delimiter (gpt-oss writes <|start|> there). End-of-generation tokens stay out: they
++    // end the output, as on GBNF.
 +    void prepare_free_tokens() {
 +        if (!specials) {
 +            return;
@@ -849,17 +844,44 @@ index 000000000..012b5d97f
 +        return "";
 +    }
 +
-+    static std::string alt_join(const std::string & a, const std::string & b) {
-+        if (a.empty()) { return b; }
-+        if (b.empty()) { return a; }
-+        return a + "|" + b;
++    // A regex of the state elimination, and whether it matches the empty string. An llguidance lexeme
++    // never matches the empty string, so a nullable terminal is written TERM? (two special tokens in a
++    // row, such as <|end|><|start|> in gpt-oss, have no text between them).
++    struct rx {
++        std::string re;
++        bool        nul = false;
++    };
++
++    static rx alt_join(const rx & a, const rx & b) {
++        if (a.re.empty()) { return b; }
++        if (b.re.empty()) { return a; }
++        return { a.re + "|" + b.re, a.nul || b.nul };
 +    }
 +
-+    static std::string cat(const std::string & a, const std::string & b) {
++    static rx cat(const rx & a, const rx & b) {
 +        // "(?:)" is the empty string
-+        if (a == "(?:)") { return b; }
-+        if (b == "(?:)") { return a; }
-+        return "(?:" + a + ")(?:" + b + ")";
++        if (a.re == "(?:)") { return b; }
++        if (b.re == "(?:)") { return a; }
++        return { "(?:" + a.re + ")(?:" + b.re + ")", a.nul && b.nul };
++    }
++
++    bool nullable(const gnode_ptr & n) const {
++        switch (n->kind) {
++            case gnode::LIT:    return n->text.empty();
++            case gnode::REF:    return nullable(rules.at(n->name));
++            case gnode::REP:    return n->min_times == 0 || nullable(n->children[0]);
++            case gnode::SEQ:
++                for (const auto & c : n->children) {
++                    if (!nullable(c)) { return false; }
++                }
++                return true;
++            case gnode::ALT:
++                for (const auto & c : n->children) {
++                    if (nullable(c)) { return true; }
++                }
++                return false;
++            default: return false;
++        }
 +    }
 +
 +    std::vector<std::set<std::string>> recursive_groups(std::map<std::string, std::set<std::string>> & deps) const {
@@ -918,7 +940,7 @@ index 000000000..012b5d97f
 +    // Equations of a group: state -> (next state -> regex) in `coef`, state -> (exit -> regex) in
 +    // `exits`, where an exit is "[token] [rule]" in Lark ("" accepts). False when the group is not
 +    // right-linear.
-+    using equations = std::map<std::string, std::map<std::string, std::string>>;
++    using equations = std::map<std::string, std::map<std::string, rx>>;
 +
 +    bool refs_group(const gnode_ptr & n, const std::set<std::string> & group) const {
 +        std::set<std::string> refs;
@@ -953,17 +975,18 @@ index 000000000..012b5d97f
 +                for (const auto & items : flat) {
 +                    // leading terminal atoms become the regex; the rest is the exit, in which a rule of
 +                    // the group may appear only as the last item
-+                    std::string x;
++                    rx x{ "", true };
 +                    size_t i = 0;
 +                    for (; i < items.size(); i++) {
 +                        const auto & it = items[i];
 +                        if ((it->kind == gnode::REF && !terminal.count(it->name)) || !term_safe(it, group)) {
 +                            break;
 +                        }
-+                        x += emit_regex(it);
++                        x.re += emit_regex(it);
++                        x.nul = x.nul && nullable(it);
 +                    }
-+                    if (x.empty()) {
-+                        x = "(?:)";
++                    if (x.re.empty()) {
++                        x = { "(?:)", true };
 +                    }
 +                    if (i == items.size()) {
 +                        exits[r][""] = alt_join(exits[r][""], x);
@@ -1163,7 +1186,7 @@ index 000000000..012b5d97f
 +    // far from the entry go first: in a scan automaton every state jumps back to the first ones,
 +    // so eliminating those first would copy them everywhere. False when a regex grows too big.
 +    bool eliminate(const std::string & entry, const std::set<std::string> & group, equations c, equations x,
-+                   std::map<std::string, std::string> & result) const {
++                   std::map<std::string, rx> & result) const {
 +        std::map<std::string, int> dist  = { { entry, 0 } };
 +        std::vector<std::string>   queue = { entry };
 +        for (size_t qi = 0; qi < queue.size(); qi++) {
@@ -1185,7 +1208,7 @@ index 000000000..012b5d97f
 +            if (it == c[k].end()) {
 +                return;
 +            }
-+            const std::string star = "(?:" + it->second + ")*";
++            const rx star = { "(?:" + it->second.re + ")*", true };
 +            c[k].erase(it);
 +            for (auto & [t, v] : c[k]) { v = cat(star, v); }
 +            for (auto & [t, v] : x[k]) { v = cat(star, v); }
@@ -1203,17 +1226,17 @@ index 000000000..012b5d97f
 +                if (it == c[i].end()) {
 +                    continue;
 +                }
-+                const std::string pre = it->second;
++                const rx pre = it->second;
 +                c[i].erase(it);
 +                for (const auto & [t, v] : c[k]) {
 +                    c[i][t] = alt_join(c[i][t], cat(pre, v));
-+                    if (c[i][t].size() > MAX_REGEX_BYTES) {
++                    if (c[i][t].re.size() > MAX_REGEX_BYTES) {
 +                        return false;
 +                    }
 +                }
 +                for (const auto & [t, v] : x[k]) {
 +                    x[i][t] = alt_join(x[i][t], cat(pre, v));
-+                    if (x[i][t].size() > MAX_REGEX_BYTES) {
++                    if (x[i][t].re.size() > MAX_REGEX_BYTES) {
 +                        return false;
 +                    }
 +                }
@@ -1259,7 +1282,7 @@ index 000000000..012b5d97f
 +            std::vector<std::pair<std::string, std::string>> terms;
 +            bool ok = true;
 +            for (const auto & entry : entries) {
-+                std::map<std::string, std::string> entry_exits;
++                std::map<std::string, rx> entry_exits;
 +                if (!eliminate(entry, group, coef, exits, entry_exits)) {
 +                    LOG_DBG("gbnf-to-lark: group of %s: regex too big, kept as rules\n", entry.c_str());
 +                    ok = false;
@@ -1269,12 +1292,13 @@ index 000000000..012b5d97f
 +                int k = 0;
 +                for (const auto & [t, v] : entry_exits) {
 +                    std::string alt;
-+                    if (v == "(?:)") {
++                    if (v.re == "(?:)") {
 +                        alt = t.empty() ? "\"\"" : t;
 +                    } else {
 +                        const std::string tname = upper(lark_name.at(entry)) + "_RX" + std::to_string(k++);
-+                        terms.emplace_back(tname, "/" + v + "/");
-+                        alt = t.empty() ? tname : tname + " " + t;
++                        terms.emplace_back(tname, "/" + v.re + "/");
++                        const std::string term = v.nul ? tname + "?" : tname;
++                        alt = t.empty() ? term : term + " " + t;
 +                    }
 +                    body = body.empty() ? alt : body + " | " + alt;
 +                }
@@ -1498,7 +1522,7 @@ index 000000000..1709aba55
 +// Throws std::runtime_error on a grammar it cannot translate.
 +std::string common_gbnf_to_lark(const std::string & gbnf, const llama_vocab * vocab, const std::string & root = "root");
 diff --git a/common/llguidance.cpp b/common/llguidance.cpp
-index 500bb0914..b2eac77c7 100644
+index 500bb0914..fe2ee5831 100644
 --- a/common/llguidance.cpp
 +++ b/common/llguidance.cpp
 @@ -1,10 +1,16 @@
@@ -1565,7 +1589,19 @@ index 500bb0914..b2eac77c7 100644
      if (ctx->grammar) {
          const uint32_t * mask = llg_matcher_get_mask(ctx->grammar);
          if (mask == nullptr) {
-@@ -170,6 +214,11 @@ static LlgTokenizer * llama_sampler_llg_new_tokenizer(const llama_vocab * vocab)
+@@ -149,6 +193,11 @@ static LlgTokenizer * llama_sampler_llg_new_tokenizer(const llama_vocab * vocab)
+     if (tok_eos == LLAMA_TOKEN_NULL) {
+         tok_eos = llama_vocab_eos(vocab);
+     }
++    // LocalAI: llguidance stops the grammar at this token, so it must end the generation. gpt-oss has
++    // <|end|> as EOT but goes on after it (<|end|><|start|>assistant...); use EOS (<|return|>) there.
++    if (tok_eos != LLAMA_TOKEN_NULL && !llama_vocab_is_eog(vocab, tok_eos) && llama_vocab_eos(vocab) != LLAMA_TOKEN_NULL) {
++        tok_eos = llama_vocab_eos(vocab);
++    }
+ 
+     size_t vocab_size = llama_vocab_n_tokens(vocab);
+ 
+@@ -170,6 +219,11 @@ static LlgTokenizer * llama_sampler_llg_new_tokenizer(const llama_vocab * vocab)
          if (size < 0) {
              GGML_ABORT("llama_detokenize failed\n");
          }
@@ -1577,7 +1613,7 @@ index 500bb0914..b2eac77c7 100644
          if (size == 0) {
              size = llama_detokenize(vocab, &token, 1, dp + 1, max_token - 1, false, true);
              if (size < 0) {
-@@ -250,6 +299,468 @@ llama_sampler * llama_sampler_init_llg(const llama_vocab * vocab, const char * g
+@@ -250,6 +304,468 @@ llama_sampler * llama_sampler_init_llg(const llama_vocab * vocab, const char * g
          /* .ctx   = */ ctx);
  }
  
@@ -2046,7 +2082,7 @@ index 500bb0914..b2eac77c7 100644
  #else
  
  llama_sampler * llama_sampler_init_llg(const llama_vocab *, const char *, const char *) {
-@@ -257,4 +768,13 @@ llama_sampler * llama_sampler_init_llg(const llama_vocab *, const char *, const
+@@ -257,4 +773,13 @@ llama_sampler * llama_sampler_init_llg(const llama_vocab *, const char *, const
      return nullptr;
  }
  
