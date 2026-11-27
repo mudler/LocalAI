@@ -157,6 +157,39 @@ var _ = Describe("ReplicaReconciler drain", func() {
 		Expect(replicas("used")).To(Equal(map[string]bool{n2.ID: true}))
 	})
 
+	It("places the replacement of a model with a selector and no floor on a matching node only", func() {
+		Expect(registry.SetModelScheduling(ctx, &ModelSchedulingConfig{ModelName: "sel", NodeSelector: `{"tier":"fast"}`})).To(Succeed())
+		Expect(registry.SetNodeLabel(ctx, n1.ID, "tier", "fast")).To(Succeed())
+		n3 := &BackendNode{Name: "drain-n3", NodeType: NodeTypeBackend, Address: "n3:50051", MaxReplicasPerModel: 4}
+		Expect(registry.Register(ctx, n3, true)).To(Succeed())
+		Expect(registry.SetNodeLabel(ctx, n3.ID, "tier", "fast")).To(Succeed())
+		loaded(n1, "sel") // in use: SetNodeModel stamps last_used now
+		drain(n1, time.Hour)
+
+		rc.reconcile(ctx)
+		scheduler.mu.Lock()
+		calls := append([]scheduleCall(nil), scheduler.scheduleCalls...)
+		scheduler.mu.Unlock()
+		Expect(calls).To(HaveLen(1))
+		Expect(calls[0].modelName).To(Equal("sel"))
+		Expect(calls[0].candidateIDs).To(Equal([]string{n3.ID}), "only n3 matches the selector and is healthy")
+	})
+
+	It("places nothing for a model with a selector when no healthy node matches it", func() {
+		Expect(registry.SetModelScheduling(ctx, &ModelSchedulingConfig{ModelName: "strict", NodeSelector: `{"tier":"fast"}`})).To(Succeed())
+		Expect(registry.SetNodeLabel(ctx, n1.ID, "tier", "fast")).To(Succeed())
+		loaded(n1, "strict")
+		drain(n1, time.Hour)
+
+		// A replacement on n2 (no label) would never count as staying, so
+		// every pass would place one more until the deadline.
+		for range 3 {
+			rc.reconcile(ctx)
+		}
+		Expect(scheduledFor("strict")).To(BeZero())
+		Expect(replicas("strict")).To(HaveKey(n1.ID), "the draining replica serves until the deadline")
+	})
+
 	It("replaces a pinned model even when it is idle", func() {
 		rc.pinnedResolver = &fakePinnedResolver{names: []string{"pinned"}}
 		loaded(n1, "pinned")

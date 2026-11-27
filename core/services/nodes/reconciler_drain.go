@@ -61,7 +61,11 @@ func (rc *ReplicaReconciler) reconcileDraining(ctx context.Context) {
 
 // drainReplica handles one loaded replica on a draining node.
 func (rc *ReplicaReconciler) drainReplica(ctx context.Context, node BackendNode, nm NodeModel) {
-	need, selector, ruled := rc.drainNeed(ctx, nm)
+	need, rule, ruled := rc.drainNeed(ctx, nm)
+	var selector map[string]string
+	if rule != nil {
+		selector = parseSelector(rule.NodeSelector)
+	}
 	staying, err := rc.registry.CountStayingReplicas(ctx, nm.ModelName, selector)
 	if err != nil {
 		xlog.Warn("Reconciler: failed to count replicas of a draining model", "model", nm.ModelName, "error", err)
@@ -90,7 +94,10 @@ func (rc *ReplicaReconciler) drainReplica(ctx context.Context, node BackendNode,
 		return
 	}
 	// No rule places a replacement for this model: place one, unless a load
-	// of the model already runs.
+	// of the model already runs. A rule without a floor still names the nodes
+	// the model may run on: the replacement goes to a healthy node that
+	// matches its selector, or nowhere. A replacement on a node that does not
+	// match would never count as staying, and every pass would place another.
 	loading, err := rc.registry.CountLiveLoadJobs(ctx, nm.ModelName, nil)
 	if err != nil {
 		xlog.Warn("Reconciler: failed to count loads of a draining model", "model", nm.ModelName, "error", err)
@@ -101,30 +108,37 @@ func (rc *ReplicaReconciler) drainReplica(ctx context.Context, node BackendNode,
 	}
 	xlog.Info("Reconciler: placing a replacement for a replica on a draining node",
 		"node", node.Name, "model", nm.ModelName)
-	rc.scaleUp(ctx, ModelSchedulingConfig{ModelName: nm.ModelName}, 1)
+	placement := ModelSchedulingConfig{ModelName: nm.ModelName}
+	if rule != nil {
+		placement.NodeSelector = rule.NodeSelector
+	}
+	rc.scaleUp(ctx, placement, 1)
 }
 
 // drainNeed returns how many replicas the model of nm needs on nodes that do
-// not drain before nm may leave, the selector those replicas must match, and
-// whether a scheduling rule sets that number (and places them).
-func (rc *ReplicaReconciler) drainNeed(ctx context.Context, nm NodeModel) (need int, selector map[string]string, ruled bool) {
+// not drain before nm may leave, the scheduling rule that governs the model
+// (nil when none does; its selector names the nodes those replicas must run
+// on), and whether the rule sets that number (and places them).
+func (rc *ReplicaReconciler) drainNeed(ctx context.Context, nm NodeModel) (need int, rule *ModelSchedulingConfig, ruled bool) {
 	cfg, err := rc.registry.GetGoverningScheduling(ctx, nm.ModelName)
+	var selector map[string]string
 	if err == nil && cfg != nil {
+		rule = cfg
 		selector = parseSelector(cfg.NodeSelector)
 		switch {
 		case cfg.SpreadAll:
 			matched, merr := rc.registry.FindNodesBySelector(ctx, selector)
 			if merr == nil && len(matched) > 0 {
-				return len(matched), selector, true
+				return len(matched), rule, true
 			}
 		case cfg.MinReplicas > 0:
-			return cfg.MinReplicas, selector, true
+			return cfg.MinReplicas, rule, true
 		}
 	}
 	if rc.drainedModelInUse(nm) {
-		return 1, selector, false
+		return 1, rule, false
 	}
-	return 0, selector, false
+	return 0, rule, false
 }
 
 // drainedModelInUse reports whether the model of a replica on a draining node
