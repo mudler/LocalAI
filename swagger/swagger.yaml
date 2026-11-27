@@ -4484,6 +4484,19 @@ definitions:
       origin:
         type: string
     type: object
+  localai.PromptCacheClearRequest:
+    properties:
+      model:
+        description: Model is the model whose files go; empty clears every model.
+        type: string
+    type: object
+  localai.PromptCacheClearResponse:
+    properties:
+      bytes:
+        type: integer
+      files:
+        type: integer
+    type: object
   localai.RecommendedHardwareInfo:
     properties:
       detected:
@@ -6955,6 +6968,139 @@ definitions:
         type: array
       token:
         type: string
+    type: object
+  promptcache.Result:
+    properties:
+      bytes:
+        type: integer
+      files:
+        type: integer
+    type: object
+  promptcache.State:
+    enum:
+    - "on"
+    - paused_low_disk
+    - disabled_disk_full
+    - unknown
+    type: string
+    x-enum-varnames:
+    - StateOn
+    - StatePaused
+    - StateDisabled
+    - StateUnknown
+  promptcache.Status:
+    properties:
+      cache_bytes:
+        description: CacheBytes is what the cache holds after the sweep.
+        type: integer
+      critical_watermark_bytes:
+        type: integer
+      effective_cap_bytes:
+        type: integer
+      free_bytes:
+        description: |-
+          FreeBytes and TotalBytes are the numbers of the filesystem that holds
+          the cache (the models filesystem when they share it).
+        type: integer
+      low_watermark_bytes:
+        description: |-
+          LowWatermarkBytes and CriticalWatermarkBytes are the thresholds of
+          that filesystem.
+        type: integer
+      max_bytes:
+        description: |-
+          MaxBytes is the configured cap, EffectiveCapBytes the cap the sweep
+          enforced: never more than the cache plus the free space over the low
+          watermark, so the cache never fills the disk.
+        type: integer
+      removed:
+        allOf:
+        - $ref: '#/definitions/promptcache.Result'
+        description: Removed is what the sweep deleted.
+      shares_models_disk:
+        description: SharesModelsDisk is true when the models are on the same filesystem.
+        type: boolean
+      state:
+        $ref: '#/definitions/promptcache.State'
+      total_bytes:
+        type: integer
+    type: object
+  promptcachesvc.ModelUsage:
+    properties:
+      bytes:
+        type: integer
+      files:
+        type: integer
+      model:
+        description: |-
+          Model is the name of the model configuration, empty when no installed
+          model has these files (a deleted model, or a changed model file).
+        type: string
+      model16:
+        type: string
+    type: object
+  promptcachesvc.NodeStatus:
+    properties:
+      bytes:
+        type: integer
+      enabled:
+        description: |-
+          Enabled is false when the tier is off on the node; Error says why a
+          node gave no usage (offline, no answer).
+        type: boolean
+      error:
+        type: string
+      files:
+        type: integer
+      models:
+        items:
+          $ref: '#/definitions/promptcachesvc.ModelUsage'
+        type: array
+      namespaces:
+        type: integer
+      node:
+        type: string
+      off_reason:
+        description: |-
+          OffReason says why the tier is off on the node: no_path,
+          switched_off, network_disk or not_writable.
+        type: string
+      status:
+        $ref: '#/definitions/promptcache.Status'
+    type: object
+  promptcachesvc.StatusReport:
+    properties:
+      enabled:
+        description: Enabled is the global switch with a place to keep the files.
+        type: boolean
+      nodes:
+        items:
+          $ref: '#/definitions/promptcachesvc.NodeStatus'
+        type: array
+      shared:
+        description: Shared is true when every user shares one namespace.
+        type: boolean
+      total:
+        allOf:
+        - $ref: '#/definitions/promptcachesvc.Total'
+        description: Total sums the nodes that answered.
+    type: object
+  promptcachesvc.Total:
+    properties:
+      bytes:
+        type: integer
+      cap_bytes:
+        description: CapBytes sums the effective caps of the nodes.
+        type: integer
+      files:
+        type: integer
+      nodes:
+        description: |-
+          Nodes counts the nodes that answered, Unreachable the ones that did
+          not.
+        type: integer
+      unreachable:
+        type: integer
     type: object
   proposals.Event:
     properties:
@@ -16918,6 +17064,14 @@ definitions:
         type: number
       seed:
         type: integer
+      service_tier:
+        description: |-
+          ServiceTier is the OpenAI service tier of the request: auto, default,
+          flex or priority. It sets the priority class the backend serves the
+          request with (core/priority); a caller who is not an administrator
+          cannot raise it above default. After the request is read it holds the
+          tier that applied.
+        type: string
       size:
         description: image
         type: string
@@ -16978,6 +17132,11 @@ definitions:
       model:
         type: string
       object:
+        type: string
+      service_tier:
+        description: |-
+          ServiceTier is the service tier the request was served with, set on
+          the chat and text completion responses.
         type: string
       usage:
         allOf:
@@ -34360,6 +34519,51 @@ paths:
       summary: Refresh a plugin marketplace
       tags:
       - Plugins
+  /api/prompt-cache:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/promptcachesvc.StatusReport'
+      summary: 'Show the disk prompt cache: size, free disk, effective cap and state
+        of each node, and the size of each model.'
+      tags:
+      - prompt-cache
+  /api/prompt-cache/clear:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: model to clear, empty for all
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/localai.PromptCacheClearRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/localai.PromptCacheClearResponse'
+      summary: Clear the disk prompt cache, of every model or of one model.
+      tags:
+      - prompt-cache
+  /api/prompt-cache/mine:
+    delete:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/localai.PromptCacheClearResponse'
+      summary: Clear my cached prompts from the disk prompt cache.
+      tags:
+      - prompt-cache
   /api/quantization/status:
     get:
       description: Returns model_exports=false when this instance does not share the
