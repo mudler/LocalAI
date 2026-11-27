@@ -724,6 +724,12 @@ var _ = Describe("Chats route contract", func() {
 		s := newStudioServer()
 		gated := map[string]string{}
 		for _, entry := range auth.RouteFeatureRegistry {
+			// The plugin switches of a chat are registered with the plugin
+			// routes (routes/plugins.go), not with the chats routes this server
+			// builds; plugins_test.go checks their feature and login.
+			if entry.Method == http.MethodPut && entry.Pattern == "/api/chats/:id/plugins" {
+				continue
+			}
 			if chatsSurface(entry.Pattern) {
 				gated[entry.Method+" "+entry.Pattern] = entry.Feature
 			}
