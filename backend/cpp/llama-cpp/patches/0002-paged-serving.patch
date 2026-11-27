@@ -9,7 +9,7 @@ See backend/cpp/llama-cpp/PATCHES.md before re-porting this patch.
 diff --git a/common/common.h b/common/common.h
 --- a/common/common.h
 +++ b/common/common.h
-@@ -663,6 +663,12 @@ struct common_params {
+@@ -663,6 +663,13 @@ struct common_params {
      bool    cache_idle_slots    = true;  // save and clear idle slots upon starting a new task
      int32_t n_ctx_checkpoints   = 32;    // max number of context checkpoints per slot
      int32_t kv_unified_per_slot = 0;     // max context per parallel slot; 0 = unset
@@ -17,6 +17,7 @@ diff --git a/common/common.h b/common/common.h
 +    bool    paged_preempt       = false; // LocalAI: preempt the youngest request when the pool is short
 +    int32_t kv_output_reserve   = 256;   // LocalAI: free cells a request needs beyond its prompt to start
 +    int32_t prefill_budget      = 0;     // LocalAI: decode-first prompt tokens per step, 0 = off, < 0 = adaptive
++    int32_t prefill_long        = 0;     // LocalAI: the prefill budget applies to prompts longer than this, 0 = to every prompt
 +    bool    paged_attach        = false; // LocalAI: start a prompt from another slot's prefix cells (paged serving)
 +    int32_t spec_max_streams    = 0;     // LocalAI: pause speculative drafting above this many decoding streams, 0 = never
      int32_t checkpoint_min_step = 8192;  // minimum spacing between context checkpoints
@@ -531,7 +532,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
  
                  if (n_draft_max > 0) {
                      GGML_ASSERT(slot.can_speculate());
-@@ -4216,12 +4643,17 @@ private:
+@@ -4216,6 +4643,11 @@ private:
          auto & alora_scale       = batch.alora_scale;
          auto & alora_disabled_id = batch.alora_disabled_id;
  
@@ -543,14 +544,20 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
          // next, batch any pending prompts without exceeding n_batch
          if (params_base.cont_batching || batch.size() == 0) {
              bool add_ok = true; // false means the batch is full, skip remaining slots
- 
-             iterate(slots, [&](server_slot & slot) {
--                if (!add_ok || batch.size() >= n_batch) {
-+                if (!add_ok || batch.size() >= n_fill_max) {
-                     return; // batch is full, skip remaining slots
+@@ -4229,6 +4661,12 @@ private:
+                     return;
                  }
  
-@@ -4248,6 +4680,25 @@ private:
++                // LocalAI paged serving: the prefill budget holds back long prompts only
++                const int32_t n_fill_lim = serving_policy::budget_applies(slot.task->n_tokens(), params_base.prefill_long) ? n_fill_max : n_batch;
++                if (batch.size() >= n_fill_lim) {
++                    return;
++                }
++
+                 // check if we can batch this slot with the previous one
+                 if (slot_batched && !slot_batched->can_batch_with(slot)) {
+                     return;
+@@ -4248,6 +4686,25 @@ private:
  
                  // this slot still has a prompt to be processed
                  if (slot.state == SLOT_STATE_PROCESSING_PROMPT || slot.state == SLOT_STATE_STARTED) {
@@ -576,7 +583,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      const auto & input_tokens = slot.task->tokens;
  
                      // used to determine the number of tokens added to the batch for the current slot
-@@ -4436,6 +4887,12 @@ private:
+@@ -4436,6 +4893,12 @@ private:
                                  n_past = 0;
                              }
  
@@ -589,12 +596,12 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                              llama_pos pos_next = slot.prompt.tokens.pos_next(n_past);
  
                              // number of cached tokens shared with the new prompt, before any checkpoint is restored
-@@ -4694,7 +5151,8 @@ private:
+@@ -4694,7 +5157,8 @@ private:
                      const int32_t n_decision_first = slot.task->type == SERVER_TASK_TYPE_DECISION ? slot.task->decision.pos_first() : -1;
  
                      // add prompt tokens for processing in the current batch
 -                    while (slot.prompt.n_tokens() < slot.task->n_tokens() && batch.size() < n_batch) {
-+                    const int32_t n_fill_slot = slot.can_split() ? n_fill_max : n_batch;
++                    const int32_t n_fill_slot = slot.can_split() ? n_fill_lim : n_batch;
 +                    while (slot.prompt.n_tokens() < slot.task->n_tokens() && batch.size() < n_fill_slot) {
                          // get next token to process
                          llama_token cur_tok = input_tokens[slot.prompt.n_tokens()];

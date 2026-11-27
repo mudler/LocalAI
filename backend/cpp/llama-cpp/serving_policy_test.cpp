@@ -251,6 +251,14 @@ static void test_prefix_hold() {
     EXPECT(!hold_for_prefix(1024, 0, 0, false, prefix_hold_max_waiting + 1), "skipped with many waiters");
 }
 
+static void test_budget_long() {
+    EXPECT(budget_applies(5000, default_prefill_long), "a long prompt is held back by the budget");
+    EXPECT(!budget_applies(400, default_prefill_long), "a short prompt of a burst is read whole");
+    EXPECT(!budget_applies(1024, 1024), "up to the threshold is short");
+    EXPECT(budget_applies(1025, 1024), "above it is long");
+    EXPECT(budget_applies(10, 0), "prefill_long 0 holds back every prompt");
+}
+
 static void test_readmission() {
     // A preempted request (old task id) waits: newer requests stay behind it.
     pool_view v;
@@ -351,6 +359,7 @@ int main() {
     test_victim_cells();
     test_stash_fits();
     test_prefix_hold();
+    test_budget_long();
     test_resume_need();
     test_attach();
     test_spec_pause();

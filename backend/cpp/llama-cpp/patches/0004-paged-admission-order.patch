@@ -12,8 +12,8 @@ prefill_cap) is set. See backend/cpp/llama-cpp/PATCHES.md.
 diff --git a/common/common.h b/common/common.h
 --- a/common/common.h
 +++ b/common/common.h
-@@ -669,6 +669,10 @@ struct common_params {
-     int32_t prefill_budget      = 0;     // LocalAI: decode-first prompt tokens per step, 0 = off, < 0 = adaptive
+@@ -670,6 +670,10 @@ struct common_params {
+     int32_t prefill_long        = 0;     // LocalAI: the prefill budget applies to prompts longer than this, 0 = to every prompt
      bool    paged_attach        = false; // LocalAI: start a prompt from another slot's prefix cells (paged serving)
      int32_t spec_max_streams    = 0;     // LocalAI: pause speculative drafting above this many decoding streams, 0 = never
 +    bool    paged_order         = false; // LocalAI: order waiting requests by class, cache hit and arrival (paged serving)
@@ -311,15 +311,15 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +            }
 +
 +            const auto fill_slot = [&](server_slot & slot) {
-                 if (!add_ok || batch.size() >= n_fill_max) {
+                 if (!add_ok || batch.size() >= n_batch) {
                      return; // batch is full, skip remaining slots
                  }
-@@ -5151,7 +5317,12 @@ private:
+@@ -5157,7 +5323,12 @@ private:
                      const int32_t n_decision_first = slot.task->type == SERVER_TASK_TYPE_DECISION ? slot.task->decision.pos_first() : -1;
  
                      // add prompt tokens for processing in the current batch
--                    const int32_t n_fill_slot = slot.can_split() ? n_fill_max : n_batch;
-+                    int32_t n_fill_slot = slot.can_split() ? n_fill_max : n_batch;
+-                    const int32_t n_fill_slot = slot.can_split() ? n_fill_lim : n_batch;
++                    int32_t n_fill_slot = slot.can_split() ? n_fill_lim : n_batch;
 +                    if (params_base.prefill_cap > 0 && slot.can_split()) {
 +                        // LocalAI: per-request cap while other requests read prompts too
 +                        n_fill_slot = std::min(n_fill_slot, batch.size() + serving_policy::request_prefill_cap(
@@ -328,7 +328,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      while (slot.prompt.n_tokens() < slot.task->n_tokens() && batch.size() < n_fill_slot) {
                          // get next token to process
                          llama_token cur_tok = input_tokens[slot.prompt.n_tokens()];
-@@ -5332,7 +5503,14 @@ private:
+@@ -5338,7 +5509,14 @@ private:
                  if (!slot_batched) {
                      slot_batched = &slot;
                  }

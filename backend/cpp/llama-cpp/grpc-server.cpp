@@ -742,6 +742,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     std::optional<bool> paged_preempt;
     int kv_pool_tokens = 0;
     std::optional<int> prefill_budget;
+    std::optional<int> prefill_long;
     int kv_output_reserve = 256;
     // An explicit cont_batching:false, which parallel > 1 would otherwise
     // override: paged serving steps aside for it (or fails the load when
@@ -965,7 +966,8 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                    (optval_str == "auto" || optval_str == "adaptive")) {
             prefill_budget = serving_policy::prefill_budget_adaptive;
         } else if (!strcmp(optname, "kv_pool_tokens") || !strcmp(optname, "prefill_budget") ||
-                   !strcmp(optname, "max_prefill_tokens") || !strcmp(optname, "kv_output_reserve")) {
+                   !strcmp(optname, "max_prefill_tokens") || !strcmp(optname, "kv_output_reserve") ||
+                   !strcmp(optname, "prefill_long")) {
             const auto n = llama_grpc::parse_non_negative_int(optval_str);
             if (!n) {
                 SRV_WRN("%s: ignoring invalid value '%s' (expected a non-negative integer)\n", optname, optval_str.c_str());
@@ -973,6 +975,8 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 kv_pool_tokens = *n;
             } else if (!strcmp(optname, "kv_output_reserve")) {
                 kv_output_reserve = *n;
+            } else if (!strcmp(optname, "prefill_long")) {
+                prefill_long = *n;
             } else {
                 prefill_budget = *n;
             }
@@ -2016,6 +2020,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         params.paged_serving     = paged.on;
         params.paged_preempt     = paged.on && paged_preempt.value_or(true);
         params.prefill_budget    = prefill_budget.value_or(serving_policy::default_prefill_budget);
+        params.prefill_long      = prefill_long.value_or(serving_policy::default_prefill_long);
         params.kv_output_reserve = kv_output_reserve;
         params.paged_attach      = paged.on && slot_attach.value_or(true);
 #if LOCALAI_HAS_ADMISSION_ORDER
@@ -2048,6 +2053,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         SRV_WRN("%s", "paged_kv and prefill_budget: this llama.cpp build has no paged serving hooks, ignoring\n");
     }
     (void) paged_preempt;
+    (void) prefill_long;
     (void) kv_output_reserve;
     (void) cont_batching_off;
     (void) slot_attach;

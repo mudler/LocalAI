@@ -289,6 +289,18 @@
       "localai_only": true
     },
     {
+      "key": "prefill_long",
+      "target": "option",
+      "path": "options",
+      "option": "prefill_long",
+      "type": "int",
+      "min": 0,
+      "default": "1024",
+      "doc": "With paged serving: the prefill budget applies only to prompts longer than this many tokens; shorter prompts are read whole. 0 applies it to every prompt.",
+      "group": "serving",
+      "localai_only": true
+    },
+    {
       "key": "kv_pool_tokens",
       "target": "option",
       "path": "options",

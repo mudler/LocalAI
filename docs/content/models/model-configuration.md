@@ -860,6 +860,7 @@ These llama.cpp options are passed through the `options:` array.
 | `paged_kv` / `paged_serving` | bool | `true` | Paged serving: admission control and preemption over the shared KV pool, see [Paged serving]({{%relref "/models/capabilities/text/text-generation#paged-serving" %}}). Sets `parallel` to 8 when it is not set. Turns itself off for `kv_unified:false`, `context_shift` or `cont_batching:false`; an explicit `paged_kv:true` with one of those fails the load. |
 | `kv_pool_tokens` | int | `context_size` | Total KV pool in tokens for paged serving. Sets the context size. |
 | `prefill_budget` / `max_prefill_tokens` | int or `auto` | `256` | Prompt tokens read per step while other requests generate. `auto` adapts it to the number of decoding streams; `0` turns it off. Works without paged serving. |
+| `prefill_long` | int | `1024` | The prefill budget applies only to prompts longer than this; `0` applies it to every prompt. |
 | `kv_output_reserve` | int | `256` | With paged serving: free cells a request needs beyond its prompt to start, capped at its max tokens. |
 | `paged_preempt` | bool | `true` | With paged serving: preempt and later resume a request when the pool runs out. Keep it on: with `false`, an overflow fails every in-flight stream with HTTP 500. |
 | `yarn_orig_ctx` | int | 0 (model value) | Original context size of the model for YaRN scaling (upstream `--yarn-orig-ctx`). |

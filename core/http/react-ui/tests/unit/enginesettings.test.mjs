@@ -72,7 +72,7 @@ test('engine settings: blocks follow the schema groups; composite settings are l
   for (const id of ['options.context_shift', 'options.kv_unified', 'options.cont_batching', 'options.backend_sampling_min_slots']) assert.ok(advanced.includes(id), id)
   assert.equal(blocks[3].placement, true)
   assert.deepEqual(blocks[2].items.map(i => i.id), [
-    'options.parallel', 'options.paged_kv', 'options.paged_preempt', 'options.prefill_budget', 'options.kv_pool_tokens',
+    'options.parallel', 'options.paged_kv', 'options.paged_preempt', 'options.prefill_budget', 'options.prefill_long', 'options.kv_pool_tokens',
     'options.kv_output_reserve', 'options.slot_attach', 'options.admission_order', 'options.prefix_defer', 'options.prefill_cap', 'options.lazy_idle_save', 'options.cache_idle_slots', 'options.n_cache_reuse', 'options.slot_prompt_similarity', 'options.kv_unified_per_slot',
   ])
   // An alias in a file reads into its field, and a write uses the canonical name.

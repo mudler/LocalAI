@@ -135,6 +135,11 @@ var flags = []es.Flag{
 		OptionAliases: []string{"max_prefill_tokens"},
 	},
 	{
+		Key: "prefill_long", Target: es.TargetOption, Path: "options", Option: "prefill_long",
+		Type: es.TypeInt, Min: es.F64(0), Default: "1024", Group: GroupServing, LocalAIOnly: true,
+		Doc: "With paged serving: the prefill budget applies only to prompts longer than this many tokens; shorter prompts are read whole. 0 applies it to every prompt.",
+	},
+	{
 		Key: "kv_pool_tokens", Target: es.TargetOption, Path: "options", Option: "kv_pool_tokens",
 		Type: es.TypeInt, Min: es.F64(0), Default: "the context size", Group: GroupServing, LocalAIOnly: true,
 		Doc: "With paged serving: the tokens of the shared KV cache all requests draw from. It sets the context size.",
