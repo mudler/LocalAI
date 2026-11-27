@@ -49,6 +49,19 @@ func toyEngine() *es.Engine {
 	}
 }
 
+// toyDrafting is a drafting capability over the toy table: dtype stands for
+// the kind and max_model_len for a field.
+func toyDrafting() *es.Drafting {
+	return &es.Drafting{
+		Group: "runtime", TypeKey: "dtype", ModelKey: "dtype",
+		Streams: &es.DraftStreams{Option: "max_streams", Doc: "Pause above this many streams."},
+		Modes: []es.DraftMode{
+			{ID: "off", Label: "Off", Doc: "No drafting."},
+			{ID: "fast", Label: "Fast", Doc: "Draft.", Types: []string{"half"}, Fields: []string{"max_model_len"}, Set: map[string]any{"max_model_len": 8}},
+		},
+	}
+}
+
 func fieldsOnly() *es.Engine {
 	e := toyEngine()
 	e.ID = "fields-only"
@@ -66,6 +79,18 @@ var _ = Describe("an engine described only by its table", func() {
 	It("validates", func() {
 		Expect(toy.Validate()).To(Succeed())
 		Expect(fieldsOnly().Validate()).To(Succeed())
+	})
+
+	It("lists the drafting capability and its modes in the schema", func() {
+		Expect(toy.Has(es.CapabilityDrafting)).To(BeFalse())
+		Expect(toy.Schema().Drafting).To(BeNil())
+		toy.Drafting = toyDrafting()
+		Expect(toy.Validate()).To(Succeed())
+		Expect(toy.Has(es.CapabilityDrafting)).To(BeTrue())
+		raw, err := json.Marshal(toy.Schema())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"drafting":{"group":"runtime","type_key":"dtype","model_key":"dtype"`))
+		Expect(string(raw)).To(ContainSubstring(`"streams":{"option":"max_streams"`))
 	})
 
 	It("parses its command line into config keys and options", func() {
@@ -163,6 +188,20 @@ var _ = Describe("Engine.Validate", func() {
 			"collapsed unknown group": func(e *es.Engine) { e.Collapsed = []es.Group{"nope"} },
 			"estimate unknown field":  func(e *es.Engine) { e.Estimate = map[string]string{"nope": "max_model_len"} },
 			"estimate unknown key":    func(e *es.Engine) { e.Estimate = map[string]string{"context_size": "nope"} },
+			"drafting unknown group":  func(e *es.Engine) { e.Drafting = toyDrafting(); e.Drafting.Group = "nope" },
+			"drafting unknown key":    func(e *es.Engine) { e.Drafting = toyDrafting(); e.Drafting.ModelKey = "nope" },
+			"drafting first not off":  func(e *es.Engine) { e.Drafting = toyDrafting(); e.Drafting.Modes = e.Drafting.Modes[1:] },
+			"drafting field unknown":  func(e *es.Engine) { e.Drafting = toyDrafting(); e.Drafting.Modes[1].Fields = []string{"nope"} },
+			"drafting bad set": func(e *es.Engine) {
+				e.Drafting = toyDrafting()
+				e.Drafting.Modes[1].Set = map[string]any{"max_model_len": "x"}
+			},
+			"drafting auto no need": func(e *es.Engine) { e.Drafting = toyDrafting(); e.Drafting.Modes[1].Auto = true },
+			"drafting duplicate id": func(e *es.Engine) { e.Drafting = toyDrafting(); e.Drafting.Modes[1].ID = "off" },
+			"drafting streams in the table": func(e *es.Engine) {
+				e.Drafting = toyDrafting()
+				e.Drafting.Streams = &es.DraftStreams{Option: "dtype", Doc: "x"}
+			},
 			"profile with a placement": func(e *es.Engine) {
 				e.Presets = []es.Preset{{ID: "a", Profile: true, Settings: map[string]any{}, Placement: &es.Placement{Mode: es.ExpertsCPUAll}}}
 			},

@@ -112,7 +112,9 @@
             "options_spec_ngram_map_k4v_size_m": "Longueur de proposition ngram-map-k4v",
             "options_spec_ngram_map_k4v_min_hits": "Correspondances min. ngram-map-k4v",
             "options_spec_lookup_cache_static": "Fichier de cache n-gram statique",
-            "options_spec_lookup_cache_dynamic": "Fichier de cache n-gram dynamique"
+            "options_spec_lookup_cache_dynamic": "Fichier de cache n-gram dynamique",
+            "draft_model": "Fichier du modèle brouillon",
+            "options_spec_max_streams": "Suspendre le brouillon au-delà de N flux"
         },
         "choices": {
             "load_mode": {
@@ -289,6 +291,114 @@
                 "on": "Échantillonne les tokens sur le GPU. Plus rapide avec de nombreuses requêtes en parallèle. Désactivé automatiquement pour les requêtes avec une grammaire, un budget de raisonnement ou des logprobs."
             }
         },
-        "groupCount": "{{count}} réglages"
+        "groupCount": "{{count}} réglages",
+        "drafting": {
+            "title": "Brouillon (décodage spéculatif)",
+            "lead": "Un devineur rapide propose les tokens suivants et le modèle les vérifie tous en une étape. Quand il devine juste, les réponses arrivent plus vite ; la sortie reste identique.",
+            "mode": "Mode",
+            "more": "Plus d'options de brouillon",
+            "auto": "{{mode}} est actif par défaut : ce modèle a une tête MTP, donc LocalAI s'en sert pour les brouillons sauf si vous choisissez Désactivé.",
+            "custom": {
+                "title": "Réglage de brouillon personnalisé",
+                "body": "Ce modèle utilise spec_type {{kinds}}, qu'aucun mode ne couvre. Il reste tel quel jusqu'à ce que vous choisissiez un mode."
+            },
+            "modes": {
+                "off": {
+                    "label": "Désactivé",
+                    "doc": "Pas de brouillon. Chaque token vient du modèle seul."
+                },
+                "ngram": {
+                    "label": "N-gramme",
+                    "doc": "Propose les tokens qui ont suivi les mêmes mots plus tôt dans la conversation. Pas de modèle en plus ni de mémoire en plus.",
+                    "note": "Idéal pour une sortie qui reprend son entrée, comme des modifications de code ou de longues citations. En discussion normale, le gain est faible et peut coûter quelques pour cent."
+                },
+                "model": {
+                    "label": "Modèle brouillon",
+                    "doc": "Un petit modèle au même vocabulaire propose des tokens, et le modèle les vérifie en une étape.",
+                    "note": "Le modèle brouillon est chargé à côté du modèle et utilise sa propre mémoire."
+                },
+                "mtp": {
+                    "label": "MTP",
+                    "doc": "La tête de prédiction multi-token du modèle propose les tokens suivants. Aucun second modèle à charger."
+                }
+            },
+            "fields": {
+                "ngram": {
+                    "options_spec_ngram_mod_n_min": {
+                        "label": "Tokens de brouillon, au moins",
+                        "hint": "Nombre minimal de tokens qu'une correspondance doit proposer pour être utilisée."
+                    },
+                    "options_spec_ngram_mod_n_max": {
+                        "label": "Tokens de brouillon, au plus",
+                        "hint": "Nombre maximal de tokens proposés après une correspondance."
+                    },
+                    "options_spec_ngram_mod_n_match": {
+                        "label": "Longueur de correspondance",
+                        "hint": "Tokens qui doivent correspondre à un passage antérieur avant qu'il soit copié."
+                    }
+                },
+                "model": {
+                    "options_spec_n_min": {
+                        "label": "Tokens de brouillon, au moins",
+                        "hint": "Nombre minimal de tokens de brouillon qui vaut la peine d'être vérifié. 0 vérifie tout brouillon."
+                    },
+                    "options_spec_n_max": {
+                        "label": "Tokens de brouillon, au plus",
+                        "hint": "Nombre maximal de tokens que le modèle brouillon propose par étape. Plus n'aide que s'il devine bien."
+                    },
+                    "options_spec_p_min": {
+                        "label": "Seuil d'acceptation",
+                        "hint": "Le modèle brouillon arrête un brouillon quand il est moins sûr que cette valeur, de 0 à 1."
+                    }
+                },
+                "mtp": {
+                    "options_spec_n_max": {
+                        "label": "Tokens de brouillon, au plus",
+                        "hint": "Nombre maximal de tokens que la tête MTP propose par étape."
+                    },
+                    "options_spec_p_min": {
+                        "label": "Seuil d'acceptation",
+                        "hint": "La tête arrête un brouillon quand elle est moins sûre que cette valeur, de 0 à 1."
+                    }
+                }
+            },
+            "streams": {
+                "label": "Suspendre le brouillon au-delà de N flux",
+                "hint": "Le brouillon se suspend tant que plus de requêtes que cette valeur génèrent en même temps, et reprend quand la charge baisse. 0 ne suspend jamais. Les builds sans service paginé l'ignorent."
+            },
+            "picker": {
+                "label": "Modèle brouillon",
+                "placeholder": "Choisir un modèle installé",
+                "hint": "Un modèle plus petit de la même famille, par exemple un modèle 0.6B ou 1B pour un grand modèle de la même série.",
+                "filter": "Filtrer les modèles",
+                "loading": "Chargement des modèles installés...",
+                "empty": "Aucun autre modèle exécuté par {{engine}} n'est installé. Installez d'abord un petit modèle de la même famille.",
+                "same": "Même famille que ce modèle",
+                "other": "Autres modèles installés",
+                "file": "Défini dans le fichier",
+                "fileRow": "Pas un modèle installé",
+                "noFile": "{{name}} n'a pas de fichier de modèle à utiliser comme brouillon.",
+                "failed": "Impossible de lister les modèles installés."
+            },
+            "fit": {
+                "title": "Compatibilité",
+                "ok": "Compatible",
+                "okText": "Même vocabulaire : {{tokens}} tokens.",
+                "mismatch": "Ne se chargera pas",
+                "mismatchText": "Les vocabulaires diffèrent ({{main}} et {{draft}} tokens). llama.cpp refuse cette paire, donc le modèle ne se charge pas.",
+                "family": "Même famille",
+                "familyText": "Ce sont deux modèles {{family}}. Le vocabulaire n'a pas pu être lu pour le confirmer.",
+                "unknown": "Non vérifié",
+                "unknownText": "Les vocabulaires n'ont pas pu être comparés. Le brouillon doit utiliser le même tokenizer que le modèle.",
+                "unmatched": "Le fichier n'est pas un modèle installé, il ne peut donc pas être vérifié."
+            },
+            "memory": {
+                "title": "Mémoire",
+                "total": "≈ {{size}} de plus",
+                "split": "({{weights}} de poids et {{kv}} de cache KV à {{context}} tokens).",
+                "none": "Pas d'estimation pour ce modèle.",
+                "unmatched": "Pas d'estimation : comptez environ la taille du fichier plus un cache KV aussi grand que le contexte du modèle."
+            }
+        }
     }
 }

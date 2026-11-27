@@ -112,7 +112,9 @@
             "options_spec_ngram_map_k4v_size_m": "Lunghezza di proposta ngram-map-k4v",
             "options_spec_ngram_map_k4v_min_hits": "Corrispondenze minime ngram-map-k4v",
             "options_spec_lookup_cache_static": "File cache n-gram statica",
-            "options_spec_lookup_cache_dynamic": "File cache n-gram dinamica"
+            "options_spec_lookup_cache_dynamic": "File cache n-gram dinamica",
+            "draft_model": "File del modello bozza",
+            "options_spec_max_streams": "Sospendi le bozze oltre N flussi"
         },
         "choices": {
             "load_mode": {
@@ -289,6 +291,114 @@
                 "on": "Campiona i token sulla GPU. Più veloce con molte richieste in parallelo. Si disattiva da solo per le richieste con una grammatica, un budget di ragionamento o i logprobs."
             }
         },
-        "groupCount": "{{count}} impostazioni"
+        "groupCount": "{{count}} impostazioni",
+        "drafting": {
+            "title": "Bozze (decodifica speculativa)",
+            "lead": "Un indovino veloce propone i token successivi e il modello li controlla tutti in un passo. Quando indovina, le risposte arrivano prima; l'output resta lo stesso.",
+            "mode": "Modalità",
+            "more": "Altre opzioni delle bozze",
+            "auto": "{{mode}} è attivo di default: questo modello ha una testa MTP, quindi LocalAI la usa per le bozze a meno che tu non scelga Disattivato.",
+            "custom": {
+                "title": "Configurazione delle bozze personalizzata",
+                "body": "Questo modello usa spec_type {{kinds}}, che nessuna modalità copre. Resta così finché non scegli una modalità."
+            },
+            "modes": {
+                "off": {
+                    "label": "Disattivato",
+                    "doc": "Nessuna bozza. Ogni token viene solo dal modello."
+                },
+                "ngram": {
+                    "label": "N-gram",
+                    "doc": "Propone i token che seguivano le stesse parole prima nella conversazione. Nessun modello in più e nessuna memoria in più.",
+                    "note": "Ideale per output che ripete il suo input, come modifiche al codice o citazioni lunghe. Nella chat normale guadagna poco e può costare qualche punto percentuale."
+                },
+                "model": {
+                    "label": "Modello bozza",
+                    "doc": "Un modello piccolo con lo stesso vocabolario propone i token, e il modello li controlla in un passo.",
+                    "note": "Il modello bozza viene caricato accanto al modello e usa la sua memoria."
+                },
+                "mtp": {
+                    "label": "MTP",
+                    "doc": "La testa di predizione multi-token del modello propone i token successivi. Nessun secondo modello da caricare."
+                }
+            },
+            "fields": {
+                "ngram": {
+                    "options_spec_ngram_mod_n_min": {
+                        "label": "Token di bozza, almeno",
+                        "hint": "Il minimo di token che una corrispondenza deve proporre per essere usata."
+                    },
+                    "options_spec_ngram_mod_n_max": {
+                        "label": "Token di bozza, al massimo",
+                        "hint": "Il massimo di token proposti dopo una corrispondenza."
+                    },
+                    "options_spec_ngram_mod_n_match": {
+                        "label": "Lunghezza della corrispondenza",
+                        "hint": "Token che devono corrispondere a un passaggio precedente prima che venga copiato."
+                    }
+                },
+                "model": {
+                    "options_spec_n_min": {
+                        "label": "Token di bozza, almeno",
+                        "hint": "Il minimo di token di bozza che vale la pena controllare. 0 controlla qualsiasi bozza."
+                    },
+                    "options_spec_n_max": {
+                        "label": "Token di bozza, al massimo",
+                        "hint": "Il massimo di token che il modello bozza propone a ogni passo. Di più aiuta solo se indovina spesso."
+                    },
+                    "options_spec_p_min": {
+                        "label": "Soglia di accettazione",
+                        "hint": "Il modello bozza interrompe la bozza quando è meno sicuro di questo valore, da 0 a 1."
+                    }
+                },
+                "mtp": {
+                    "options_spec_n_max": {
+                        "label": "Token di bozza, al massimo",
+                        "hint": "Il massimo di token che la testa MTP propone a ogni passo."
+                    },
+                    "options_spec_p_min": {
+                        "label": "Soglia di accettazione",
+                        "hint": "La testa interrompe la bozza quando è meno sicura di questo valore, da 0 a 1."
+                    }
+                }
+            },
+            "streams": {
+                "label": "Sospendi le bozze oltre N flussi",
+                "hint": "Le bozze si sospendono finché più richieste di questo numero generano insieme, e riprendono quando il carico scende. 0 non sospende mai. Le build senza servizio a pagine lo ignorano."
+            },
+            "picker": {
+                "label": "Modello bozza",
+                "placeholder": "Scegli un modello installato",
+                "hint": "Un modello più piccolo della stessa famiglia, per esempio uno da 0.6B o 1B per un modello grande della stessa serie.",
+                "filter": "Filtra i modelli",
+                "loading": "Caricamento dei modelli installati...",
+                "empty": "Nessun altro modello eseguito da {{engine}} è installato. Installa prima un modello piccolo della stessa famiglia.",
+                "same": "Stessa famiglia di questo modello",
+                "other": "Altri modelli installati",
+                "file": "Impostato nel file",
+                "fileRow": "Non è un modello installato",
+                "noFile": "{{name}} non ha un file di modello da usare come bozza.",
+                "failed": "Impossibile elencare i modelli installati."
+            },
+            "fit": {
+                "title": "Compatibilità",
+                "ok": "Compatibile",
+                "okText": "Stesso vocabolario: {{tokens}} token.",
+                "mismatch": "Non si caricherà",
+                "mismatchText": "I vocabolari sono diversi ({{main}} e {{draft}} token). llama.cpp rifiuta questa coppia, quindi il modello non si carica.",
+                "family": "Stessa famiglia",
+                "familyText": "Sono entrambi modelli {{family}}. Non è stato possibile leggere il vocabolario per confermarlo.",
+                "unknown": "Non verificato",
+                "unknownText": "Non è stato possibile confrontare i vocabolari. La bozza deve usare lo stesso tokenizer del modello.",
+                "unmatched": "Il file non è un modello installato, quindi non si può verificare."
+            },
+            "memory": {
+                "title": "Memoria",
+                "total": "≈ {{size}} in più",
+                "split": "({{weights}} di pesi e {{kv}} di cache KV a {{context}} token).",
+                "none": "Nessuna stima per questo modello.",
+                "unmatched": "Nessuna stima: considera circa la dimensione del file più una cache KV grande quanto il contesto del modello."
+            }
+        }
     }
 }

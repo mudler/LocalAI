@@ -17,7 +17,8 @@
   },
   "capabilities": [
     "command-line",
-    "tensor-placement"
+    "tensor-placement",
+    "drafting"
   ],
   "example": "llama-server -m model.gguf --ctx-size 8192 -ngl 99 -fa on",
   "flags": [
@@ -978,6 +979,20 @@
       "group": "template"
     },
     {
+      "key": "draft_model",
+      "target": "config",
+      "path": "draft_model",
+      "cli": [
+        "-md",
+        "--model-draft",
+        "--spec-draft-model"
+      ],
+      "type": "string",
+      "default": "none",
+      "doc": "File of the draft model in the models directory: a small model with the same vocabulary that proposes tokens.",
+      "group": "speculative"
+    },
+    {
       "key": "spec_type",
       "target": "option",
       "path": "options",
@@ -1009,7 +1024,7 @@
       ],
       "type": "int",
       "min": 0,
-      "default": "16",
+      "default": "3",
       "doc": "Most tokens drafted per step.",
       "group": "speculative"
     },
@@ -1047,7 +1062,7 @@
       "type": "float",
       "min": 0,
       "max": 1,
-      "default": "0.75",
+      "default": "0",
       "doc": "Lowest draft probability to keep drafting.",
       "group": "speculative"
     },
@@ -1583,7 +1598,6 @@
     "engine_advanced"
   ],
   "collapsed_groups": [
-    "speculative",
     "engine_advanced"
   ],
   "combined": [
@@ -1809,5 +1823,71 @@
     "context_size": "context_size",
     "gpu_layers": "gpu_layers",
     "ubatch": "ubatch"
+  },
+  "drafting": {
+    "group": "speculative",
+    "type_key": "spec_type",
+    "model_key": "draft_model",
+    "off_type": "none",
+    "streams": {
+      "option": "spec_max_streams",
+      "default": "4 in builds with paged serving",
+      "doc": "Pause drafting while more than this many requests generate, and resume when the load drops. 0 never pauses."
+    },
+    "modes": [
+      {
+        "id": "off",
+        "label": "Off",
+        "doc": "No drafting. Every token comes from the model alone."
+      },
+      {
+        "id": "ngram",
+        "label": "N-gram",
+        "doc": "Propose the tokens that followed the same words earlier in the context. No extra model and no extra memory.",
+        "note": "Best for output that repeats its input, such as code edits or long quotes. On normal chat it gains little and can cost a few percent.",
+        "types": [
+          "ngram-mod",
+          "ngram-simple",
+          "ngram-map-k",
+          "ngram-map-k4v",
+          "ngram-cache"
+        ],
+        "fields": [
+          "spec_ngram_mod_n_min",
+          "spec_ngram_mod_n_max",
+          "spec_ngram_mod_n_match"
+        ]
+      },
+      {
+        "id": "model",
+        "label": "Draft model",
+        "doc": "A small model with the same vocabulary proposes tokens, and the model checks them in one step.",
+        "note": "The draft model is loaded beside the model and uses its own memory.",
+        "model": true,
+        "fields": [
+          "spec_n_min",
+          "spec_n_max",
+          "spec_p_min"
+        ]
+      },
+      {
+        "id": "mtp",
+        "label": "MTP",
+        "doc": "The model's own multi-token prediction head proposes the next tokens. No second model to load.",
+        "types": [
+          "draft-mtp"
+        ],
+        "needs": "mtp_head",
+        "auto": true,
+        "set": {
+          "spec_n_max": 6,
+          "spec_p_min": 0.75
+        },
+        "fields": [
+          "spec_n_max",
+          "spec_p_min"
+        ]
+      }
+    ]
   }
 }

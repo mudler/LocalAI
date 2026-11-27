@@ -148,7 +148,9 @@
       "options_spec_ngram_map_k4v_size_m": "Tamanho de proposta ngram-map-k4v",
       "options_spec_ngram_map_k4v_min_hits": "Acertos mínimos ngram-map-k4v",
       "options_spec_lookup_cache_static": "Arquivo de cache n-gram estático",
-      "options_spec_lookup_cache_dynamic": "Arquivo de cache n-gram dinâmico"
+      "options_spec_lookup_cache_dynamic": "Arquivo de cache n-gram dinâmico",
+      "draft_model": "Arquivo do modelo rascunho",
+      "options_spec_max_streams": "Pausar o rascunho acima de N fluxos"
     },
     "choices": {
       "load_mode": {
@@ -325,6 +327,114 @@
         "on": "Amostra os tokens na GPU. Mais rápido com muitas requisições em paralelo. Desligada automaticamente para requisições com gramática, orçamento de raciocínio ou logprobs."
       }
     },
-    "groupCount": "{{count}} configurações"
+    "groupCount": "{{count}} configurações",
+    "drafting": {
+      "title": "Rascunho (decodificação especulativa)",
+      "lead": "Um adivinhador rápido propõe os próximos tokens e o modelo confere todos em um passo. Quando acerta, as respostas chegam mais rápido; a saída continua a mesma.",
+      "mode": "Modo",
+      "more": "Mais opções de rascunho",
+      "auto": "{{mode}} vem ligado por padrão: este modelo tem uma cabeça MTP, então o LocalAI faz rascunhos com ela, a menos que você escolha Desligado.",
+      "custom": {
+        "title": "Configuração de rascunho personalizada",
+        "body": "Este modelo usa spec_type {{kinds}}, que nenhum modo cobre. Ele fica como está até você escolher um modo."
+      },
+      "modes": {
+        "off": {
+          "label": "Desligado",
+          "doc": "Sem rascunho. Cada token vem só do modelo."
+        },
+        "ngram": {
+          "label": "N-grama",
+          "doc": "Propõe os tokens que vieram depois das mesmas palavras antes na conversa. Sem modelo extra e sem memória extra.",
+          "note": "Melhor para saídas que repetem a entrada, como edições de código ou citações longas. Em um chat normal ganha pouco e pode custar alguns por cento."
+        },
+        "model": {
+          "label": "Modelo rascunho",
+          "doc": "Um modelo pequeno com o mesmo vocabulário propõe tokens, e o modelo os confere em um passo.",
+          "note": "O modelo rascunho é carregado ao lado do modelo e usa sua própria memória."
+        },
+        "mtp": {
+          "label": "MTP",
+          "doc": "A própria cabeça de previsão de vários tokens do modelo propõe os próximos tokens. Nenhum segundo modelo para carregar."
+        }
+      },
+      "fields": {
+        "ngram": {
+          "options_spec_ngram_mod_n_min": {
+            "label": "Tokens de rascunho, no mínimo",
+            "hint": "Menor número de tokens que uma correspondência precisa propor para ser usada."
+          },
+          "options_spec_ngram_mod_n_max": {
+            "label": "Tokens de rascunho, no máximo",
+            "hint": "Maior número de tokens propostos depois de uma correspondência."
+          },
+          "options_spec_ngram_mod_n_match": {
+            "label": "Tamanho da correspondência",
+            "hint": "Tokens que precisam coincidir com um trecho anterior antes de ele ser copiado."
+          }
+        },
+        "model": {
+          "options_spec_n_min": {
+            "label": "Tokens de rascunho, no mínimo",
+            "hint": "Menor número de tokens de rascunho que vale a pena conferir. 0 confere qualquer rascunho."
+          },
+          "options_spec_n_max": {
+            "label": "Tokens de rascunho, no máximo",
+            "hint": "Maior número de tokens que o modelo rascunho propõe por passo. Mais só ajuda quando ele acerta bem."
+          },
+          "options_spec_p_min": {
+            "label": "Limite de aceitação",
+            "hint": "O modelo rascunho interrompe o rascunho quando está menos seguro que este valor, de 0 a 1."
+          }
+        },
+        "mtp": {
+          "options_spec_n_max": {
+            "label": "Tokens de rascunho, no máximo",
+            "hint": "Maior número de tokens que a cabeça MTP propõe por passo."
+          },
+          "options_spec_p_min": {
+            "label": "Limite de aceitação",
+            "hint": "A cabeça interrompe o rascunho quando está menos segura que este valor, de 0 a 1."
+          }
+        }
+      },
+      "streams": {
+        "label": "Pausar o rascunho acima de N fluxos",
+        "hint": "O rascunho pausa enquanto mais pedidos do que este número geram ao mesmo tempo e volta quando a carga cai. 0 nunca pausa. Builds sem serviço paginado ignoram isto."
+      },
+      "picker": {
+        "label": "Modelo rascunho",
+        "placeholder": "Escolha um modelo instalado",
+        "hint": "Um modelo menor da mesma família, por exemplo um de 0.6B ou 1B para um modelo grande da mesma série.",
+        "filter": "Filtrar modelos",
+        "loading": "Carregando modelos instalados...",
+        "empty": "Nenhum outro modelo que o {{engine}} executa está instalado. Instale primeiro um modelo pequeno da mesma família.",
+        "same": "Mesma família deste modelo",
+        "other": "Outros modelos instalados",
+        "file": "Definido no arquivo",
+        "fileRow": "Não é um modelo instalado",
+        "noFile": "{{name}} não tem um arquivo de modelo para usar como rascunho.",
+        "failed": "Não foi possível listar os modelos instalados."
+      },
+      "fit": {
+        "title": "Compatibilidade",
+        "ok": "Compatível",
+        "okText": "Mesmo vocabulário: {{tokens}} tokens.",
+        "mismatch": "Não vai carregar",
+        "mismatchText": "Os vocabulários são diferentes ({{main}} e {{draft}} tokens). O llama.cpp recusa este par, então o modelo não carrega.",
+        "family": "Mesma família",
+        "familyText": "Os dois são modelos {{family}}. Não foi possível ler o vocabulário para confirmar.",
+        "unknown": "Não verificado",
+        "unknownText": "Não foi possível comparar os vocabulários. O rascunho precisa usar o mesmo tokenizador do modelo.",
+        "unmatched": "O arquivo não é um modelo instalado, então não pode ser verificado."
+      },
+      "memory": {
+        "title": "Memória",
+        "total": "≈ {{size}} a mais",
+        "split": "({{weights}} de pesos e {{kv}} de cache KV com {{context}} tokens).",
+        "none": "Sem estimativa para este modelo.",
+        "unmatched": "Sem estimativa: conte com o tamanho do arquivo mais um cache KV do tamanho do contexto do modelo."
+      }
+    }
   }
 }

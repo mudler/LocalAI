@@ -115,6 +115,10 @@ func (e *Engine) BuildCommand(cfg Config) (BuildResult, error) {
 			continue
 		}
 		f := e.optionFlag(name)
+		if f == nil && e.isDraftStreams(name) {
+			res.Warnings = append(res.Warnings, fmt.Sprintf("the option %q is read by LocalAI and has no %s flag, so it is not in the command", name, cl.Binary))
+			continue
+		}
 		if f == nil {
 			res.Warnings = append(res.Warnings, fmt.Sprintf("the option %q has no %s flag and is not in the command", o, cl.Binary))
 			continue

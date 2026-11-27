@@ -133,3 +133,35 @@
 .rt-group__summary::-webkit-details-marker { display: none; }
 .rt-group__chevron { transition: transform var(--dur-fast) var(--ease-out); }
 .rt-group--fold[open] > .rt-group__summary .rt-group__chevron { transform: rotate(90deg); }
+
+/* Drafting: one choice of how tokens are drafted, a panel with what that
+   choice does, its trade-off and the few fields it needs, and the other
+   drafting settings folded under it. */
+.rt-draft__choice { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2) var(--dk-space-3); }
+.rt-draft__panel {
+  display: grid;
+  gap: var(--dk-space-4);
+  min-width: 0;
+  padding: var(--dk-space-4);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--dk-radius-2);
+}
+.rt-draft__doc { margin: 0; color: var(--dk-text); font-size: var(--dk-text-13); }
+.rt-draft__note { display: flex; align-items: baseline; gap: var(--dk-space-2); margin: 0; color: var(--dk-muted); font-size: var(--dk-text-13); }
+.rt-draft__note-icon { flex: none; align-self: center; color: var(--dk-accent); }
+.rt-draft__model { display: grid; gap: var(--dk-space-3); min-width: 0; }
+.rt-draft__model > .rt-field { max-width: 480px; }
+.rt-draft__facts { display: grid; gap: var(--dk-space-3); margin: 0; padding: var(--dk-space-3); border-radius: var(--dk-radius-2); background: var(--dk-inset); }
+.rt-draft__fact { display: grid; gap: var(--dk-space-1); }
+
+.rt-draft__fact dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: var(--dk-text-13); }
+.rt-draft__fit { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); }
+.rt-draft__size { font-family: var(--dk-font-mono); font-weight: var(--dk-weight-semibold); }
+.rt-draft__more { display: grid; gap: var(--dk-space-4); min-width: 0; }
+.rt-draft__more-summary { color: var(--dk-text); font-weight: var(--dk-weight-semibold); }
+.rt-draft__more[open] > .rt-draft__more-summary .rt-group__chevron { transform: rotate(90deg); }
+.rt-draft__more-grid { padding-top: var(--dk-space-2); }
+
+@container (max-width: 520px) {
+  .rt-draft__panel { padding: var(--dk-space-3); }
+}

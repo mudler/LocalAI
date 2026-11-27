@@ -112,7 +112,9 @@
             "options_spec_ngram_map_k4v_size_m": "Longitud de propuesta ngram-map-k4v",
             "options_spec_ngram_map_k4v_min_hits": "Coincidencias mínimas ngram-map-k4v",
             "options_spec_lookup_cache_static": "Archivo de caché n-gram estática",
-            "options_spec_lookup_cache_dynamic": "Archivo de caché n-gram dinámica"
+            "options_spec_lookup_cache_dynamic": "Archivo de caché n-gram dinámica",
+            "draft_model": "Archivo del modelo borrador",
+            "options_spec_max_streams": "Pausar el borrador con más de N flujos"
         },
         "choices": {
             "load_mode": {
@@ -289,6 +291,114 @@
                 "on": "Muestrea los tokens en la GPU. Más rápido con muchas peticiones en paralelo. Se desactiva solo en las peticiones que usan una gramática, un presupuesto de razonamiento o logprobs."
             }
         },
-        "groupCount": "{{count}} ajustes"
+        "groupCount": "{{count}} ajustes",
+        "drafting": {
+            "title": "Borrador (decodificación especulativa)",
+            "lead": "Un adivinador rápido propone los siguientes tokens y el modelo los comprueba todos en un paso. Cuando acierta, las respuestas llegan antes; la salida no cambia.",
+            "mode": "Modo",
+            "more": "Más opciones de borrador",
+            "auto": "{{mode}} está activado por defecto: este modelo tiene un cabezal MTP, así que LocalAI hace borradores con él salvo que elijas Desactivado.",
+            "custom": {
+                "title": "Configuración de borrador personalizada",
+                "body": "Este modelo usa spec_type {{kinds}}, que ningún modo cubre. Se queda así hasta que elijas un modo."
+            },
+            "modes": {
+                "off": {
+                    "label": "Desactivado",
+                    "doc": "Sin borrador. Cada token sale solo del modelo."
+                },
+                "ngram": {
+                    "label": "N-grama",
+                    "doc": "Propone los tokens que siguieron a las mismas palabras antes en la conversación. Sin modelo extra ni memoria extra.",
+                    "note": "Ideal para salidas que repiten su entrada, como ediciones de código o citas largas. En un chat normal gana poco y puede costar un pequeño porcentaje."
+                },
+                "model": {
+                    "label": "Modelo borrador",
+                    "doc": "Un modelo pequeño con el mismo vocabulario propone tokens y el modelo los comprueba en un paso.",
+                    "note": "El modelo borrador se carga junto al modelo y usa su propia memoria."
+                },
+                "mtp": {
+                    "label": "MTP",
+                    "doc": "El propio cabezal de predicción multitoken del modelo propone los siguientes tokens. No hay un segundo modelo que cargar."
+                }
+            },
+            "fields": {
+                "ngram": {
+                    "options_spec_ngram_mod_n_min": {
+                        "label": "Tokens de borrador, mínimo",
+                        "hint": "Menor número de tokens que debe proponer una coincidencia para usarla."
+                    },
+                    "options_spec_ngram_mod_n_max": {
+                        "label": "Tokens de borrador, máximo",
+                        "hint": "Mayor número de tokens propuestos tras una coincidencia."
+                    },
+                    "options_spec_ngram_mod_n_match": {
+                        "label": "Longitud de coincidencia",
+                        "hint": "Tokens que deben coincidir con un pasaje anterior antes de copiarlo."
+                    }
+                },
+                "model": {
+                    "options_spec_n_min": {
+                        "label": "Tokens de borrador, mínimo",
+                        "hint": "Menor número de tokens de borrador que vale la pena comprobar. 0 comprueba cualquier borrador."
+                    },
+                    "options_spec_n_max": {
+                        "label": "Tokens de borrador, máximo",
+                        "hint": "Mayor número de tokens que propone el modelo borrador por paso. Más solo ayuda si acierta a menudo."
+                    },
+                    "options_spec_p_min": {
+                        "label": "Umbral de aceptación",
+                        "hint": "El modelo borrador corta el borrador cuando está menos seguro que este valor, de 0 a 1."
+                    }
+                },
+                "mtp": {
+                    "options_spec_n_max": {
+                        "label": "Tokens de borrador, máximo",
+                        "hint": "Mayor número de tokens que propone el cabezal MTP por paso."
+                    },
+                    "options_spec_p_min": {
+                        "label": "Umbral de aceptación",
+                        "hint": "El cabezal corta el borrador cuando está menos seguro que este valor, de 0 a 1."
+                    }
+                }
+            },
+            "streams": {
+                "label": "Pausar el borrador con más de N flujos",
+                "hint": "El borrador se pausa mientras más solicitudes que este número generan a la vez y se reanuda cuando baja la carga. 0 nunca pausa. Las compilaciones sin servicio paginado lo ignoran."
+            },
+            "picker": {
+                "label": "Modelo borrador",
+                "placeholder": "Elige un modelo instalado",
+                "hint": "Un modelo más pequeño de la misma familia, por ejemplo uno de 0.6B o 1B para un modelo grande de la misma serie.",
+                "filter": "Filtrar modelos",
+                "loading": "Cargando modelos instalados...",
+                "empty": "No hay instalado otro modelo que ejecute {{engine}}. Instala primero un modelo pequeño de la misma familia.",
+                "same": "Misma familia que este modelo",
+                "other": "Otros modelos instalados",
+                "file": "Definido en el archivo",
+                "fileRow": "No es un modelo instalado",
+                "noFile": "{{name}} no tiene un archivo de modelo que usar como borrador.",
+                "failed": "No se pudieron listar los modelos instalados."
+            },
+            "fit": {
+                "title": "Compatibilidad",
+                "ok": "Compatible",
+                "okText": "Mismo vocabulario: {{tokens}} tokens.",
+                "mismatch": "No cargará",
+                "mismatchText": "Los vocabularios difieren ({{main}} y {{draft}} tokens). llama.cpp rechaza esta pareja, así que el modelo no carga.",
+                "family": "Misma familia",
+                "familyText": "Ambos son modelos {{family}}. No se pudo leer el vocabulario para confirmarlo.",
+                "unknown": "Sin comprobar",
+                "unknownText": "No se pudieron comparar los vocabularios. El borrador debe usar el mismo tokenizador que el modelo.",
+                "unmatched": "El archivo no es un modelo instalado, así que no se puede comprobar."
+            },
+            "memory": {
+                "title": "Memoria",
+                "total": "≈ {{size}} más",
+                "split": "({{weights}} de pesos y {{kv}} de caché KV con {{context}} tokens).",
+                "none": "No hay estimación para este modelo.",
+                "unmatched": "Sin estimación: cuenta con el tamaño del archivo más una caché KV tan grande como el contexto del modelo."
+            }
+        }
     }
 }

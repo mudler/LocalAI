@@ -112,7 +112,9 @@
             "options_spec_ngram_map_k4v_size_m": "ngram-map-k4v Vorschlagslänge",
             "options_spec_ngram_map_k4v_min_hits": "ngram-map-k4v Mindesttreffer",
             "options_spec_lookup_cache_static": "Statische N-Gramm-Cache-Datei",
-            "options_spec_lookup_cache_dynamic": "Dynamische N-Gramm-Cache-Datei"
+            "options_spec_lookup_cache_dynamic": "Dynamische N-Gramm-Cache-Datei",
+            "draft_model": "Datei des Entwurfsmodells",
+            "options_spec_max_streams": "Entwürfe über N Streams pausieren"
         },
         "choices": {
             "load_mode": {
@@ -289,6 +291,114 @@
                 "on": "Tokens auf der GPU sampeln. Schneller bei vielen parallelen Anfragen. Wird für Anfragen mit Grammatik, Reasoning-Budget oder Logprobs automatisch abgeschaltet."
             }
         },
-        "groupCount": "{{count}} Einstellungen"
+        "groupCount": "{{count}} Einstellungen",
+        "drafting": {
+            "title": "Entwürfe (spekulative Dekodierung)",
+            "lead": "Ein schneller Rater schlägt die nächsten Tokens vor, und das Modell prüft sie alle in einem Schritt. Liegen die Vorschläge richtig, kommen Antworten schneller; die Ausgabe bleibt gleich.",
+            "mode": "Modus",
+            "more": "Weitere Entwurfsoptionen",
+            "auto": "{{mode}} ist standardmäßig an: Dieses Modell hat einen MTP-Kopf, daher erstellt LocalAI damit Entwürfe, außer du wählst Aus.",
+            "custom": {
+                "title": "Eigene Entwurfseinstellung",
+                "body": "Dieses Modell nutzt spec_type {{kinds}}, das keiner der Modi abdeckt. Es bleibt so, bis du einen Modus wählst."
+            },
+            "modes": {
+                "off": {
+                    "label": "Aus",
+                    "doc": "Keine Entwürfe. Jedes Token kommt allein vom Modell."
+                },
+                "ngram": {
+                    "label": "N-Gramm",
+                    "doc": "Schlägt die Tokens vor, die früher im Gespräch auf dieselben Wörter folgten. Kein zusätzliches Modell und kein zusätzlicher Speicher.",
+                    "note": "Am besten für Ausgaben, die ihre Eingabe wiederholen, etwa Code-Änderungen oder lange Zitate. Im normalen Chat bringt es wenig und kann ein paar Prozent kosten."
+                },
+                "model": {
+                    "label": "Entwurfsmodell",
+                    "doc": "Ein kleines Modell mit demselben Vokabular schlägt Tokens vor, und das Modell prüft sie in einem Schritt.",
+                    "note": "Das Entwurfsmodell wird neben dem Modell geladen und belegt eigenen Speicher."
+                },
+                "mtp": {
+                    "label": "MTP",
+                    "doc": "Der eigene Multi-Token-Prediction-Kopf des Modells schlägt die nächsten Tokens vor. Kein zweites Modell zu laden."
+                }
+            },
+            "fields": {
+                "ngram": {
+                    "options_spec_ngram_mod_n_min": {
+                        "label": "Entwurfstokens, mindestens",
+                        "hint": "Wenigste Tokens, die ein Treffer vorschlagen muss, bevor er genutzt wird."
+                    },
+                    "options_spec_ngram_mod_n_max": {
+                        "label": "Entwurfstokens, höchstens",
+                        "hint": "Meiste Tokens, die nach einem Treffer vorgeschlagen werden."
+                    },
+                    "options_spec_ngram_mod_n_match": {
+                        "label": "Trefferlänge",
+                        "hint": "Tokens, die mit einer früheren Stelle übereinstimmen müssen, bevor sie kopiert wird."
+                    }
+                },
+                "model": {
+                    "options_spec_n_min": {
+                        "label": "Entwurfstokens, mindestens",
+                        "hint": "Wenigste Entwurfstokens, deren Prüfung sich lohnt. 0 prüft jeden Entwurf."
+                    },
+                    "options_spec_n_max": {
+                        "label": "Entwurfstokens, höchstens",
+                        "hint": "Meiste Tokens, die das Entwurfsmodell pro Schritt vorschlägt. Mehr hilft nur, wenn es gut rät."
+                    },
+                    "options_spec_p_min": {
+                        "label": "Annahmeschwelle",
+                        "hint": "Das Entwurfsmodell bricht einen Entwurf ab, wenn es sich weniger sicher ist als dieser Wert, von 0 bis 1."
+                    }
+                },
+                "mtp": {
+                    "options_spec_n_max": {
+                        "label": "Entwurfstokens, höchstens",
+                        "hint": "Meiste Tokens, die der MTP-Kopf pro Schritt vorschlägt."
+                    },
+                    "options_spec_p_min": {
+                        "label": "Annahmeschwelle",
+                        "hint": "Der Kopf bricht einen Entwurf ab, wenn er sich weniger sicher ist als dieser Wert, von 0 bis 1."
+                    }
+                }
+            },
+            "streams": {
+                "label": "Entwürfe über N Streams pausieren",
+                "hint": "Entwürfe pausieren, solange mehr Anfragen als dieser Wert gleichzeitig generieren, und laufen weiter, wenn die Last sinkt. 0 pausiert nie. Builds ohne Paged Serving ignorieren den Wert."
+            },
+            "picker": {
+                "label": "Entwurfsmodell",
+                "placeholder": "Installiertes Modell wählen",
+                "hint": "Ein kleineres Modell derselben Familie, etwa ein 0.6B- oder 1B-Modell für ein großes Modell derselben Reihe.",
+                "filter": "Modelle filtern",
+                "loading": "Installierte Modelle werden geladen...",
+                "empty": "Kein anderes Modell, das {{engine}} ausführt, ist installiert. Installiere zuerst ein kleines Modell derselben Familie.",
+                "same": "Dieselbe Familie wie dieses Modell",
+                "other": "Andere installierte Modelle",
+                "file": "In der Datei gesetzt",
+                "fileRow": "Kein installiertes Modell",
+                "noFile": "{{name}} hat keine Modelldatei, die als Entwurf dienen kann.",
+                "failed": "Die installierten Modelle konnten nicht aufgelistet werden."
+            },
+            "fit": {
+                "title": "Passung",
+                "ok": "Kompatibel",
+                "okText": "Gleiches Vokabular: {{tokens}} Tokens.",
+                "mismatch": "Lädt nicht",
+                "mismatchText": "Die Vokabulare unterscheiden sich ({{main}} und {{draft}} Tokens). llama.cpp lehnt dieses Paar ab, daher lädt das Modell nicht.",
+                "family": "Dieselbe Familie",
+                "familyText": "Beide sind {{family}}-Modelle. Das Vokabular konnte zur Bestätigung nicht gelesen werden.",
+                "unknown": "Nicht geprüft",
+                "unknownText": "Die Vokabulare konnten nicht verglichen werden. Der Entwurf muss denselben Tokenizer wie das Modell nutzen.",
+                "unmatched": "Die Datei ist kein installiertes Modell und kann daher nicht geprüft werden."
+            },
+            "memory": {
+                "title": "Speicher",
+                "total": "≈ {{size}} mehr",
+                "split": "({{weights}} Gewichte und {{kv}} KV-Cache bei {{context}} Tokens).",
+                "none": "Keine Schätzung für dieses Modell.",
+                "unmatched": "Keine Schätzung: Rechne mit etwa der Dateigröße plus einem KV-Cache so groß wie der Kontext des Modells."
+            }
+        }
     }
 }

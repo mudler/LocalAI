@@ -377,6 +377,11 @@ var flags = []es.Flag{
 	// Speculative decoding: a draft model or n-grams propose tokens that the
 	// model checks in one step.
 	{
+		Key: "draft_model", Target: es.TargetConfig, Path: "draft_model",
+		CLI: []string{"-md", "--model-draft", "--spec-draft-model"}, Type: es.TypeString, Default: "none", Group: GroupSpeculative,
+		Doc: "File of the draft model in the models directory: a small model with the same vocabulary that proposes tokens.",
+	},
+	{
 		Key: "spec_type", Target: es.TargetOption, Path: "options", Option: "spec_type",
 		CLI: []string{"--spec-type"}, Type: es.TypeString, Default: "none, or draft-simple with a draft model", Group: GroupSpeculative,
 		OptionAliases: []string{"speculative_type"},
@@ -384,7 +389,7 @@ var flags = []es.Flag{
 	},
 	{
 		Key: "spec_n_max", Target: es.TargetOption, Path: "options", Option: "spec_n_max",
-		CLI: []string{"--spec-draft-n-max", "--draft", "--draft-n", "--draft-max"}, Type: es.TypeInt, Min: es.F64(0), Default: "16", Group: GroupSpeculative,
+		CLI: []string{"--spec-draft-n-max", "--draft", "--draft-n", "--draft-max"}, Type: es.TypeInt, Min: es.F64(0), Default: "3", Group: GroupSpeculative,
 		OptionAliases: []string{"draft_max"},
 		Doc:           "Most tokens drafted per step.",
 	},
@@ -396,7 +401,7 @@ var flags = []es.Flag{
 	},
 	{
 		Key: "spec_p_min", Target: es.TargetOption, Path: "options", Option: "spec_p_min",
-		CLI: []string{"--spec-draft-p-min", "--draft-p-min"}, Type: es.TypeFloat, Min: es.F64(0), Max: es.F64(1), Default: "0.75", Group: GroupSpeculative,
+		CLI: []string{"--spec-draft-p-min", "--draft-p-min"}, Type: es.TypeFloat, Min: es.F64(0), Max: es.F64(1), Default: "0", Group: GroupSpeculative,
 		OptionAliases: []string{"draft_p_min"},
 		Doc:           "Lowest draft probability to keep drafting.",
 	},

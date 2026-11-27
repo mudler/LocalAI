@@ -236,3 +236,26 @@ func presetConfig(name string) *ModelConfig {
 func predictionModel(name string) schema.PredictionOptions {
 	return schema.PredictionOptions{BasicModelRequest: schema.BasicModelRequest{Model: name}}
 }
+
+var _ = Describe("ReadGGUFModelInfo", func() {
+	BeforeEach(func() { GinkgoT().Setenv("LOCALAI_DISABLE_GUESSING", "false") })
+
+	It("answers the architecture and the MTP layers from the cached header", func() {
+		dir := GinkgoT().TempDir()
+		writeHeaderCacheFile(filepath.Join(dir, "mtp.gguf"), 128)
+		p := &countingParser{}
+		llamaCppDefaultsWithParser(presetConfig("mtp.gguf"), dir, p.parse)
+
+		info, err := ReadGGUFModelInfo(filepath.Join(dir, "mtp.gguf"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(info).To(Equal(GGUFModelInfo{Architecture: "llama", MTPLayers: 1}))
+		Expect(p.calls.Load()).To(Equal(int32(1)))
+	})
+
+	It("fails for a file that is not a GGUF", func() {
+		dir := GinkgoT().TempDir()
+		writeHeaderCacheFile(filepath.Join(dir, "junk.gguf"), 16)
+		_, err := ReadGGUFModelInfo(filepath.Join(dir, "junk.gguf"))
+		Expect(err).To(HaveOccurred())
+	})
+})

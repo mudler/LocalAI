@@ -33,12 +33,13 @@ An engine description has these parts:
 | Combined controls | Optional. One control that writes several settings, such as a load mode that writes `mmap`, `mmlock` and `direct_io`. |
 | Presets | Optional. Whole-setup starting points. A preset marked as a profile is one of a set of exclusive setups over the same keys; the editor shows the profiles as one choice and reads the current one back from the file. A `null` value in a preset unsets the key. |
 | Estimate | Optional. Maps the fields of `POST /api/models/vram-estimate` (`context_size`, `gpu_layers`, `cache_type_k`, `cache_type_v`, `batch`, `ubatch`) to flag keys, so the editor can show what a setup costs in memory. |
-| Capabilities | Optional features. `command-line`: the engine reads a pasted command and writes the command of a config. `tensor-placement`: the engine builds and reads an `options` entry that keeps MoE expert tensors on the CPU. |
+| Capabilities | Optional features. `command-line`: the engine reads a pasted command and writes the command of a config. `tensor-placement`: the engine builds and reads an `options` entry that keeps MoE expert tensors on the CPU. `drafting`: the engine describes its speculative decoding as a few modes, each with the drafting kinds it reads back, the fields it shows and the values it writes. |
 
 The editor draws the fields, groups, combined controls and presets from the
 schema of the engine. It shows the command preview and the paste box only for
-an engine with `command-line`, and the placement control only for an engine
-with `tensor-placement`. The editor has no code for a specific engine.
+an engine with `command-line`, the placement control only for an engine
+with `tensor-placement`, and the Drafting section only for an engine with
+`drafting`. The editor has no code for a specific engine.
 
 The editor finds the engine of a model from its `backend` key, with
 `GET /api/engines?backend=<name>`. A model whose backend no engine serves has
@@ -224,8 +225,8 @@ the **Interactive** tab has a **Runtime tuning** section with the badge
   yourself. The section lists the settings a setup changed, with **Undo**.
 - **Fields.** Every option the llama.cpp backend of LocalAI reads has a field,
   in the groups Memory, Speed, Concurrent serving, Sampling defaults and Chat
-  template. Rarely used or risky options are in two groups that start closed:
-  **Speculative decoding** and **Advanced llama.cpp options** (for example
+  template, and in the Drafting section below. Rarely used or risky options
+  are in a group that starts closed, **Advanced llama.cpp options** (for example
   `context_shift`, `cont_batching` and `kv_unified`, which turn paged serving
   off). A file that uses another name of an option (an alias such as
   `unified_kv` or `max_prefill_tokens`) shows in the field of that option; an
@@ -236,6 +237,7 @@ the **Interactive** tab has a **Runtime tuning** section with the badge
   and the server's description. An empty field, or **Default**, keeps the
   setting out of the file. A value that does not fit the type or the range is
   marked, and **Save** stays off until you correct it.
+- **Drafting (speculative decoding).** See [Drafting](#drafting).
 - **Load mode.** One choice for `mmap`, `mmlock` and `direct_io`, as in the
   load mode table.
 - **Tensor placement.** Off by default. See [Tensor placement](#tensor-placement).
@@ -252,6 +254,45 @@ the **Interactive** tab has a **Runtime tuning** section with the badge
 
 The section edits the same file as the YAML tab. Nothing is written until you
 press **Save**, and a YAML save shows in the section.
+
+### Drafting
+
+Drafting lets a fast guesser propose the next tokens, and the model checks
+them all in one step. When the guesses are right, answers come faster. The
+output is the same as without drafting. The **Drafting** section of Runtime
+tuning sets it up with one choice, so you do not need the llama.cpp flags.
+
+![The Drafting section with Draft model picked: qwen3-0.6b is the draft, the compatibility line says the vocabularies match, the memory line says it adds about 920 MB, and the fields for draft tokens, the acceptance threshold and the stream limit follow.](../../images/engine-settings/drafting.png)
+
+| Mode | What it writes | When to use it |
+|---|---|---|
+| **Off** (default) | Removes `spec_type`, `draft_model` and the drafting fields. For a model with an MTP head, it writes `spec_type:none`. | Normal chat. |
+| **N-gram** | `options: [spec_type:ngram-mod]` | Output that repeats its input, such as code edits or long quotes. It needs no extra model and no extra memory. On normal chat it gains little and can cost a few percent. |
+| **Draft model** | `draft_model: <file of the model you pick>`. llama.cpp reads the kind from the draft file. | A small model of the same family, for example a 0.6B or 1B model for a large model of the same series. It loads beside the model and uses its own memory. |
+| **MTP** | `options: [spec_type:draft-mtp, spec_n_max:6, spec_p_min:0.75]` | Only for a model whose file has a multi-token prediction head. LocalAI turns MTP on for such a model when the file sets no `spec_type`, and the section shows it as on by default. |
+
+Each mode shows only the fields that matter for it: the fewest and most draft
+tokens (`spec_ngram_mod_n_min` and `spec_ngram_mod_n_max` for N-gram,
+`spec_n_min` and `spec_n_max` for a draft model), the acceptance threshold
+(`spec_p_min`) and **Pause drafting above N streams** (`spec_max_streams`, 0
+never pauses). The other drafting options are under **More drafting options**.
+
+For **Draft model**, pick one of the installed models that llama.cpp runs.
+Models of the same family as this one come first. The section then shows:
+
+- **Compatibility.** The vocabulary sizes of both models. llama.cpp refuses a
+  draft whose vocabulary differs by more than 128 tokens, so the model would
+  not load.
+- **Memory.** The memory the draft model adds, from the VRAM estimate of the
+  draft model at the context size of this model: its weights and its KV cache.
+
+A file with a `spec_type` that no mode covers (for example two kinds) is kept
+as it is, with a note, until you pick a mode. The old option names
+(`draft_max`, `draft_min`, `draft_p_min`, `speculative_type`) show in the same
+fields.
+
+`spec_max_streams` is read by builds with paged serving. Other builds ignore
+it.
 
 ### Paste a command
 
@@ -308,7 +349,7 @@ operations as the `parse_engine_command` and `preview_engine_command` tools.
 | Route | Purpose |
 |---|---|
 | `GET /api/engines` | The registered engines: id, name, binary, the backend names each serves, and the capabilities. With `?backend=<name>`, only the engine that serves that backend. An empty name is a model with no backend. |
-| `GET /api/engines/{engine}/settings-schema` | The schema of one engine: the flag table (key, target, YAML path, option name and aliases, CLI spellings, type, allowed values, limits, default, doc line, group, and `localai_only` for an option with no command-line flag), the groups, the combined controls, the presets (with `profile: true` for a quick setup), the reserved options, the `estimate` map and the capabilities. |
+| `GET /api/engines/{engine}/settings-schema` | The schema of one engine: the flag table (key, target, YAML path, option name and aliases, CLI spellings, type, allowed values, limits, default, doc line, group, and `localai_only` for an option with no command-line flag), the groups, the combined controls, the presets (with `profile: true` for a quick setup), the reserved options, the `estimate` map, the capabilities, and `drafting` for an engine with that capability (the kind and model keys, the off kind, the streams option and the modes). |
 | `POST /api/engines/{engine}/parse-command` | Needs `command-line`. Body `{"command": "..."}`. Returns `fields`, `options`, `unmapped` and `warnings`, plus `placements` for an engine with `tensor-placement`. |
 | `POST /api/engines/{engine}/command-preview` | Needs `command-line`. Body `{"config": {...}}` with model YAML keys. Returns `{"command": "...", "warnings": []}`. |
 | `POST /api/engines/{engine}/placement` | Needs `tensor-placement`. Body `{"placement": {...}, "layers": "0-6,18-23"}` returns the `options` entry. Body `{"option": "-ot:..."}` returns its structured form, or `raw: true`. |

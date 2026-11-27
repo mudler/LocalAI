@@ -47,6 +47,14 @@ type VRAMResponse struct {
 	// BlockCount is the number of layers of the model, read from the GGUF
 	// metadata. Absent when it is unknown.
 	BlockCount uint32 `json:"block_count,omitempty"`
+	// Architecture is general.architecture of a local GGUF model file, and
+	// MTPLayers the layers of its embedded multi-token prediction head (absent
+	// without one). VocabSize is the number of tokens of its vocabulary. The
+	// model editor reads them to offer MTP and to say whether a draft model
+	// fits. Absent when unknown.
+	Architecture string `json:"architecture,omitempty"`
+	MTPLayers    uint32 `json:"mtp_layers,omitempty"`
+	VocabSize    uint64 `json:"vocab_size,omitempty"`
 }
 
 // EstimateVRAM computes a VRAM estimate for an installed model. It mirrors
@@ -140,6 +148,15 @@ func EstimateVRAM(ctx context.Context, req VRAMRequest, cl *config.ModelConfigLo
 		ModelMaxContext: multi.ModelMaxContext,
 		ExpertCount:     multi.ExpertCount,
 		BlockCount:      multi.BlockCount,
+	}
+
+	if multi.Meta != nil {
+		resp.VocabSize = multi.Meta.VocabSize
+	}
+	if cfg.Model != "" && !strings.Contains(cfg.Model, "://") && strings.HasSuffix(strings.ToLower(cfg.Model), ".gguf") {
+		if info, err := config.ReadGGUFModelInfo(filepath.Join(modelsPath, cfg.Model)); err == nil {
+			resp.Architecture, resp.MTPLayers = info.Architecture, info.MTPLayers
+		}
 	}
 
 	if contextDefaulted && multi.ModelMaxContext > 0 {

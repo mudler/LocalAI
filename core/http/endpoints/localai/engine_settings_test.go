@@ -174,7 +174,7 @@ var _ = Describe("engine settings endpoints", func() {
 			Expect(json.Unmarshal(rec.Body.Bytes(), &got)).To(Succeed())
 			Expect(got.Flags).To(HaveLen(len(llamacpp.Engine().Flags)))
 			Expect(got.ID).To(Equal("llama-cpp"))
-			Expect(got.Capabilities).To(ConsistOf(enginesettings.CapabilityCommandLine, enginesettings.CapabilityTensorPlacement))
+			Expect(got.Capabilities).To(ConsistOf(enginesettings.CapabilityCommandLine, enginesettings.CapabilityTensorPlacement, enginesettings.CapabilityDrafting))
 			groups := map[string]bool{}
 			for _, f := range got.Flags {
 				Expect(f.Doc).ToNot(BeEmpty(), f.Key)
@@ -187,6 +187,9 @@ var _ = Describe("engine settings endpoints", func() {
 			Expect(groups).To(HaveKey("placement"))
 			Expect(got.Combined[0].ID).To(Equal("load_mode"))
 			Expect(got.Placement.Option).To(Equal("-ot"))
+			Expect(got.Drafting).ToNot(BeNil())
+			Expect(got.Drafting.TypeKey).To(Equal("spec_type"))
+			Expect(got.Drafting.Streams.Option).To(Equal("spec_max_streams"))
 			if dir := os.Getenv("LLAMACPP_DUMP_DIR"); dir != "" {
 				_ = os.WriteFile(dir+"/schema.json", rec.Body.Bytes(), 0o600)
 			}

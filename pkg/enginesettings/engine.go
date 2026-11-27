@@ -62,6 +62,8 @@ type Engine struct {
 	Command *CommandLine
 	// Placement adds the tensor-placement capability. Optional.
 	Placement *TensorPlacement
+	// Drafting adds the drafting capability. Optional.
+	Drafting *Drafting
 }
 
 // CommandLine describes how the engine's command line maps to a model config.
@@ -181,6 +183,9 @@ func (e *Engine) Capabilities() []Capability {
 	}
 	if e.Placement != nil {
 		out = append(out, CapabilityTensorPlacement)
+	}
+	if e.Drafting != nil {
+		out = append(out, CapabilityDrafting)
 	}
 	return out
 }
@@ -376,6 +381,9 @@ func (e *Engine) Validate() error {
 		if pl.Option == "" || pl.Build == nil || pl.Recognise == nil || !groups[pl.Group] {
 			bad("engine %s: the placement capability needs an option, a known group, Build and Recognise", e.ID)
 		}
+	}
+	if err := e.validateDrafting(groups, keys); err != nil {
+		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
 }

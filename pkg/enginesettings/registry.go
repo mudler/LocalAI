@@ -104,6 +104,8 @@ type Schema struct {
 	Placement       *PlacementSchema `json:"placement,omitempty"`
 	// Estimate maps VRAM estimate request fields to flag keys.
 	Estimate map[string]string `json:"estimate,omitempty"`
+	// Drafting describes the drafting capability. Absent without it.
+	Drafting *Drafting `json:"drafting,omitempty"`
 }
 
 // Schema returns the settings schema of the engine.
@@ -117,6 +119,7 @@ func (e *Engine) Schema() Schema {
 		Presets:         e.Presets,
 		ReservedOptions: e.ReservedOptions,
 		Estimate:        e.Estimate,
+		Drafting:        e.Drafting,
 	}
 	if s.Combined == nil {
 		s.Combined = []Combined{}

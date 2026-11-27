@@ -1,5 +1,7 @@
 // The words of a setting: a translated label when there is one, else its key.
 export function fieldLabel(t, item) {
+  // A section that draws a setting in its own words (the Drafting modes).
+  if (item.label) return item.label
   const key = `engineSettings.fields.${item.id.replace(/\./g, '_')}`
   const label = t(key, { defaultValue: '' })
   if (label) return label

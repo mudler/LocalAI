@@ -239,3 +239,21 @@ func loadGGUFHeader(modelFile string, parse ggufParser) (ggufHeader, error) {
 		return parseGGUFHeader(p, parse)
 	})
 }
+
+// GGUFModelInfo is what the model editor reads of a GGUF file to offer the
+// drafting modes: the architecture, to say whether a draft model is of the
+// same family, and the layers of an embedded MTP head (0 without one).
+type GGUFModelInfo struct {
+	Architecture string
+	MTPLayers    uint32
+}
+
+// ReadGGUFModelInfo returns the GGUFModelInfo of a local GGUF file. It reads
+// the cached header snapshot, so a model that loaded once costs no parse.
+func ReadGGUFModelInfo(path string) (GGUFModelInfo, error) {
+	h, err := loadGGUFHeader(path, gguf.ParseGGUFFile)
+	if err != nil {
+		return GGUFModelInfo{}, err
+	}
+	return GGUFModelInfo{Architecture: h.Architecture, MTPLayers: h.MTPLayers}, nil
+}

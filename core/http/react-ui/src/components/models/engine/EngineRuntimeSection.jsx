@@ -21,6 +21,8 @@ import RawOptions from './RawOptions'
 import { CommandPreview, PasteCommand } from './CommandTools'
 // eslint-disable-next-line no-unused-vars
 import QuickSetup from './QuickSetup'
+// eslint-disable-next-line no-unused-vars
+import DraftingSection from './DraftingSection'
 import './engine-settings.css'
 
 const humanize = (id) => id.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
@@ -299,7 +301,22 @@ export default function EngineRuntimeSection({ engine, model, values, onChange, 
 
       <div className={commandLine ? 'rt__layout' : 'rt__layout rt__layout--single'}>
         <div className="rt__main">
-          {blocks.map(g => (g.placement
+          {blocks.map(g => (g.drafting
+            ? (
+              <DraftingSection
+                key={g.id}
+                schema={schema}
+                engine={engine}
+                model={model}
+                values={values}
+                more={g.items}
+                commit={commit}
+                onWrite={write}
+                onValidity={onFieldValidity}
+                readOnly={readOnly}
+              />
+            )
+            : g.placement
             ? (
               <fieldset className="rt-group" key={g.id} data-testid={`rt-group-${g.id}`}>
                 <legend className="rt-group__title">{t('engineSettings.placement.title')}</legend>
