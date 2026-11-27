@@ -12,7 +12,7 @@
         "source": "git-subdir",
         "url": "https://github.com/mudler/LocalAI.git",
         "path": "plugins/localai",
-        "sha": "5f3b51e3519efb7c0614a662367f1b4ea36fe369"
+        "sha": "4577e50adce27533cfd8ee0b291229309020832e"
       },
       "description": "Use a LocalAI server: the API, models and the gallery, add-ons and the Sandbox.",
       "category": "localai",
