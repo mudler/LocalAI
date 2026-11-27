@@ -145,6 +145,11 @@ the new pin.
 Running it from the bump workflow and commenting on the pull request is a
 follow-up.
 
+Paged serving switches itself off at load for a purely recurrent model
+(`llama_model_is_recurrent` and not `llama_model_is_hybrid`): such a model
+keeps one state per slot and no KV pool, so counting tokens against
+`n_ctx` would only make requests wait.
+
 ## Known limits
 
 - Multimodal prompts, score forks and aLoRA are not resumable: the resume
