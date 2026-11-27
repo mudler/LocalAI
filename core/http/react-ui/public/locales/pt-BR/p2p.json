@@ -39,7 +39,11 @@
   "ttl": {
     "600": "10 min",
     "3600": "1 hora",
-    "86400": "1 dia"
+    "86400": "1 dia",
+    "hours_one": "{{count}} hora",
+    "hours_other": "{{count}} horas",
+    "minutes_one": "{{count}} min",
+    "minutes_other": "{{count}} min"
   },
   "share": {
     "open": "Compartilhar esta instância…",
@@ -445,5 +449,84 @@
     "settings": "Modo e relays nas configurações de P2P",
     "workersNote": "Workers que entraram por P2P estão em Workers.",
     "workersLink": "Ir para Workers"
+  },
+  "my": {
+    "lede": "O pareamento faz login neste celular com a sua conta. Revogue-o aqui se você o perder.",
+    "count_one": "{{count}} de {{max}} dispositivos",
+    "count_other": "{{count}} de {{max}} dispositivos",
+    "phone": "Celular",
+    "revoked": "{{label}} revogado.",
+    "renamed": "Renomeado para {{label}}.",
+    "revokeBody": "O celular perde a chave P2P agora, as conexões abertas são fechadas e a sessão termina. Seus outros dispositivos não são afetados. Para usá-lo de novo, pareie-o de novo.",
+    "pair": {
+      "open": "Parear um celular",
+      "title": "Parear um celular",
+      "mint": "Criar convite",
+      "labelPlaceholder": "Meu celular",
+      "labelHint": "O nome deste celular na sua lista."
+    },
+    "admin": {
+      "title": "Este celular recebe uma sessão de administrador.",
+      "body": "Você é administrador, então o celular faz login com todas as suas permissões. Mantenha-o bloqueado e revogue-o aqui se você o perder."
+    },
+    "blocked": {
+      "devices": "Você tem {{max}} dispositivos, o máximo permitido. Revogue um para parear outro.",
+      "pending": "Você tem {{max}} convites aguardando, o máximo permitido. Cancele um ou espere ele expirar."
+    },
+    "result": {
+      "title": "Leia este código com {{label}}",
+      "sub": "Uso único · {{ttl}}",
+      "how": "No app LocalAI: Adicionar servidor, depois leia este código ou cole o link. O celular faz login com a sua conta logo depois de parear.",
+      "waiting": "Aguardando o celular… Cancelar convite encerra este convite.",
+      "signsIn": "Faz login como",
+      "asYou": "Você"
+    },
+    "paired": {
+      "title": "{{label}} está pareado",
+      "sub": "O celular fez login com a sua conta.",
+      "body": "Ele aparece em Meus dispositivos, onde você pode renomear ou revogar. Se você não pareou este celular, revogue-o agora.",
+      "notMine": "Não é meu, revogar"
+    },
+    "fail": {
+      "needsAccount": {
+        "title": "É preciso uma conta de usuário.",
+        "body": "Um celular pareado faz login com a sua conta. Entre com uma conta de usuário, não com a chave de API do servidor."
+      },
+      "notShare": {
+        "title": "O pareamento está desligado neste servidor.",
+        "body": "O servidor não está compartilhando por P2P agora. Peça ao seu administrador para ligar o compartilhamento."
+      },
+      "ttl": {
+        "title": "Essa duração é longa demais.",
+        "body": "Seu administrador permite convites de até {{max}}. Escolha uma mais curta."
+      },
+      "forbidden": {
+        "title": "Você não pode parear dispositivos.",
+        "body": "Sua conta não tem permissão para parear os próprios dispositivos. Fale com seu administrador."
+      },
+      "limit": {
+        "title": "Limite atingido.",
+        "devices": "Você tem {{max}} dispositivos, o máximo permitido. Revogue um primeiro.",
+        "pending": "Você tem {{pending}} convites aguardando, o máximo permitido. Cancele um ou espere ele expirar.",
+        "rate": "Você pode criar {{mints}} convites por hora, e o servidor limita os convites aguardando ao mesmo tempo. Tente mais tarde."
+      }
+    },
+    "invites": {
+      "title": "Convites aguardando",
+      "note": "Nenhum celular usou estes ainda. Cada um funciona uma vez."
+    },
+    "devices": {
+      "title": "Celulares pareados",
+      "seen": "Visto {{when}}",
+      "empty": {
+        "title": "Nenhum celular pareado ainda",
+        "body": "Pareie um celular para usar este servidor nele, com a sua conta."
+      }
+    },
+    "rename": {
+      "open": "Renomear",
+      "title": "Renomear o celular",
+      "save": "Salvar"
+    }
   }
 }

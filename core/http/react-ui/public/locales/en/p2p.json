@@ -39,7 +39,11 @@
   "ttl": {
     "600": "10 min",
     "3600": "1 hour",
-    "86400": "1 day"
+    "86400": "1 day",
+    "hours_one": "{{count}} hour",
+    "hours_other": "{{count}} hours",
+    "minutes_one": "{{count}} min",
+    "minutes_other": "{{count}} min"
   },
   "share": {
     "open": "Share this instance…",
@@ -445,5 +449,84 @@
     "settings": "Mode and relays in P2P settings",
     "workersNote": "Workers that joined over P2P are on Workers.",
     "workersLink": "Go to Workers"
+  },
+  "my": {
+    "lede": "Pairing signs this phone in as you. Revoke it here if you lose it.",
+    "count_one": "{{count}} of {{max}} devices",
+    "count_other": "{{count}} of {{max}} devices",
+    "phone": "Phone",
+    "revoked": "{{label}} revoked.",
+    "renamed": "Renamed to {{label}}.",
+    "revokeBody": "The phone loses its P2P key now, its open connections close and it is signed out. Your other devices are not affected. To use it again, pair it again.",
+    "pair": {
+      "open": "Pair a phone",
+      "title": "Pair a phone",
+      "mint": "Make invite",
+      "labelPlaceholder": "My phone",
+      "labelHint": "The name of this phone in your list."
+    },
+    "admin": {
+      "title": "This phone gets an admin session.",
+      "body": "You are an administrator, so the phone signs in with all your rights. Keep it locked, and revoke it here if you lose it."
+    },
+    "blocked": {
+      "devices": "You have {{max}} devices, the most allowed. Revoke one to pair another.",
+      "pending": "You have {{max}} invites waiting, the most allowed. Cancel one or wait until it expires."
+    },
+    "result": {
+      "title": "Scan this code with {{label}}",
+      "sub": "Single use · {{ttl}}",
+      "how": "In the LocalAI app: Add server, then scan this code or paste the link. The phone signs in as you right after it pairs.",
+      "waiting": "Waiting for the phone… Cancel invite stops this invite.",
+      "signsIn": "Signs in as",
+      "asYou": "You"
+    },
+    "paired": {
+      "title": "{{label}} is paired",
+      "sub": "The phone is signed in as you.",
+      "body": "You find it under My devices, where you can rename or revoke it. If you did not pair this phone, revoke it now.",
+      "notMine": "Not my phone, revoke"
+    },
+    "fail": {
+      "needsAccount": {
+        "title": "This needs a user account.",
+        "body": "A paired phone signs in as your account. Sign in with a user account, not with the API key of the server."
+      },
+      "notShare": {
+        "title": "Pairing is off on this server.",
+        "body": "The server does not share over P2P now. Ask your administrator to turn on sharing."
+      },
+      "ttl": {
+        "title": "This life is too long.",
+        "body": "Your administrator allows invites of up to {{max}}. Choose a shorter one."
+      },
+      "forbidden": {
+        "title": "You cannot pair devices.",
+        "body": "Your account does not have the permission to pair its own devices. Ask your administrator."
+      },
+      "limit": {
+        "title": "Limit reached.",
+        "devices": "You have {{max}} devices, the most allowed. Revoke one first.",
+        "pending": "You have {{pending}} invites waiting, the most allowed. Cancel one or wait until it expires.",
+        "rate": "You can make {{mints}} invites an hour, and the server limits the invites waiting at one time. Try again later."
+      }
+    },
+    "invites": {
+      "title": "Waiting invites",
+      "note": "No phone used these yet. Each one works once."
+    },
+    "devices": {
+      "title": "Paired phones",
+      "seen": "Seen {{when}}",
+      "empty": {
+        "title": "No paired phones yet",
+        "body": "Pair a phone to use this server from it, signed in as you."
+      }
+    },
+    "rename": {
+      "open": "Rename",
+      "title": "Rename the phone",
+      "save": "Save"
+    }
   }
 }

@@ -39,7 +39,11 @@
   "ttl": {
     "600": "10 Min.",
     "3600": "1 Stunde",
-    "86400": "1 Tag"
+    "86400": "1 Tag",
+    "hours_one": "{{count}} Stunde",
+    "hours_other": "{{count}} Stunden",
+    "minutes_one": "{{count}} Min.",
+    "minutes_other": "{{count}} Min."
   },
   "share": {
     "open": "Diese Instanz teilen…",
@@ -445,5 +449,84 @@
     "settings": "Modus und Relays in den P2P-Einstellungen",
     "workersNote": "Worker, die über P2P beigetreten sind, findest du unter Workers.",
     "workersLink": "Zu Workers"
+  },
+  "my": {
+    "lede": "Durch das Koppeln wird dieses Telefon mit deinem Konto angemeldet. Widerrufe es hier, wenn du es verlierst.",
+    "count_one": "{{count}} von {{max}} Geräten",
+    "count_other": "{{count}} von {{max}} Geräten",
+    "phone": "Telefon",
+    "revoked": "{{label}} widerrufen.",
+    "renamed": "Umbenannt in {{label}}.",
+    "revokeBody": "Das Telefon verliert sofort seinen P2P-Schlüssel, offene Verbindungen werden geschlossen und es wird abgemeldet. Deine anderen Geräte sind nicht betroffen. Um es wieder zu nutzen, kopple es erneut.",
+    "pair": {
+      "open": "Telefon koppeln",
+      "title": "Telefon koppeln",
+      "mint": "Einladung erstellen",
+      "labelPlaceholder": "Mein Telefon",
+      "labelHint": "Der Name dieses Telefons in deiner Liste."
+    },
+    "admin": {
+      "title": "Dieses Telefon erhält eine Admin-Sitzung.",
+      "body": "Du bist Administrator, daher meldet sich das Telefon mit all deinen Rechten an. Halte es gesperrt und widerrufe es hier, wenn du es verlierst."
+    },
+    "blocked": {
+      "devices": "Du hast {{max}} Geräte, das erlaubte Maximum. Widerrufe eines, um ein weiteres zu koppeln.",
+      "pending": "Du hast {{max}} wartende Einladungen, das erlaubte Maximum. Brich eine ab oder warte, bis sie abläuft."
+    },
+    "result": {
+      "title": "Scanne diesen Code mit {{label}}",
+      "sub": "Einmalig · {{ttl}}",
+      "how": "In der LocalAI-App: Server hinzufügen, dann diesen Code scannen oder den Link einfügen. Das Telefon ist direkt nach dem Koppeln mit deinem Konto angemeldet.",
+      "waiting": "Warte auf das Telefon… Einladung abbrechen beendet diese Einladung.",
+      "signsIn": "Meldet sich an als",
+      "asYou": "Du"
+    },
+    "paired": {
+      "title": "{{label}} ist gekoppelt",
+      "sub": "Das Telefon ist mit deinem Konto angemeldet.",
+      "body": "Du findest es unter Meine Geräte, wo du es umbenennen oder widerrufen kannst. Wenn du dieses Telefon nicht gekoppelt hast, widerrufe es jetzt.",
+      "notMine": "Nicht mein Telefon, widerrufen"
+    },
+    "fail": {
+      "needsAccount": {
+        "title": "Dafür ist ein Benutzerkonto nötig.",
+        "body": "Ein gekoppeltes Telefon meldet sich mit deinem Konto an. Melde dich mit einem Benutzerkonto an, nicht mit dem API-Schlüssel des Servers."
+      },
+      "notShare": {
+        "title": "Koppeln ist auf diesem Server aus.",
+        "body": "Der Server teilt gerade nicht über P2P. Bitte deinen Administrator, das Teilen einzuschalten."
+      },
+      "ttl": {
+        "title": "Diese Laufzeit ist zu lang.",
+        "body": "Dein Administrator erlaubt Einladungen bis zu {{max}}. Wähle eine kürzere."
+      },
+      "forbidden": {
+        "title": "Du kannst keine Geräte koppeln.",
+        "body": "Dein Konto hat nicht die Berechtigung, eigene Geräte zu koppeln. Frage deinen Administrator."
+      },
+      "limit": {
+        "title": "Limit erreicht.",
+        "devices": "Du hast {{max}} Geräte, das erlaubte Maximum. Widerrufe zuerst eines.",
+        "pending": "Du hast {{pending}} wartende Einladungen, das erlaubte Maximum. Brich eine ab oder warte, bis sie abläuft.",
+        "rate": "Du kannst {{mints}} Einladungen pro Stunde erstellen, und der Server begrenzt die gleichzeitig wartenden Einladungen. Versuche es später erneut."
+      }
+    },
+    "invites": {
+      "title": "Wartende Einladungen",
+      "note": "Noch hat kein Telefon sie genutzt. Jede funktioniert einmal."
+    },
+    "devices": {
+      "title": "Gekoppelte Telefone",
+      "seen": "Gesehen {{when}}",
+      "empty": {
+        "title": "Noch keine gekoppelten Telefone",
+        "body": "Kopple ein Telefon, um diesen Server von dort aus zu nutzen, angemeldet mit deinem Konto."
+      }
+    },
+    "rename": {
+      "open": "Umbenennen",
+      "title": "Telefon umbenennen",
+      "save": "Speichern"
+    }
   }
 }

@@ -39,7 +39,11 @@
   "ttl": {
     "600": "10 mnt",
     "3600": "1 jam",
-    "86400": "1 hari"
+    "86400": "1 hari",
+    "hours_one": "{{count}} jam",
+    "hours_other": "{{count}} jam",
+    "minutes_one": "{{count}} mnt",
+    "minutes_other": "{{count}} mnt"
   },
   "share": {
     "open": "Bagikan instans ini…",
@@ -445,5 +449,84 @@
     "settings": "Mode dan relay ada di pengaturan P2P",
     "workersNote": "Worker yang bergabung lewat P2P ada di Workers.",
     "workersLink": "Buka Workers"
+  },
+  "my": {
+    "lede": "Memasangkan ponsel ini membuatnya masuk dengan akun Anda. Cabut di sini jika ponsel hilang.",
+    "count_one": "{{count}} dari {{max}} perangkat",
+    "count_other": "{{count}} dari {{max}} perangkat",
+    "phone": "Ponsel",
+    "revoked": "{{label}} dicabut.",
+    "renamed": "Diganti nama menjadi {{label}}.",
+    "revokeBody": "Ponsel kehilangan kunci P2P-nya sekarang, koneksinya yang terbuka ditutup dan sesinya berakhir. Perangkat Anda yang lain tidak terpengaruh. Untuk memakainya lagi, pasangkan lagi.",
+    "pair": {
+      "open": "Pasangkan ponsel",
+      "title": "Pasangkan ponsel",
+      "mint": "Buat undangan",
+      "labelPlaceholder": "Ponsel saya",
+      "labelHint": "Nama ponsel ini di daftar Anda."
+    },
+    "admin": {
+      "title": "Ponsel ini mendapat sesi admin.",
+      "body": "Anda administrator, jadi ponsel masuk dengan semua hak Anda. Kunci ponsel, dan cabut di sini jika hilang."
+    },
+    "blocked": {
+      "devices": "Anda punya {{max}} perangkat, jumlah maksimum. Cabut satu untuk memasangkan yang lain.",
+      "pending": "Anda punya {{max}} undangan yang menunggu, jumlah maksimum. Batalkan satu atau tunggu sampai kedaluwarsa."
+    },
+    "result": {
+      "title": "Pindai kode ini dengan {{label}}",
+      "sub": "Sekali pakai · {{ttl}}",
+      "how": "Di aplikasi LocalAI: Tambah server, lalu pindai kode ini atau tempel tautannya. Ponsel langsung masuk dengan akun Anda setelah terpasang.",
+      "waiting": "Menunggu ponsel… Batalkan undangan menghentikan undangan ini.",
+      "signsIn": "Masuk sebagai",
+      "asYou": "Anda"
+    },
+    "paired": {
+      "title": "{{label}} sudah terpasang",
+      "sub": "Ponsel sudah masuk dengan akun Anda.",
+      "body": "Anda bisa menemukannya di Perangkat saya, tempat Anda bisa mengganti nama atau mencabutnya. Jika bukan Anda yang memasangkan ponsel ini, cabut sekarang.",
+      "notMine": "Bukan ponsel saya, cabut"
+    },
+    "fail": {
+      "needsAccount": {
+        "title": "Perlu akun pengguna.",
+        "body": "Ponsel yang terpasang masuk dengan akun Anda. Masuk dengan akun pengguna, bukan dengan kunci API server."
+      },
+      "notShare": {
+        "title": "Pemasangan nonaktif di server ini.",
+        "body": "Server sedang tidak berbagi lewat P2P. Minta administrator Anda menyalakan berbagi."
+      },
+      "ttl": {
+        "title": "Masa berlaku ini terlalu lama.",
+        "body": "Administrator Anda mengizinkan undangan hingga {{max}}. Pilih yang lebih singkat."
+      },
+      "forbidden": {
+        "title": "Anda tidak bisa memasangkan perangkat.",
+        "body": "Akun Anda tidak punya izin memasangkan perangkatnya sendiri. Tanyakan administrator Anda."
+      },
+      "limit": {
+        "title": "Batas tercapai.",
+        "devices": "Anda punya {{max}} perangkat, jumlah maksimum. Cabut satu terlebih dahulu.",
+        "pending": "Anda punya {{pending}} undangan yang menunggu, jumlah maksimum. Batalkan satu atau tunggu sampai kedaluwarsa.",
+        "rate": "Anda bisa membuat {{mints}} undangan per jam, dan server membatasi undangan yang menunggu sekaligus. Coba lagi nanti."
+      }
+    },
+    "invites": {
+      "title": "Undangan menunggu",
+      "note": "Belum ada ponsel yang memakainya. Masing-masing berlaku sekali."
+    },
+    "devices": {
+      "title": "Ponsel terpasang",
+      "seen": "Terlihat {{when}}",
+      "empty": {
+        "title": "Belum ada ponsel terpasang",
+        "body": "Pasangkan ponsel untuk memakai server ini darinya, masuk dengan akun Anda."
+      }
+    },
+    "rename": {
+      "open": "Ganti nama",
+      "title": "Ganti nama ponsel",
+      "save": "Simpan"
+    }
   }
 }

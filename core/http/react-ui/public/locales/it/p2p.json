@@ -39,7 +39,11 @@
   "ttl": {
     "600": "10 min",
     "3600": "1 ora",
-    "86400": "1 giorno"
+    "86400": "1 giorno",
+    "hours_one": "{{count}} ora",
+    "hours_other": "{{count}} ore",
+    "minutes_one": "{{count}} min",
+    "minutes_other": "{{count}} min"
   },
   "share": {
     "open": "Condividi questa istanza…",
@@ -445,5 +449,84 @@
     "settings": "Modalità e relay nelle impostazioni P2P",
     "workersNote": "I worker entrati tramite P2P sono in Workers.",
     "workersLink": "Vai a Workers"
+  },
+  "my": {
+    "lede": "L'abbinamento fa accedere questo telefono con il tuo account. Revocalo qui se lo perdi.",
+    "count_one": "{{count}} di {{max}} dispositivi",
+    "count_other": "{{count}} di {{max}} dispositivi",
+    "phone": "Telefono",
+    "revoked": "{{label}} revocato.",
+    "renamed": "Rinominato in {{label}}.",
+    "revokeBody": "Il telefono perde subito la sua chiave P2P, le connessioni aperte si chiudono e la sessione termina. Gli altri tuoi dispositivi non cambiano. Per usarlo di nuovo, abbinalo di nuovo.",
+    "pair": {
+      "open": "Abbina un telefono",
+      "title": "Abbina un telefono",
+      "mint": "Crea invito",
+      "labelPlaceholder": "Il mio telefono",
+      "labelHint": "Il nome di questo telefono nel tuo elenco."
+    },
+    "admin": {
+      "title": "Questo telefono riceve una sessione da amministratore.",
+      "body": "Sei un amministratore, quindi il telefono accede con tutti i tuoi permessi. Tienilo bloccato e revocalo qui se lo perdi."
+    },
+    "blocked": {
+      "devices": "Hai {{max}} dispositivi, il massimo consentito. Revocane uno per abbinarne un altro.",
+      "pending": "Hai {{max}} inviti in attesa, il massimo consentito. Annullane uno o attendi che scada."
+    },
+    "result": {
+      "title": "Scansiona questo codice con {{label}}",
+      "sub": "Monouso · {{ttl}}",
+      "how": "Nell'app LocalAI: Aggiungi server, poi scansiona questo codice o incolla il link. Il telefono accede con il tuo account subito dopo l'abbinamento.",
+      "waiting": "In attesa del telefono… Annulla invito ferma questo invito.",
+      "signsIn": "Accede come",
+      "asYou": "Te"
+    },
+    "paired": {
+      "title": "{{label}} è abbinato",
+      "sub": "Il telefono ha effettuato l'accesso con il tuo account.",
+      "body": "Lo trovi in I miei dispositivi, dove puoi rinominarlo o revocarlo. Se non hai abbinato tu questo telefono, revocalo ora.",
+      "notMine": "Non è mio, revoca"
+    },
+    "fail": {
+      "needsAccount": {
+        "title": "Serve un account utente.",
+        "body": "Un telefono abbinato accede con il tuo account. Accedi con un account utente, non con la chiave API del server."
+      },
+      "notShare": {
+        "title": "L'abbinamento è disattivato su questo server.",
+        "body": "Il server ora non condivide via P2P. Chiedi al tuo amministratore di attivare la condivisione."
+      },
+      "ttl": {
+        "title": "Durata troppo lunga.",
+        "body": "Il tuo amministratore consente inviti fino a {{max}}. Scegline una più breve."
+      },
+      "forbidden": {
+        "title": "Non puoi abbinare dispositivi.",
+        "body": "Il tuo account non ha il permesso di abbinare i propri dispositivi. Chiedi al tuo amministratore."
+      },
+      "limit": {
+        "title": "Limite raggiunto.",
+        "devices": "Hai {{max}} dispositivi, il massimo consentito. Revocane prima uno.",
+        "pending": "Hai {{pending}} inviti in attesa, il massimo consentito. Annullane uno o attendi che scada.",
+        "rate": "Puoi creare {{mints}} inviti all'ora, e il server limita gli inviti in attesa nello stesso momento. Riprova più tardi."
+      }
+    },
+    "invites": {
+      "title": "Inviti in attesa",
+      "note": "Nessun telefono li ha ancora usati. Ognuno funziona una sola volta."
+    },
+    "devices": {
+      "title": "Telefoni abbinati",
+      "seen": "Visto {{when}}",
+      "empty": {
+        "title": "Ancora nessun telefono abbinato",
+        "body": "Abbina un telefono per usare questo server da lì, con il tuo account."
+      }
+    },
+    "rename": {
+      "open": "Rinomina",
+      "title": "Rinomina il telefono",
+      "save": "Salva"
+    }
   }
 }

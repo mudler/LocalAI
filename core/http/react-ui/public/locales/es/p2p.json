@@ -39,7 +39,11 @@
   "ttl": {
     "600": "10 min",
     "3600": "1 hora",
-    "86400": "1 día"
+    "86400": "1 día",
+    "hours_one": "{{count}} hora",
+    "hours_other": "{{count}} horas",
+    "minutes_one": "{{count}} min",
+    "minutes_other": "{{count}} min"
   },
   "share": {
     "open": "Compartir esta instancia…",
@@ -445,5 +449,84 @@
     "settings": "Modo y relés en la configuración de P2P",
     "workersNote": "Los workers que se unieron por P2P están en Workers.",
     "workersLink": "Ir a Workers"
+  },
+  "my": {
+    "lede": "Al vincular este teléfono, inicia sesión con tu cuenta. Revócalo aquí si lo pierdes.",
+    "count_one": "{{count}} de {{max}} dispositivos",
+    "count_other": "{{count}} de {{max}} dispositivos",
+    "phone": "Teléfono",
+    "revoked": "{{label}} revocado.",
+    "renamed": "Renombrado a {{label}}.",
+    "revokeBody": "El teléfono pierde su clave P2P ahora, sus conexiones abiertas se cierran y se cierra su sesión. Tus otros dispositivos no se ven afectados. Para usarlo de nuevo, vincúlalo de nuevo.",
+    "pair": {
+      "open": "Vincular un teléfono",
+      "title": "Vincular un teléfono",
+      "mint": "Crear invitación",
+      "labelPlaceholder": "Mi teléfono",
+      "labelHint": "El nombre de este teléfono en tu lista."
+    },
+    "admin": {
+      "title": "Este teléfono obtiene una sesión de administrador.",
+      "body": "Eres administrador, así que el teléfono inicia sesión con todos tus permisos. Mantenlo bloqueado y revócalo aquí si lo pierdes."
+    },
+    "blocked": {
+      "devices": "Tienes {{max}} dispositivos, el máximo permitido. Revoca uno para vincular otro.",
+      "pending": "Tienes {{max}} invitaciones en espera, el máximo permitido. Cancela una o espera a que caduque."
+    },
+    "result": {
+      "title": "Escanea este código con {{label}}",
+      "sub": "Un solo uso · {{ttl}}",
+      "how": "En la app de LocalAI: Añadir servidor, luego escanea este código o pega el enlace. El teléfono inicia sesión con tu cuenta justo después de vincularse.",
+      "waiting": "Esperando al teléfono… Cancelar invitación detiene esta invitación.",
+      "signsIn": "Inicia sesión como",
+      "asYou": "Tú"
+    },
+    "paired": {
+      "title": "{{label}} está vinculado",
+      "sub": "El teléfono ha iniciado sesión con tu cuenta.",
+      "body": "Lo encontrarás en Mis dispositivos, donde puedes renombrarlo o revocarlo. Si no vinculaste este teléfono, revócalo ahora.",
+      "notMine": "No es mi teléfono, revocar"
+    },
+    "fail": {
+      "needsAccount": {
+        "title": "Se necesita una cuenta de usuario.",
+        "body": "Un teléfono vinculado inicia sesión con tu cuenta. Inicia sesión con una cuenta de usuario, no con la clave API del servidor."
+      },
+      "notShare": {
+        "title": "La vinculación está desactivada en este servidor.",
+        "body": "El servidor no comparte por P2P ahora. Pide a tu administrador que active el uso compartido."
+      },
+      "ttl": {
+        "title": "Esta duración es demasiado larga.",
+        "body": "Tu administrador permite invitaciones de hasta {{max}}. Elige una más corta."
+      },
+      "forbidden": {
+        "title": "No puedes vincular dispositivos.",
+        "body": "Tu cuenta no tiene permiso para vincular sus propios dispositivos. Pregunta a tu administrador."
+      },
+      "limit": {
+        "title": "Límite alcanzado.",
+        "devices": "Tienes {{max}} dispositivos, el máximo permitido. Revoca uno primero.",
+        "pending": "Tienes {{pending}} invitaciones en espera, el máximo permitido. Cancela una o espera a que caduque.",
+        "rate": "Puedes crear {{mints}} invitaciones por hora, y el servidor limita las invitaciones en espera a la vez. Inténtalo más tarde."
+      }
+    },
+    "invites": {
+      "title": "Invitaciones en espera",
+      "note": "Ningún teléfono las ha usado aún. Cada una funciona una vez."
+    },
+    "devices": {
+      "title": "Teléfonos vinculados",
+      "seen": "Visto {{when}}",
+      "empty": {
+        "title": "Aún no hay teléfonos vinculados",
+        "body": "Vincula un teléfono para usar este servidor desde él, con tu cuenta."
+      }
+    },
+    "rename": {
+      "open": "Renombrar",
+      "title": "Renombrar el teléfono",
+      "save": "Guardar"
+    }
   }
 }

@@ -89,6 +89,17 @@
 .p2p-phrase__hint { margin: 0; font-size: var(--text-sm); color: var(--dk-muted); }
 .p2p-revoke__text { margin: 0; color: var(--dk-text); }
 
+/* Account, My devices: the phones a user paired. */
+.p2p-my { display: grid; gap: var(--sp-4); min-width: 0; }
+.p2p-my__head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-3) var(--sp-4); }
+.p2p-my__text { display: grid; gap: var(--sp-1); flex: 1 1 320px; min-width: 0; }
+.p2p-my__lede { margin: 0; max-width: 72ch; color: var(--dk-text); }
+/* On a phone the actions of a row stack, so the name keeps its width. */
+@media (max-width: 640px) {
+  .p2p-my .p2p-cell-actions { white-space: normal; }
+  .p2p-my .p2p-cell-actions > * { display: flex; margin-inline-start: auto; }
+}
+
 /* The invite step of "connect a remote" and the Home guide. */
 .p2p-invite-input { line-height: 1.5; word-break: break-all; }
 .p2p-invite-preview { padding: var(--sp-3); border-radius: var(--dk-radius-2); background: var(--dk-inset); }

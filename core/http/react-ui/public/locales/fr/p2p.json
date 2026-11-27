@@ -39,7 +39,11 @@
   "ttl": {
     "600": "10 min",
     "3600": "1 heure",
-    "86400": "1 jour"
+    "86400": "1 jour",
+    "hours_one": "{{count}} heure",
+    "hours_other": "{{count}} heures",
+    "minutes_one": "{{count}} min",
+    "minutes_other": "{{count}} min"
   },
   "share": {
     "open": "Partager cette instance…",
@@ -445,5 +449,84 @@
     "settings": "Mode et relais dans les paramètres P2P",
     "workersNote": "Les workers arrivés via P2P sont dans Workers.",
     "workersLink": "Aller à Workers"
+  },
+  "my": {
+    "lede": "L'appairage connecte ce téléphone avec votre compte. Révoquez-le ici si vous le perdez.",
+    "count_one": "{{count}} appareil sur {{max}}",
+    "count_other": "{{count}} appareils sur {{max}}",
+    "phone": "Téléphone",
+    "revoked": "{{label}} révoqué.",
+    "renamed": "Renommé en {{label}}.",
+    "revokeBody": "Le téléphone perd sa clé P2P immédiatement, ses connexions ouvertes se ferment et il est déconnecté. Vos autres appareils ne sont pas concernés. Pour l'utiliser à nouveau, appairez-le à nouveau.",
+    "pair": {
+      "open": "Appairer un téléphone",
+      "title": "Appairer un téléphone",
+      "mint": "Créer l'invitation",
+      "labelPlaceholder": "Mon téléphone",
+      "labelHint": "Le nom de ce téléphone dans votre liste."
+    },
+    "admin": {
+      "title": "Ce téléphone obtient une session administrateur.",
+      "body": "Vous êtes administrateur, le téléphone se connecte donc avec tous vos droits. Gardez-le verrouillé et révoquez-le ici si vous le perdez."
+    },
+    "blocked": {
+      "devices": "Vous avez {{max}} appareils, le maximum autorisé. Révoquez-en un pour en appairer un autre.",
+      "pending": "Vous avez {{max}} invitations en attente, le maximum autorisé. Annulez-en une ou attendez qu'elle expire."
+    },
+    "result": {
+      "title": "Scannez ce code avec {{label}}",
+      "sub": "Usage unique · {{ttl}}",
+      "how": "Dans l'application LocalAI : Ajouter un serveur, puis scannez ce code ou collez le lien. Le téléphone est connecté avec votre compte dès l'appairage.",
+      "waiting": "En attente du téléphone… Annuler l'invitation arrête cette invitation.",
+      "signsIn": "Se connecte en tant que",
+      "asYou": "Vous"
+    },
+    "paired": {
+      "title": "{{label}} est appairé",
+      "sub": "Le téléphone est connecté avec votre compte.",
+      "body": "Vous le trouvez dans Mes appareils, où vous pouvez le renommer ou le révoquer. Si vous n'avez pas appairé ce téléphone, révoquez-le maintenant.",
+      "notMine": "Pas mon téléphone, révoquer"
+    },
+    "fail": {
+      "needsAccount": {
+        "title": "Un compte utilisateur est nécessaire.",
+        "body": "Un téléphone appairé se connecte avec votre compte. Connectez-vous avec un compte utilisateur, pas avec la clé API du serveur."
+      },
+      "notShare": {
+        "title": "L'appairage est désactivé sur ce serveur.",
+        "body": "Le serveur ne partage pas en P2P pour l'instant. Demandez à votre administrateur d'activer le partage."
+      },
+      "ttl": {
+        "title": "Cette durée est trop longue.",
+        "body": "Votre administrateur autorise des invitations jusqu'à {{max}}. Choisissez une durée plus courte."
+      },
+      "forbidden": {
+        "title": "Vous ne pouvez pas appairer d'appareils.",
+        "body": "Votre compte n'a pas l'autorisation d'appairer ses propres appareils. Demandez à votre administrateur."
+      },
+      "limit": {
+        "title": "Limite atteinte.",
+        "devices": "Vous avez {{max}} appareils, le maximum autorisé. Révoquez-en un d'abord.",
+        "pending": "Vous avez {{pending}} invitations en attente, le maximum autorisé. Annulez-en une ou attendez qu'elle expire.",
+        "rate": "Vous pouvez créer {{mints}} invitations par heure, et le serveur limite les invitations en attente en même temps. Réessayez plus tard."
+      }
+    },
+    "invites": {
+      "title": "Invitations en attente",
+      "note": "Aucun téléphone ne les a encore utilisées. Chacune fonctionne une fois."
+    },
+    "devices": {
+      "title": "Téléphones appairés",
+      "seen": "Vu {{when}}",
+      "empty": {
+        "title": "Aucun téléphone appairé",
+        "body": "Appairez un téléphone pour utiliser ce serveur depuis celui-ci, connecté avec votre compte."
+      }
+    },
+    "rename": {
+      "open": "Renommer",
+      "title": "Renommer le téléphone",
+      "save": "Enregistrer"
+    }
   }
 }

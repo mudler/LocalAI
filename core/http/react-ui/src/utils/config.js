@@ -78,6 +78,13 @@ export const API_CONFIG = {
     p2pInvite: (id) => `/api/p2p/invites/${encodeURIComponent(id)}`,
     p2pDevices: '/api/p2p/devices',
     p2pDevice: (id) => `/api/p2p/devices/${encodeURIComponent(id)}`,
+    // A user's own devices (feature p2p_pair) and the admin policy of them
+    p2pMe: '/api/p2p/me',
+    p2pMyInvites: '/api/p2p/me/invites',
+    p2pMyInvite: (id) => `/api/p2p/me/invites/${encodeURIComponent(id)}`,
+    p2pMyDevices: '/api/p2p/me/devices',
+    p2pMyDevice: (id) => `/api/p2p/me/devices/${encodeURIComponent(id)}`,
+    p2pUserPairing: '/api/p2p/user-pairing',
     p2pRelays: '/api/p2p/relays',
     p2pRelay: (id) => `/api/p2p/relays/${encodeURIComponent(id)}`,
     p2pRelayCheck: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/check`,

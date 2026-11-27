@@ -231,3 +231,53 @@ export function mintModelFields(kind, scope, picked) {
 export function mintBlockedReason(kind, scope, picked) {
   return kind === 'remote' && scope === 'specific' && picked.size === 0 ? 'noModels' : ''
 }
+
+// The lives a user may pick for an invite of their own device: the usual
+// choices up to the cap of the administrator, and the cap itself when it is
+// not one of them. A cap below the shortest choice leaves the cap alone.
+export function userTtlChoices(maxSeconds) {
+  const max = Number(maxSeconds)
+  if (!Number.isFinite(max) || max <= 0) return TTL_CHOICES
+  const kept = TTL_CHOICES.filter(c => c.seconds <= max)
+  if (!kept.some(c => c.seconds === max)) kept.push({ id: String(max), seconds: max })
+  return kept
+}
+
+// The words of a life as an i18n key of the p2p namespace and its values:
+// the usual lives have their own words, others count hours or minutes.
+export function ttlWords(seconds) {
+  const s = Math.max(0, Math.floor(Number(seconds) || 0))
+  if (TTL_CHOICES.some(c => c.seconds === s)) return { key: `ttl.${s}` }
+  if (s >= 3600 && s % 3600 === 0) return { key: 'ttl.hours', values: { count: s / 3600 } }
+  return { key: 'ttl.minutes', values: { count: Math.max(1, Math.round(s / 60)) } }
+}
+
+// Why a user cannot pair a device now, or '' when they can: the server does
+// not share, or the user is at the device or pending invite limit.
+export function pairBlocked(me) {
+  if (!me?.available) return 'unavailable'
+  const limits = me.limits || {}
+  if (limits.max_devices > 0 && me.devices >= limits.max_devices) return 'devices'
+  if (limits.max_pending > 0 && me.pending_invites >= limits.max_pending) return 'pending'
+  return ''
+}
+
+// How a refused mint of a user's own invite reads: no user account (409
+// needs_account), a limit (429), a life over the cap (400), no permission
+// (403), P2P not sharing (another 409), or anything else.
+export function myMintFailure(err) {
+  switch (err?.status) {
+    case 409: return err?.body?.error?.type === 'needs_account' ? 'needsAccount' : 'notShare'
+    case 429: return 'limit'
+    case 400: return 'ttl'
+    case 403: return 'forbidden'
+    default: return 'other'
+  }
+}
+
+// The device that a redeem added: the first active device whose ID was not
+// known when the invite was made, or null.
+export function newDevice(devices, knownIds) {
+  const known = knownIds instanceof Set ? knownIds : new Set(knownIds || [])
+  return (Array.isArray(devices) ? devices : []).find(d => d && d.status !== 'revoked' && !known.has(d.id)) || null
+}
