@@ -299,10 +299,11 @@ test.describe('Swarm nodes: bulk actions', () => {
       button.click()
       button.click()
     })
-    await expect.poll(() => drainRequests.length).toBe(9)
+    // An offline node drains too (at once); pending and draining ones are skipped.
+    await expect.poll(() => drainRequests.length).toBe(10)
     expect(peak).toBeLessThanOrEqual(8)
-    expect(drainRequests.sort()).toEqual(Array.from({ length: 9 }, (_, index) => `n${index}`).sort())
-    await expect(page.getByText(/8 succeeded, 1 failed, 3 skipped/)).toBeVisible()
+    expect(drainRequests.sort()).toEqual([...Array.from({ length: 9 }, (_, index) => `n${index}`), 'n11'].sort())
+    await expect(page.getByText(/9 succeeded, 1 failed, 2 skipped/)).toBeVisible()
 
     await page.getByRole('button', { name: 'Resume selected' }).click()
     await expect.poll(() => resumeRequests).toEqual(['n10'])

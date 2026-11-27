@@ -133,7 +133,9 @@
     "run": {}
   },
   "inspector": {
-    "peer": "Peer ID"
+    "peer": "Peer ID",
+    "leaving": "Modelli ancora qui",
+    "drainDeadline": "Scadenza dello svuotamento"
   },
   "splitServer": {
     "label": "Server di split",
@@ -221,6 +223,13 @@
     }
   },
   "detail": {
-    "vramBudgetOf": "Budget, {{detected}} rilevati"
+    "vramBudgetOf": "Budget, {{detected}} rilevati",
+    "drainingLeaving": "Modelli ancora qui: {{count}}. Quello che resta alle {{time}} viene rimosso.",
+    "drainingEmpty": "Non resta più nulla. Ora puoi fermare il worker."
+  },
+  "leave": {
+    "reloadDrain": "viene caricato su un altro nodo sano adatto mentre questo continua a servirlo, poi lascia questo nodo. La memoria libera qui non viene confrontata.",
+    "reloadNoneDrain": "non ha un altro nodo sano su cui spostarsi, quindi continua a servire qui fino alla scadenza dello svuotamento, poi si ferma.",
+    "blockedDrain": "continua a servire qui fino alla scadenza dello svuotamento, poi si ferma: la sua regola consente solo {{selector}} e nessun altro nodo sano ha quelle etichette."
   }
 }

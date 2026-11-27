@@ -107,7 +107,7 @@ test.describe('Node detail page', () => {
     await expect(page.getByRole('heading', { name: 'alpha' })).toBeVisible()
   })
 
-  for (const [status, action] of [['healthy', 'Drain'], ['draining', 'Resume'], ['unhealthy', null], ['offline', null], ['unknown', null]]) {
+  for (const [status, action] of [['healthy', 'Drain'], ['draining', 'Resume'], ['unhealthy', 'Drain'], ['offline', 'Drain'], ['unknown', null]]) {
     test(`shows only the accepted lifecycle action for ${status} nodes`, async ({ page }) => {
       await mockNode(page, { status })
       await page.goto(`/app/nodes/${ID}`)
@@ -214,7 +214,7 @@ test.describe('Node detail: drain, resume and remove', () => {
     const section = page.getByRole('region', { name: 'What happens if I drain this node' })
     await expect(section).toContainText('Preview')
     await expect(section).toContainText('3 requests in flight finish first')
-    await expect(section.getByTestId('leave-list')).toContainText('is unavailable until this node returns')
+    await expect(section.getByTestId('leave-list')).toContainText('keeps serving here until the drain deadline')
     await expect(section).toContainText('The server does not compute it')
 
     await page.getByRole('button', { name: /Drain/ }).click()
@@ -226,6 +226,23 @@ test.describe('Node detail: drain, resume and remove', () => {
     await expect.poll(() => log.filter(entry => entry.path === '/api/nodes/n-gpu1/drain').length).toBe(1)
     await expect(page.getByText('Node set to draining')).toBeVisible()
     await expect(dialog).toHaveCount(0)
+  })
+
+  test('shows the models still on a draining node and its deadline', async ({ page }) => {
+    const nodes = clusterNodes().map(node => (node.id === 'n-gpu1'
+      ? { ...node, status: 'draining', leaving_replicas: 2, drain_deadline: '2030-01-01T10:00:00Z' }
+      : node))
+    await mockSwarm(page, { nodes })
+    await page.goto('/app/nodes/n-gpu1')
+    await expect(page.getByTestId('draining-banner')).toContainText('keeps serving until it runs on another node', { timeout: 15_000 })
+    await expect(page.getByTestId('draining-leaving')).toContainText('Models still here: 2')
+  })
+
+  test('says a draining node is empty, so the worker can stop', async ({ page }) => {
+    const nodes = clusterNodes().map(node => (node.id === 'n-gpu1' ? { ...node, status: 'draining', leaving_replicas: 0 } : node))
+    await mockSwarm(page, { nodes })
+    await page.goto('/app/nodes/n-gpu1')
+    await expect(page.getByTestId('draining-leaving')).toContainText('You can stop the worker now', { timeout: 15_000 })
   })
 
   test('says a model stays up when another healthy node has it, and which node', async ({ page }) => {
@@ -257,7 +274,7 @@ test.describe('Node detail: drain, resume and remove', () => {
     const nodes = clusterNodes().map(node => (node.id === 'n-gpu1' ? { ...node, status: 'draining' } : node))
     const log = await mockSwarm(page, { nodes })
     await page.goto('/app/nodes/n-gpu1')
-    await expect(page.getByTestId('draining-banner')).toContainText('It takes no new requests')
+    await expect(page.getByTestId('draining-banner')).toContainText('It takes no new models')
     await page.getByRole('button', { name: /Resume/ }).click()
     await expect.poll(() => log.filter(entry => entry.path === '/api/nodes/n-gpu1/resume').length).toBe(1)
     await expect(page.getByText('Node resumed')).toBeVisible()
@@ -290,13 +307,15 @@ test.describe('Node detail: drain, resume and remove', () => {
     expect(log.filter(entry => entry.method === 'DELETE')).toEqual([])
   })
 
-  test('a node that stopped answering says so, shows its last figures and offers no drain', async ({ page }) => {
+  test('a node that stopped answering says so, shows its last figures and offers a drain', async ({ page }) => {
     await mockSwarm(page)
     await page.goto('/app/nodes/n-gpu2')
     const banner = page.getByTestId('down-banner')
     await expect(banner).toContainText('Last heartbeat 4m ago', { timeout: 15_000 })
     await expect(banner.getByRole('link', { name: 'See failover' })).toHaveAttribute('href', '/app/failover')
-    await expect(page.getByRole('button', { name: /Drain|Resume|Approve/ })).toHaveCount(0)
+    // A node that does not answer drains at once: nothing on it to wait for.
+    await expect(page.getByRole('button', { name: /Drain/ })).toHaveCount(1)
+    await expect(page.getByRole('button', { name: /Resume|Approve/ })).toHaveCount(0)
     await expect(page.getByRole('region', { name: 'What the loss of this node means' })).toContainText('flux-dev')
     await expect(page.getByText('Not answering').first()).toBeVisible()
   })

@@ -133,7 +133,9 @@
     "run": {}
   },
   "inspector": {
-    "peer": "对等节点 ID"
+    "peer": "对等节点 ID",
+    "leaving": "仍在此处的模型",
+    "drainDeadline": "排空截止时间"
   },
   "splitServer": {
     "label": "拆分服务器",
@@ -221,6 +223,13 @@
     }
   },
   "detail": {
-    "vramBudgetOf": "预算，检测到 {{detected}}"
+    "vramBudgetOf": "预算，检测到 {{detected}}",
+    "drainingLeaving": "仍在此处的模型：{{count}} 个。到 {{time}} 仍留下的将被移除。",
+    "drainingEmpty": "上面已没有任何模型。现在可以停止该 worker。"
+  },
+  "leave": {
+    "reloadDrain": "在此节点继续提供服务期间，它会加载到另一个合适的健康节点上，然后离开此节点。此处不比较空闲内存。",
+    "reloadNoneDrain": "没有其他可迁移的健康节点，因此会在此处继续提供服务直到排空截止时间，然后停止。",
+    "blockedDrain": "会在此处继续提供服务直到排空截止时间，然后停止：其规则只允许 {{selector}}，且没有其他健康节点带有这些标签。"
   }
 }

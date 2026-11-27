@@ -38,8 +38,12 @@ function fieldReading(totalField, availableField) {
   return node => capacityReading(node?.[totalField], node?.[availableField])
 }
 
+// A node the server can drain: a healthy one keeps its models serving until
+// they are replaced; an unhealthy or offline one drains at once.
+export const DRAINABLE_STATUSES = ['healthy', 'unhealthy', 'offline']
+
 export function nodeLifecycleAction(status) {
-  if (status === 'healthy') return 'drain'
+  if (DRAINABLE_STATUSES.includes(status)) return 'drain'
   if (status === 'draining') return 'resume'
   if (status === 'pending') return 'approve'
   return null

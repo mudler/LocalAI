@@ -133,7 +133,9 @@
     "run": {}
   },
   "inspector": {
-    "peer": "ID de par"
+    "peer": "ID de par",
+    "leaving": "Modelos ainda aqui",
+    "drainDeadline": "Prazo da drenagem"
   },
   "splitServer": {
     "label": "Servidor de divisão",
@@ -221,6 +223,13 @@
     }
   },
   "detail": {
-    "vramBudgetOf": "Orçamento, {{detected}} detectados"
+    "vramBudgetOf": "Orçamento, {{detected}} detectados",
+    "drainingLeaving": "Modelos ainda aqui: {{count}}. O que restar às {{time}} será removido.",
+    "drainingEmpty": "Não resta mais nada nele. Você já pode parar o worker."
+  },
+  "leave": {
+    "reloadDrain": "é carregado em outro nó saudável adequado enquanto este continua a servi-lo, e depois deixa este nó. A memória livre não é comparada aqui.",
+    "reloadNoneDrain": "não tem outro nó saudável para onde ir, então continua servindo aqui até o prazo da drenagem e depois para.",
+    "blockedDrain": "continua servindo aqui até o prazo da drenagem e depois para: a regra dele só permite {{selector}} e nenhum outro nó saudável tem esses rótulos."
   }
 }

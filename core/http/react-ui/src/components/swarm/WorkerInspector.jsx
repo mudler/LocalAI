@@ -126,6 +126,8 @@ export default function WorkerInspector({
         <dl className="wk-kv-list">
           {node.gpu_vendor && <div className="wk-kv"><dt className="wk-kv__k">{t('inspector.gpu')}</dt><dd className="wk-kv__v">{node.gpu_vendor}</dd></div>}
           <div className="wk-kv"><dt className="wk-kv__k">{t('inspector.version')}</dt><dd className="wk-kv__v dk-mono">{node.version || '—'}</dd></div>
+          {node.status === 'draining' && <div className="wk-kv" data-testid="inspector-leaving"><dt className="wk-kv__k">{t('inspector.leaving')}</dt><dd className="wk-kv__v dk-mono">{node.leaving_replicas || 0}</dd></div>}
+          {node.status === 'draining' && node.drain_deadline && <div className="wk-kv"><dt className="wk-kv__k">{t('inspector.drainDeadline')}</dt><dd className="wk-kv__v">{new Date(node.drain_deadline).toLocaleTimeString()}</dd></div>}
           <div className="wk-kv"><dt className="wk-kv__k">{t('inspector.heartbeat')}</dt><dd className="wk-kv__v" data-late={down ? '' : undefined}>{node.last_heartbeat ? timeAgo(node.last_heartbeat) : '—'}</dd></div>
         </dl>
       </section>

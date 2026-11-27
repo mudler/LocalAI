@@ -240,9 +240,11 @@ test('requires finite total and available values before reporting capacity', () 
 
 test('maps only server-accepted lifecycle states to controls', () => {
   assert.equal(nodeLifecycleAction('healthy'), 'drain')
+  assert.equal(nodeLifecycleAction('unhealthy'), 'drain')
+  assert.equal(nodeLifecycleAction('offline'), 'drain')
   assert.equal(nodeLifecycleAction('draining'), 'resume')
   assert.equal(nodeLifecycleAction('pending'), 'approve')
-  for (const status of ['unhealthy', 'offline', 'unknown', '', null, 'HEALTHY']) {
+  for (const status of ['unknown', '', null, 'HEALTHY']) {
     assert.equal(nodeLifecycleAction(status), null)
   }
 })

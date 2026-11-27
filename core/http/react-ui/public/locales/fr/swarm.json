@@ -133,7 +133,9 @@
     "run": {}
   },
   "inspector": {
-    "peer": "ID de pair"
+    "peer": "ID de pair",
+    "leaving": "Modèles encore ici",
+    "drainDeadline": "Échéance de la vidange"
   },
   "splitServer": {
     "label": "Serveur de découpage",
@@ -221,6 +223,13 @@
     }
   },
   "detail": {
-    "vramBudgetOf": "Budget, {{detected}} détectés"
+    "vramBudgetOf": "Budget, {{detected}} détectés",
+    "drainingLeaving": "Modèles encore ici : {{count}}. Ce qui reste à {{time}} est retiré.",
+    "drainingEmpty": "Il n'y reste plus rien. Vous pouvez arrêter le worker."
+  },
+  "leave": {
+    "reloadDrain": "se charge sur un autre nœud sain qui convient pendant que celui-ci continue de le servir, puis quitte ce nœud. La mémoire libre n'est pas comparée ici.",
+    "reloadNoneDrain": "n'a aucun autre nœud sain où aller : il continue de servir ici jusqu'à l'échéance de la vidange, puis s'arrête.",
+    "blockedDrain": "continue de servir ici jusqu'à l'échéance de la vidange, puis s'arrête : sa règle n'autorise que {{selector}} et aucun autre nœud sain n'a ces étiquettes."
   }
 }

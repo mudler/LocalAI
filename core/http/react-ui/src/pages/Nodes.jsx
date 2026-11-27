@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { nodesApi } from '../utils/api'
-import { paginateNodes, runBounded, sortNodes } from '../utils/nodeFleet'
+import { DRAINABLE_STATUSES, paginateNodes, runBounded, sortNodes } from '../utils/nodeFleet'
 import { DISTRIBUTED_COMMAND, attentionOf, memoryOf, updateTargets, updateTargetsForNode } from '../utils/swarm'
 import { chipCounts, isSplit, matchesChip, matchesQuery, rosterSummary, splitAsRow } from '../utils/workerRoster'
 import { useNodeList, usePhone, useReplicas } from '../hooks/useSwarm'
@@ -168,9 +168,9 @@ export default function Nodes() {
     bulkRef.current = true
     setBulkRunning(true)
     const ids = [...selectedIds]
-    const need = action === 'drain' ? 'healthy' : action === 'resume' ? 'draining' : null
+    const need = action === 'drain' ? DRAINABLE_STATUSES : action === 'resume' ? ['draining'] : null
     const status = new Map(nodes.map(node => [node.id, node.status]))
-    const eligible = need ? ids.filter(id => status.get(id) === need) : ids
+    const eligible = need ? ids.filter(id => need.includes(status.get(id))) : ids
     const skipped = ids.length - eligible.length
     void (async () => {
       try {

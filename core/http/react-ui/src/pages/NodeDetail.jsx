@@ -255,6 +255,11 @@ export default function NodeDetail() {
       {draining && (
         <section className="sw-banner" data-level="warn" role="status" data-testid="draining-banner">
           <p><strong>{t('detail.draining')}</strong> {t('detail.drainingSub')}</p>
+          <p className="sw-banner__more" data-testid="draining-leaving">
+            {node.leaving_replicas > 0
+              ? t('detail.drainingLeaving', { count: node.leaving_replicas, time: node.drain_deadline ? new Date(node.drain_deadline).toLocaleTimeString() : '—' })
+              : t('detail.drainingEmpty')}
+          </p>
         </section>
       )}
 

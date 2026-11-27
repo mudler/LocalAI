@@ -133,7 +133,9 @@
     "run": {}
   },
   "inspector": {
-    "peer": "Peer-ID"
+    "peer": "Peer-ID",
+    "leaving": "Noch hier",
+    "drainDeadline": "Frist der Entleerung"
   },
   "splitServer": {
     "label": "Split-Server",
@@ -221,6 +223,13 @@
     }
   },
   "detail": {
-    "vramBudgetOf": "Budget, {{detected}} erkannt"
+    "vramBudgetOf": "Budget, {{detected}} erkannt",
+    "drainingLeaving": "Noch hier: {{count}} Modelle. Was um {{time}} noch hier ist, wird entfernt.",
+    "drainingEmpty": "Hier ist nichts mehr. Sie können den Worker jetzt stoppen."
+  },
+  "leave": {
+    "reloadDrain": "wird auf einem anderen passenden gesunden Knoten geladen, während dieser es weiter bedient, und verlässt dann diesen Knoten. Freier Speicher wird hier nicht verglichen.",
+    "reloadNoneDrain": "hat keinen anderen gesunden Knoten, auf den es wechseln kann, und bedient daher hier weiter bis zur Frist der Entleerung, dann stoppt es.",
+    "blockedDrain": "bedient hier weiter bis zur Frist der Entleerung, dann stoppt es: seine Regel erlaubt nur {{selector}}, und kein anderer gesunder Knoten hat diese Labels."
   }
 }

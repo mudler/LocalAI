@@ -7,6 +7,13 @@ function selectorText(selector) {
   return Object.entries(selector || {}).map(([k, v]) => `${k}=${v}`).join(', ')
 }
 
+// A drained node keeps serving a model until it loads elsewhere; a lost node
+// does not, so the model loads again on the next request.
+function reloadKey(hasCandidates, lost) {
+  if (lost) return hasCandidates ? 'leave.reload' : 'leave.reloadNone'
+  return hasCandidates ? 'leave.reloadDrain' : 'leave.reloadNoneDrain'
+}
+
 // The lines of a drain or lost-node preview. Each line is one sentence about one
 // model, so a person can read what changes without a legend.
 //
@@ -26,10 +33,10 @@ export default function LeaveList({ items, lost = false }) {
               <strong className="dk-mono">{item.model}</strong> {t('leave.staysOn', { nodes: item.on.join(', ') })}
             </>}
             {item.kind === 'blocked' && <>
-              <strong className="dk-mono">{item.model}</strong> {t('leave.blocked', { selector: selectorText(item.selector) })}
+              <strong className="dk-mono">{item.model}</strong> {t(lost ? 'leave.blocked' : 'leave.blockedDrain', { selector: selectorText(item.selector) })}
             </>}
             {item.kind === 'reload' && <>
-              <strong className="dk-mono">{item.model}</strong> {t(item.candidates > 0 ? 'leave.reload' : 'leave.reloadNone', { count: item.candidates })}
+              <strong className="dk-mono">{item.model}</strong> {t(reloadKey(item.candidates > 0, lost), { count: item.candidates })}
             </>}
           </span>
         </li>

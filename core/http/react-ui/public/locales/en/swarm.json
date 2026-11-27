@@ -335,7 +335,10 @@
     "reload": "loads again on the next request on another healthy node that fits. Free memory is not compared here.",
     "reloadNone": "has no other healthy node to move to, so it stops until this node returns.",
     "unavailable": "The cluster did not return the loaded replicas or the rules, so this cannot be worked out now.",
-    "how": "Worked out in this browser from the node list, the loaded replicas and the placement rules. The server does not compute it, and the scheduler also weighs free memory and disk when it loads a model."
+    "how": "Worked out in this browser from the node list, the loaded replicas and the placement rules. The server does not compute it, and the scheduler also weighs free memory and disk when it loads a model.",
+    "reloadDrain": "loads on another healthy node that fits while this one keeps serving it, then leaves this node. Free memory is not compared here.",
+    "reloadNoneDrain": "has no other healthy node to move to, so it keeps serving here until the drain deadline, then stops.",
+    "blockedDrain": "keeps serving here until the drain deadline, then stops: its rule only allows {{selector}} and no other healthy node has those labels."
   },
   "detail": {
     "back": "All nodes",
@@ -353,7 +356,7 @@
     "pending": "Waiting for approval.",
     "pendingSub": "It gets no requests until you approve it.",
     "draining": "Draining.",
-    "drainingSub": "It takes no new requests and finishes the ones running. Resume to return it to service.",
+    "drainingSub": "It takes no new models. Each model on it keeps serving until it runs on another node, then leaves. Resume to return it to service.",
     "resources": "Node resources",
     "disk": "Models disk free",
     "noData": "No data",
@@ -396,11 +399,13 @@
     "replicaCap": "Replica capacity",
     "replicaCapSub": "Limit how many replicas of one model may run here.",
     "labels": "Labels",
-    "labelsSub": "Labels describe this worker and decide which placement rules may use it."
+    "labelsSub": "Labels describe this worker and decide which placement rules may use it.",
+    "drainingLeaving": "Models still here: {{count}}. Anything left at {{time}} is removed.",
+    "drainingEmpty": "Nothing is left on it. You can stop the worker now."
   },
   "drain": {
     "title": "Drain {{name}}?",
-    "desc": "A draining node takes no new requests. What is running finishes.",
+    "desc": "A draining node takes no new models. The models on it keep serving until they run on another node, then leave. Anything still here at the deadline is removed.",
     "confirm": "Drain node",
     "pending": "Draining…",
     "undo": "You can resume the node at any time."
@@ -652,7 +657,9 @@
     "logs": "Logs",
     "open": "Open full page",
     "close": "Close details",
-    "peer": "Peer ID"
+    "peer": "Peer ID",
+    "leaving": "Models still here",
+    "drainDeadline": "Drain deadline"
   },
   "splitServer": {
     "label": "Split server",

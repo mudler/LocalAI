@@ -133,7 +133,9 @@
     "run": {}
   },
   "inspector": {
-    "peer": "ID de par"
+    "peer": "ID de par",
+    "leaving": "Modelos que siguen aquí",
+    "drainDeadline": "Plazo del vaciado"
   },
   "splitServer": {
     "label": "Servidor de división",
@@ -221,6 +223,13 @@
     }
   },
   "detail": {
-    "vramBudgetOf": "Presupuesto, {{detected}} detectados"
+    "vramBudgetOf": "Presupuesto, {{detected}} detectados",
+    "drainingLeaving": "Modelos que siguen aquí: {{count}}. Lo que quede a las {{time}} se elimina.",
+    "drainingEmpty": "Ya no queda nada en él. Ya puede detener el worker."
+  },
+  "leave": {
+    "reloadDrain": "se carga en otro nodo sano que encaje mientras este lo sigue sirviendo, y luego deja este nodo. Aquí no se compara la memoria libre.",
+    "reloadNoneDrain": "no tiene otro nodo sano al que pasar, así que sigue sirviendo aquí hasta el plazo del vaciado y luego se detiene.",
+    "blockedDrain": "sigue sirviendo aquí hasta el plazo del vaciado y luego se detiene: su regla solo permite {{selector}} y ningún otro nodo sano tiene esas etiquetas."
   }
 }

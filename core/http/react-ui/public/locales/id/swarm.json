@@ -133,7 +133,9 @@
     "run": {}
   },
   "inspector": {
-    "peer": "Peer ID"
+    "peer": "Peer ID",
+    "leaving": "Model yang masih di sini",
+    "drainDeadline": "Batas waktu pengosongan"
   },
   "splitServer": {
     "label": "Server split",
@@ -221,6 +223,13 @@
     }
   },
   "detail": {
-    "vramBudgetOf": "Anggaran, {{detected}} terdeteksi"
+    "vramBudgetOf": "Anggaran, {{detected}} terdeteksi",
+    "drainingLeaving": "Model yang masih di sini: {{count}}. Yang tersisa pada {{time}} akan dihapus.",
+    "drainingEmpty": "Tidak ada lagi yang tersisa. Anda dapat menghentikan worker sekarang."
+  },
+  "leave": {
+    "reloadDrain": "dimuat di node sehat lain yang cocok sementara node ini tetap melayaninya, lalu meninggalkan node ini. Memori bebas tidak dibandingkan di sini.",
+    "reloadNoneDrain": "tidak punya node sehat lain untuk berpindah, jadi tetap melayani di sini sampai batas waktu pengosongan, lalu berhenti.",
+    "blockedDrain": "tetap melayani di sini sampai batas waktu pengosongan, lalu berhenti: aturannya hanya mengizinkan {{selector}} dan tidak ada node sehat lain yang memiliki label tersebut."
   }
 }
