@@ -79,7 +79,7 @@ options:
   - prompt_cache_disk:false
 ```
 
-- For one worker: start the worker with `LOCALAI_PROMPT_CACHE_DISK=false`.
+- For one worker: start the worker with `LOCALAI_PROMPT_CACHE_DISK=false`. This only turns the tier off on that worker; the other settings of a worker come from the cluster (see [Distributed mode](#distributed-mode)).
 
 ## Settings
 
@@ -144,18 +144,55 @@ The administrator view (`GET /api/prompt-cache`) shows, for each node, the size,
 
 ## Distributed mode
 
-Each worker keeps its cache on its own local disk and runs its own cleaner, with the default settings and the `LOCALAI_PROMPT_CACHE_DISK` switch of the worker. In this version:
+In distributed mode each worker keeps its own disk prompt cache. The frontends keep the settings and the clears once, for the whole cluster, and bring every worker up to date over the node control channel (the control verbs `promptcache.sync` and `promptcache.usage`, on NATS or on the tunnel of the worker).
 
-- the server settings of the frontend do not reach the workers;
-- a clear, and the purge when a user or a device is deleted, act on the files of the node that answers the request (the frontend). The files on the workers expire with their time to live;
-- the usage view shows the frontend node only.
+### Who owns what
 
-With several frontends, each frontend has its own cache root and its own cleaner: the state is per instance. A cache that several nodes share (for example on network storage) is planned, not available now.
+| What | Owner | Where |
+|---|---|---|
+| Files | The worker that runs the backend | `<worker data dir>/prompt-cache`, on the local disk of the worker. Its backends write the files and its own cleaner deletes them. A frontend never reads or writes them. No shared storage is needed or used. |
+| Settings | The cluster | Stored once in the database with the other cluster settings (the memory settings of Settings > Models in memory). Every frontend applies the same values. The workers get them over the control channel, not from their own environment. |
+| Clears and purges | The cluster | Stored in a purge log in the database. The frontend that is asked sends them to every worker at once. |
+| Usage | Each worker | Each worker reports its own size, free disk, cap in effect and state. The frontend asks every worker and adds up the total. |
+
+The model option `prompt_cache_disk:false` and the other model options travel with the model when it loads, as in single mode.
+
+### Settings
+
+A change of a setting reaches every worker within seconds: the frontends store it in the database, and one frontend sends it to each worker. A worker gets the settings again when it restarts (the frontends see its new process) and at least every 30 seconds while it is behind. A worker that has not received the settings yet, for example just after it starts, runs the defaults.
+
+The automatic per-user quota is a share of the cap of each worker: the frontends send the number of users, and each worker computes its quota from its own cap.
+
+`LOCALAI_PROMPT_CACHE_DISK=false` on a worker turns the tier off on that worker only. It can only turn the tier off: the cluster setting cannot turn it on against it.
+
+### Clears and offline workers
+
+A clear (all, one model, **Clear my cached prompts**, the deletion of a user or a device) is written to the purge log first, then sent to every worker that is online. The clear succeeds once it is in the log. A worker that is offline, or that does not answer, applies the clears it missed when it is back: one frontend at a time checks every 30 seconds which workers are behind and sends them what they missed, oldest first.
+
+- A clear of all entries or of one model deletes only the entries last used before the clear was asked for. A clear that arrives late, or twice (two frontends may send it at once), never deletes entries written after it.
+- A clear of a user or a device deletes every entry of that namespace, whenever it arrives.
+- The purge log keeps a clear for 30 days. A worker that was away longer than that, and missed a clear that the log dropped, deletes all entries last used before that clear when it is back. So a worker never keeps an entry that a clear should have deleted.
+- The database records, for each worker, the last clear it applied and the settings it runs. The record of a worker that leaves the cluster is deleted.
+
+Deleting a chat does not delete its entries, as in single mode.
+
+### Several frontends
+
+- Settings: one copy in the database, shared by every frontend (shared state, see the cluster settings).
+- Purge log and the record of each worker: one copy in the database. Any frontend can record a clear and send it.
+- The pass that brings workers up to date runs on one frontend at a time (an advisory lock). A worker skips a clear that it already applied, so a clear that two frontends send at once is applied once.
+- Each frontend may also have a cache root under its own data path. It holds nothing in distributed mode: the backends run on the workers.
+
+### Usage
+
+`GET /api/prompt-cache` and Settings > Models in memory list every worker: its size, entries, free disk, cap in effect and state (on, paused, disabled, or off on that worker). A worker that is offline or does not answer is listed with the reason. The `total` adds up the workers that answered.
+
+A cache that several workers share (for example on network storage), and routing a request to the worker that has its prompt on disk, are planned, not available now.
 
 ## API
 
 | Method and path | Who | Body | Answer |
 |---|---|---|---|
-| `GET /api/prompt-cache` | Administrator | | `{enabled, shared, nodes: [{node, bytes, files, namespaces, status, models}]}`. `status.state` is `on`, `paused_low_disk`, `disabled_disk_full` or `unknown`. |
+| `GET /api/prompt-cache` | Administrator | | `{enabled, shared, nodes: [{node, enabled, error, bytes, files, namespaces, status, models}], total: {bytes, files, cap_bytes, nodes, unreachable}}`. `status.state` is `on`, `paused_low_disk`, `disabled_disk_full` or `unknown`. `error` is set for a node that gave no usage. |
 | `POST /api/prompt-cache/clear` | Administrator | `{"model": "<name>"}`, or empty for all | `{files, bytes}` |
 | `DELETE /api/prompt-cache/mine` | Any user | | `{files, bytes}` |

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { promptCacheMessage, promptCacheState } from '../../src/utils/promptCache.js'
+import { promptCacheMessage, promptCacheState, promptCacheTotal } from '../../src/utils/promptCache.js'
 
 const GIB = 1024 ** 3
 
@@ -21,4 +21,13 @@ test('prompt cache: only a paused or disabled cache has a message, with the mark
   const off = promptCacheMessage({ state: 'disabled_disk_full', free_bytes: GIB, critical_watermark_bytes: 2 * GIB, low_watermark_bytes: 10 * GIB })
   assert.match(off, /critical mark/)
   assert.match(off, /is off until/)
+})
+
+test('prompt cache: the total shows only with several nodes, and counts the nodes that did not answer', () => {
+  assert.equal(promptCacheTotal(null), null)
+  assert.equal(promptCacheTotal({ nodes: [{}], total: { bytes: GIB, files: 2, nodes: 1 } }), null)
+  const line = promptCacheTotal({ nodes: [{}, {}, {}], total: { bytes: GIB, files: 3, cap_bytes: 2 * GIB, nodes: 2, unreachable: 1 } })
+  assert.match(line, /3 entries on 2 nodes/)
+  assert.match(line, /at most/)
+  assert.match(line, /1 node did not answer/)
 })

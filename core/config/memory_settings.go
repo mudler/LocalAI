@@ -12,10 +12,11 @@ import (
 
 // MemorySettingKeys are the runtime settings that decide which models stay
 // in memory: the model limit, eviction, model swap, the watchdog, the memory
-// reclaimer and the VRAM budget. In distributed mode they are cluster
-// settings: one value stored in the database for every frontend, applied per
-// worker node (see core/services/clustersettings).
-var MemorySettingKeys = []string{
+// reclaimer and the VRAM budget, and the disk tier of the prompt cache
+// (PromptCacheSettingKeys). In distributed mode they are cluster settings:
+// one value stored in the database for every frontend, applied per worker
+// node (see core/services/clustersettings).
+var MemorySettingKeys = append([]string{
 	"watchdog_enabled", "watchdog_idle_enabled", "watchdog_busy_enabled",
 	"watchdog_idle_timeout", "watchdog_busy_timeout", "watchdog_interval",
 	"max_active_backends", "single_backend",
@@ -23,6 +24,17 @@ var MemorySettingKeys = []string{
 	"force_eviction_when_busy", "size_aware_eviction",
 	"lru_eviction_max_retries", "lru_eviction_retry_interval",
 	"model_swap", "vram_budget",
+}, PromptCacheSettingKeys...)
+
+// PromptCacheSettingKeys are the settings of the disk tier of the prompt
+// cache. They travel with the memory settings: in distributed mode the
+// frontends store them once in the cluster settings, and send them to every
+// worker with the promptcache.sync control verb (core/services/promptcachesvc).
+// A worker never reads them from its own environment.
+var PromptCacheSettingKeys = []string{
+	"prompt_cache_disk", "prompt_cache_disk_max_size_mib", "prompt_cache_disk_ttl",
+	"prompt_cache_disk_user_quota_mib", "prompt_cache_disk_min_tokens", "prompt_cache_disk_shared",
+	"prompt_cache_disk_low_free_mib", "prompt_cache_disk_critical_free_mib",
 }
 
 func jsonName(f reflect.StructField) string {
@@ -108,6 +120,22 @@ func ValidateMemorySettings(s RuntimeSettings) error {
 	}
 	if s.MemoryReclaimerThreshold != nil && (*s.MemoryReclaimerThreshold <= 0 || *s.MemoryReclaimerThreshold > 1) {
 		return fmt.Errorf("memory_reclaimer_threshold must be in (0, 1]")
+	}
+	if s.PromptCacheDiskTTL != nil {
+		if d, err := time.ParseDuration(*s.PromptCacheDiskTTL); err != nil || d <= 0 {
+			return fmt.Errorf("invalid prompt_cache_disk_ttl: a positive duration such as 168h")
+		}
+	}
+	for name, v := range map[string]*int{
+		"prompt_cache_disk_max_size_mib": s.PromptCacheDiskMaxSizeMiB, "prompt_cache_disk_low_free_mib": s.PromptCacheDiskLowFreeMiB,
+		"prompt_cache_disk_critical_free_mib": s.PromptCacheDiskCriticalFreeMiB,
+	} {
+		if v != nil && *v < 0 {
+			return fmt.Errorf("%s must be 0 (automatic) or more", name)
+		}
+	}
+	if s.PromptCacheDiskMinTokens != nil && *s.PromptCacheDiskMinTokens <= 0 {
+		return fmt.Errorf("prompt_cache_disk_min_tokens must be 1 or more")
 	}
 	if s.VRAMBudget != nil && *s.VRAMBudget != "" {
 		if _, err := vrambudget.Parse(*s.VRAMBudget); err != nil {

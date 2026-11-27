@@ -2310,7 +2310,7 @@ func (c *Client) ManageFederationGroup(ctx context.Context, req localaitools.Fed
 // PromptCacheSource gives the disk prompt cache of this node and the seam
 // purges and usage requests go through. *application.Application is one.
 type PromptCacheSource interface {
-	PromptCacheNode() *promptcachesvc.Node
+	PromptCacheEnabled() bool
 	PromptCacheNodes() promptcachesvc.Nodes
 }
 
@@ -2319,7 +2319,7 @@ func (c *Client) GetPromptCache(ctx context.Context) (*localaitools.PromptCacheS
 		return &localaitools.PromptCacheStatus{Nodes: []localaitools.PromptCacheNode{}}, nil
 	}
 	shared := c.AppConfig != nil && c.AppConfig.PromptCache.Shared
-	rep, err := promptcachesvc.Report(ctx, c.PromptCache.PromptCacheNodes(), c.PromptCache.PromptCacheNode().Enabled(),
+	rep, err := promptcachesvc.Report(ctx, c.PromptCache.PromptCacheNodes(), c.PromptCache.PromptCacheEnabled(),
 		shared, promptcachesvc.ModelNames(c.ConfigLoader))
 	if err != nil {
 		return nil, err

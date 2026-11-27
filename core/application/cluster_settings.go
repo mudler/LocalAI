@@ -106,6 +106,8 @@ func (a *Application) applyClusterMemorySettings(rs config.RuntimeSettings) {
 		wd.SetForceEvictionWhenBusy(cfg.ForceEvictionWhenBusy)
 		wd.SetSizeAwareEviction(cfg.SizeAwareEviction)
 	}
+	// The workers get the disk prompt cache settings over their control verbs.
+	a.kickPromptCache()
 	if !watchdogChanged || !a.watchdogReady.Load() {
 		return
 	}

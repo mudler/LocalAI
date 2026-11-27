@@ -136,7 +136,7 @@ var instructionDefs = []instructionDef{
 		Name:        "prompt-cache",
 		Description: "The disk prompt cache of llama.cpp: usage, clear for administrators, clear my cached prompts for a user",
 		Tags:        []string{"prompt-cache"},
-		Intro:       "GET /api/prompt-cache (admin) reports each node: cache size, free disk, effective cap and state (on, paused_low_disk, disabled_disk_full) and the size of each model. POST /api/prompt-cache/clear (admin) {model} clears one model, or every model with no body. DELETE /api/prompt-cache/mine clears the cached prompts of the caller and of its client keys; entries of the shared namespace stay. The settings are prompt_cache_disk* in /api/settings. A clear acts on the node that answers; worker nodes keep their own files until their time to live ends.",
+		Intro:       "GET /api/prompt-cache (admin) reports each node: cache size, free disk, effective cap and state (on, paused_low_disk, disabled_disk_full) and the size of each model. POST /api/prompt-cache/clear (admin) {model} clears one model, or every model with no body. DELETE /api/prompt-cache/mine clears the cached prompts of the caller and of its client keys; entries of the shared namespace stay. The settings are prompt_cache_disk* in /api/settings. In distributed mode the report lists every worker (with an error for one that did not answer) and a total, and a clear reaches every worker; a worker that is offline applies it when it is back.",
 	},
 	{
 		Name:        "usage-and-billing",

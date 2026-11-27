@@ -24,3 +24,16 @@ export function promptCacheMessage(st) {
   }
   return null
 }
+
+// The one-line total of a report with several nodes (distributed mode), else
+// null. It counts the nodes that answered and says how many did not.
+export function promptCacheTotal(data) {
+  const nodes = data?.nodes || []
+  const t = data?.total
+  if (nodes.length < 2 || !t) return null
+  let line = `${formatBytes(t.bytes || 0)} in ${t.files || 0} ${t.files === 1 ? 'entry' : 'entries'} on ${t.nodes || 0} ${t.nodes === 1 ? 'node' : 'nodes'}`
+  if (t.cap_bytes > 0) line += `, of at most ${formatBytes(t.cap_bytes)}`
+  line += '.'
+  if (t.unreachable > 0) line += ` ${t.unreachable} ${t.unreachable === 1 ? 'node did' : 'nodes did'} not answer.`
+  return line
+}

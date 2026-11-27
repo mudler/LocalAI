@@ -67,6 +67,7 @@ var _ = Describe("The advisory lock keys", func() {
 			"KeyModelUpdateCheck":    KeyModelUpdateCheck,
 			"KeyUpgradeRuns":         KeyUpgradeRuns,
 			"KeyPluginsRefresh":      KeyPluginsRefresh,
+			"KeyPromptCacheSync":     KeyPromptCacheSync,
 		}
 		seen := map[int64]string{}
 		for name, key := range keys {

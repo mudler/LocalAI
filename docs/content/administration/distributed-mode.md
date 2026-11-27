@@ -496,7 +496,7 @@ This worker holds one route: the WebSocket tunnel to the frontend. Add `--nats-u
 |------|---------|---------|-------------|
 | `--addr` | `LOCALAI_ADDR` | *(empty)* | Address where this worker is reachable (`host:port`). The port is the base for gRPC backends. A worker on the tunnel only with no address binds its backends to loopback. See [Worker profiles](#worker-profiles). |
 | `--grpc-max-port` | `LOCALAI_GRPC_MAX_PORT` | `65535` | Highest port the worker may assign to a backend gRPC process. Each backend gets its own port, allocated upward from the base port, so the width of `[base port, this]` caps how many backends this worker can run at once (see [Backend gRPC port range](#backend-grpc-port-range)) |
-| `--prompt-cache-disk` | `LOCALAI_PROMPT_CACHE_DISK` | `true` | Keep the prompt cache of long llama.cpp prompts on the local disk of this worker, under `<data dir>/prompt-cache`. The worker runs its own cleaner with the default settings. See [Disk Prompt Cache]({{%relref "/models/disk-prompt-cache#distributed-mode" %}}) |
+| `--prompt-cache-disk` | `LOCALAI_PROMPT_CACHE_DISK` | `true` | Keep the prompt cache of long llama.cpp prompts on the local disk of this worker, under `<data dir>/prompt-cache`. `false` turns it off on this worker only. The other settings (time to live, cap, quota, marks) and the clears come from the frontends over the control channel; the worker runs the defaults until it gets them. See [Disk Prompt Cache]({{%relref "/models/disk-prompt-cache#distributed-mode" %}}) |
 | `--advertise-addr` | `LOCALAI_ADVERTISE_ADDR` | *(auto)* | Address the frontend uses to reach this node (see below) |
 | `--http-addr` | `LOCALAI_HTTP_ADDR` | gRPC port - 1 | HTTP file transfer server bind address |
 | `--advertise-http-addr` | `LOCALAI_ADVERTISE_HTTP_ADDR` | *(auto)* | HTTP address the frontend uses for file transfer |
@@ -998,6 +998,19 @@ The settings of **Settings → Models in memory** (models kept loaded, eviction,
 - **Revisions.** `GET /api/settings` returns `memory_scope: "cluster"` and `memory_revision`. A save may send that `memory_revision` back: when another admin saved in between, the answer is `409` and nothing is stored. A save without `memory_revision` merges its keys over the stored ones, so two admins who change different keys at the same time both keep their change. The Settings page sends `memory_revision` with every save of a memory setting. On a `409` it says that the settings changed, loads the values in force and asks you to apply your change again.
 - **Where they act.** The scheduler applies the model limit, model swap, the eviction order, the eviction retries and eviction of busy replicas when it places a model. The replica reconciler applies the idle unload (`watchdog_idle_*`, also to models with no scheduling rule; a rule's `min_replicas`, pinned models and warm failover targets stay) and the memory reclaimer (one idle replica per node and tick while the node's memory use is above its threshold). The sweeps run in the reconciler's pass, under its advisory lock, so one frontend runs them at a time. While a node's reclaimer is on, placement keeps `(1 - threshold)` of its GPU memory free.
 - **Distributed state.** Shared (`syncstate` map `settings.memory` with the database as the store). A frontend re-reads the store every 30 seconds and after a reconnect of the bus, so a missed update is repaired. A frontend that cannot open the store logs an error and keeps its local values, like single mode.
+
+### Disk prompt cache across nodes
+
+The [disk prompt cache]({{%relref "/models/disk-prompt-cache#distributed-mode" %}}) keeps long llama.cpp prompts on disk so that a model reload starts warm. Each part has one owner:
+
+| What | Owner |
+|---|---|
+| Cache files | Each worker, on its own local disk under `<data dir>/prompt-cache`. Its backends write them and its own cleaner deletes them. Frontends never touch them, and no shared storage is used. |
+| Settings (`prompt_cache_disk*`) | The cluster. They are memory settings (see above): stored once in `cluster_shared_settings`, applied on every frontend, and sent to every worker with the control verb `promptcache.sync`. A worker does not read them from its environment; `LOCALAI_PROMPT_CACHE_DISK=false` on a worker can only turn its tier off. |
+| Clears and the purge of a deleted user or device | The cluster. Written to the purge log (table `prompt_cache_purges`) and sent to every online worker at once. A worker that was offline gets the clears it missed when it is back. The log keeps a clear for 30 days; a worker that missed a clear that the log dropped deletes all its entries older than that clear. |
+| Usage | Each worker answers `promptcache.usage`. `GET /api/prompt-cache` lists every worker and a total. |
+
+Table `prompt_cache_node_sync` records, for each worker, the last clear it applied, the settings it runs and its process. One frontend at a time (advisory lock) checks every 30 seconds, and at once after a change of the settings, which workers are behind, and sends them what they miss. A worker that restarted gets the settings again. A clear of everything or of one model deletes only entries last used before the clear was asked for, so a clear sent twice or late deletes nothing newer. A worker older than the verbs is listed as not answering, and keeps its cache until the time to live.
 
 ### Per-node memory limits
 

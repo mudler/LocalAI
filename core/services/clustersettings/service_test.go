@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -89,6 +90,21 @@ var _ = Describe("Cluster memory settings", func() {
 		mem, brev := b.svc.Memory()
 		Expect(*mem.ModelSwap).To(BeFalse())
 		Expect(brev).To(Equal(rev))
+	})
+
+	It("stores the disk prompt cache settings once and applies them on every frontend", func() {
+		a := start()
+		b := start(config.WithPromptCacheDiskTTL(time.Hour))
+		ttl := "2h"
+		_, _, err := a.svc.UpdateMemory(ctx, config.RuntimeSettings{PromptCacheDisk: boolp(false), PromptCacheDiskTTL: &ttl}, nil, "admin")
+		Expect(err).ToNot(HaveOccurred())
+		for _, f := range []*frontend{a, b} {
+			f.mu.Lock()
+			pcCfg := f.cfg.PromptCache
+			f.mu.Unlock()
+			Expect(pcCfg.DiskDisabled).To(BeTrue())
+			Expect(pcCfg.TTL).To(Equal(2 * time.Hour))
+		}
 	})
 
 	It("keeps the value across a restart of every frontend", func() {

@@ -111,6 +111,8 @@ The `llama-cpp` backend can keep the prompt cache of long prompts on disk, per u
 - **Share the cache between users** (`prompt_cache_disk_shared`): one cache for all users (default: off)
 - **Size cap** (`prompt_cache_disk_max_size_mib`), **Quota per user** (`prompt_cache_disk_user_quota_mib`), **Shortest prompt kept** (`prompt_cache_disk_min_tokens`), **Low free space** (`prompt_cache_disk_low_free_mib`) and **Critical free space** (`prompt_cache_disk_critical_free_mib`): advanced limits. `0` is automatic for the size, the quota and the marks; `-1` is no quota
 
+In distributed mode these are cluster settings, like the memory settings: they are stored once in the database, every frontend applies them, and every worker gets them over the control channel. See [Disk prompt cache across nodes]({{%relref "/administration/distributed-mode#disk-prompt-cache-across-nodes" %}}).
+
 The block also shows the size of the cache, the free disk, the cap in effect and the state of each node, and a **Clear** button that deletes the cache of every user and model.
 
 ### Performance Settings

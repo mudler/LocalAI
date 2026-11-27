@@ -38,7 +38,7 @@ func promptCacheError(c echo.Context, code int, msg string) error {
 func PromptCacheStatusEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		resp, err := promptcachesvc.Report(c.Request().Context(), app.PromptCacheNodes(),
-			app.PromptCacheNode().Enabled(), app.ApplicationConfig().PromptCache.Shared,
+			app.PromptCacheEnabled(), app.ApplicationConfig().PromptCache.Shared,
 			promptcachesvc.ModelNames(app.ModelConfigLoader()))
 		if err != nil {
 			xlog.Warn("prompt cache usage failed", "error", err)

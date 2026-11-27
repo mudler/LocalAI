@@ -2,13 +2,15 @@
 import { useState } from 'react'
 import { promptCacheApi } from '../../utils/api'
 import { formatBytes } from '../../utils/format'
-import { promptCacheMessage, promptCacheState } from '../../utils/promptCache'
+import { promptCacheMessage, promptCacheState, promptCacheTotal } from '../../utils/promptCache'
 import { Button, Callout, StatusChip, useLoad } from '../ui'
 import ConfirmDialog from '../ConfirmDialog'
 import Icon from '../Icon'
 
 // The disk prompt cache of each node: size, free disk, effective cap and
-// state, with the Clear button. Admin only (GET /api/prompt-cache).
+// state, with the Clear button. Admin only (GET /api/prompt-cache). In
+// distributed mode each worker is a node, with a total line; a worker that did
+// not answer shows why.
 export default function PromptCacheStatus({ addToast }) {
   const load = useLoad(() => promptCacheApi.status(), [])
   const [confirm, setConfirm] = useState(false)
@@ -17,6 +19,8 @@ export default function PromptCacheStatus({ addToast }) {
   if (load.status !== 'ready') return null
   const data = load.data || {}
   const nodes = data.nodes || []
+  const total = promptCacheTotal(data)
+  const several = nodes.length > 1
 
   const clear = async () => {
     setClearing(true)
@@ -42,14 +46,28 @@ export default function PromptCacheStatus({ addToast }) {
         {nodes.length === 0 && data.enabled && (
           <p><strong>Nothing cached on disk yet.</strong></p>
         )}
+        {total && <p data-testid="prompt-cache-total"><strong>{total}</strong></p>}
         {nodes.map(n => {
           const st = n.status || {}
           const s = promptCacheState(st)
           const msg = promptCacheMessage(st)
+          if (n.error && !n.files) {
+            return (
+              <div key={n.node} data-testid={`prompt-cache-node-${n.node}`}>
+                <p>
+                  <StatusChip tone="idle" label="No answer" testId="prompt-cache-state" />{' '}
+                  <strong>{n.node}</strong>: {n.error === 'offline' ? 'offline. It applies the clears when it is back.' : n.error}
+                </p>
+              </div>
+            )
+          }
           return (
             <div key={n.node} data-testid={`prompt-cache-node-${n.node}`}>
               <p>
-                <StatusChip tone={s.tone} label={s.label} testId="prompt-cache-state" />{' '}
+                {n.enabled === false
+                  ? <StatusChip tone="idle" label="Off" testId="prompt-cache-state" />
+                  : <StatusChip tone={s.tone} label={s.label} testId="prompt-cache-state" />}{' '}
+                {several && <><strong>{n.node}</strong>: </>}
                 <strong>{formatBytes(n.bytes || 0)} in {n.files || 0} {n.files === 1 ? 'entry' : 'entries'}.</strong>{' '}
                 {st.total_bytes > 0 && <>Free disk {formatBytes(st.free_bytes)} of {formatBytes(st.total_bytes)}. </>}
                 {st.effective_cap_bytes > 0 && <>The cache may grow to {formatBytes(st.effective_cap_bytes)}.</>}
@@ -67,7 +85,9 @@ export default function PromptCacheStatus({ addToast }) {
         open={confirm}
         danger
         title="Clear the disk prompt cache?"
-        message="This deletes the cached prompts of every user and every model on this node. Later requests compute their prompts again."
+        message={several
+          ? 'This deletes the cached prompts of every user and every model on every node. A node that is offline deletes them when it is back. Later requests compute their prompts again.'
+          : 'This deletes the cached prompts of every user and every model on this node. Later requests compute their prompts again.'}
         confirmLabel="Clear"
         pending={clearing}
         onConfirm={clear}

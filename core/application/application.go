@@ -113,6 +113,8 @@ type Application struct {
 	promptCacheMu    sync.RWMutex
 	promptCache      *promptcachesvc.Node
 	promptCacheNodes promptcachesvc.Nodes
+	// promptCacheDist is the worker sync of distributed mode, nil otherwise.
+	promptCacheDist *promptcachesvc.Distributed
 
 	// shareKinds are the services whose resource kinds are shared through
 	// the policy; shareKindsPolicy is the policy they were registered with

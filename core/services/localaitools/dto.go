@@ -1116,7 +1116,11 @@ type PromptCacheDisk struct {
 
 // PromptCacheNode is the disk prompt cache of one node.
 type PromptCacheNode struct {
-	Node       string             `json:"node"`
+	Node string `json:"node"`
+	// Enabled is false when the tier is off on the node; Error says why a
+	// node gave no usage (offline, no answer).
+	Enabled    bool               `json:"enabled"`
+	Error      string             `json:"error,omitempty"`
 	Bytes      int64              `json:"bytes"`
 	Files      int                `json:"files"`
 	Namespaces int                `json:"namespaces"`
@@ -1129,6 +1133,16 @@ type PromptCacheStatus struct {
 	Enabled bool              `json:"enabled"`
 	Shared  bool              `json:"shared"`
 	Nodes   []PromptCacheNode `json:"nodes"`
+	Total   PromptCacheTotal  `json:"total"`
+}
+
+// PromptCacheTotal sums the nodes that answered.
+type PromptCacheTotal struct {
+	Bytes       int64 `json:"bytes"`
+	Files       int   `json:"files"`
+	CapBytes    int64 `json:"cap_bytes"`
+	Nodes       int   `json:"nodes"`
+	Unreachable int   `json:"unreachable"`
 }
 
 // PromptCacheClearRequest is the input of clear_prompt_cache.

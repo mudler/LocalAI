@@ -183,6 +183,10 @@ export const MEMORY_SETTING_KEYS = new Set([
   'force_eviction_when_busy', 'size_aware_eviction',
   'lru_eviction_max_retries', 'lru_eviction_retry_interval',
   'model_swap', 'vram_budget',
+  // The disk prompt cache: cluster settings too (config.PromptCacheSettingKeys).
+  'prompt_cache_disk', 'prompt_cache_disk_max_size_mib', 'prompt_cache_disk_ttl',
+  'prompt_cache_disk_user_quota_mib', 'prompt_cache_disk_min_tokens', 'prompt_cache_disk_shared',
+  'prompt_cache_disk_low_free_mib', 'prompt_cache_disk_critical_free_mib',
 ])
 
 // isMemoryConflict reports whether a failed save was refused because the

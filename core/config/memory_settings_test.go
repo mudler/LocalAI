@@ -20,6 +20,16 @@ var _ = Describe("memory settings split", func() {
 		Expect(mem.IsEmpty()).To(BeFalse())
 	})
 
+	It("puts the disk prompt cache settings with the cluster settings", func() {
+		off, ttl, quota := false, "2h", -1
+		mem, rest := config.SplitMemorySettings(config.RuntimeSettings{
+			PromptCacheDisk: &off, PromptCacheDiskTTL: &ttl, PromptCacheDiskUserQuotaMiB: &quota,
+		})
+		Expect(mem.SetKeys()).To(ConsistOf("prompt_cache_disk", "prompt_cache_disk_ttl", "prompt_cache_disk_user_quota_mib"))
+		Expect(rest.IsEmpty()).To(BeTrue())
+		Expect(config.MemorySettingKeys).To(ContainElements(config.PromptCacheSettingKeys))
+	})
+
 	It("names only real settings", func() {
 		all := config.NewApplicationConfig().ToRuntimeSettings()
 		Expect(all.SetKeys()).To(ContainElements(config.MemorySettingKeys))
@@ -44,6 +54,11 @@ var _ = Describe("memory settings validation", func() {
 		Expect(config.ValidateMemorySettings(config.RuntimeSettings{MaxActiveBackends: &neg})).ToNot(Succeed())
 		Expect(config.ValidateMemorySettings(config.RuntimeSettings{MemoryReclaimerThreshold: &high})).ToNot(Succeed())
 		Expect(config.ValidateMemorySettings(config.RuntimeSettings{VRAMBudget: &bad})).ToNot(Succeed())
+		zero := 0
+		Expect(config.ValidateMemorySettings(config.RuntimeSettings{PromptCacheDiskTTL: &bad})).ToNot(Succeed())
+		Expect(config.ValidateMemorySettings(config.RuntimeSettings{PromptCacheDiskMaxSizeMiB: &neg})).ToNot(Succeed())
+		Expect(config.ValidateMemorySettings(config.RuntimeSettings{PromptCacheDiskMinTokens: &zero})).ToNot(Succeed())
+		Expect(config.ValidateMemorySettings(config.RuntimeSettings{PromptCacheDiskUserQuotaMiB: &neg})).To(Succeed(), "-1 is no quota")
 		ok, empty := "10m", ""
 		Expect(config.ValidateMemorySettings(config.RuntimeSettings{WatchdogIdleTimeout: &ok, VRAMBudget: &empty})).To(Succeed())
 	})
