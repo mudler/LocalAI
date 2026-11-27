@@ -238,6 +238,28 @@ var _ = Describe("Scheduler memory policy", func() {
 			"resident %d, loads that proceeded %d", replicasOf("resident"), proceeded)
 	})
 
+	It("checks the limit again when a planned memory eviction is skipped", func() {
+		policy.MaxActiveBackends = 2
+		estimate = 1 * gib
+		node := &BackendNode{Name: "node-a", NodeType: NodeTypeBackend, Address: "node-a:50051", MaxReplicasPerModel: 4, TotalVRAM: 48 * gib, AvailableVRAM: 40 * gib}
+		Expect(registry.Register(ctx, node, true)).To(Succeed())
+		a, err := registry.GetByName(ctx, "node-a")
+		Expect(err).NotTo(HaveOccurred())
+		loaded(a, "old", time.Hour, 0)
+		loaded(a, "new", time.Minute, 0)
+		var old NodeModel
+		Expect(db.Where("model_name = ?", "old").First(&old).Error).To(Succeed())
+		// The plan said to evict "old" for memory, but the node has the
+		// memory now, so that eviction is skipped.
+		p := &replicaPlacement{node: a, estimatedVRAM: estimate, room: roomPlan{memory: []NodeModel{old}}}
+
+		Expect(newRouter().makeRoom(ctx, model, p)).To(Succeed())
+
+		var n int64
+		Expect(db.Model(&NodeModel{}).Where("node_id = ?", a.ID).Count(&n).Error).To(Succeed())
+		Expect(n).To(BeNumerically("<=", 1), "room for the new model within the limit of 2")
+	})
+
 	It("records the size estimate on the loaded replica", func() {
 		estimate = 2 * gib
 		node := &BackendNode{Name: "node-a", NodeType: NodeTypeBackend, Address: "node-a:50051", MaxReplicasPerModel: 4, TotalVRAM: 48 * gib, AvailableVRAM: 48 * gib}

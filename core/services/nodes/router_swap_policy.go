@@ -185,10 +185,10 @@ func (r *SmartRouter) narrowByModelLimit(ctx context.Context, modelID string, ca
 }
 
 // makeRoomForLimit keeps the claimed node within its model limit: it evicts
-// the least recently used idle replicas there beyond the ones room already
-// plans to evict. It runs in makeRoom, after the claim, so a lost claim
-// evicts nothing.
-func (r *SmartRouter) makeRoomForLimit(ctx context.Context, modelID string, p *replicaPlacement, room *roomPlan) error {
+// the least recently used idle replicas there until the new replica fits.
+// makeRoom runs it after the claim, so a lost claim evicts nothing, and
+// after the other evictions, so it counts what is really left on the node.
+func (r *SmartRouter) makeRoomForLimit(ctx context.Context, modelID string, p *replicaPlacement) error {
 	counter, ok := r.registry.(modelCounter)
 	if !ok || p.node == nil {
 		return nil
@@ -200,10 +200,6 @@ func (r *SmartRouter) makeRoomForLimit(ctx context.Context, modelID string, p *r
 	n, err := counter.CountNodeReplicas(ctx, p.node.ID, modelID)
 	if err != nil {
 		return fmt.Errorf("counting the models on %s: %w", p.node.Name, err)
-	}
-	n -= len(room.memory)
-	if room.lru != nil {
-		n--
 	}
 	if n < pol.MaxActiveBackends {
 		return nil

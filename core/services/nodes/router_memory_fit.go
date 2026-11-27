@@ -146,9 +146,17 @@ func (r *SmartRouter) planMemoryFit(ctx context.Context, need uint64, candidateN
 func (r *SmartRouter) makeRoom(ctx context.Context, modelID string, p *replicaPlacement) error {
 	room := p.room
 	p.room = roomPlan{}
-	if err := r.makeRoomForLimit(ctx, modelID, p, &room); err != nil {
+	if err := r.runRoomPlan(ctx, modelID, p, room); err != nil {
 		return err
 	}
+	// The model limit last, on a fresh count: an eviction of the plan may
+	// have been skipped (the node had the memory by then, or a slot came
+	// free), so the plan's evictions are not counted in advance.
+	return r.makeRoomForLimit(ctx, modelID, p)
+}
+
+// runRoomPlan runs the memory and LRU evictions of room on the node of p.
+func (r *SmartRouter) runRoomPlan(ctx context.Context, modelID string, p *replicaPlacement, room roomPlan) error {
 	if len(room.memory) > 0 && r.stillShortOfMemory(ctx, p) {
 		for _, nm := range room.memory {
 			if !r.evictReplica(ctx, nm) {
