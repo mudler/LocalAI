@@ -213,7 +213,8 @@ function DrawerGate({ children }) {
   const { builtin, status } = useNavigation()
   if (legacy) return <Feature feature="addons">{children}</Feature>
   if (loading || status === 'idle' || status === 'loading') return null
-  if (!isAdmin && !hasFeature('addons') && builtin.length === 0) return <Navigate to="/app" replace />
+  // The Plugins tab lives on this page: the plugins feature opens it too.
+  if (!isAdmin && !hasFeature('addons') && !hasFeature('plugins') && builtin.length === 0) return <Navigate to="/app" replace />
   return children
 }
 

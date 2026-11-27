@@ -24,5 +24,12 @@
   "chats:sandboxProfile.newerImage": "a sandbox profile is the host's name for the environment of isolated commands, declared by any provider that lists profiles; the feature name, not the Sandbox add-on",
   "chats:sandboxProfile.switchWarning": "a sandbox profile is the host's name for the environment of isolated commands, declared by any provider that lists profiles; the feature name, not the Sandbox add-on",
   "cluster:add.tabs.kubernetes": "Kubernetes as the platform a person runs LocalAI workers on; not the Kubernetes add-on",
-  "cluster:add.token.usesHint": "Kubernetes as the platform a person runs LocalAI workers on; not the Kubernetes add-on"
+  "cluster:add.token.usesHint": "Kubernetes as the platform a person runs LocalAI workers on; not the Kubernetes add-on",
+  "addons:plugins.adds.sandbox": "the Sandbox add-on is where plugin code runs, and only there (plugins spec, section 13): the person must know which add-on runs it",
+  "addons:plugins.adds.sandboxTitle": "the Sandbox add-on is where plugin code runs, and only there (plugins spec, section 13): the person must know which add-on runs it",
+  "addons:plugins.review.codeBody": "the Sandbox add-on is where plugin code runs, and only there (plugins spec, section 13): the person must know which add-on runs it",
+  "addons:plugins.review.read": "the Sandbox add-on is where plugin code runs, and only there (plugins spec, section 13): the person must know which add-on runs it",
+  "addons:plugins.installed.reenableTitle": "the Sandbox add-on is where plugin code runs, and only there (plugins spec, section 13): the person must know which add-on runs it",
+  "addons:plugins.installed.reenableConfirm": "the Sandbox add-on is where plugin code runs, and only there (plugins spec, section 13): the person must know which add-on runs it",
+  "addons:plugins.marketplaces.sourceHelp": "GitHub as the git host that the owner/repo form of a marketplace source points at; the service, not the GitHub add-on"
 }

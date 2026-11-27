@@ -10,7 +10,7 @@ devbuild = "feature"
 
 LocalAI installs plugins that are compatible with the Claude Code plugin format. A plugin is a folder of skills, slash commands, sub-agents, MCP servers and hooks. A marketplace is a git repository or a JSON file that lists plugins and where to get them.
 
-This page describes what the server does in this version. The server keeps its marketplaces, refreshes them, and installs plugins through the [REST API](#rest-api). The [`local-ai plugins`]({{% relref "/reference/cli-reference#plugins" %}}) command uses the same API. The **Plugins** tab of the Add-ons page comes in a later version.
+This page describes what the server does in this version. The server keeps its marketplaces, refreshes them, and installs plugins through the [REST API](#rest-api). The [`local-ai plugins`]({{% relref "/reference/cli-reference#plugins" %}}) command uses the same API. The [**Plugins** tab](#the-plugins-tab) of the Add-ons page is the same in the web UI.
 
 The names `CLAUDE_PLUGIN_ROOT` and the other `CLAUDE_*` variables are names of the format: plugins read them, so LocalAI keeps them.
 
@@ -86,13 +86,27 @@ An install for everyone of a plugin that users installed for themselves replaces
 
 Plugin text is data from its author: skills and commands go into the prompt like any other skill. Community plugins are not signed; the curated marketplace is reviewed by people and is not signed either.
 
+## The Plugins tab
+
+The **Plugins** tab of the Add-ons page shows to everyone who has the `plugins` feature. It has three views.
+
+- **Browse** lists the plugins of the active marketplaces as cards, with a search, a marketplace filter, a category filter and **Hide code plugins**. A card shows what the plugin adds once that is known: the number of skills, commands, agents and hooks, and **Connects to `<host>`** for each remote MCP server. A plugin that runs code shows **Runs code** and **Needs Sandbox**: its code runs only in the Sandbox of a chat. Whether a plugin runs code is known only after a version of it was reviewed or installed; until then the card says **Not checked yet**. A user sees **Install** on a plugin that is not known to run code; a plugin that runs code says that an administrator can install it.
+- **Installed** lists the installs for everyone and your own, each with your switch, **Update** when a newer version waits, and a menu with **Details**, **Settings**, **Roll back** and **Remove**. Details list the components, the components that are not supported with the reason, and the code files as text. Settings edit the plugin's settings that are not secret; secret settings come in a later version. An install whose update added code shows "This plugin now runs code in your Sandbox" and stays off until you press **Turn on again**.
+- **Marketplaces** lists the marketplaces with their state and when each was read. Administrators add, refresh, turn off and remove them.
+
+**Install** opens a review. LocalAI fetches the plugin and checks it, then shows "Community plugin, not signed", the commit, the digest, what it adds and, for a plugin that runs code, the full text of each code file. Such a plugin needs a tick that you read the code and accept that it runs in the Sandbox, and it is installed for everyone. An administrator chooses **Everyone** or **Only me** for a plugin that runs no code. The install runs in the background and shows on the operations list.
+
+**Update** opens the update review: the commits, the files that change with their line counts, and the diff of each code file. When the code of an install for everyone changed, each changed code file needs its own tick before **Update**.
+
+The review link that `local-ai plugins install` and the LocalAI Assistant give for a plugin that runs code, `/app/addons?tab=plugins&plugin=<name@marketplace>`, opens the review of that plugin.
+
 ## In a chat
 
 The plugins that contribute to a chat are the ones installed for everyone or for its user, enabled by that user, not switched off for the chat, and, in a chat with a saved agent, granted by the agent. The server reads this at each turn. A chat sees the stored copies of the plugins, read only, at `/workspace/shared-plugins/<digest>/`, the value of `CLAUDE_PLUGIN_ROOT`.
 
 Each user turns an install for everyone on for themselves; it starts off. A personal install starts on for its owner. Turning a plugin off keeps its settings. When an update adds code to an install for everyone, it stays off for each user until that user turns it on again with the explicit re-enable, which accepts the code.
 
-A chat keeps the plugins it switched off (`plugins_off`, install IDs, at most 200), so a plugin you enable later is on in chats that exist already. A saved agent has an exact grant list, `plugins`: an agent with an empty list gets no plugin, and a chat switch only narrows what the agent grants. An exported agent keeps its list.
+A chat keeps the plugins it switched off (`plugins_off`, install IDs, at most 200), so a plugin you enable later is on in chats that exist already. In the composer, the **Skills** menu lists the skills of each plugin under **Plugin: `<name>`** with one switch for the plugin in this chat, and the **Tools** menu has the same switch for each plugin that has connectors. The agent editor has a **Plugins** list. A saved agent has an exact grant list, `plugins`: an agent with an empty list gets no plugin, and a chat switch only narrows what the agent grants. An exported agent keeps its list.
 
 | Component | In a chat |
 |---|---|

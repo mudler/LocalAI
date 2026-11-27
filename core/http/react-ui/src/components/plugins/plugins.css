@@ -1,0 +1,104 @@
+/* The Plugins tab of the Add-ons page and its review dialogs. The cards,
+   tiles, groups and meta lines are the add-on page's own (addons.css); this
+   file adds only what a plugin has and an add-on has not: what it adds, the
+   commit, and code read as text. */
+
+.pl-view { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.pl-view > .dk-tabs { align-self: flex-start; }
+.pl-browse, .pl-markets { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.pl-toolbar .ui-search { flex-grow: 1; min-width: min(100%, 240px); }
+/* Widths, not flex bases: the toolbar is a column on a phone. */
+.pl-select { flex: none; width: 200px; max-width: 100%; }
+
+.pl-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--sp-3);
+}
+.pl-card .ad-card__by { flex-wrap: wrap; }
+.pl-tags { display: flex; }
+.pl-more { display: flex; justify-content: center; }
+
+.pl-mono { font-family: var(--font-mono); font-size: var(--fs-meta); overflow-wrap: anywhere; }
+.pl-quiet { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--dk-muted); }
+.pl-text { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); }
+.pl-error { margin: 0; color: var(--dk-error-text); }
+
+/* Installed and Marketplaces rows. A marketplace row opens nothing. */
+.pl-tile__static { cursor: default; }
+.pl-markets__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.pl-installed { min-width: 0; flex: 1 1 auto; }
+
+/* The review dialogs and the details pane. */
+.pl-loading { display: flex; align-items: center; gap: var(--sp-2); color: var(--dk-muted); font-size: var(--fs-small); }
+.pl-review { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.pl-kv { margin: 0; }
+.pl-kv dd { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.pl-section { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.pl-section__title { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 600; }
+.pl-subhead { display: flex; align-items: center; gap: var(--sp-1); margin: 0; font-size: var(--fs-meta); line-height: var(--lh-meta); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--dk-muted); }
+.pl-subhead .lai-icon { width: 13px; height: 13px; }
+.pl-count { font-variant-numeric: tabular-nums; font-weight: 400; }
+.pl-components { display: flex; flex-direction: column; gap: var(--sp-3); }
+.pl-components__group { display: flex; flex-direction: column; gap: var(--sp-1); }
+
+.pl-rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--dk-edge); border-radius: var(--r-md); overflow: hidden; }
+.pl-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--sp-2); padding: var(--sp-2) var(--sp-3); min-width: 0; }
+.pl-row + .pl-row { border-top: 1px solid var(--dk-edge); }
+.pl-row__name { font-weight: 600; min-width: 0; }
+.pl-row__name.pl-mono { font-weight: 500; color: var(--dk-text); }
+.pl-row__hint { color: var(--dk-muted); font-size: var(--fs-meta); }
+.pl-row__desc { flex: 1 0 100%; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--dk-muted); overflow-wrap: anywhere; }
+.pl-row--file { align-items: center; }
+.pl-row--file .pl-row__name { display: inline-flex; align-items: center; gap: var(--sp-1); flex: 1 1 auto; }
+.pl-row--file .lai-icon { width: 13px; height: 13px; flex: none; color: var(--dk-muted); }
+.pl-row--file[data-change="added"] .pl-row__name .lai-icon { color: var(--dk-ok-text); }
+.pl-row--file[data-change="removed"] .pl-row__name .lai-icon { color: var(--dk-error-text); }
+
+.pl-check { display: flex; align-items: flex-start; gap: var(--sp-2); font-size: var(--fs-small); line-height: var(--lh-small); cursor: pointer; }
+.pl-check .dk-check { flex: none; margin-top: 2px; }
+
+/* A file is text: it is never rendered. */
+.pl-file { margin-top: 0; }
+.pl-file > summary { max-width: 100%; }
+.pl-code {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-md);
+  background: var(--dk-inset);
+  color: var(--dk-text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-y: auto;
+  max-height: 24rem;
+  tab-size: 2;
+}
+.pl-diffbox { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.pl-diffbox__path { margin: 0; font-weight: 600; }
+.pl-diff { padding-inline: 0; }
+.pl-diff__line { display: block; padding-inline: var(--sp-3); }
+.pl-diff__line[data-kind="add"] { background: var(--dk-ok-wash); color: var(--dk-ok-text); }
+.pl-diff__line[data-kind="del"] { background: var(--dk-error-wash); color: var(--dk-error-text); }
+.pl-diff__line[data-kind="hunk"] { color: var(--dk-accent-text); }
+.pl-diff__line[data-kind="file"] { color: var(--dk-muted); }
+
+/* Forms of the sheets. */
+.pl-form { display: flex; flex-direction: column; gap: var(--sp-4); }
+.pl-field { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.pl-field__label { font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 600; }
+.pl-field__help { display: block; font-size: var(--fs-meta); line-height: var(--lh-meta); color: var(--dk-muted); }
+
+@media (max-width: 640px) {
+  .pl-cards { grid-template-columns: minmax(0, 1fr); }
+  .pl-select { width: 100%; }
+  .pl-tile .ad-tile__upgrade { padding-left: var(--sp-4); }
+}

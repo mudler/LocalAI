@@ -42,5 +42,8 @@
   "addon:tables:schema.title": "everyone: the Databases add-on is for designing tables, and their schema is what the person edits",
   "addon:voice:voiceLibrary.api.endpointNote": "developer: the API tab of a voice says which route also takes it",
   "settings:chats_web_searxng_url.desc": "admin: SearXNG answers other programs only with its JSON format on, and its own settings call it that",
-  "p2p:share.needsAccount.body": "admin: the key that cannot share a remote is the one set with this variable when the server started, and the admin must know which key it is"
+  "p2p:share.needsAccount.body": "admin: the key that cannot share a remote is the one set with this variable when the server started, and the admin must know which key it is",
+  "addons:plugins.marketplaces.addDescription": "admin: a plugin marketplace is defined by this file, and the source field takes its address",
+  "addons:plugins.marketplaces.sourceHelp": "admin: a plugin marketplace is defined by this file, and the source field takes its address",
+  "addons:plugins.marketplaces.idHelp": "admin: a plugin marketplace is defined by this file, and the source field takes its address"
 }

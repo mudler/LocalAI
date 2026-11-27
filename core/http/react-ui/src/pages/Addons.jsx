@@ -9,6 +9,7 @@ import AppsView from '../components/addons/AppsView'
 import BrowseView from '../components/addons/BrowseView'
 import LibrariesView from '../components/addons/LibrariesView'
 import HostAccessView from '../components/addons/HostAccessView'
+import PluginsView from '../components/plugins/PluginsView'
 import InstallFromFile, { FileInstallBanner } from '../components/addons/InstallFromFile'
 import { useFileInstall } from '../components/addons/useFileInstall'
 import InstallDialog from '../components/addons/InstallDialog'
@@ -37,8 +38,9 @@ export default function Addons() {
   const [listKey, setListKey] = useState(0)
   const [params, setParams] = useSearchParams()
   const manage = resolveManage(params, isAdmin)
-  const tab = manage ? 'apps' : resolveTab(params.get('tab'), isAdmin)
-  const tabs = visibleTabs(isAdmin)
+  const plugins = hasFeature('plugins')
+  const tab = manage ? 'apps' : resolveTab(params.get('tab'), isAdmin, { plugins })
+  const tabs = visibleTabs(isAdmin, { plugins })
   // Host access is read once here: the tab shows how many approvals wait, and
   // the list of add-ons shows the same banners.
   const grants = useHostGrants({ enabled: Boolean(isAdmin) })
@@ -124,6 +126,7 @@ export default function Addons() {
         {tab === 'browse' && <BrowseView api={addonsApi} adapter={addonsCatalog} queue={queue} />}
         {tab === 'libraries' && <LibrariesView adapter={addonsCatalog} />}
         {tab === 'access' && <HostAccessView grants={grants} />}
+        {tab === 'plugins' && <PluginsView />}
       </div>
       {isAdmin && (
         <InstallDialog

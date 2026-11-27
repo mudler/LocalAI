@@ -4,17 +4,20 @@ import { updateView } from './updateState.js'
 // Tabs: My add-ons is for everyone; Find add-ons and Sources are management and
 // the server checks administration again on every call they make. What the old
 // Installed tab showed is now the Details of an add-on in My add-ons, so an old
-// ?tab=installed address lands on My add-ons.
-export const TABS = ['apps', 'browse', 'libraries', 'access']
+// ?tab=installed address lands on My add-ons. Plugins (compatible with the
+// Claude Code plugin format) is for everyone who has the plugins feature.
+export const TABS = ['apps', 'browse', 'libraries', 'access', 'plugins']
 export const ADMIN_TABS = new Set(['browse', 'libraries', 'access'])
 
-export function resolveTab(requested, isAdmin) {
-  if (requested && TABS.includes(requested) && (isAdmin || !ADMIN_TABS.has(requested))) return requested
+const allowed = (tab, isAdmin, plugins) => (isAdmin || !ADMIN_TABS.has(tab)) && (tab !== 'plugins' || plugins)
+
+export function resolveTab(requested, isAdmin, { plugins = false } = {}) {
+  if (requested && TABS.includes(requested) && allowed(requested, isAdmin, plugins)) return requested
   return 'apps'
 }
 
-export function visibleTabs(isAdmin) {
-  return TABS.filter(tab => isAdmin || !ADMIN_TABS.has(tab))
+export function visibleTabs(isAdmin, { plugins = false } = {}) {
+  return TABS.filter(tab => allowed(tab, isAdmin, plugins))
 }
 
 // The first-run card: shown to someone who can install add-ons, once the list
