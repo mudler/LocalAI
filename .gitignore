@@ -7,6 +7,7 @@ get-sources
 prepare-sources
 /backend/cpp/llama-cpp/grpc-server
 /backend/cpp/llama-cpp/llama.cpp
+/backend/cpp/llama-cpp/llg-check
 /backend/cpp/llama-*
 !backend/cpp/llama-cpp
 /backends

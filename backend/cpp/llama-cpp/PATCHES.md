@@ -100,7 +100,11 @@ translates and compiles each grammar and replays free text, the call the
 template renders, the call glued to text (a trigger inside a token), and a
 call with a wrong argument, token by token on both engines, with a
 clone-and-restore halfway. It fails when a grammar does not translate or
-compile, or when the engines disagree. Run it on every bump:
+compile, or when the engines disagree. CI runs it on every pull request
+that touches `backend/cpp/llama-cpp` (`tests-llama-cpp-llg-templates` in
+`test-extra.yml`), through `llg-template-check.sh`: a CPU build of the pin
+with the patches and llguidance, no gRPC. The same script runs locally
+(`LLGUIDANCE_PREBUILT=<dir>` skips cargo). By hand on a built tree:
 
 ```
 llg_template_grammars_check llama.cpp/models/templates \

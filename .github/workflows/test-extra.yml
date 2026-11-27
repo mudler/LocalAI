@@ -522,6 +522,25 @@ jobs:
           make test-extra-backend-llama-cpp-paged
           make test-extra-backend-llama-cpp-paged-hybrid
           make test-extra-backend-llama-cpp-paged-vision
+  # The tool-call grammar of every chat template in the llama.cpp tree,
+  # translated to llguidance and replayed against GBNF (patches/0008, see
+  # backend/cpp/llama-cpp/PATCHES.md). CPU build of llama.cpp with llguidance,
+  # no gRPC, no image; fails a llama.cpp bump that breaks the translation.
+  tests-llama-cpp-llg-templates:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.llama-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake patch
+          rustup toolchain install stable --profile minimal
+      - name: Translate and replay the template grammars
+        run: bash backend/cpp/llama-cpp/llg-template-check.sh
   tests-llama-cpp-grpc-transcription:
     needs: detect-changes
     if: needs.detect-changes.outputs.llama-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
