@@ -272,7 +272,9 @@
       "cancelled": "Tur, model yanıt vermeden önce iptal edildi.",
       "interrupted": "Sunucu yanıt verirken yeniden başladı.",
       "model_backend_outdated": "\"{{model}}\" modeli başlatılamadı: backend onun için çok eski olabilir.",
-      "model_backend_outdated_anon": "Model başlatılamadı: backend onun için çok eski olabilir."
+      "model_backend_outdated_anon": "Model başlatılamadı: backend onun için çok eski olabilir.",
+      "model_loading": "\"{{model}}\" modeli hâlâ yükleniyor.",
+      "model_loading_anon": "Model hâlâ yükleniyor."
     },
     "hint": {
       "model_backend_missing": "Başka bir model seç veya bir yöneticiden backend'i kurmasını iste.",
@@ -287,7 +289,8 @@
       "timeout": "Yeniden dene veya daha küçük ya da daha hızlı bir model kullan.",
       "cancelled": "Hazır olduğunda yeniden dene.",
       "model_backend_outdated": "Bir yöneticiden backend'i güncellemesini iste, ardından yeniden dene.",
-      "model_backend_outdated_admin": "Backend'i Güncellemeler sayfasından güncelle, ardından yeniden dene."
+      "model_backend_outdated_admin": "Backend'i Güncellemeler sayfasından güncelle, ardından yeniden dene.",
+      "model_loading": "Büyük bir modelin yüklenmesi dakikalar sürebilir. Birkaç dakika sonra yeniden dene."
     },
     "openBackends": "Backend'leri aç",
     "titleInterrupted": "Yanıt yarıda kesildi",
