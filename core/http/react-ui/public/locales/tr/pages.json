@@ -113,8 +113,8 @@
   "viewer": {
     "stopAllowing": "Bu sayfaya izin vermeyi bırak",
     "authorChanged": "{{author}} bu sayfayı değiştirdi. İzin verdiğin sürüm, değişikliği inceleyene kadar çalışmaya devam eder.",
-    "sandboxShared": "Sandbox içinde. Senin olarak, yalnızca {{folder}} içinde çalışır ve ağa ulaşamaz.",
-    "sandboxUser": "Sandbox içinde. Senin olarak, yalnızca kendi klasöründe çalışır ve ağa ulaşamaz."
+    "sandboxShared": "Yalıtılmış. Senin olarak, yalnızca {{folder}} içinde çalışır ve ağa ulaşamaz.",
+    "sandboxUser": "Yalıtılmış. Senin olarak, yalnızca kendi klasöründe çalışır ve ağa ulaşamaz."
   },
   "trust": {
     "title": "\"{{title}}\" açılsın mı?",

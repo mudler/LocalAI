@@ -150,6 +150,25 @@ var allowed = []entry{
 	{"docs/content/administration/troubleshooting.md", "Web ", "the web UI of LocalAI"},
 	{"core/cli/run.go", "Web UI", "the web UI of LocalAI"},
 	{"docs/content/reference/cli-reference.md", "Web UI", "the web UI of LocalAI"},
+	{locales + "tr/collections.json", "sources.title = Web kaynakları", "the web as a kind of source of a collection"},
+	{locales + "tr/chat.json", "steps.verb.websearch = Web'de arandı", "the web as a noun"},
+
+	// Kubernetes the platform that runs LocalAI and its workers, not the
+	// Kubernetes add-on that lets a chat reach a cluster.
+	{ui + "utils/addWorker.js", "'kubernetes'", "the Kubernetes tab of the steps that add a worker"},
+	{ui + "components/swarm/AddWorkerSteps.jsx", "'kubernetes'", "the Kubernetes tab of the steps that add a worker"},
+	{locales, "add.tabs.kubernetes", "the Kubernetes tab of the steps that add a worker"},
+	{locales, "add.token.usesHint", "workers that join from a Kubernetes deployment"},
+	{"docs/content/start/install/kubernetes.md", "Kubernetes", "the page that installs LocalAI on Kubernetes"},
+	{"docs/content/start/install/_index.md", "Kubernetes", "the Kubernetes install method"},
+	{"docs/content/start/install/containers.md", "Kubernetes", "Kubernetes as a platform that runs the container"},
+	{"docs/content/start/_index.md", "Kubernetes", "the Kubernetes install method"},
+	{"docs/content/models/setting-up-models.md", "Kubernetes", "models on a Kubernetes deployment"},
+	{"docs/content/models/private-sources.md", "Kubernetes", "secrets of a Kubernetes deployment"},
+	{"docs/content/administration/troubleshooting.md", "In Kubernetes", "the termination grace period of a Kubernetes deployment"},
+
+	// GitHub the service that hosts a plugin marketplace.
+	{locales, "plugins.marketplaces.sourceHelp", "a plugin marketplace hosted on GitHub: the service, not the add-on"},
 }
 
 var knownDebt = []debt{}
