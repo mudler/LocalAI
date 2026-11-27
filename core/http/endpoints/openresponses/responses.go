@@ -1762,7 +1762,6 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	// Track state for streaming
 	var currentMessageID string
 	var currentContentIndex int
-	var accumulatedText string
 	var lastEmittedToolCallCount int
 	outputIndex := 0
 	inToolCallMode := false
@@ -1813,24 +1812,30 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 			// For tool calls, we need to track accumulated result and parse incrementally
 			// We'll handle this differently - track the full result and parse tool calls
-			accumulatedResult := ""
+			var accumulatedResult functions.StreamOutput
 			tokenCallback := func(token string, tokenUsage backend.TokenUsage) bool {
-				accumulatedResult += token
-				accumulatedText += token
+				accumulatedResult.Write(token)
 
-				// Try to parse tool calls incrementally
-				cleanedResult := functions.CleanupLLMResult(accumulatedResult, cfg.FunctionsConfig)
+				// Try to parse tool calls incrementally. Until the output can
+				// hold one, both parses find none.
+				mayHoldToolCall := accumulatedResult.MayHoldPartialToolCall(cfg.FunctionsConfig)
+				var cleanedResult string
+				var partialResults []functions.FuncCallResults
+				var parseErr error
+				if mayHoldToolCall {
+					cleanedResult = functions.CleanupLLMResult(accumulatedResult.String(), cfg.FunctionsConfig)
 
-				// Determine XML format from config
-				var xmlFormat *functions.XMLToolCallFormat
-				if cfg.FunctionsConfig.XMLFormat != nil {
-					xmlFormat = cfg.FunctionsConfig.XMLFormat
-				} else if cfg.FunctionsConfig.XMLFormatPreset != "" {
-					xmlFormat = functions.GetXMLFormatPreset(cfg.FunctionsConfig.XMLFormatPreset)
+					// Determine XML format from config
+					var xmlFormat *functions.XMLToolCallFormat
+					if cfg.FunctionsConfig.XMLFormat != nil {
+						xmlFormat = cfg.FunctionsConfig.XMLFormat
+					} else if cfg.FunctionsConfig.XMLFormatPreset != "" {
+						xmlFormat = functions.GetXMLFormatPreset(cfg.FunctionsConfig.XMLFormatPreset)
+					}
+
+					// Try XML parsing first
+					partialResults, parseErr = functions.ParseXMLIterative(cleanedResult, xmlFormat, true)
 				}
-
-				// Try XML parsing first
-				partialResults, parseErr := functions.ParseXMLIterative(cleanedResult, xmlFormat, true)
 				if parseErr == nil && len(partialResults) > lastEmittedToolCallCount {
 					// New tool calls detected
 					if !inToolCallMode && currentMessageID != "" {
@@ -1913,7 +1918,10 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				}
 
 				// Only completed JSON calls can be emitted as completed SSE items.
-				jsonResults := parseStreamingJSONToolCalls(cleanedResult)
+				var jsonResults []functions.FuncCallResults
+				if mayHoldToolCall {
+					jsonResults = parseStreamingJSONToolCalls(cleanedResult)
+				}
 				if len(jsonResults) > lastEmittedToolCallCount {
 					for i := lastEmittedToolCallCount; i < len(jsonResults); i++ {
 						tc := jsonResults[i]
@@ -2502,8 +2510,6 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 	// Stream text deltas with reasoning extraction
 	tokenCallback := func(token string, tokenUsage backend.TokenUsage) bool {
-		accumulatedText += token
-
 		var reasoningDelta, contentDelta string
 		goReasoning, goContent := extractor.ProcessToken(token)
 
