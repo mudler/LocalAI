@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 
+	"github.com/mudler/xlog"
+
 	"github.com/mudler/LocalAI/core/services/distributed"
 )
 
@@ -91,9 +93,11 @@ func (g *GalleryService) runPluginOp(op PluginOp, abandon func()) {
 		opType = "plugin_update"
 	}
 	if store != nil {
-		_ = store.Create(&distributed.GalleryOperationRecord{
+		if err := store.Create(&distributed.GalleryOperationRecord{
 			ID: op.ID, GalleryElementName: op.PluginID, OpType: opType, Status: "pending", Cancellable: true,
-		})
+		}); err != nil {
+			xlog.Warn("Failed to create gallery operation record", "op_id", op.ID, "error", err)
+		}
 	}
 	g.UpdateStatus(op.ID, &OpStatus{Message: "starting", GalleryElementName: op.PluginID, Cancellable: true, Upgrade: op.Update})
 	err := runOpHandler(func() error {
