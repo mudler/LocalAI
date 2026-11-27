@@ -18,6 +18,26 @@ export function capacityReading(totalValue, availableValue) {
   return { total, used, available, usagePercent: (used / total) * 100 }
 }
 
+// The GPU memory reading of a node. A node with a VRAM budget offers the
+// budget, not all its VRAM: the frontend already takes the reserve off
+// available_vram, so the budget is the total the bar is drawn against.
+// `detected` is set when the hardware has more than the reading shows (a
+// budget, or a standalone host whose total is capped), so the UI can show
+// both figures.
+export function vramReading(node) {
+  const reported = finiteNumber(node?.total_vram)
+  const budget = finiteNumber(node?.vram_budget_bytes)
+  const total = reported !== null && budget !== null && budget > 0 && budget < reported ? budget : reported
+  const reading = capacityReading(total, node?.available_vram)
+  if (!reading) return null
+  const detected = Math.max(finiteNumber(node?.detected_vram) ?? 0, reported ?? 0)
+  return detected > reading.total ? { ...reading, detected } : reading
+}
+
+function fieldReading(totalField, availableField) {
+  return node => capacityReading(node?.[totalField], node?.[availableField])
+}
+
 export function nodeLifecycleAction(status) {
   if (status === 'healthy') return 'drain'
   if (status === 'draining') return 'resume'
@@ -25,23 +45,27 @@ export function nodeLifecycleAction(status) {
   return null
 }
 
-function capacitySummary(nodes, totalField, availableField) {
+function capacitySummary(nodes, readingOf) {
   let total = 0
   let available = 0
+  let detected = 0
   let reportingCount = 0
 
   for (const node of nodes) {
-    const reading = capacityReading(node?.[totalField], node?.[availableField])
+    const reading = readingOf(node)
     if (!reading) continue
 
     total += reading.total
     available += reading.available
+    detected += reading.detected ?? reading.total
     reportingCount += 1
   }
 
   const used = total - available
   return {
     total,
+    // The hardware behind the total, when budgets hold some of it back.
+    ...(detected > total ? { detected } : {}),
     used,
     available,
     usagePercent: total > 0 ? (used / total) * 100 : 0,
@@ -80,10 +104,13 @@ function cpuSummary(nodes) {
   }
 }
 
-function hasLowCapacity(node, totalField, availableField) {
-  const reading = capacityReading(node?.[totalField], node?.[availableField])
+function hasLowCapacity(node, readingOf) {
+  const reading = readingOf(node)
   return reading !== null && reading.available / reading.total <= 0.1
 }
+
+const RAM = fieldReading('total_ram', 'available_ram')
+const DISK = fieldReading('total_disk', 'available_disk')
 
 export function summarizeFleet(input) {
   const nodes = Array.isArray(input) ? input : []
@@ -112,9 +139,9 @@ export function summarizeFleet(input) {
 
     if (status === 'pending') attention.pending.push(node?.id)
     if (status === 'offline' || status === 'unhealthy') attention.offlineOrUnhealthy.push(node?.id)
-    if (hasLowCapacity(node, 'total_vram', 'available_vram')) attention.lowVRAM.push(node?.id)
-    if (hasLowCapacity(node, 'total_ram', 'available_ram')) attention.lowRAM.push(node?.id)
-    if (hasLowCapacity(node, 'total_disk', 'available_disk')) attention.lowDisk.push(node?.id)
+    if (hasLowCapacity(node, vramReading)) attention.lowVRAM.push(node?.id)
+    if (hasLowCapacity(node, RAM)) attention.lowRAM.push(node?.id)
+    if (hasLowCapacity(node, DISK)) attention.lowDisk.push(node?.id)
   })
 
   const attentionIds = new Set(Object.values(attention).flat())
@@ -123,10 +150,10 @@ export function summarizeFleet(input) {
     health,
     attentionNodeCount: attentionIds.size,
     attention,
-    vram: capacitySummary(nodes, 'total_vram', 'available_vram'),
-    ram: capacitySummary(nodes, 'total_ram', 'available_ram'),
+    vram: capacitySummary(nodes, vramReading),
+    ram: capacitySummary(nodes, RAM),
     cpu: cpuSummary(nodes),
-    disk: capacitySummary(nodes, 'total_disk', 'available_disk'),
+    disk: capacitySummary(nodes, DISK),
   }
 }
 

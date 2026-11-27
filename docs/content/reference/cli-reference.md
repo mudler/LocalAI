@@ -116,6 +116,8 @@ appends `localai-UID/backend-runtime`; the default base is `TMPDIR`.
 | `--upgrade-run-keep` | `200` | Most finished [upgrade runs]({{% relref "/models/upgrade-runs#retention" %}}) kept; the oldest beyond it are removed. `-1` keeps any number | `$LOCALAI_UPGRADE_RUN_KEEP` |
 | `--upgrade-run-retention-days` | `30` | Days to keep finished upgrade runs. `-1` keeps them forever | `$LOCALAI_UPGRADE_RUN_RETENTION_DAYS` |
 | `--model-load-failure-cooldown` | `10s` | After a model load fails, refuse new load attempts for that model for this long (HTTP 503 + `Retry-After`) so a client polling a broken model doesn't respawn a crashing backend every request. Doubles per consecutive failure up to 5m; reset on success. `0` disables | `$LOCALAI_MODEL_LOAD_FAILURE_COOLDOWN`, `$MODEL_LOAD_FAILURE_COOLDOWN` |
+| `--vram-budget` | | Cap the VRAM LocalAI may use for model allocation, as a percentage (`80%`) or an absolute amount (`12GB`). Empty uses all detected VRAM | `$LOCALAI_VRAM_BUDGET` |
+| `--vram-total` | | Total VRAM of this node as an absolute amount (`40GB`, `48GiB`). Replaces GPU detection; use it when the detected VRAM is wrong. `--vram-budget` is then a share of this total. Empty uses detection | `$LOCALAI_VRAM_TOTAL` |
 
 For more information on VRAM management, see [VRAM and Memory Management]({{%relref "/models/vram-management" %}}).
 

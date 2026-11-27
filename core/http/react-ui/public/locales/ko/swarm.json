@@ -219,5 +219,8 @@
       "cluster": "클러스터",
       "default": "기본값"
     }
+  },
+  "detail": {
+    "vramBudgetOf": "예산, {{detected}} 감지됨"
   }
 }

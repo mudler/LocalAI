@@ -357,6 +357,7 @@
     "resources": "Node resources",
     "disk": "Models disk free",
     "noData": "No data",
+    "vramBudgetOf": "Budget, {{detected}} detected",
     "load": "{{load}} load (1m)",
     "inFlight": "In flight",
     "tabs": "Node sections",

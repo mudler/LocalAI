@@ -137,6 +137,10 @@ func GPUs() ([]*gpu.GraphicsCard, error) {
 }
 
 func TotalAvailableVRAM() (uint64, error) {
+	if total := VRAMTotalOverride(); total > 0 {
+		capped, _ := DefaultVRAMBudget().Apply(total, total)
+		return capped, nil
+	}
 	gpus, _ := GPUs()
 	if total := totalVRAM(GetGPUMemoryUsage(), gpus); total > 0 {
 		capped, _ := DefaultVRAMBudget().Apply(total, total)
@@ -146,21 +150,20 @@ func TotalAvailableVRAM() (uint64, error) {
 }
 
 // totalVRAM prefers binary detection (nvidia-smi/rocm-smi report true
-// per-card VRAM) over ghw, whose per-card memory can reflect NUMA node RAM
-// on some hosts -- the same order as MinPerGPUVRAM. ghw remains the
-// fallback for images without the vendor tools.
+// per-card VRAM) over ghw, whose per-card memory is the system RAM of the
+// card's NUMA node -- the same order as MinPerGPUVRAM. ghw remains the
+// fallback for images without the vendor tools, except for cards that
+// cannot share system memory (see ghwCardMemory).
 func totalVRAM(infos []GPUMemoryInfo, cards []*gpu.GraphicsCard) uint64 {
 	var total uint64
-	for _, info := range infos {
+	for _, info := range plausibleDevices(infos) {
 		total += info.TotalVRAM
 	}
 	if total > 0 {
 		return total
 	}
-	for _, card := range cards {
-		if card != nil && card.Node != nil && card.Node.Memory != nil && card.Node.Memory.TotalUsableBytes > 0 {
-			total += uint64(card.Node.Memory.TotalUsableBytes)
-		}
+	for _, mem := range ghwCardMemory(cards) {
+		total += mem
 	}
 	return total
 }
@@ -185,30 +188,23 @@ func MinPerGPUVRAM() (uint64, error) {
 
 // MinPerGPUTotalVRAM is MinPerGPUVRAM before the VRAM budget: the physical
 // VRAM of the smallest GPU, which does not change while the process runs.
+// With LOCALAI_VRAM_TOTAL set, it is that total split over the GPUs.
 func MinPerGPUTotalVRAM() uint64 {
+	infos := plausibleDevices(GetGPUMemoryUsage())
+	if total := VRAMTotalOverride(); total > 0 {
+		cards, _ := GPUs()
+		return perGPUOverride(total, infos, gpuCountForOverride(infos, cards))
+	}
+
 	// Prefer per-device binary detection (nvidia-smi/rocm-smi report true
-	// per-card VRAM); ghw's per-card memory can reflect NUMA node RAM on some
-	// hosts, which is why TotalAvailableVRAM treats it as a sum.
-	if infos := GetGPUMemoryUsage(); len(infos) > 0 {
-		if v := minNonZeroVRAM(infos); v > 0 {
-			return v
-		}
+	// per-card VRAM); ghw's per-card memory is NUMA node RAM.
+	if v := minNonZeroVRAM(infos); v > 0 {
+		return v
 	}
 
 	// Fallback: ghw per-card memory, taking the minimum non-zero card.
 	if gpus, err := GPUs(); err == nil {
-		var min uint64
-		for _, gpu := range gpus {
-			if gpu == nil || gpu.Node == nil || gpu.Node.Memory == nil {
-				continue
-			}
-			if b := gpu.Node.Memory.TotalUsableBytes; b > 0 {
-				if u := uint64(b); min == 0 || u < min {
-					min = u
-				}
-			}
-		}
-		return min
+		return minGHWCardMemory(gpus)
 	}
 
 	return 0
@@ -411,12 +407,14 @@ func GetGPUMemoryUsage() []GPUMemoryInfo {
 
 // GetGPUAggregateInfo returns aggregate GPU information across all GPUs
 func GetGPUAggregateInfo() GPUAggregateInfo {
-	return aggregateGPUInfo(GetGPUMemoryUsage(), DefaultVRAMBudget())
+	return aggregateGPUInfo(GetGPUMemoryUsage(), VRAMTotalOverride(), DefaultVRAMBudget())
 }
 
-// aggregateGPUInfo sums the GPUs and applies the VRAM budget b.
-func aggregateGPUInfo(gpus []GPUMemoryInfo, b vrambudget.Budget) GPUAggregateInfo {
+// aggregateGPUInfo sums the GPUs, replaces the total with totalOverride when
+// it is set (LOCALAI_VRAM_TOTAL), and then applies the VRAM budget b.
+func aggregateGPUInfo(gpus []GPUMemoryInfo, totalOverride uint64, b vrambudget.Budget) GPUAggregateInfo {
 	var aggregate GPUAggregateInfo
+	gpus = plausibleDevices(gpus)
 	aggregate.GPUCount = len(gpus)
 
 	for _, gpu := range gpus {
@@ -431,6 +429,10 @@ func aggregateGPUInfo(gpus []GPUMemoryInfo, b vrambudget.Budget) GPUAggregateInf
 	if aggregate.TotalVRAM > 0 {
 		aggregate.UsagePercent = float64(aggregate.UsedVRAM) / float64(aggregate.TotalVRAM) * 100
 	}
+
+	// The operator's total wins over detection; the budget below is a share
+	// of it.
+	aggregate = applyVRAMTotalOverride(aggregate, totalOverride)
 
 	// Apply the process-wide allocation cap so scheduling/hardware-default
 	// consumers see budgeted capacity, not physical capacity.
@@ -1157,7 +1159,9 @@ func getNVIDIAIntegratedGPUMemory() []GPUMemoryInfo {
 func GetResourceInfo() ResourceInfo {
 	gpus := GetGPUMemoryUsage()
 
-	if len(gpus) > 0 {
+	// An operator-set VRAM total says the host has GPU memory even when no
+	// tool lists the devices.
+	if len(gpus) > 0 || VRAMTotalOverride() > 0 {
 		// GPU available - return GPU info, plus system RAM for the UI and CPU offload (#12834)
 		aggregate := GetGPUAggregateInfo()
 		ramInfo, err := GetSystemRAMInfo()

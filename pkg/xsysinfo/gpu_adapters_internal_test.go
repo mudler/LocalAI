@@ -123,7 +123,7 @@ var _ = Describe("aggregateGPUInfo", func() {
 			{TotalVRAM: 8 * gib, UsageUnknown: true},
 		}
 
-		aggregate := aggregateGPUInfo(gpus, budget)
+		aggregate := aggregateGPUInfo(gpus, 0, budget)
 
 		Expect(aggregate.UsageUnknown).To(BeTrue())
 		Expect(aggregate.TotalVRAM).To(BeEquivalentTo(8 * gib))
@@ -139,7 +139,7 @@ var _ = Describe("aggregateGPUInfo", func() {
 			{TotalVRAM: 8 * gib, UsedVRAM: 6 * gib, FreeVRAM: 2 * gib},
 		}
 
-		aggregate := aggregateGPUInfo(gpus, vrambudget.Budget{})
+		aggregate := aggregateGPUInfo(gpus, 0, vrambudget.Budget{})
 
 		Expect(aggregate.UsageUnknown).To(BeFalse())
 		Expect(aggregate.FreeVRAM).To(BeEquivalentTo(8 * gib))

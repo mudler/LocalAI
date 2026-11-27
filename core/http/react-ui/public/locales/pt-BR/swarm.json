@@ -219,5 +219,8 @@
       "cluster": "Cluster",
       "default": "Padrão"
     }
+  },
+  "detail": {
+    "vramBudgetOf": "Orçamento, {{detected}} detectados"
   }
 }

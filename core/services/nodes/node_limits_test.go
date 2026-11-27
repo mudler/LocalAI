@@ -90,6 +90,13 @@ var _ = Describe("capAvailable", func() {
 		Expect(capAvailable(20*gb, 0, 24*gb)).To(Equal(20 * gb))
 		Expect(capAvailable(20*gb, 12*gb, 0)).To(Equal(12 * gb))
 	})
+
+	It("clamps the scheduling capacity of a node with a 40GB budget on a wrong 188 GiB total (#13531)", func() {
+		const detected = uint64(202325295104)
+		ceiling := (&NodeRegistry{}).resolveVRAMBudgetBytes("40GB", detected)
+		Expect(ceiling).To(Equal(40 * gb))
+		Expect(capAvailable(detected, ceiling, detected)).To(Equal(40 * gb))
+	})
 })
 
 var _ = Describe("Node limits in the registry", func() {

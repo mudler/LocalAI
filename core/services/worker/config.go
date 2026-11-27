@@ -96,6 +96,10 @@ type Config struct {
 	// enforces it against the raw VRAM this worker reports. Empty = no cap.
 	VRAMBudget string `env:"LOCALAI_VRAM_BUDGET" help:"Cap VRAM used for model allocation on this worker node, as a percentage (e.g. 80%) or absolute amount (e.g. 12GB)." group:"registration"`
 
+	// VRAMTotal sets the total VRAM this worker reports ("40GB"), overriding
+	// GPU detection. VRAMBudget, when set, is resolved against it.
+	VRAMTotal string `env:"LOCALAI_VRAM_TOTAL" help:"Total VRAM of this worker as an absolute amount (e.g. 40GB or 48GiB). Overrides GPU detection; use it when the detected VRAM is wrong. LOCALAI_VRAM_BUDGET then caps the share used for placement." group:"registration"`
+
 	// The memory settings of this node. Each one, when set, wins over the
 	// cluster value of Settings > Models in memory for this node; an admin
 	// override on the Nodes page wins over it. Empty: the cluster value.

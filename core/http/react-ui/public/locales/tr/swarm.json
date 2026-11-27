@@ -357,6 +357,7 @@
     "resources": "Düğüm kaynakları",
     "disk": "Model diski boş alanı",
     "noData": "Veri yok",
+    "vramBudgetOf": "Bütçe, {{detected}} algılandı",
     "load": "{{load}} yük (1 dk)",
     "inFlight": "İşlemde",
     "tabs": "Düğüm bölümleri",

@@ -8,7 +8,7 @@
 // these functions can see, so every answer that depends on that says so
 // instead of guessing.
 
-import { capacityReading, summarizeFleet } from './nodeFleet.js'
+import { capacityReading, summarizeFleet, vramReading } from './nodeFleet.js'
 
 // ---- State ------------------------------------------------------------------
 
@@ -55,7 +55,7 @@ export function attentionOf(nodes) {
 // The memory a node offers for models: GPU memory when it reports any, system
 // memory otherwise. Null when the node reports neither.
 export function memoryOf(node) {
-  const vram = capacityReading(node?.total_vram, node?.available_vram)
+  const vram = vramReading(node)
   if (vram) return { kind: 'gpu', ...vram }
   const ram = capacityReading(node?.total_ram, node?.available_ram)
   if (ram) return { kind: 'ram', ...ram }

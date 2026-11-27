@@ -219,5 +219,8 @@
       "cluster": "Cluster",
       "default": "Bawaan"
     }
+  },
+  "detail": {
+    "vramBudgetOf": "Anggaran, {{detected}} terdeteksi"
   }
 }

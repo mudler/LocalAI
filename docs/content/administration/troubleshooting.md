@@ -248,6 +248,24 @@ LOCALAI_FORCE_META_BACKEND_CAPABILITY=nvidia local-ai run
 # Options: default, nvidia, amd, intel
 ```
 
+### Wrong VRAM Total Detected
+
+**Symptoms:** the startup log line `Total available VRAM` or the Nodes page shows far more GPU memory than the cards have, often close to the system RAM of the host.
+
+LocalAI reads per-GPU VRAM from the vendor tools (`nvidia-smi`, `rocm-smi`, `xpu-smi`). When they give no figure, it can only fall back to the memory that the PCI enumeration attributes to the card, which is the system RAM of the card's NUMA node. LocalAI does not use that figure for NVIDIA cards, and logs a warning instead.
+
+1. Check that the vendor tool works in the same environment as LocalAI:
+   ```bash
+   docker exec <container> nvidia-smi --query-gpu=index,name,memory.total,memory.used,memory.free --format=csv,noheader,nounits
+   ```
+   For NVIDIA containers, the `utility` driver capability puts `nvidia-smi` into the container (`NVIDIA_DRIVER_CAPABILITIES=compute,utility`, or `capabilities: [gpu, utility]` in Docker Compose). The LocalAI images set it by default.
+2. Start with `--log-level=debug` and look for `nvidia-smi failed` or a warning that names the detection source.
+3. Until detection works, set the total yourself:
+   ```bash
+   LOCALAI_VRAM_TOTAL=40GB
+   ```
+   This is different from `LOCALAI_VRAM_BUDGET`, which is the share of the total LocalAI may use. See [VRAM Budget]({{%relref "/models/vram-management#overriding-the-detected-total" %}}).
+
 ### Out of Memory (OOM)
 
 **Symptoms:** Model loading fails or the process is killed by the OS.

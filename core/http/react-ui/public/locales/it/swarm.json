@@ -219,5 +219,8 @@
       "cluster": "Cluster",
       "default": "Predefinito"
     }
+  },
+  "detail": {
+    "vramBudgetOf": "Budget, {{detected}} rilevati"
   }
 }

@@ -14,9 +14,21 @@ export function hostAsNode(resources) {
   const node = { id: 'local', name: 'This machine', status: 'healthy' }
 
   const gpus = Array.isArray(resources.gpus) ? resources.gpus : []
-  if (resources.type === 'gpu' && gpus.length > 0) {
-    node.total_vram = gpus.reduce((sum, gpu) => sum + (finite(gpu?.total_vram) ?? 0), 0)
-    node.available_vram = gpus.reduce((sum, gpu) => sum + (finite(gpu?.free_vram) ?? 0), 0)
+  const aggregate = resources.aggregate
+  const aggregateTotal = finite(aggregate?.total_memory)
+  if (resources.type === 'gpu' && (gpus.length > 0 || aggregateTotal > 0)) {
+    const detected = gpus.reduce((sum, gpu) => sum + (finite(gpu?.total_vram) ?? 0), 0)
+    // The aggregate is what LocalAI sizes models against: the VRAM total
+    // setting replaces detection in it, and the VRAM budget caps it. The
+    // per-device figures are what the hardware reports.
+    if (aggregateTotal > 0) {
+      node.total_vram = aggregateTotal
+      if (!aggregate.usage_unknown) node.available_vram = finite(aggregate.free_memory) ?? 0
+      if (detected > aggregateTotal) node.detected_vram = detected
+    } else {
+      node.total_vram = detected
+      node.available_vram = gpus.reduce((sum, gpu) => sum + (finite(gpu?.free_vram) ?? 0), 0)
+    }
   }
 
   const ram = resources.ram

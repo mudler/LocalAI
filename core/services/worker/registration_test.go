@@ -102,6 +102,23 @@ var _ = Describe("Worker registration body", func() {
 		Expect(body["total_vram"]).To(Equal(rawTotal))
 	})
 
+	It("reports the LOCALAI_VRAM_TOTAL figure instead of detection, with the budget as a string", func() {
+		// #13531: detection read NUMA node RAM as VRAM. The operator's total
+		// replaces it; the budget stays a string the frontend resolves.
+		xsysinfo.ApplyVRAMTotalSetting("40GB")
+		DeferCleanup(func() { xsysinfo.SetVRAMTotalOverride(0) })
+
+		body := (&Config{VRAMBudget: "50%"}).registrationBody()
+		Expect(body["total_vram"]).To(Equal(uint64(40_000_000_000)))
+		Expect(body["vram_budget"]).To(Equal("50%"))
+
+		// No tool reports usage on such a host: the heartbeat leaves the
+		// frontend's available VRAM alone instead of claiming it is all free.
+		if len(xsysinfo.GetGPUMemoryUsage()) == 0 {
+			Expect((&Config{}).heartbeatBody()).ToNot(HaveKey("available_vram"))
+		}
+	})
+
 	It("reports RAM when GPU memory is visible", func() {
 		totalAvailableVRAM = func() (uint64, error) {
 			return 24_000, nil

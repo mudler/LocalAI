@@ -82,6 +82,28 @@ func Parse(s string) (Budget, error) {
 	return Budget{absolute: uint64(v)}, nil
 }
 
+// ParseSize parses an absolute amount of memory: "40GB", "48GiB", "12000MB"
+// or a whole number of bytes. Empty input returns 0. A percentage or a
+// fraction is an error: it says how much of a total to use, not what the
+// total is.
+func ParseSize(s string) (uint64, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, nil
+	}
+	if strings.HasSuffix(s, "%") {
+		return 0, fmt.Errorf("invalid size %q: a percentage is not an amount", s)
+	}
+	b, err := Parse(s)
+	if err != nil {
+		return 0, fmt.Errorf("invalid size %q", s)
+	}
+	if b.fraction > 0 {
+		return 0, fmt.Errorf("invalid size %q: a fraction is not an amount", s)
+	}
+	return b.absolute, nil
+}
+
 func fromFraction(f float64, orig string) (Budget, error) {
 	if f <= 0 {
 		return Budget{}, nil // 0% == no cap
