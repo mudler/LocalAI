@@ -203,7 +203,7 @@ func RequireFeature(db *gorm.DB, feature string) echo.MiddlewareFunc {
 			}
 			val, exists := perm.Permissions[feature]
 			if !exists {
-				if !isDefaultOnFeature(feature) {
+				if !isDefaultOnFeature(db, feature) {
 					return c.JSON(http.StatusForbidden, schema.ErrorResponse{
 						Error: &schema.APIError{
 							Message: "feature not enabled for your account",
@@ -343,7 +343,7 @@ func RequireRouteFeature(db *gorm.DB) echo.MiddlewareFunc {
 			}
 			val, exists := perm.Permissions[feature]
 			if !exists {
-				if !isDefaultOnFeature(feature) {
+				if !isDefaultOnFeature(db, feature) {
 					return c.JSON(http.StatusForbidden, schema.ErrorResponse{
 						Error: &schema.APIError{
 							Message: "feature not enabled for your account: " + feature,

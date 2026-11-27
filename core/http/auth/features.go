@@ -509,61 +509,68 @@ var RouteFeatureRegistry = []RouteFeature{
 
 // FeatureMeta describes a feature for the admin API/UI.
 type FeatureMeta struct {
-	Key          string `json:"key"`
-	Label        string `json:"label"`
-	DefaultValue bool   `json:"default"`
+	Key   string `json:"key"`
+	Label string `json:"label"`
+	// DefaultValue is the value a user gets when their permission map does
+	// not name the feature. The metas functions give the built-in default;
+	// EffectiveFeatureMetas gives the one in force.
+	DefaultValue bool `json:"default"`
+	// ConfigurableDefault marks a feature whose default an administrator may
+	// change (PUT /api/auth/admin/features/:feature/default).
+	ConfigurableDefault bool `json:"configurable"`
 }
 
 // AgentFeatureMetas returns metadata for agent features.
 func AgentFeatureMetas() []FeatureMeta {
 	return []FeatureMeta{
-		{FeatureCollections, "Collections", false},
-		{FeatureLocalAIAssistant, "LocalAI Assistant", false},
-		{FeatureAgents, "Saved agents", false},
-		{FeatureTriggers, "Scheduled triggers", false},
-		{FeatureConnectors, "Chat connectors", false},
-		{FeatureMCPJobs, "Agent tasks and jobs", false},
-		{FeaturePages, "Pages (HTML pages in the workspace)", false},
+		{FeatureCollections, "Collections", false, false},
+		{FeatureLocalAIAssistant, "LocalAI Assistant", false, false},
+		{FeatureAgents, "Saved agents", false, false},
+		{FeatureTriggers, "Scheduled triggers", false, false},
+		{FeatureConnectors, "Chat connectors", false, false},
+		{FeatureMCPJobs, "Agent tasks and jobs", false, false},
+		{FeaturePages, "Pages (HTML pages in the workspace)", false, false},
 	}
 }
 
 // GeneralFeatureMetas returns metadata for general features.
 func GeneralFeatureMetas() []FeatureMeta {
 	return []FeatureMeta{
-		{FeatureAddons, "Addons", false},
-		{FeatureFineTuning, "Fine-Tuning", false},
-		{FeatureQuantization, "Quantization", false},
+		{FeatureAddons, "Addons", false, false},
+		{FeatureFineTuning, "Fine-Tuning", false, false},
+		{FeatureQuantization, "Quantization", false, false},
+		{Key: FeatureP2PPair, Label: "Pair own devices (P2P)", DefaultValue: false, ConfigurableDefault: true},
 	}
 }
 
 // APIFeatureMetas returns metadata for API endpoint features.
 func APIFeatureMetas() []FeatureMeta {
 	return []FeatureMeta{
-		{FeatureChat, "Chat Completions", true},
-		{FeatureImages, "Image Generation", true},
-		{FeatureAudioSpeech, "Audio Speech / TTS", true},
-		{FeatureAudioTranscription, "Audio Transcription", true},
-		{FeatureAudioDiarization, "Audio Diarization", true},
-		{FeatureAudioClassification, "Audio Classification", true},
-		{FeatureVAD, "Voice Activity Detection", true},
-		{FeatureDetection, "Detection", true},
-		{FeatureVideo, "Video Generation", true},
-		{Feature3D, "3D Generation", true},
-		{FeatureMotion, "Motion Capture", true},
-		{FeatureChats, "Chats", true},
-		{FeatureEmbeddings, "Embeddings", true},
-		{FeatureSound, "Sound Generation", true},
-		{FeatureRealtime, "Realtime", true},
-		{FeatureModeration, "Moderation", true},
-		{FeatureRerank, "Rerank", true},
-		{FeatureTokenize, "Tokenize", true},
-		{FeatureMCP, "MCP", true},
-		{FeatureStores, "Stores", true},
-		{FeatureFaceRecognition, "Face Recognition", true},
-		{FeatureVoiceRecognition, "Voice Recognition", true},
-		{FeatureAudioTransform, "Audio Transform", true},
-		{FeaturePIIFilter, "PII Analyze / Redact", true},
-		{FeatureDecisions, "Decisions", true},
-		{FeatureForecast, "Forecast", true},
+		{FeatureChat, "Chat Completions", true, false},
+		{FeatureImages, "Image Generation", true, false},
+		{FeatureAudioSpeech, "Audio Speech / TTS", true, false},
+		{FeatureAudioTranscription, "Audio Transcription", true, false},
+		{FeatureAudioDiarization, "Audio Diarization", true, false},
+		{FeatureAudioClassification, "Audio Classification", true, false},
+		{FeatureVAD, "Voice Activity Detection", true, false},
+		{FeatureDetection, "Detection", true, false},
+		{FeatureVideo, "Video Generation", true, false},
+		{Feature3D, "3D Generation", true, false},
+		{FeatureMotion, "Motion Capture", true, false},
+		{FeatureChats, "Chats", true, false},
+		{FeatureEmbeddings, "Embeddings", true, false},
+		{FeatureSound, "Sound Generation", true, false},
+		{FeatureRealtime, "Realtime", true, false},
+		{FeatureModeration, "Moderation", true, false},
+		{FeatureRerank, "Rerank", true, false},
+		{FeatureTokenize, "Tokenize", true, false},
+		{FeatureMCP, "MCP", true, false},
+		{FeatureStores, "Stores", true, false},
+		{FeatureFaceRecognition, "Face Recognition", true, false},
+		{FeatureVoiceRecognition, "Voice Recognition", true, false},
+		{FeatureAudioTransform, "Audio Transform", true, false},
+		{FeaturePIIFilter, "PII Analyze / Redact", true, false},
+		{FeatureDecisions, "Decisions", true, false},
+		{FeatureForecast, "Forecast", true, false},
 	}
 }

@@ -36,7 +36,7 @@ func InitDB(databaseURL string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to open auth database: %w", err)
 	}
 
-	if err := db.AutoMigrate(&User{}, &Session{}, &UserAPIKey{}, &UsageRecord{}, &UserPermission{}, &InviteCode{}, &ClientPairingCode{}, &QuotaRule{}, &DataMigration{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Session{}, &UserAPIKey{}, &UsageRecord{}, &UserPermission{}, &InviteCode{}, &ClientPairingCode{}, &QuotaRule{}, &DataMigration{}, &FeatureDefaultOverride{}); err != nil {
 		return nil, fmt.Errorf("failed to migrate auth tables: %w", err)
 	}
 	// The peer-to-peer invites and devices live in the same database.

@@ -168,7 +168,7 @@ func validateActor(ctx context.Context, db *gorm.DB, a contract.Actor, admin boo
 	}
 	on, set := p.Permissions[feature]
 	if !set && !strict {
-		on = isDefaultOnFeature(feature)
+		on = isDefaultOnFeature(db, feature)
 	}
 	if !on {
 		return errAddonIdentity
