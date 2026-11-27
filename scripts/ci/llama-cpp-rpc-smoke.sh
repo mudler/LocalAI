@@ -52,5 +52,9 @@ BACKEND_IMAGE="$IMAGE" \
 BACKEND_TEST_CAPS=health,load,predict \
   make -C "$REPO_ROOT" test-extra-backend
 
-grep -q 'Accepted client connection' "$LOG" || { echo "the gRPC server never connected to the RPC worker" >&2; exit 1; }
+# The port probes above also open connections; the worker logs those as
+# "Expected HELLO command". Only a real ggml RPC client gets past the hello.
+accepted=$(grep -c 'Accepted client connection' "$LOG" || true)
+probes=$(grep -c 'Expected HELLO command' "$LOG" || true)
+[ "$accepted" -gt "$probes" ] || { echo "the gRPC server never connected to the RPC worker" >&2; exit 1; }
 echo "PASS: model loaded and ran through the RPC worker"
