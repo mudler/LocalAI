@@ -176,16 +176,8 @@ func (a *Application) pluginConnectors() plugins.ConnectorSync {
 // service.
 type pluginConnectorSync struct{ s *mcpconns.Service }
 
-func pluginServers(in []plugins.RemoteServer) []mcpconns.PluginServer {
-	out := make([]mcpconns.PluginServer, len(in))
-	for i, r := range in {
-		out[i] = mcpconns.PluginServer{Name: r.Name, URL: r.URL, Headers: r.Headers}
-	}
-	return out
-}
-
 func (p pluginConnectorSync) SyncPluginConnectors(ctx context.Context, principal, installID, plugin, digest string, servers []plugins.RemoteServer) error {
-	return p.s.SyncPlugin(ctx, principal, installID, plugin, digest, pluginServers(servers))
+	return p.s.SyncPlugin(ctx, principal, installID, plugin, digest, plugins.ConnectorServers(servers))
 }
 
 func (p pluginConnectorSync) DropPluginConnectors(ctx context.Context, principal, installID string, all bool) error {
@@ -193,7 +185,7 @@ func (p pluginConnectorSync) DropPluginConnectors(ctx context.Context, principal
 }
 
 func (p pluginConnectorSync) ResyncPluginConnectors(ctx context.Context, installID, plugin, digest string, servers []plugins.RemoteServer) error {
-	return p.s.ResyncPlugin(ctx, installID, plugin, digest, pluginServers(servers))
+	return p.s.ResyncPlugin(ctx, installID, plugin, digest, plugins.ConnectorServers(servers))
 }
 
 // pluginsAllowed reports whether a user holds the plugins feature, the rule

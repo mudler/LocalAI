@@ -10,7 +10,6 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/plugins"
 	"github.com/mudler/LocalAI/core/services/studio/files"
-	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 )
@@ -161,11 +160,7 @@ func (s *Service) pluginConnectorInstalls(ctx context.Context, p string, rec ses
 		if !sync || s.d.MCPConnectors == nil {
 			continue
 		}
-		list := make([]mcpconns.PluginServer, len(servers))
-		for i, r := range servers {
-			list[i] = mcpconns.PluginServer{Name: r.Name, URL: r.URL, Headers: r.Headers}
-		}
-		if err := s.d.MCPConnectors.SyncPlugin(ctx, p, ap.InstallID, ap.Name, ap.Digest, list); err != nil {
+		if err := s.d.MCPConnectors.SyncPlugin(ctx, p, ap.InstallID, ap.Name, ap.Digest, plugins.ConnectorServers(servers)); err != nil {
 			s.log.Warn("studio: connectors of a plugin", "chat", rec.ID, "install", ap.InstallID, "error", err)
 		}
 	}

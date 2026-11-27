@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/plugins/content"
 	"github.com/mudler/LocalAI/core/services/plugins/store"
+	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 )
 
 // GuestRoot is where a chat sees the packages: CLAUDE_PLUGIN_ROOT of a
@@ -44,6 +45,16 @@ type RemoteServer struct {
 	Name    string
 	URL     string
 	Headers map[string]string
+}
+
+// ConnectorServers returns servers in the form the MCP connectors service
+// takes.
+func ConnectorServers(servers []RemoteServer) []mcpconns.PluginServer {
+	out := make([]mcpconns.PluginServer, len(servers))
+	for i, r := range servers {
+		out[i] = mcpconns.PluginServer(r)
+	}
+	return out
 }
 
 // SkippedServer is an MCP server of a plugin that gets no connector, with
