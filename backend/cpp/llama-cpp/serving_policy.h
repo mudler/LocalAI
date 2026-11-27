@@ -252,4 +252,24 @@ inline bool should_attach(int32_t n_own, int32_t n_other) {
     return n_other >= paged_min_attach && n_other > n_own;
 }
 
+// Whether speculative drafting is paused, with hysteresis: it pauses when more
+// than n_max streams decode and resumes only when at most n_max - n_max/4 do
+// (at least one fewer), so a count that hovers at the limit does not flip it
+// every step. n_max <= 0 never pauses.
+inline bool spec_paused(bool paused, int32_t n_streams, int32_t n_max) {
+    if (n_max <= 0) {
+        return false;
+    }
+    if (!paused) {
+        return n_streams > n_max;
+    }
+    return n_streams > n_max - std::max((int32_t) 1, n_max / 4);
+}
+
+// Default of spec_max_streams: drafting pauses above this many decoding streams.
+constexpr int default_spec_max_streams = 4;
+
+// N-gram drafting used by default when a model has no draft model: 0 ngram-simple, 1 ngram-mod.
+constexpr int default_ngram_type = 1;
+
 } // namespace serving_policy

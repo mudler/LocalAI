@@ -740,6 +740,9 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     bool cont_batching_off = false;
     // Prefix sharing between live slots (serving_policy.h).
     std::optional<bool> slot_attach;
+    // Load-adaptive drafting and the n-gram drafting default (serving_policy.h).
+    std::optional<int> spec_max_streams;
+    bool spec_type_set = false; // the model chose its drafting, so no n-gram default
 
     // Initialize fit_params options (can be overridden by options)
     // fit_params: whether to auto-adjust params to fit device memory (default: true as in llama.cpp)
@@ -909,6 +912,12 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 slot_attach = *v;
             } else {
                 SRV_WRN("%s: ignoring invalid value '%s' (expected true or false)\n", optname, optval_str.c_str());
+            }
+        } else if (!strcmp(optname, "spec_max_streams")) {
+            if (const auto n = llama_grpc::parse_non_negative_int(optval_str)) {
+                spec_max_streams = *n;
+            } else {
+                SRV_WRN("spec_max_streams: ignoring invalid value '%s' (expected a non-negative integer)\n", optval_str.c_str());
             }
         } else if (!strcmp(optname, "paged_preempt")) {
             if (const auto v = llama_grpc::parse_switch(optval_str)) {
@@ -1294,6 +1303,9 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             auto parsed = common_speculative_types_from_names(names);
             if (!parsed.empty()) {
                 params.speculative.types = parsed;
+            }
+            if (!names.empty()) {
+                spec_type_set = true;
             }
         } else if (!strcmp(optname, "spec_n_max") || !strcmp(optname, "draft_max")) {
             if (optval != NULL) {
@@ -1973,6 +1985,17 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         params.prefill_budget    = prefill_budget.value_or(serving_policy::default_prefill_budget);
         params.kv_output_reserve = kv_output_reserve;
         params.paged_attach      = paged.on && slot_attach.value_or(true);
+        params.spec_max_streams  = spec_max_streams.value_or(serving_policy::default_spec_max_streams);
+        // Without a draft model, draft from n-grams of the context: free when it
+        // misses, and paused under load by spec_max_streams. spec_type:none opts out.
+        // Not for multimodal, embedding or score models: their batches carry embeddings or no sampling.
+        if (!spec_type_set && request->draftmodel().empty() && request->mmproj().empty() && !request->embeddings() &&
+            !request->enablescore() &&
+            (params.speculative.types.empty() ||
+             (params.speculative.types.size() == 1 && params.speculative.types[0] == COMMON_SPECULATIVE_TYPE_NONE))) {
+            params.speculative.types = { serving_policy::default_ngram_type == 0 ? COMMON_SPECULATIVE_TYPE_NGRAM_SIMPLE
+                                                                                  : COMMON_SPECULATIVE_TYPE_NGRAM_MOD };
+        }
         // The slots share one pool, so with a single slot paged serving does
         // nothing: it defaults to more. An explicit parallel (the options,
         // LLAMACPP_PARALLEL or a passthrough flag) always wins.
@@ -1994,6 +2017,8 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     (void) kv_output_reserve;
     (void) cont_batching_off;
     (void) slot_attach;
+    (void) spec_max_streams;
+    (void) spec_type_set;
 #endif
 
 #ifndef LOCALAI_LLAMA_CPP_NO_SCORE_TASK

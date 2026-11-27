@@ -51,8 +51,9 @@ Line numbers drift with every bump. Find each hook by the grep anchor.
 | H5 | `paged_preempt_pass`, called after `batch.clear()` in `pre_decode()` | When decode plus the rest of the admitted prompts need more cells than the pool has, drop the cached cells of idle or waiting slots. With `paged_preempt`, then preempt the youngest running slot until the step fits or one slot is left. A request preempted `paged_max_preemptions` times (2) is skipped while another can go. |
 | H6 | `paged_resume`, `paged_resume_fill` | A preempted slot keeps its text tokens in `paged_resume`, loses its cells, waits for admission, decodes the tokens again without outputs, then generates on. Its sampler and grammar keep their state. |
 | H7 | `paged_attach`, called before `pos_next = slot.prompt.tokens.pos_next(n_past)` in the `SLOT_STATE_STARTED` branch | Prefix sharing: when another slot (busy or idle) holds a longer prefix of the new prompt, at least `paged_min_attach` (256) tokens, the slot drops its own cells and `seq_cp`s that prefix. Off for SWA, recurrent and hybrid memory, multimodal, draft models, aLoRA, shared-prefix children and `n_cache_reuse`. |
+| H8 | `spec_paused_now` in `pre_decode()` | Drafting pauses when more than `spec_max_streams` slots decode and resumes with hysteresis (`serving_policy::spec_paused`). n-gram drafting (no draft model) is resumable: the tables are rebuilt after a resume. |
 
-A slot that cannot be resumed (speculative decoding or MTP, a multimodal
+A slot that cannot be resumed (a draft model or MTP, a multimodal
 prompt, a score parent or child, recurrent or hybrid memory, aLoRA) is
 preempted only when no resumable slot is left. It fails with the retryable
 error "KV pool full, preempted; retry the request" (HTTP 503 class). Each

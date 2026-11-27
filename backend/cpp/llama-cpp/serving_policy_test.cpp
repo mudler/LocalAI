@@ -234,6 +234,25 @@ static void test_attach() {
     EXPECT(should_attach(300, 600), "longer than the own cache");
 }
 
+static void test_spec_pause() {
+    EXPECT(!spec_paused(false, 100, 0), "0 never pauses");
+    EXPECT(!spec_paused(false, 4, 4), "at the limit: still drafting");
+    EXPECT(spec_paused(false, 5, 4), "above the limit: paused");
+    EXPECT(spec_paused(true, 4, 4), "hysteresis: stays paused at the limit");
+    EXPECT(!spec_paused(true, 3, 4), "resumes one below the limit");
+    EXPECT(spec_paused(true, 13, 16) && spec_paused(true, 13, 16), "16: stays paused down to 13");
+    EXPECT(!spec_paused(true, 12, 16), "16: resumes at 12");
+    // no flapping: a count that moves by one around the limit does not flip it
+    bool p = false;
+    int flips = 0;
+    for (int k = 0; k < 20; k++) {
+        const bool q = spec_paused(p, (k % 2) ? 8 : 9, 8);
+        flips += q != p;
+        p = q;
+    }
+    EXPECT(flips == 1, "one flip for a count hovering at the limit");
+}
+
 int main() {
     test_prefill_budget();
     test_adaptive_budget();
@@ -247,6 +266,7 @@ int main() {
     test_preemption_cap();
     test_readmission();
     test_attach();
+    test_spec_pause();
     if (failures > 0) {
         std::fprintf(stderr, "%d serving policy check(s) failed\n", failures);
         return 1;

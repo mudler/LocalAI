@@ -927,7 +927,7 @@ test-extra-backend-llama-cpp: docker-build-llama-cpp
 test-extra-backend-llama-cpp-paged: docker-build-llama-cpp
 	BACKEND_IMAGE=local-ai-backend:llama-cpp \
 	BACKEND_TEST_CTX_SIZE=1024 \
-	BACKEND_TEST_OPTIONS=paged_kv,parallel:4,kv_output_reserve:16,prefill_budget:16 \
+	BACKEND_TEST_OPTIONS=paged_kv,parallel:4,kv_output_reserve:16,prefill_budget:16,spec_type:none \
 	BACKEND_TEST_CAPS=health,load,paged_overcommit,paged_parity,paged_budget,paged_cache,paged_attach \
 	$(MAKE) test-extra-backend
 
