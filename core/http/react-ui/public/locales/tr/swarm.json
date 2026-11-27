@@ -694,5 +694,33 @@
       "rules": "Kurallar",
       "failover": "Yük devretme"
     }
+  },
+  "limits": {
+    "title": "Sınırlar",
+    "sub": "Bu düğümün bellek ayarları. Burada verilen bir değer, worker ortamına ve küme ayarlarına (Ayarlar, Bellekteki modeller) göre önceliklidir.",
+    "maxActive": "Yüklü tutulan modeller",
+    "vramBudget": "GPU bellek bütçesi",
+    "vramBudgetPlaceholder": "örn. %80 veya 12GB",
+    "threshold": "Bellek eşiği",
+    "thresholdOff": "Kapalı (açıkken %{{pct}})",
+    "swap": "Bellek dolunca modelleri değiştir",
+    "noLimit": "Sınır yok",
+    "none": "Yok",
+    "on": "Açık",
+    "off": "Kapalı",
+    "edit": "Düzenle",
+    "save": "Kaydet",
+    "cancel": "İptal",
+    "reset": "Tümünü sıfırla",
+    "saved": "Sınırlar {{name}} üzerinde kaydedildi",
+    "resetDone": "{{name}} üzerindeki geçersiz kılmalar temizlendi",
+    "failed": "Sınırlar değiştirilemedi: {{error}}",
+    "loadFailed": "Bu düğümün sınırları okunamadı",
+    "source": {
+      "override": "Burada ayarlandı",
+      "worker": "Worker ortamı",
+      "cluster": "Küme",
+      "default": "Varsayılan"
+    }
   }
 }

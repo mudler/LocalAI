@@ -54,7 +54,10 @@
             "memory": "Bellek",
             "sampling": "Örnekleme varsayılanları",
             "template": "Sohbet şablonu",
-            "speed": "Hız"
+            "speed": "Hız",
+            "serving": "Eşzamanlı sunum",
+            "speculative": "Spekülatif kod çözme",
+            "engine_advanced": "Gelişmiş llama.cpp seçenekleri"
         },
         "fields": {
             "context_size": "Bağlam boyutu",
@@ -76,7 +79,78 @@
             "load_mode": "Yükleme modu",
             "options_ubatch": "Mikro batch boyutu",
             "draft_model": "Taslak model dosyası",
-            "options_spec_max_streams": "N akışın üstünde taslağı duraklat"
+            "options_spec_max_streams": "N akışın üstünde taslağı duraklat",
+            "options_paged_kv": "Sayfalı sunum",
+            "options_paged_preempt": "Önbellek dolunca duraklat",
+            "options_prefill_budget": "Prefill bütçesi",
+            "backend_sampling": "GPU örnekleme",
+            "options_kv_pool_tokens": "KV havuzu token sayısı",
+            "options_kv_output_reserve": "Çıktı rezervi",
+            "options_cache_idle_slots": "Boştaki slotları önbelleğe al",
+            "options_n_cache_reuse": "Önbellek yeniden kullanım parçası",
+            "options_slot_prompt_similarity": "Slot prompt benzerliği",
+            "options_kv_unified_per_slot": "Slot başına token",
+            "options_cache_ram": "Prompt önbellek belleği (MiB)",
+            "options_mmproj_use_gpu": "Görüntü projektörü GPU'da",
+            "options_backend_sampling_min_slots": "GPU örnekleme için en az slot",
+            "options_context_shift": "Bağlam kaydırma",
+            "options_cont_batching": "Sürekli batch",
+            "options_kv_unified": "Birleşik KV önbelleği",
+            "options_swa_full": "Tam kayan pencere önbelleği",
+            "options_fit_params_target": "Sığdırma payı (MiB)",
+            "options_fit_params_min_ctx": "Sığdırma için en küçük bağlam",
+            "options_n_cpu_ffn": "CPU'daki yoğun FFN katmanları",
+            "options_moe_cache_cpu_share": "MoE önbelleğinin CPU payı",
+            "options_lazy_mode": "Tembel yükleme",
+            "options_split_mode": "Çoklu GPU bölme",
+            "options_device": "Cihazlar",
+            "options_grpc_servers": "RPC worker'ları",
+            "options_check_tensors": "Tensörleri denetle",
+            "options_warmup": "Isınma",
+            "options_verbosity": "Günlük ayrıntı düzeyi",
+            "options_n_ctx_checkpoints": "Bağlam kontrol noktaları",
+            "options_checkpoint_min_step": "Kontrol noktası aralığı",
+            "options_n_rs_seq": "Yinelemeli durum anlık görüntüleri",
+            "options_slot_save_path": "Slot kayıt klasörü",
+            "options_yarn_orig_ctx": "YaRN özgün bağlamı",
+            "options_pooling_type": "Embedding havuzlama",
+            "options_embd_normalize": "Embedding normalleştirme",
+            "options_image_min_tokens": "Görüntü başına en az görsel token",
+            "options_image_max_tokens": "Görüntü başına en çok görsel token",
+            "options_reasoning_format": "Akıl yürütme biçimi",
+            "options_enable_reasoning": "Düşünme",
+            "options_reasoning_budget": "Akıl yürütme bütçesi",
+            "options_prefill_assistant": "Asistan yanıtını önceden doldur",
+            "options_spec_type": "Spekülatif tür",
+            "options_spec_n_max": "En çok taslak token",
+            "options_spec_n_min": "En az taslak token",
+            "options_spec_p_min": "En düşük taslak olasılığı",
+            "options_spec_p_split": "Taslak bölme olasılığı",
+            "options_draft_gpu_layers": "Taslak GPU katmanları",
+            "options_draft_threads": "Taslak iş parçacıkları",
+            "options_draft_threads_batch": "Taslak batch iş parçacıkları",
+            "options_draft_cache_type_k": "Taslak KV önbellek türü (K)",
+            "options_draft_cache_type_v": "Taslak KV önbellek türü (V)",
+            "options_spec_draft_n_ubatch": "Taslak mikro batch boyutu",
+            "options_spec_draft_sampling": "Taslak örnekleme",
+            "options_spec_draft_device": "Taslak cihazları",
+            "options_draft_cpu_moe": "Taslak MoE CPU'da",
+            "options_draft_n_cpu_moe": "CPU'daki taslak MoE katmanları",
+            "options_draft_override_tensor": "Taslak tensör geçersiz kılma",
+            "options_spec_ngram_size_n": "N-gram arama boyutu",
+            "options_spec_ngram_size_m": "N-gram öneri boyutu",
+            "options_spec_ngram_min_hits": "N-gram en az isabet",
+            "options_spec_ngram_mod_n_min": "ngram-mod en az",
+            "options_spec_ngram_mod_n_max": "ngram-mod en çok",
+            "options_spec_ngram_mod_n_match": "ngram-mod eşleşme uzunluğu",
+            "options_spec_ngram_map_k_size_n": "ngram-map-k arama boyutu",
+            "options_spec_ngram_map_k_size_m": "ngram-map-k öneri boyutu",
+            "options_spec_ngram_map_k_min_hits": "ngram-map-k en az isabet",
+            "options_spec_ngram_map_k4v_size_n": "ngram-map-k4v arama boyutu",
+            "options_spec_ngram_map_k4v_size_m": "ngram-map-k4v öneri boyutu",
+            "options_spec_ngram_map_k4v_min_hits": "ngram-map-k4v en az isabet",
+            "options_spec_lookup_cache_static": "Statik n-gram önbellek dosyası",
+            "options_spec_lookup_cache_dynamic": "Dinamik n-gram önbellek dosyası"
         },
         "choices": {
             "load_mode": {
@@ -86,10 +160,16 @@
                 "mlock": "mlock",
                 "mmap_mlock": "mmap + mlock",
                 "direct_io": "Doğrudan G/Ç"
+            },
+            "backend_sampling": {
+                "off": "Kapalı",
+                "auto": "Otomatik",
+                "on": "Açık"
             }
         },
         "hints": {
-            "load_mode": "Model dosyasının nasıl okunacağı. mmap, mmlock ve direct_io seçeneğini yazar."
+            "load_mode": "Model dosyasının nasıl okunacağı. mmap, mmlock ve direct_io seçeneğini yazar.",
+            "backend_sampling": "Token'ların nerede örnekleneceği. GPU örneklemesi olmayan bir backend bu ayarı yok sayar."
         },
         "errors": {
             "notInteger": "Bir tam sayı yaz.",
@@ -317,6 +397,44 @@
                 "none": "Bu model için tahmin yok.",
                 "unmatched": "Tahmin yok: yaklaşık dosya boyutu artı modelin bağlamı kadar büyük bir KV önbelleği bekleyin."
             }
-        }
+        },
+        "quick": {
+            "title": "Hızlı kurulum",
+            "custom": "Özel",
+            "customText": "Aşağıdaki alanları kendin ayarla.",
+            "current": "Senin ayarların",
+            "estimating": "Tahmin ediliyor...",
+            "noEstimate": "Tahmin yok",
+            "same": "Yaklaşık aynı bellek",
+            "more": "≈ {{size}} daha fazla bellek",
+            "less": "≈ {{size}} daha az bellek",
+            "now": "Şu an: ağırlıkların yanında, {{context}} token'da KV önbelleği ≈ {{kv}} ve hesaplama tamponları ≈ {{compute}}.",
+            "estimate": "Bu rakamlar tahmindir.",
+            "approximate": "Kaba tahminler: model düzeni dosyadan okunmadı.",
+            "failed": "Bellek tahmini kullanılamıyor."
+        },
+        "profiles": {
+            "balanced": {
+                "name": "Dengeli",
+                "text": "Varsayılanlar: LocalAI, f16 KV önbelleğiyle GPU'n için batch ve slotları seçer."
+            },
+            "longPrompts": {
+                "name": "Uzun prompt'lar",
+                "text": "2048'lik batch ve mikro batch. Uzun prompt'lar çok daha hızlı okunur; hesaplama tamponları daha fazla bellek kullanır."
+            },
+            "concurrent": {
+                "name": "Daha fazla eşzamanlı kullanıcı",
+                "text": "8 bit KV önbelleği, sayfalı sunum ve 8 slot. Aynı belleğe yaklaşık iki kat token sığar ve daha fazla kullanıcı paylaşır; kalitede küçük bir kayıp olur.",
+                "note": "Nicemlenmiş bir KV önbelleği, llama.cpp bazı dikkat yolları için hızlı bir kernel sunana kadar bu yollarda daha yavaş olabilir. Sayfalı sunum, bunu destekleyen bir backend derlemesi gerektirir; diğer derlemeler bu seçeneği yok sayar."
+            }
+        },
+        "choiceHints": {
+            "backend_sampling": {
+                "off": "Token'ları CPU'da örnekle. Dosyaya hiçbir şey yazılmaz.",
+                "auto": "Model birkaç paralel istekle bir GPU'da çalıştığında ve istek grammar ya da logprobs gerektirmediğinde GPU örneklemesini kullan.",
+                "on": "Token'ları GPU'da örnekle. Çok sayıda paralel istekte daha hızlıdır. Grammar, akıl yürütme bütçesi ya da logprobs kullanan isteklerde kendiliğinden kapanır."
+            }
+        },
+        "groupCount": "{{count}} ayar"
     }
 }

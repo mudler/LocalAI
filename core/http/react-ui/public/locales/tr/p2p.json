@@ -141,7 +141,11 @@
       "models": "Modeller",
       "modelsAll": "Tüm modeller",
       "modelsSome_one": "{{count}} model",
-      "modelsSome_other": "{{count}} model"
+      "modelsSome_other": "{{count}} model",
+      "hints": "Hole punching",
+      "hintsSome_one": "{{count}} genel relay üzerinden",
+      "hintsSome_other": "{{count}} genel relay üzerinden",
+      "hintsNone": "Genel relay yok"
     },
     "admission": {
       "title": "Yalnızca P2P kabulü.",
@@ -165,7 +169,16 @@
       },
       "noPublic": {
         "title": "Bu sunucunun genel adresi yok.",
-        "body": "Cihaz hole punching ile bağlanır; bu başarısız olursa bir relay üzerinden."
+        "body": "Cihaz hole punching ile bağlanır; bu başarısız olursa bir relay üzerinden.",
+        "punch": "Ağının dışındaki bir cihaz, genel bir relay üzerinden hole punching ile bağlanır.",
+        "lan": "Bu davetle yalnızca aynı ağdaki bir cihaz eşleşebilir.",
+        "later": "Sunucu hole punching için henüz genel bir relay bulmadı. Bu, başladıktan sonra birkaç dakika sürebilir: daveti daha sonra yeniden oluştur ya da bir relay ekle.",
+        "noDht": "Genel DHT kapalı, bu yüzden sunucu hole punching için genel relay bulamıyor. Bir relay ekle ya da genel DHT'yi aç."
+      },
+      "punchOnly": {
+        "title": "Bu davet yalnızca hole punching'in çalıştığı yerlerde çalışır.",
+        "body": "Cihazlar genel bir relay üzerinden hole punching ile bağlanabilir. Yaklaşık 10 ağdan 3'ü bunu engeller. Her cihazın bağlanabilmesi için bir relay ekle ya da kendin çalıştır.",
+        "add": "Relay ekle"
       }
     },
     "connected": {

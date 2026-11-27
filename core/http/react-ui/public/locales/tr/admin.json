@@ -101,7 +101,9 @@
       "retry": "Aynı işlemi yeniden dene",
       "policy": "Sahip politikası · revizyon {{revision}}",
       "apply": "Güncelleme ayarını uygula"
-    }
+    },
+    "memoryConflict": "Bellek ayarları bu sayfa yüklendikten sonra başka bir yerde değiştirildi. Sayfa şimdi geçerli değerleri gösteriyor. Değişikliğini yeniden uygula.",
+    "memoryCluster": "Her worker düğümü için geçerlidir. Tek bir düğüme farklı bir değer vermek için Düğümler sayfasını kullan."
   },
   "traces": {
     "title": "İzler",
