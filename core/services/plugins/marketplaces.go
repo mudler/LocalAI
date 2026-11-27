@@ -129,17 +129,18 @@ func ParseDefaults(flag string) ([]DefaultMarketplace, error) {
 }
 
 // Seed adds the default marketplaces to a fresh store: one that has no
-// marketplace at all, tombstones included. A store that has any record is
-// left as it is, so a removed default stays removed and the flag does not
-// add sources after the first start. Two frontends that seed at once save
-// the same records.
+// marketplace at all, tombstones included. A store that has any record keeps
+// its records, so a removed default stays removed and the flag does not add
+// sources after the first start; only the location of the curated
+// marketplace follows the version of the build (followCuratedURL). Two
+// frontends that seed at once save the same records.
 func (s *Service) Seed(ctx context.Context) error {
 	all, err := s.st.Marketplaces(ctx)
 	if err != nil {
 		return err
 	}
 	if len(all) > 0 {
-		return nil
+		return s.followCuratedURL(ctx, all)
 	}
 	now := s.now()
 	for _, d := range s.defaults {
@@ -149,6 +150,29 @@ func (s *Service) Seed(ctx context.Context) error {
 		}
 		if err := s.st.SaveMarketplace(ctx, m); err != nil {
 			return fmt.Errorf("seed marketplace %s: %w", d.ID, err)
+		}
+	}
+	return nil
+}
+
+// followCuratedURL points the curated default marketplace at the file of
+// this build: a release reads its own tag (spec 8.3), so after an upgrade it
+// must not keep reading the tag of the version that first started. Only the
+// curated default changes, while it is not removed and still reads a curated
+// URL; a store seeded from --plugin-marketplaces is left alone.
+func (s *Service) followCuratedURL(ctx context.Context, all []store.Marketplace) error {
+	if !s.curated {
+		return nil
+	}
+	want := CuratedMarketplaceURL(s.version)
+	for _, m := range all {
+		if m.ID != DefaultMarketplaceID || !m.Default || m.Removed || m.Kind != store.KindURL ||
+			!isCuratedURL(m.Location) || m.Location == want {
+			continue
+		}
+		m.Location, m.UpdatedAt = want, s.now()
+		if err := s.st.SaveMarketplace(ctx, m); err != nil {
+			return fmt.Errorf("move the curated marketplace to %s: %w", want, err)
 		}
 	}
 	return nil

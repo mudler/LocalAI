@@ -42,7 +42,7 @@ The default marketplace `localai` is a list that the LocalAI maintainers review.
 https://raw.githubusercontent.com/mudler/LocalAI/<ref>/plugins/.claude-plugin/marketplace.json
 ```
 
-`<ref>` is the release tag for a release build, and `master` for any other build. A release server therefore sees new entries and new pins with the next release. To get them sooner, add the `master` URL as a second marketplace.
+`<ref>` is the release tag for a release build, and `master` for any other build. At each start the server points the `localai` marketplace at the file of its own build, so after an upgrade it reads the tag of the new release; a removed `localai` marketplace stays removed. A release server therefore sees new entries and new pins with the next release. To get them sooner, add the `master` URL as a second marketplace.
 
 Each entry points to the plugin's own repository at a full commit SHA. Nothing is copied into the LocalAI repository, except the `localai` plugin, which is kept there. Each entry also says, under `metadata.localai`, the SPDX license ID, whether the plugin runs code, and the date of its last review. The first list has plugins that run no code:
 

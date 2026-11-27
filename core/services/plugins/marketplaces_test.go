@@ -180,6 +180,37 @@ var _ = Describe("Marketplaces", func() {
 			Expect(ids()).To(Equal([]string{"localai"}))
 		})
 
+		It("moves the curated marketplace to the tag of the new version after an upgrade", func() {
+			at := func(version string) *plugins.Service {
+				s, err := plugins.New(plugins.Options{Store: st, Fetcher: ff, Now: clk.Now, Version: version})
+				Expect(err).NotTo(HaveOccurred())
+				return s
+			}
+			Expect(at("v4.0.0").Seed(ctx)).To(Succeed())
+			Expect(svc.UpdateMarketplace(ctx, admin, "localai", plugins.UpdateMarketplaceRequest{Enabled: new(false)})).Error().NotTo(HaveOccurred())
+			Expect(at("v4.1.0").Seed(ctx)).To(Succeed())
+			m, err := svc.Marketplace(ctx, "localai")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(m.Location).To(Equal(plugins.CuratedMarketplaceURL("v4.1.0")))
+			Expect(m.Enabled).To(BeFalse(), "only the location follows the version")
+			Expect(at("").Seed(ctx)).To(Succeed())
+			m, err = svc.Marketplace(ctx, "localai")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(m.Location).To(Equal(curated), "a development build reads master")
+		})
+
+		It("leaves a removed curated marketplace and the flag's defaults as they are", func() {
+			Expect(svc.Seed(ctx)).To(Succeed())
+			Expect(svc.RemoveMarketplace(ctx, admin, "localai")).To(Succeed())
+			s, err := plugins.New(plugins.Options{Store: st, Fetcher: ff, Now: clk.Now, Version: "v9.0.0"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(s.Seed(ctx)).To(Succeed())
+			all, err := st.Marketplaces(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(all[0].Removed).To(BeTrue())
+			Expect(all[0].Location).To(Equal(curated))
+		})
+
 		It("keeps a removed default removed after a restart", func() {
 			Expect(svc.Seed(ctx)).To(Succeed())
 			Expect(svc.RemoveMarketplace(ctx, admin, "localai")).To(Succeed())

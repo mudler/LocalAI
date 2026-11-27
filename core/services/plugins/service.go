@@ -132,6 +132,10 @@ type Service struct {
 	conns        ConnectorSync
 	inspects     *inspectLimiter
 	allowed      func(ctx context.Context, principal string) bool
+	// curated is set when the defaults are the curated marketplace (no
+	// --plugin-marketplaces); version is the build version.
+	curated bool
+	version string
 }
 
 // New returns a Service.
@@ -163,8 +167,9 @@ func New(o Options) (*Service, error) {
 	if s.now == nil {
 		s.now = time.Now
 	}
-	s.defaults = o.Defaults
+	s.defaults, s.version = o.Defaults, o.Version
 	if s.defaults == nil {
+		s.curated = true
 		s.defaults = []DefaultMarketplace{{ID: DefaultMarketplaceID, Kind: store.KindURL, Location: CuratedMarketplaceURL(o.Version), Ref: curatedMarketplaceRef}}
 	}
 	return s, nil
