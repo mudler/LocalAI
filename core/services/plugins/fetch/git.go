@@ -37,6 +37,10 @@ func (f *Fetcher) gitConfig() []string {
 		"filter.lfs.process=",
 		"filter.lfs.required=false",
 		"advice.detachedHead=false",
+		// A server that sends less than 1 KiB/s for 30 s is dropped long
+		// before the timeout of the fetch.
+		"http.lowSpeedLimit=1024",
+		"http.lowSpeedTime=30",
 	}
 	if f.allowFile {
 		cfg = append(cfg, "protocol.file.allow=always")
@@ -146,8 +150,24 @@ func (f *Fetcher) runGit(ctx context.Context, dir string, args ...string) (strin
 			}
 		}()
 	}
-	err := cmd.Run()
+	err := cmd.Start()
+	if err == nil && f.maxScratch > 0 {
+		// The poll above stops a growing folder within sizePoll; the file
+		// size limit stops one file at the cap at once.
+		if lerr := limitFileSize(cmd.Process.Pid, f.maxScratch); lerr != nil {
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+			close(done)
+			return "", fmt.Errorf("git %s: limit the file size: %w", args[0], lerr)
+		}
+	}
+	if err == nil {
+		err = cmd.Wait()
+	}
 	close(done)
+	if killedForSize(err) {
+		over.Store(true)
+	}
 	if over.Load() || (f.maxScratch > 0 && dirSize(dir) > f.maxScratch) {
 		return "", fmt.Errorf("git %s: %w: the checkout is over %d bytes", args[0], claudeplugin.ErrTooLarge, f.maxScratch)
 	}

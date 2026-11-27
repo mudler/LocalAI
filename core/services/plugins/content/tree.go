@@ -97,6 +97,11 @@ const (
 	CodeTooDeep           = "too-deep"
 	CodePathTooLong       = "path-too-long"
 	CodeComponentTooLarge = "component-too-large"
+	// CodeFormatChar is a path with an invisible format character (Unicode
+	// category Cf: bidi overrides and isolates, zero-width characters, the
+	// byte order mark), which can make a name in the review look like
+	// another one.
+	CodeFormatChar = "format-character"
 )
 
 // CheckError names the path and the rule it breaks. errors.Is(err,
@@ -117,7 +122,8 @@ func refuse(p, code string) error { return &CheckError{Path: p, Code: code} }
 
 // CheckRelPath checks that p is a clean relative path with forward slashes:
 // no "..", no leading "/", no backslash, no NUL, no drive letter, no empty
-// or "." segment, valid UTF-8 and no control character.
+// or "." segment, valid UTF-8, no control character and no invisible format
+// character.
 func CheckRelPath(p string) error {
 	switch {
 	case p == "":
@@ -136,6 +142,9 @@ func CheckRelPath(p string) error {
 	for _, r := range p {
 		if unicode.IsControl(r) {
 			return refuse(p, CodeBadName)
+		}
+		if unicode.Is(unicode.Cf, r) {
+			return refuse(p, CodeFormatChar)
 		}
 	}
 	for _, seg := range strings.Split(p, "/") {

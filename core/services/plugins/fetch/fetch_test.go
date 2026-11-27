@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -193,6 +194,27 @@ var _ = Describe("Fetcher", func() {
 			_, err = small.FetchPlugin(ctx, fetch.MarketplaceSource{}, nil, urlEntry("p", r.url()), sha)
 			Expect(errors.Is(err, claudeplugin.ErrTooLarge)).To(BeTrue(), "%v", err)
 			Expect(scratchEntries(root)).To(BeEmpty())
+		})
+
+		It("stops a git process at the size cap at once, not at the next poll of the folder", func() {
+			if runtime.GOOS != "linux" {
+				Skip("the hard file size limit is Linux only")
+			}
+			// A git that writes one huge file as fast as it can, outside the
+			// scratch folder, so the test can measure what it wrote.
+			bin := GinkgoT().TempDir()
+			out := filepath.Join(GinkgoT().TempDir(), "pack")
+			script := "#!/bin/sh\nexec head -c 100000000 /dev/zero > " + out + "\n"
+			Expect(os.WriteFile(filepath.Join(bin, "git"), []byte(script), 0o755)).To(Succeed())
+			GinkgoT().Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+			const limit = 256 << 10
+			small, err := fetch.New(fetch.Options{ScratchRoot: root, MaxScratchBytes: limit})
+			Expect(err).NotTo(HaveOccurred())
+			_, err = small.ResolveRef(ctx, "https://example.test/a.git", "")
+			Expect(errors.Is(err, claudeplugin.ErrTooLarge)).To(BeTrue(), "%v", err)
+			info, err := os.Stat(out)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(info.Size()).To(BeNumerically("<=", limit))
 		})
 
 		It("fails a plugin over the file limits of the copy", func() {

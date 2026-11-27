@@ -1160,7 +1160,17 @@ gVisor Sandbox, which has no network device.
 - shallow (`--depth 1`) and partial (`--filter=blob:none`), with a sparse
   checkout for `git-subdir`, so only the blobs of the plugin folder are
   downloaded (gap N10 until nib does it);
-- a timeout of 120 s per fetch and a cap of 200 MiB on the scratch folder;
+- a timeout of 120 s per fetch and a cap of 200 MiB on the scratch folder. The
+  folder is measured every 200 ms; on Linux each git process also gets the cap
+  as its file size limit (`RLIMIT_FSIZE`), so no file it writes, the pack
+  included, outgrows the cap between two measures. A server that sends less
+  than 1 KiB/s for 30 s is dropped (`http.lowSpeedLimit`, `http.lowSpeedTime`);
+- the `marketplace.json` of a git marketplace is read through `os.OpenRoot` at
+  the checkout, so no part of its path can be a link out of it;
+- a location on a private or internal network is refused unless
+  `mcp_connectors_allow_private` allows it: the connector check on the URL and
+  a DNS lookup whose answers must all be public, before any git command, and a
+  client that dials only public addresses for a `marketplace.json` URL;
 - a scratch folder under the data path, never `/tmp`, removed when the job ends.
 
 HTTP fetches of `marketplace.json` use a 30 s timeout, a 1 MiB cap and no
@@ -1171,7 +1181,10 @@ redirect to a non-`https` URL.
 Before the digest, every file of the plugin folder passes:
 
 - `claudeplugin.CheckPath` for every path that the manifest names;
-- no `..`, no leading `/`, no backslash, no NUL, no drive letter;
+- no `..`, no leading `/`, no backslash, no NUL, no drive letter, no control
+  character and no invisible format character (Unicode category Cf: bidi
+  overrides and isolates, zero-width characters), which could make a name in the
+  review look like another;
 - no device, socket or pipe; symlinks are refused unless they point inside the
   plugin, and then the target file is stored as a regular file;
 - no two paths that differ only in case;

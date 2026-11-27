@@ -376,8 +376,15 @@ func (f *Fetcher) FetchMarketplace(ctx context.Context, kind, location, ref stri
 	if !fullSHA.MatchString(sha) {
 		return nil, "", fmt.Errorf("fetch: git gave %q as the commit", sha)
 	}
-	file := filepath.Join(scratch, filepath.FromSlash(claudeplugin.MarketplacePath))
-	info, err := os.Lstat(file)
+	// Read through a root at the checkout, so that no part of the path (the
+	// .claude-plugin folder included, not only the file) can be a link out
+	// of it.
+	root, err := os.OpenRoot(scratch)
+	if err != nil {
+		return nil, "", err
+	}
+	defer root.Close()
+	info, err := root.Lstat(claudeplugin.MarketplacePath)
 	if err != nil {
 		return nil, "", fmt.Errorf("fetch: no %s at %s", claudeplugin.MarketplacePath, sha)
 	}
@@ -387,7 +394,7 @@ func (f *Fetcher) FetchMarketplace(ctx context.Context, kind, location, ref stri
 	if info.Size() > MaxMarketplaceBytes {
 		return nil, "", fmt.Errorf("fetch: %s is over %d bytes", claudeplugin.MarketplacePath, MaxMarketplaceBytes)
 	}
-	fh, err := os.Open(file)
+	fh, err := root.Open(claudeplugin.MarketplacePath)
 	if err != nil {
 		return nil, "", err
 	}
