@@ -64,6 +64,9 @@ type Engine struct {
 	Placement *TensorPlacement
 	// Drafting adds the drafting capability. Optional.
 	Drafting *Drafting
+	// Memory describes the memory kinds the profiles have values for, and
+	// the advice for controls per kind. Optional.
+	Memory *Memory
 }
 
 // CommandLine describes how the engine's command line maps to a model config.
@@ -155,6 +158,18 @@ type Preset struct {
 	// current one sets and the new one does not list, so a value is removed
 	// only when it came from a profile. A profile has no placement.
 	Profile bool `json:"profile,omitempty"`
+	// Set groups the profiles into independent choices. Empty is the default
+	// set; ProfileSetConcurrency is the slot count. A switch within a set
+	// only unsets the keys of that set's profiles. Profiles only.
+	Set string `json:"set,omitempty"`
+	// Streams is the number of requests a concurrency profile serves at
+	// once. Profiles only.
+	Streams int `json:"streams,omitempty"`
+	// BestFor says in one line which use the profile fits. Optional.
+	BestFor string `json:"best_for,omitempty"`
+	// Memory holds the values that depend on the memory kind of the host.
+	// A kind it does not list uses Settings alone. Profiles only.
+	Memory map[MemoryKind]PresetMemory `json:"memory,omitempty"`
 	// Placement is an optional tensor placement. Only for engines with the
 	// tensor-placement capability.
 	Placement *Placement `json:"placement,omitempty"`
@@ -383,6 +398,9 @@ func (e *Engine) Validate() error {
 		}
 	}
 	if err := e.validateDrafting(groups, keys); err != nil {
+		errs = append(errs, err)
+	}
+	if err := e.validateMemory(keys); err != nil {
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)

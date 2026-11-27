@@ -481,7 +481,7 @@ var _ = Describe("the llama.cpp engine", func() {
 		Expect(s.Placement.Group).To(Equal(lc.GroupPlacement))
 		Expect(s.Combined).To(HaveLen(2))
 		Expect(s.Combined[0].Keys).To(Equal([]string{"mmap", "mmlock", "direct_io"}))
-		Expect(s.Presets).To(HaveLen(6))
+		Expect(s.Presets).To(HaveLen(9))
 		byID := map[string]es.Preset{}
 		for _, p := range s.Presets {
 			byID[p.ID] = p
@@ -494,37 +494,137 @@ var _ = Describe("the llama.cpp engine", func() {
 		Expect(s.Estimate).To(HaveKeyWithValue("cache_type_v", "cache_type_v"))
 	})
 
-	It("has three quick setup profiles, Balanced unsetting them and leaving flash attention alone", func() {
-		var got []es.Preset
-		for _, p := range engine.Schema().Presets {
-			if p.Profile {
-				got = append(got, p)
-			}
-		}
-		Expect(got).To(HaveLen(3))
-		Expect(got[0].ID).To(Equal("balanced"))
-		for _, v := range got[0].Settings {
-			Expect(v).To(BeNil())
-		}
-		Expect(got[0].Settings).ToNot(HaveKey("flash_attention"))
-		Expect(got[1].ID).To(Equal("longPrompts"))
-		Expect(got[1].Settings).To(HaveKeyWithValue("batch", 2048))
-		Expect(got[1].Settings).To(HaveKeyWithValue("ubatch", 2048))
-		Expect(got[1].Settings).ToNot(HaveKey("flash_attention"))
-		Expect(got[2].ID).To(Equal("concurrent"))
-		Expect(got[2].Settings).To(HaveKeyWithValue("cache_type_k", "q8_0"))
-		Expect(got[2].Settings).To(HaveKeyWithValue("cache_type_v", "q8_0"))
-		Expect(got[2].Settings).To(HaveKeyWithValue("flash_attention", "on"))
-		Expect(got[2].Settings).To(HaveKeyWithValue("paged_kv", true))
-		Expect(got[2].Settings).To(HaveKeyWithValue("parallel", 8))
-		// Every key a profile sets, Balanced unsets, except flash attention.
-		for _, p := range got[1:] {
-			for k := range p.Settings {
-				if k != "flash_attention" {
-					Expect(got[0].Settings).To(HaveKey(k), p.ID)
+	Describe("the memory decision table", func() {
+		profilesOf := func(set string) []es.Preset {
+			var got []es.Preset
+			for _, p := range engine.Schema().Presets {
+				if p.Profile && p.Set == set {
+					got = append(got, p)
 				}
 			}
+			return got
 		}
+		byID := func(id string) es.Preset {
+			for _, p := range engine.Schema().Presets {
+				if p.ID == id {
+					return p
+				}
+			}
+			Fail("no profile " + id)
+			return es.Preset{}
+		}
+
+		It("describes every memory kind, with discrete as the fallback", func() {
+			m := engine.Schema().Memory
+			Expect(m).ToNot(BeNil())
+			Expect(m.Fallback).To(Equal(es.MemoryDiscrete))
+			var kinds []es.MemoryKind
+			for _, k := range m.Kinds {
+				kinds = append(kinds, k.Kind)
+			}
+			Expect(kinds).To(ConsistOf(es.MemoryKinds))
+		})
+
+		It("has Balanced and Long prompts over the batch sizes only, Balanced unsetting what Long prompts sets", func() {
+			got := profilesOf("")
+			Expect(got).To(HaveLen(2))
+			Expect(got[0].ID).To(Equal("balanced"))
+			for _, v := range got[0].Settings {
+				Expect(v).To(BeNil())
+			}
+			for _, kind := range es.MemoryKinds {
+				for k := range got[1].SettingsFor(kind, false) {
+					Expect(got[0].Settings).To(HaveKey(k), string(kind))
+				}
+			}
+		})
+
+		DescribeTable("Long prompts sizes the micro-batch for the memory kind",
+			func(kind es.MemoryKind, ubatch int) {
+				s := byID("longPrompts").SettingsFor(kind, false)
+				Expect(s).To(HaveKeyWithValue("batch", 2048))
+				Expect(s).To(HaveKeyWithValue("ubatch", ubatch))
+			},
+			Entry("unified memory: 2048, as measured on a GB10", es.MemoryUnified, 2048),
+			Entry("a discrete GPU: 1024, the compute buffer must fit one card", es.MemoryDiscrete, 1024),
+			Entry("no GPU: 512", es.MemorySystem, 512),
+		)
+
+		It("has Default, 8, 16 and 32+ streams in the concurrency set", func() {
+			got := profilesOf(es.ProfileSetConcurrency)
+			var ids []string
+			for _, p := range got {
+				ids = append(ids, p.ID)
+				Expect(p.BestFor).ToNot(BeEmpty(), p.ID)
+			}
+			Expect(ids).To(Equal([]string{"concurrencyDefault", "streams8", "streams16", "streams32"}))
+			Expect(got[1].Streams).To(Equal(8))
+			Expect(got[2].Streams).To(Equal(16))
+			Expect(got[3].Streams).To(Equal(32))
+			// Default unsets the keys every tier shares, so a switch back
+			// removes what a tier wrote.
+			for _, k := range []string{"parallel", "paged_kv", "paged_preempt"} {
+				Expect(got[0].Settings).To(HaveKeyWithValue(k, BeNil()))
+			}
+		})
+
+		It("writes the brief's values on every kind", func() {
+			for _, kind := range []es.MemoryKind{es.MemoryUnified, es.MemoryDiscrete} {
+				s8 := byID("streams8").SettingsFor(kind, false)
+				Expect(s8).To(HaveKeyWithValue("parallel", 8))
+				Expect(s8).To(HaveKeyWithValue("paged_kv", true))
+				Expect(s8).To(HaveKeyWithValue("paged_preempt", true))
+
+				s16 := byID("streams16").SettingsFor(kind, false)
+				Expect(s16).To(HaveKeyWithValue("parallel", 16))
+				Expect(s16).To(HaveKeyWithValue("backend_sampling", "auto"))
+				Expect(s16).To(HaveKeyWithValue("spec_type", "none"))
+
+				s32 := byID("streams32").SettingsFor(kind, false)
+				Expect(s32).To(HaveKeyWithValue("parallel", 32))
+				Expect(s32).To(HaveKeyWithValue("backend_sampling", "on"))
+			}
+		})
+
+		It("uses an 8-bit KV cache at 32 streams on a discrete GPU, and on unified memory only when f16 does not fit", func() {
+			p := byID("streams32")
+			d := p.SettingsFor(es.MemoryDiscrete, false)
+			Expect(d).To(HaveKeyWithValue("cache_type_k", "q8_0"))
+			Expect(d).To(HaveKeyWithValue("cache_type_v", "q8_0"))
+			Expect(d).To(HaveKeyWithValue("flash_attention", "on"))
+
+			Expect(p.SettingsFor(es.MemoryUnified, false)).ToNot(HaveKey("cache_type_k"))
+			tight := p.SettingsFor(es.MemoryUnified, true)
+			Expect(tight).To(HaveKeyWithValue("cache_type_k", "q8_0"))
+			Expect(tight).To(HaveKeyWithValue("flash_attention", "on"))
+		})
+
+		It("bounds the host caches on unified memory and the CPU, and leaves them on a discrete GPU", func() {
+			for _, id := range []string{"streams8", "streams16", "streams32"} {
+				Expect(byID(id).SettingsFor(es.MemoryUnified, false)).To(HaveKey("cache_ram"), id)
+				Expect(byID(id).SettingsFor(es.MemoryUnified, false)).To(HaveKey("ctx_checkpoints"), id)
+				Expect(byID(id).SettingsFor(es.MemoryDiscrete, false)).ToNot(HaveKey("cache_ram"), id)
+			}
+		})
+
+		It("allows more slots on unified memory than its floors on a discrete GPU, and no 32 streams without a GPU", func() {
+			for _, id := range []string{"streams8", "streams16", "streams32"} {
+				Expect(byID(id).Memory[es.MemoryDiscrete].MinMemory).To(BeNumerically(">", 0), id)
+				Expect(byID(id).Memory[es.MemoryUnified].MinMemory).To(BeNumerically(">", 0), id)
+			}
+			Expect(byID("streams32").Memory[es.MemorySystem].Unsupported).To(BeTrue())
+			Expect(byID("streams16").SettingsFor(es.MemorySystem, false)).To(HaveKeyWithValue("backend_sampling", BeNil()))
+		})
+
+		It("advises the default load mode on unified memory", func() {
+			m := engine.Schema().Memory
+			Expect(m.Advice).To(ContainElement(SatisfyAll(
+				HaveField("Control", "load_mode"),
+				HaveField("Kind", es.MemoryUnified),
+				HaveField("Value", "default"),
+				HaveField("Avoid", ContainElement("mmap")),
+			)))
+		})
 	})
 
 	It("has a GPU sampling choice of Off, Auto and On, Off writing no entry", func() {

@@ -106,6 +106,8 @@ type Schema struct {
 	Estimate map[string]string `json:"estimate,omitempty"`
 	// Drafting describes the drafting capability. Absent without it.
 	Drafting *Drafting `json:"drafting,omitempty"`
+	// Memory describes the memory kinds of the profiles. Absent without it.
+	Memory *Memory `json:"memory,omitempty"`
 }
 
 // Schema returns the settings schema of the engine.
@@ -120,6 +122,7 @@ func (e *Engine) Schema() Schema {
 		ReservedOptions: e.ReservedOptions,
 		Estimate:        e.Estimate,
 		Drafting:        e.Drafting,
+		Memory:          e.Memory,
 	}
 	if s.Combined == nil {
 		s.Combined = []Combined{}

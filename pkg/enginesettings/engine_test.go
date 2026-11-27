@@ -49,6 +49,32 @@ func toyEngine() *es.Engine {
 	}
 }
 
+// toyMemory is a memory description with an advice over the toy dtype flag,
+// and memoryProfile a profile with a value per kind.
+func toyMemory() *es.Memory {
+	return &es.Memory{
+		Fallback: es.MemoryDiscrete, FitFraction: 0.9,
+		Kinds: []es.MemoryKindInfo{
+			{Kind: es.MemoryUnified, Label: "Unified", Doc: "Shared."},
+			{Kind: es.MemoryDiscrete, Label: "Discrete", Doc: "Own memory."},
+			{Kind: es.MemorySystem, Label: "No GPU", Doc: "CPU."},
+		},
+		Advice: []es.Advice{{ID: "a", Control: "dtype", Kind: es.MemoryUnified, Value: "auto", Avoid: []string{"half"}, Doc: "Use auto."}},
+	}
+}
+
+func memoryProfile() es.Preset {
+	return es.Preset{
+		ID: "many", Profile: true, Set: es.ProfileSetConcurrency, Streams: 8,
+		Settings: map[string]any{"max_model_len": 4096},
+		Memory: map[es.MemoryKind]es.PresetMemory{
+			es.MemoryDiscrete: {Settings: map[string]any{"dtype": "half"}, MinMemory: 1},
+			es.MemoryUnified:  {Tight: map[string]any{"dtype": "half"}},
+			es.MemorySystem:   {Unsupported: true, Note: "Too slow."},
+		},
+	}
+}
+
 // toyDrafting is a drafting capability over the toy table: dtype stands for
 // the kind and max_model_len for a field.
 func toyDrafting() *es.Drafting {
@@ -202,6 +228,30 @@ var _ = Describe("Engine.Validate", func() {
 				e.Drafting = toyDrafting()
 				e.Drafting.Streams = &es.DraftStreams{Option: "dtype", Doc: "x"}
 			},
+			"memory without kinds":     func(e *es.Engine) { e.Memory = toyMemory(); e.Memory.Kinds = e.Memory.Kinds[:2] },
+			"memory bad fallback":      func(e *es.Engine) { e.Memory = toyMemory(); e.Memory.Fallback = "nope" },
+			"memory bad fit":           func(e *es.Engine) { e.Memory = toyMemory(); e.Memory.FitFraction = 1.5 },
+			"advice unknown control":   func(e *es.Engine) { e.Memory = toyMemory(); e.Memory.Advice[0].Control = "nope" },
+			"advice bad value":         func(e *es.Engine) { e.Memory = toyMemory(); e.Memory.Advice[0].Avoid = []string{"x"} },
+			"profile memory, no rules": func(e *es.Engine) { e.Presets = []es.Preset{memoryProfile()} },
+			"profile memory bad key": func(e *es.Engine) {
+				e.Memory = toyMemory()
+				p := memoryProfile()
+				p.Memory[es.MemoryUnified] = es.PresetMemory{Tight: map[string]any{"nope": 1}}
+				e.Presets = []es.Preset{p}
+			},
+			"profile unsupported without note": func(e *es.Engine) {
+				e.Memory = toyMemory()
+				p := memoryProfile()
+				p.Memory[es.MemorySystem] = es.PresetMemory{Unsupported: true}
+				e.Presets = []es.Preset{p}
+			},
+			"preset with memory rules": func(e *es.Engine) {
+				e.Memory = toyMemory()
+				p := memoryProfile()
+				p.Profile = false
+				e.Presets = []es.Preset{p}
+			},
 			"profile with a placement": func(e *es.Engine) {
 				e.Presets = []es.Preset{{ID: "a", Profile: true, Settings: map[string]any{}, Placement: &es.Placement{Mode: es.ExpertsCPUAll}}}
 			},
@@ -236,6 +286,29 @@ var _ = Describe("Engine.Validate", func() {
 		Expect(string(raw)).To(ContainSubstring(`"localai_only":true`))
 		Expect(string(raw)).To(ContainSubstring(`"profile":true`))
 		Expect(string(raw)).To(ContainSubstring(`"max_model_len":null`))
+	})
+})
+
+var _ = Describe("Memory kinds", func() {
+	It("accepts profiles with values per memory kind and sends them in the schema", func() {
+		e := toyEngine()
+		e.Memory = toyMemory()
+		e.Presets = append(e.Presets, memoryProfile())
+		Expect(e.Validate()).To(Succeed())
+		raw, err := json.Marshal(e.Schema())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"set":"concurrency"`))
+		Expect(string(raw)).To(ContainSubstring(`"fit_fraction":0.9`))
+		Expect(string(raw)).To(ContainSubstring(`"tight":{"dtype":"half"}`))
+	})
+
+	It("merges the values of a kind, and the tight ones only when asked", func() {
+		p := memoryProfile()
+		Expect(p.SettingsFor(es.MemoryDiscrete, false)).To(Equal(map[string]any{"max_model_len": 4096, "dtype": "half"}))
+		Expect(p.SettingsFor(es.MemoryUnified, false)).To(Equal(map[string]any{"max_model_len": 4096}))
+		Expect(p.SettingsFor(es.MemoryUnified, true)).To(Equal(map[string]any{"max_model_len": 4096, "dtype": "half"}))
+		Expect(p.SettingsFor("nope", true)).To(Equal(map[string]any{"max_model_len": 4096}))
+		Expect(p.Settings).To(HaveLen(1), "the profile itself is not changed")
 	})
 })
 

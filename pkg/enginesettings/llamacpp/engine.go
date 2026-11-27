@@ -136,7 +136,10 @@ var loadMode = es.Combined{
 	Keys:  []string{"mmap", "mmlock", "direct_io"},
 	Unset: map[string]any{"mmap": true, "mmlock": false, "direct_io": false},
 	Choices: []es.Choice{
-		{Value: "default", Label: "Default (memory-mapped)", Set: map[string]any{"mmap": nil, "mmlock": nil, "direct_io": nil}},
+		// With mmap unset, the backend lets llama.cpp pick (--load-mode auto):
+		// memory-mapped, except on CUDA, ROCm and Vulkan integrated GPUs.
+		{Value: "default", Label: "Default (auto)", Set: map[string]any{"mmap": nil, "mmlock": nil, "direct_io": nil},
+			Doc: "llama.cpp picks: memory-mapped, except on integrated GPUs that would hold the model twice."},
 		{Value: "none", Label: "None (read into memory)", Set: map[string]any{"mmap": false, "mmlock": nil, "direct_io": nil}},
 		{Value: "mmap", Label: "mmap", Set: map[string]any{"mmap": true, "mmlock": nil, "direct_io": nil}},
 		{Value: "mlock", Label: "mlock", Set: map[string]any{"mmap": false, "mmlock": true, "direct_io": nil}},
@@ -242,38 +245,6 @@ var presets = []es.Preset{
 	},
 }
 
-// profiles are the quick setups of the editor: one is current at a time.
-// nil unsets a key, so Balanced is the defaults of LocalAI and llama.cpp for
-// the host. Balanced and Long prompts do not list flash_attention: a value
-// the person set stays, and the editor removes it only when the values came
-// from More concurrent users. They change memory needs, so nothing applies
-// them unless the person picks one.
-var profiles = []es.Preset{
-	{
-		ID: "balanced", Name: "Balanced", Profile: true,
-		Description: "The defaults: LocalAI picks the batch and the slots for the GPU, with an f16 KV cache.",
-		Settings: map[string]any{
-			"batch": nil, "ubatch": nil, "cache_type_k": nil, "cache_type_v": nil, "paged_kv": nil, "parallel": nil,
-		},
-	},
-	{
-		ID: "longPrompts", Name: "Long prompts", Profile: true,
-		Description: "Batch and micro-batch of 2048: long prompts are read much faster, and the compute buffers grow.",
-		Settings: map[string]any{
-			"batch": 2048, "ubatch": 2048, "cache_type_k": nil, "cache_type_v": nil, "paged_kv": nil, "parallel": nil,
-		},
-	},
-	{
-		ID: "concurrent", Name: "More concurrent users", Profile: true,
-		Description: "8-bit KV cache, paged serving and 8 slots: about twice the tokens fit, shared by more users, at a small cost in quality.",
-		Settings: map[string]any{
-			// A quantized V cache needs flash attention.
-			"batch": nil, "ubatch": nil, "cache_type_k": "q8_0", "cache_type_v": "q8_0",
-			"flash_attention": "on", "paged_kv": true, "parallel": 8,
-		},
-	},
-}
-
 // Engine returns the llama.cpp engine.
 func Engine() *es.Engine {
 	return &es.Engine{
@@ -322,5 +293,6 @@ func Engine() *es.Engine {
 			Recognise: ParseOption,
 		},
 		Drafting: drafting,
+		Memory:   memory,
 	}
 }
