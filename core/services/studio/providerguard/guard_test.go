@@ -73,6 +73,8 @@ var allowed = []entry{
 	{"core/http/endpoints/studio/triggerhook.go", `github`, "the source of an event that carries the GitHub delivery header: the sender, not the add-on"},
 	{ui + "pages/AgentTaskDetails.jsx", `placeholder="github"`, "an example source of an event trigger: the sender, not the add-on"},
 	{"core/http/auth/models.go", `github`, "the id of the GitHub OAuth login provider"},
+	{"core/services/plugins/store/types.go", `github`, "the kind of a plugin marketplace hosted on GitHub: the service, not the add-on"},
+	{"core/services/plugins/fetch/fetch.go", `github`, "the kind of a plugin marketplace hosted on GitHub: the service, not the add-on"},
 	{ui + "pages/Login.jsx", "github", "the GitHub OAuth login button: the service, not the add-on"},
 	{ui + "pages/Login.jsx", "'GitHub'", "the GitHub OAuth login button: the service, not the add-on"},
 	{ui + "App.jsx", `name="github"`, "the GitHub glyph of the footer link to the project"},

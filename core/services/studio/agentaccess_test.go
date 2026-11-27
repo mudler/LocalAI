@@ -134,7 +134,7 @@ func (r *accessRig) turn(svc *studio.Service, h *studiotest.GateHarness, conv st
 // read only: what a scoped chat may read besides its own folders.
 func (r *accessRig) readOnlyRoots(shared ...string) []workspace.FenceRoot {
 	var out []workspace.FenceRoot
-	for _, p := range append([]string{files.SharedSkillsPath, files.BuiltinSkillsPath, files.AddonSkillsPath}, shared...) {
+	for _, p := range append([]string{files.SharedSkillsPath, files.BuiltinSkillsPath, files.AddonSkillsPath, files.PluginsPath}, shared...) {
 		if n, err := r.ws.Stat(r.ctx, files.UserActor(alice), p); err == nil {
 			out = append(out, workspace.FenceRoot{Node: n.ID, Mode: workspace.ModeRead})
 		}
