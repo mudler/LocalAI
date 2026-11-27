@@ -229,6 +229,64 @@ func AdminSetFeatureDefaultHandler(db *gorm.DB) echo.HandlerFunc {
 	}
 }
 
+// AdminUserPermissionsHandler answers GET /api/auth/admin/users/{id}/permissions.
+// permissions is the effective map: every feature, with the stored value or
+// the default in force. explicit_permissions holds only the stored keys; a
+// feature missing from it follows its default.
+func AdminUserPermissionsHandler(db *gorm.DB) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		targetID := c.Param("id")
+		var target auth.User
+		if err := db.First(&target, "id = ?", targetID).Error; err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
+		}
+		explicit, err := auth.GetExplicitPermissions(db, targetID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to read permissions"})
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"user_id":              targetID,
+			"permissions":          auth.GetPermissionMapForUser(db, &target),
+			"explicit_permissions": explicit,
+		})
+	}
+}
+
+// AdminSetUserPermissionsHandler answers PUT /api/auth/admin/users/{id}/permissions.
+// The body replaces the stored map. A feature the body does not name, or names
+// with null, follows its default.
+func AdminSetUserPermissionsHandler(db *gorm.DB) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		targetID := c.Param("id")
+		var target auth.User
+		if err := db.First(&target, "id = ?", targetID).Error; err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
+		}
+
+		var body map[string]*bool
+		if err := c.Bind(&body); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		}
+		perms := auth.PermissionMap{}
+		for k, v := range body {
+			if v != nil {
+				perms[k] = *v
+			}
+		}
+
+		if err := auth.UpdateUserPermissions(db, targetID, perms); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update permissions"})
+		}
+
+		return c.JSON(http.StatusOK, map[string]any{
+			"message":              "permissions updated",
+			"user_id":              targetID,
+			"permissions":          perms,
+			"explicit_permissions": perms,
+		})
+	}
+}
+
 // AdminListUsersHandler answers GET /api/auth/admin/users. Mount it behind the
 // admin check: besides the account it carries two admin-only fields, when the
 // person was last active (lastActiveAt, null until they made an authenticated
@@ -264,6 +322,11 @@ func AdminListUsersHandler(db *gorm.DB) echo.HandlerFunc {
 				"apiKeyCount":  keyCounts[u.ID],
 			}
 			entry["permissions"] = auth.GetPermissionMapForUser(db, &u)
+			explicit, err := auth.GetExplicitPermissions(db, u.ID)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to list users"})
+			}
+			entry["explicit_permissions"] = explicit
 			entry["allowed_models"] = auth.GetModelAllowlist(db, u.ID)
 			if quotas, err := auth.GetQuotaStatuses(db, u.ID); err == nil && len(quotas) > 0 {
 				entry["quotas"] = quotas
@@ -1142,42 +1205,10 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 	}, adminMw)
 
 	// GET /api/auth/admin/users/:id/permissions - get user permissions
-	e.GET("/api/auth/admin/users/:id/permissions", func(c echo.Context) error {
-		targetID := c.Param("id")
-		var target auth.User
-		if err := db.First(&target, "id = ?", targetID).Error; err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
-		}
-		perms := auth.GetPermissionMapForUser(db, &target)
-		return c.JSON(http.StatusOK, map[string]any{
-			"user_id":     targetID,
-			"permissions": perms,
-		})
-	}, adminMw)
+	e.GET("/api/auth/admin/users/:id/permissions", AdminUserPermissionsHandler(db), adminMw)
 
-	// PUT /api/auth/admin/users/:id/permissions - update user permissions
-	e.PUT("/api/auth/admin/users/:id/permissions", func(c echo.Context) error {
-		targetID := c.Param("id")
-		var target auth.User
-		if err := db.First(&target, "id = ?", targetID).Error; err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
-		}
-
-		var perms auth.PermissionMap
-		if err := c.Bind(&perms); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
-		}
-
-		if err := auth.UpdateUserPermissions(db, targetID, perms); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update permissions"})
-		}
-
-		return c.JSON(http.StatusOK, map[string]any{
-			"message":     "permissions updated",
-			"user_id":     targetID,
-			"permissions": perms,
-		})
-	}, adminMw)
+	// PUT /api/auth/admin/users/:id/permissions - replace user permissions
+	e.PUT("/api/auth/admin/users/:id/permissions", AdminSetUserPermissionsHandler(db), adminMw)
 
 	// PUT /api/auth/admin/users/:id/models - update user model allowlist
 	e.PUT("/api/auth/admin/users/:id/models", func(c echo.Context) error {

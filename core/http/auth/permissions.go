@@ -252,6 +252,27 @@ func GetPermissionMapForUser(db *gorm.DB, user *User) PermissionMap {
 	return effective
 }
 
+// GetExplicitPermissions returns the keys stored in a user's permission map:
+// the features set to an explicit value. A feature it does not name follows
+// its default, so an administrator's later change to a configurable default
+// reaches the user. It only reads: a user without a record gets an empty map
+// and no record is created.
+func GetExplicitPermissions(db *gorm.DB, userID string) (PermissionMap, error) {
+	var perm UserPermission
+	err := db.Where("user_id = ?", userID).First(&perm).Error
+	if err == gorm.ErrRecordNotFound {
+		return PermissionMap{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := make(PermissionMap, len(perm.Permissions))
+	for k, v := range perm.Permissions {
+		out[k] = v
+	}
+	return out, nil
+}
+
 // GetModelAllowlist returns the model allowlist for a user.
 func GetModelAllowlist(db *gorm.DB, userID string) ModelAllowlist {
 	perm, err := GetUserPermissions(db, userID)
