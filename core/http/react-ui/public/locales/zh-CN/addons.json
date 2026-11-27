@@ -1155,7 +1155,9 @@
       "sandboxTitle": "其代码只在对话的 Sandbox 中运行，绝不在主机上运行。",
       "unchecked": "尚未检查",
       "uncheckedTitle": "有人审查或安装此插件时，LocalAI 会检查其文件，然后显示该插件是否运行代码。",
-      "noCode": "无代码"
+      "noCode": "无代码",
+      "curatedHint": "依据精选列表",
+      "curatedHintTitle": "精选市场说明此插件是否运行代码。安装前,审核会检查所获取的版本。"
     },
     "browse": {
       "label": "插件",

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/mudler/nib/plugin/claudeplugin"
+	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/plugins/content"
 	"github.com/mudler/LocalAI/core/services/plugins/fetch"
@@ -257,6 +258,17 @@ func (s *Service) Inspect(ctx context.Context, a Actor, pluginID string) (Previe
 		MarketplaceID: r.mkt.ID, Entry: r.entry.Name, SHA: c.sha, Digest: c.digest,
 		SizeBytes: c.tree.Size, FileCount: len(c.tree.Files), Files: c.files(), Model: c.model,
 		RunsCode: len(c.reasons) > 0, CodeReasons: c.reasons, CodeFiles: c.codeFiles, Hosts: c.model.Hosts(),
+	}
+	// The last review is shown on the catalog to everyone: what a version
+	// contributes is a fact of public content. A failure only loses the
+	// hint.
+	if mb, merr := json.Marshal(c.model); merr == nil {
+		if err := s.st.SaveInspection(ctx, store.Inspection{
+			PluginID: r.pluginID, SHA: c.sha, Digest: c.digest, RunsCode: p.RunsCode, CodeReasons: c.reasons,
+			Hosts: p.Hosts, Model: mb, CheckedAt: s.now(),
+		}); err != nil {
+			xlog.Warn("plugins: keep the last review", "plugin", r.pluginID, "error", err)
+		}
 	}
 	p.Token, p.ExpiresAt, err = s.newToken(ctx, store.Token{
 		Kind: store.TokenInstall, Principal: a.ID, PluginID: r.pluginID, SHA: c.sha, Digest: c.digest,

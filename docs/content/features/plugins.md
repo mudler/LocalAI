@@ -90,7 +90,7 @@ Plugin text is data from its author: skills and commands go into the prompt like
 
 The **Plugins** tab of the Add-ons page shows to everyone who has the `plugins` feature. It has three views.
 
-- **Browse** lists the plugins of the active marketplaces as cards, with a search, a marketplace filter, a category filter and **Hide code plugins**. A card shows what the plugin adds once that is known: the number of skills, commands, agents and hooks, and **Connects to `<host>`** for each remote MCP server. A plugin that runs code shows **Runs code** and **Needs Sandbox**: its code runs only in the Sandbox of a chat. Whether a plugin runs code is known only after a version of it was reviewed or installed; until then the card says **Not checked yet**. A user sees **Install** on a plugin that is not known to run code; a plugin that runs code says that an administrator can install it.
+- **Browse** lists the plugins of the active marketplaces as cards, with a search, a marketplace filter, a category filter and **Hide code plugins**. A card shows what the plugin adds once that is known: the number of skills, commands, agents and hooks, and **Connects to `<host>`** for each remote MCP server. A plugin that runs code shows **Runs code** and **Needs Sandbox**: its code runs only in the Sandbox of a chat. Whether a plugin runs code comes from an install of it, else from the last review of it by anyone (which also gives what it adds), else, for the curated marketplace only, from its `runsCode` claim, which the card marks **Per the curated list**. With none of these the card says **Not checked yet**. The review of the version to install always decides. A user sees **Install** on a plugin that is not known to run code; a plugin that runs code says that an administrator can install it.
 - **Installed** lists the installs for everyone and your own, each with your switch, **Update** when a newer version waits, and a menu with **Details**, **Settings**, **Roll back** and **Remove**. Details list the components, the components that are not supported with the reason, and the code files as text. Settings edit the plugin's settings that are not secret; secret settings come in a later version. An install whose update added code shows "This plugin now runs code in your Sandbox" and stays off until you press **Turn on again**.
 - **Marketplaces** lists the marketplaces with their state and when each was read. Administrators add, refresh, turn off and remove them.
 
@@ -126,7 +126,7 @@ All routes are under `/api/plugins` and need the `plugins` feature, which is on 
 | `DELETE /api/plugins/marketplaces/{id}` | administrator | Removes a marketplace. The installs from it stay. |
 | `POST /api/plugins/marketplaces/{id}/refresh` | administrator | Reads the marketplace now. |
 | `GET /api/plugins/catalog` | user | Browses the active marketplaces: `q`, `marketplace`, `category`, `runs_code`, `offset`, `limit` (at most 200). |
-| `GET /api/plugins/catalog/{marketplace}/{name}` | user | One entry, with the installs of it that the caller can see. |
+| `GET /api/plugins/catalog/{marketplace}/{name}` | user | One entry, with the installs of it that the caller can see, `runsCode` with its source `runsCodeFrom` (`install`, `review` or `curated`), and `reviewed`, the last review of the plugin (commit, digest, code reasons, what it adds). The list has the same fields. |
 | `POST /api/plugins/inspect` | user | `{"plugin": "name@marketplace"}`: fetches, checks and reads the plugin, and returns the preview with a token. |
 | `GET /api/plugins/inspect/{token}/files/{path}` | user | One file of the preview, as plain text. |
 | `POST /api/plugins/installs` | user or administrator | `{"token": "...", "scope": "user"}`. Answers `202` with `jobID`. |
@@ -223,6 +223,7 @@ Each setting applies at once. Plugins need a data path: the server fetches into 
 |---|---|---|
 | Marketplaces, their lists, packages, installs, the state of each user, review tokens | Stateless per request | Rows in the database (or the file store of a server with no database). Every frontend reads them per request. |
 | Package files | Shared, immutable | The workspace store, one folder per digest. |
+| Last review of each plugin | Shared | A row per plugin ID in the database, replaced by each inspect. |
 | Marketplace refresh and removal of unused packages | One frontend at a time | An advisory lock taken for each pass. A marketplace refreshed less than 6 hours ago is skipped, so leadership need not stay on one frontend. |
 | Install, update or removal of one plugin | One at a time per plugin | A lock on the plugin ID across frontends, held for the length of the change. |
 | Connectors of plugins | Stateless per request | Rows of the connectors table. Turning a plugin on or off writes them; each turn makes them match the package again and writes nothing when they match, so any frontend can do it. MCP sessions stay per frontend, as for every connector. |

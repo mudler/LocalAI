@@ -1155,7 +1155,9 @@
       "sandboxTitle": "Il suo codice viene eseguito solo nella Sandbox di una chat, mai sull'host.",
       "unchecked": "Non ancora controllato",
       "uncheckedTitle": "LocalAI controlla i file quando qualcuno esamina o installa questo plugin. Poi mostra se il plugin esegue codice.",
-      "noCode": "Nessun codice"
+      "noCode": "Nessun codice",
+      "curatedHint": "Secondo l'elenco curato",
+      "curatedHintTitle": "Il marketplace curato dice se questo plugin esegue codice. La revisione controlla la versione scaricata prima di installare qualsiasi cosa."
     },
     "browse": {
       "label": "Plugin",

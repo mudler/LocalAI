@@ -6295,11 +6295,23 @@ definitions:
       reason:
         description: Reason says why an entry is not supported.
         type: string
+      reviewed:
+        allOf:
+        - $ref: '#/definitions/plugins.ReviewedVersion'
+        description: |-
+          Reviewed is the last inspect of the plugin by anyone: the version and
+          what it contributes.
       runsCode:
         description: |-
-          RunsCode is what the last installed version of the plugin says; nil
-          until a version was installed. Inspect tells for sure.
+          RunsCode says whether the plugin runs code, from RunsCodeFrom; nil
+          when nothing says. Inspect tells for sure for the version it fetches.
         type: boolean
+      runsCodeFrom:
+        description: |-
+          RunsCodeFrom is where RunsCode comes from: an install, the last
+          review (inspect) of the plugin, or the runsCode that the curated
+          marketplace claims (a hint; the review decides).
+        type: string
       source:
         type: object
       strict:
@@ -6794,6 +6806,27 @@ definitions:
         description: Token confirms this preview once, before ExpiresAt.
         type: string
       version:
+        type: string
+    type: object
+  plugins.ReviewedVersion:
+    properties:
+      checkedAt:
+        type: string
+      codeReasons:
+        items:
+          type: string
+        type: array
+      digest:
+        type: string
+      hosts:
+        items:
+          type: string
+        type: array
+      model:
+        $ref: '#/definitions/plugins.Model'
+      runsCode:
+        type: boolean
+      sha:
         type: string
     type: object
   plugins.SkillRef:

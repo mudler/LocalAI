@@ -58,6 +58,11 @@ type Store interface {
 	TakeToken(ctx context.Context, id string, now time.Time) (Token, error)
 	// DeleteExpiredTokens deletes the tokens that expired before now.
 	DeleteExpiredTokens(ctx context.Context, now time.Time) (int, error)
+
+	// SaveInspection creates or replaces the last inspection of a plugin ID.
+	SaveInspection(ctx context.Context, in Inspection) error
+	// Inspections lists the last inspection of every plugin ID.
+	Inspections(ctx context.Context) ([]Inspection, error)
 }
 
 // Tx is the view of the store inside InstallTx.

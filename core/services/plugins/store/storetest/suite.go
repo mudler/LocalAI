@@ -424,6 +424,30 @@ func Run(newStore NewStore) {
 		})
 	})
 
+	Describe("inspections", func() {
+		It("keeps the last inspection of each plugin ID", func() {
+			s := newStore()
+			Expect(s.SaveInspection(ctx, store.Inspection{})).To(MatchError(store.ErrInvalid))
+			first := store.Inspection{PluginID: "fmt@tools", SHA: "a", Digest: digest('a'), RunsCode: false,
+				CodeReasons: []string{}, Hosts: []string{"mcp.example"}, Model: []byte(`{"name":"fmt"}`), CheckedAt: base}
+			Expect(s.SaveInspection(ctx, first)).To(Succeed())
+			Expect(s.SaveInspection(ctx, store.Inspection{PluginID: "lint@tools", SHA: "c", CheckedAt: base})).To(Succeed())
+			second := first
+			second.SHA, second.RunsCode, second.CodeReasons, second.CheckedAt = "b", true, []string{"hook-command"}, base.Add(time.Hour)
+			Expect(s.SaveInspection(ctx, second)).To(Succeed())
+			list, err := s.Inspections(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(list).To(HaveLen(2))
+			Expect(list[0].PluginID).To(Equal("fmt@tools"))
+			Expect(list[0].SHA).To(Equal("b"))
+			Expect(list[0].RunsCode).To(BeTrue())
+			Expect(list[0].CodeReasons).To(Equal([]string{"hook-command"}))
+			Expect(list[0].Hosts).To(Equal([]string{"mcp.example"}))
+			Expect(string(list[0].Model)).To(MatchJSON(`{"name":"fmt"}`))
+			Expect(list[0].CheckedAt).To(BeTemporally("==", base.Add(time.Hour)))
+		})
+	})
+
 	Describe("preview tokens", func() {
 		tok := func(id string, expires time.Time) store.Token {
 			return store.Token{

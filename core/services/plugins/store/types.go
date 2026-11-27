@@ -155,6 +155,22 @@ type Package struct {
 	CreatedAt   time.Time
 }
 
+// Inspection is the last inspect of one plugin ID: what the version at SHA
+// contributes and whether it runs code. Browse shows it before anyone
+// installs the plugin. It holds facts about public content, never a user.
+type Inspection struct {
+	PluginID    string
+	SHA         string
+	Digest      string
+	RunsCode    bool
+	CodeReasons []string
+	Hosts       []string
+	// Model is the parsed plugin (plugins.Model) as JSON. The store does
+	// not read it.
+	Model     json.RawMessage
+	CheckedAt time.Time
+}
+
 // Install makes a plugin available to everyone (ScopeInstance) or to one
 // user (ScopeUser).
 type Install struct {

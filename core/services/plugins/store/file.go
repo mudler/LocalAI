@@ -30,6 +30,8 @@ type fileState struct {
 	// UserStates is keyed by principal, then install ID.
 	UserStates map[string]map[string]UserState `json:"userStates"`
 	Tokens     map[string]Token                `json:"tokens"`
+	// Inspections is keyed by plugin ID.
+	Inspections map[string]Inspection `json:"inspections"`
 }
 
 func newFileState() *fileState {
@@ -37,6 +39,7 @@ func newFileState() *fileState {
 		Marketplaces: map[string]Marketplace{}, Snapshots: map[string]Snapshot{},
 		Packages: map[string]Package{}, Installs: map[string]Install{},
 		UserStates: map[string]map[string]UserState{}, Tokens: map[string]Token{},
+		Inspections: map[string]Inspection{},
 	}
 }
 
@@ -85,6 +88,9 @@ func (s *FileStore) load() (*fileState, error) {
 	}
 	if st.UserStates == nil {
 		st.UserStates = fresh.UserStates
+	}
+	if st.Inspections == nil {
+		st.Inspections = fresh.Inspections
 	}
 	if st.Tokens == nil {
 		st.Tokens = fresh.Tokens
@@ -487,4 +493,27 @@ func (t fileTx) MarkNeedsReenable(installID string) error {
 		}
 	}
 	return nil
+}
+
+func (s *FileStore) SaveInspection(_ context.Context, in Inspection) error {
+	if in.PluginID == "" {
+		return fmt.Errorf("%w: an inspection needs a plugin ID", ErrInvalid)
+	}
+	return s.write(func(st *fileState) error {
+		st.Inspections[in.PluginID] = in
+		return nil
+	})
+}
+
+func (s *FileStore) Inspections(_ context.Context) ([]Inspection, error) {
+	var out []Inspection
+	err := s.read(func(st *fileState) error {
+		out = make([]Inspection, 0, len(st.Inspections))
+		for _, in := range st.Inspections {
+			out = append(out, in)
+		}
+		return nil
+	})
+	sort.Slice(out, func(i, j int) bool { return out[i].PluginID < out[j].PluginID })
+	return out, err
 }

@@ -136,7 +136,10 @@ export default function BrowseView({ api, isAdmin, ops, previews, models, onMode
 function PluginCard({ item, marketplace, isAdmin, op, preview, model, onInstall, onUpdate }) {
   const { t } = useTranslation('addons')
   const action = cardAction(item, { isAdmin, busy: Boolean(op) })
-  const known = preview || model || null
+  // What the plugin adds: this person's review, the details they opened, or
+  // the last review of the plugin by anyone.
+  const known = preview || model || item.reviewed || null
+  const hint = !preview && item.runsCodeFrom === 'curated'
   const runsCode = preview ? preview.runsCode : runsCodeOf(item)
   const update = (item.installs || []).find((i) => i.state === 'update_available')
   const id = `pl-card-${item.plugin.replace(/[^a-zA-Z0-9_-]/g, '-')}`
@@ -170,6 +173,11 @@ function PluginCard({ item, marketplace, isAdmin, op, preview, model, onInstall,
       )}
       {runsCode === false && !known && (
         <span className="ui-tags pl-tags"><Tag icon="check" testId="plugin-no-code">{t('plugins.adds.noCode')}</Tag></span>
+      )}
+      {hint && typeof runsCode === 'boolean' && (
+        <span className="ui-tags pl-tags">
+          <Tag icon="info" title={t('plugins.adds.curatedHintTitle')} testId="plugin-curated-hint">{t('plugins.adds.curatedHint')}</Tag>
+        </span>
       )}
       <div className="ad-card__foot">
         {action === 'unsupported' && <p className="ad-card__note" data-testid="plugin-unsupported">{item.reason || t('plugins.browse.unsupported')}</p>}

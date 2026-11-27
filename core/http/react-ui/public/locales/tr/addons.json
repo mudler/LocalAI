@@ -1155,7 +1155,9 @@
       "sandboxTitle": "Kodu yalnızca bir sohbetin Sandbox'ında çalışır, asla ana makinede çalışmaz.",
       "unchecked": "Henüz denetlenmedi",
       "uncheckedTitle": "LocalAI, biri bu plugin'i incelediğinde veya kurduğunda dosyalarını denetler. Ardından plugin'in kod çalıştırıp çalıştırmadığını gösterir.",
-      "noCode": "Kod yok"
+      "noCode": "Kod yok",
+      "curatedHint": "Seçilmiş listeye göre",
+      "curatedHintTitle": "Seçilmiş pazar yeri bu plugin'in kod çalıştırıp çalıştırmadığını söyler. İnceleme, bir şey kurulmadan önce indirilen sürümü kontrol eder."
     },
     "browse": {
       "label": "Plugin'ler",

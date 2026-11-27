@@ -32513,9 +32513,21 @@ const docTemplate = `{
                     "description": "Reason says why an entry is not supported.",
                     "type": "string"
                 },
+                "reviewed": {
+                    "description": "Reviewed is the last inspect of the plugin by anyone: the version and\nwhat it contributes.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/plugins.ReviewedVersion"
+                        }
+                    ]
+                },
                 "runsCode": {
-                    "description": "RunsCode is what the last installed version of the plugin says; nil\nuntil a version was installed. Inspect tells for sure.",
+                    "description": "RunsCode says whether the plugin runs code, from RunsCodeFrom; nil\nwhen nothing says. Inspect tells for sure for the version it fetches.",
                     "type": "boolean"
+                },
+                "runsCodeFrom": {
+                    "description": "RunsCodeFrom is where RunsCode comes from: an install, the last\nreview (inspect) of the plugin, or the runsCode that the curated\nmarketplace claims (a hint; the review decides).",
+                    "type": "string"
                 },
                 "source": {
                     "type": "object"
@@ -33240,6 +33252,38 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.ReviewedVersion": {
+            "type": "object",
+            "properties": {
+                "checkedAt": {
+                    "type": "string"
+                },
+                "codeReasons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "digest": {
+                    "type": "string"
+                },
+                "hosts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "model": {
+                    "$ref": "#/definitions/plugins.Model"
+                },
+                "runsCode": {
+                    "type": "boolean"
+                },
+                "sha": {
                     "type": "string"
                 }
             }

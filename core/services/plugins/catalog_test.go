@@ -127,6 +127,56 @@ var _ = Describe("Catalog, install views and the user state", func() {
 			Expect(page.Items[0].Installs).To(BeEmpty(), "another user's install is not shown")
 		})
 
+		It("shows the last review of an entry before anyone installs it", func() {
+			p, err := svc.Inspect(ctx, carol, "fmt@team")
+			Expect(err).NotTo(HaveOccurred())
+			it, err := svc.CatalogEntry(ctx, user, "team", "fmt")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(it.RunsCode).To(HaveValue(BeFalse()))
+			Expect(it.RunsCodeFrom).To(Equal(plugins.RunsCodeFromReview))
+			Expect(it.Reviewed).NotTo(BeNil())
+			Expect(it.Reviewed.SHA).To(Equal(p.SHA))
+			Expect(it.Reviewed.Digest).To(Equal(p.Digest))
+			Expect(it.Reviewed.Model.Skills).To(HaveLen(1))
+			no := false
+			page, err := svc.Catalog(ctx, user, plugins.CatalogQuery{RunsCode: &no})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(page.Items).To(HaveLen(1), "a reviewed text-only entry passes the text-only filter")
+
+			install(user, store.ScopeUser)
+			it, err = svc.CatalogEntry(ctx, user, "team", "fmt")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(it.RunsCodeFrom).To(Equal(plugins.RunsCodeFromInstall), "an install wins over a review")
+		})
+
+		It("takes runsCode of the curated marketplace as a hint, and of no other marketplace", func() {
+			entry := func(name string, runs bool) string {
+				b, _ := json.Marshal(map[string]any{"name": name, "source": map[string]any{"source": "github", "repo": "o/" + name},
+					"metadata": map[string]any{"localai": map[string]any{"runsCode": runs}}})
+				return string(b)
+			}
+			ff.setMarketplace(plugins.CuratedMarketplaceURL(""), marketplaceJSON("localai", entry("hooky", true), entry("texty", false)), "", nil)
+			Expect(svc.Seed(ctx)).To(Succeed())
+			Expect(st.SaveMarketplace(ctx, store.Marketplace{ID: plugins.DefaultMarketplaceID, Name: "localai", Kind: store.KindURL,
+				Location: plugins.CuratedMarketplaceURL(""), Enabled: true, Default: true})).To(Succeed())
+			_, err := svc.RefreshMarketplace(ctx, admin, plugins.DefaultMarketplaceID)
+			Expect(err).NotTo(HaveOccurred())
+			ff.setMarketplace("owner/third", marketplaceJSON("third", entry("claims", false)), shaA, nil)
+			_, err = svc.AddMarketplace(ctx, admin, plugins.AddMarketplaceRequest{Source: "owner/third"})
+			Expect(err).NotTo(HaveOccurred())
+
+			it, err := svc.CatalogEntry(ctx, user, plugins.DefaultMarketplaceID, "hooky")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(it.RunsCode).To(HaveValue(BeTrue()))
+			Expect(it.RunsCodeFrom).To(Equal(plugins.RunsCodeFromCurated))
+			it, err = svc.CatalogEntry(ctx, user, plugins.DefaultMarketplaceID, "texty")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(it.RunsCode).To(HaveValue(BeFalse()))
+			it, err = svc.CatalogEntry(ctx, user, "third", "claims")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(it.RunsCode).To(BeNil(), "a third-party marketplace's own claim is not trusted")
+		})
+
 		It("leaves out a disabled marketplace", func() {
 			off := false
 			_, err := svc.UpdateMarketplace(ctx, admin, "team", plugins.UpdateMarketplaceRequest{Enabled: &off})

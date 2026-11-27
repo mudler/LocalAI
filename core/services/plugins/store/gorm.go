@@ -48,6 +48,19 @@ type snapshotRow struct {
 
 func (snapshotRow) TableName() string { return "plugin_marketplace_snapshots" }
 
+type inspectionRow struct {
+	PluginID    string `gorm:"primaryKey;size:255"`
+	SHA         string `gorm:"column:sha;size:64"`
+	Digest      string `gorm:"column:digest;size:80"`
+	RunsCode    bool
+	CodeReasons string
+	Hosts       string
+	Model       []byte
+	CheckedAt   time.Time
+}
+
+func (inspectionRow) TableName() string { return "plugin_inspections" }
+
 type packageRow struct {
 	Digest        string `gorm:"column:digest;primaryKey;size:80"`
 	Name          string `gorm:"size:255"`
@@ -137,7 +150,7 @@ func NewGormStore(db *gorm.DB) (*GormStore, error) {
 		return nil, errors.New("plugins store: nil *gorm.DB")
 	}
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		return db.AutoMigrate(&marketplaceRow{}, &snapshotRow{}, &packageRow{}, &installRow{}, &userStateRow{}, &tokenRow{})
+		return db.AutoMigrate(&marketplaceRow{}, &snapshotRow{}, &packageRow{}, &installRow{}, &userStateRow{}, &tokenRow{}, &inspectionRow{})
 	}); err != nil {
 		return nil, fmt.Errorf("plugins store: migrate: %w", err)
 	}
@@ -581,4 +594,44 @@ func (t gormTx) SaveUserState(us UserState) error {
 func (t gormTx) MarkNeedsReenable(installID string) error {
 	return t.db.Model(&userStateRow{}).Where("install_id = ?", installID).
 		Update("needs_reenable", true).Error
+}
+
+func (s *GormStore) SaveInspection(ctx context.Context, in Inspection) error {
+	if in.PluginID == "" {
+		return fmt.Errorf("%w: an inspection needs a plugin ID", ErrInvalid)
+	}
+	reasons, err := toJSON(in.CodeReasons)
+	if err != nil {
+		return err
+	}
+	hosts, err := toJSON(in.Hosts)
+	if err != nil {
+		return err
+	}
+	row := inspectionRow{PluginID: in.PluginID, SHA: in.SHA, Digest: in.Digest, RunsCode: in.RunsCode,
+		CodeReasons: reasons, Hosts: hosts, Model: in.Model, CheckedAt: in.CheckedAt}
+	return s.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "plugin_id"}},
+		UpdateAll: true,
+	}).Create(&row).Error
+}
+
+func (s *GormStore) Inspections(ctx context.Context) ([]Inspection, error) {
+	var rows []inspectionRow
+	if err := s.db.WithContext(ctx).Order("plugin_id").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]Inspection, 0, len(rows))
+	for _, r := range rows {
+		in := Inspection{PluginID: r.PluginID, SHA: r.SHA, Digest: r.Digest, RunsCode: r.RunsCode,
+			Model: r.Model, CheckedAt: r.CheckedAt.UTC()}
+		if err := fromJSON(r.CodeReasons, &in.CodeReasons); err != nil {
+			return nil, fmt.Errorf("plugins store: read inspection %s: %w", r.PluginID, err)
+		}
+		if err := fromJSON(r.Hosts, &in.Hosts); err != nil {
+			return nil, fmt.Errorf("plugins store: read inspection %s: %w", r.PluginID, err)
+		}
+		out = append(out, in)
+	}
+	return out, nil
 }

@@ -1155,7 +1155,9 @@
       "sandboxTitle": "Kodenya hanya berjalan di Sandbox sebuah chat, tidak pernah di host.",
       "unchecked": "Belum diperiksa",
       "uncheckedTitle": "LocalAI memeriksa berkasnya saat seseorang meninjau atau memasang plugin ini. Lalu ditampilkan apakah plugin menjalankan kode.",
-      "noCode": "Tanpa kode"
+      "noCode": "Tanpa kode",
+      "curatedHint": "Menurut daftar kurasi",
+      "curatedHintTitle": "Marketplace kurasi menyatakan apakah plugin ini menjalankan kode. Peninjauan memeriksa versi yang diunduh sebelum apa pun dipasang."
     },
     "browse": {
       "label": "Plugin",

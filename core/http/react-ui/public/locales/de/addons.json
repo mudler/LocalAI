@@ -1155,7 +1155,9 @@
       "sandboxTitle": "Sein Code läuft nur in der Sandbox eines Chats, nie auf dem Host.",
       "unchecked": "Noch nicht geprüft",
       "uncheckedTitle": "LocalAI prüft die Dateien, wenn jemand dieses Plugin überprüft oder installiert. Dann zeigt es, ob das Plugin Code ausführt.",
-      "noCode": "Kein Code"
+      "noCode": "Kein Code",
+      "curatedHint": "Laut kuratierter Liste",
+      "curatedHintTitle": "Der kuratierte Marktplatz gibt an, ob dieses Plugin Code ausführt. Die Prüfung kontrolliert die geladene Version, bevor etwas installiert wird."
     },
     "browse": {
       "label": "Plugins",
