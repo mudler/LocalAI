@@ -64,6 +64,25 @@ func (ix *ReportedIndex) Apply(event messaging.PrefixCacheResidencyEvent) {
 	}
 }
 
+// DiskResidency is the hook for phase 3 of the disk prompt cache: the
+// prefixes a node holds in its disk tier, which survive an unload of the
+// model. Nothing implements it yet. Decide reads only what the backends
+// report as resident in RAM, so a node that holds a prefix on disk alone
+// gets no preference today.
+//
+// TODO(prompt-cache-disk, phase 3): feed it from the workers (for example
+// from promptcache.usage or a residency event per written entry, keyed by
+// the salted chain, so one namespace never learns of another), and in
+// Decide prefer a node with a deep disk match over a cold one, below a node
+// with the same depth in RAM. The disk read is slower than a RAM hit and the
+// backend only takes it when it beats recompute, so a disk match is a
+// tie-break, never a reason to load a model on another node.
+type DiskResidency interface {
+	// DiskDepth is the number of chain blocks the node holds on disk for
+	// the model, 0 for none.
+	DiskDepth(model, nodeID string, chain []uint64) int
+}
+
 func (ix *ReportedIndex) Decide(model string, chain []uint64, candidates []ReplicaKey, _ time.Time) PrefixDecision {
 	order := append([]ReplicaKey(nil), candidates...)
 	sort.Slice(order, func(i, j int) bool { return order[i].less(order[j]) })
