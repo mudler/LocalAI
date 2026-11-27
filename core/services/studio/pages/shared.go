@@ -43,8 +43,8 @@ type SharedFolder struct {
 }
 
 // skipShared tells whether a readable folder is not a shared folder of pages:
-// the viewer's own home (or a folder that holds it), the folders of skills that
-// every user reads, and the root of all homes.
+// the viewer's own home (or a folder that holds it), the folders of skills and
+// plugin packages that every user reads, and the root of all homes.
 func skipShared(p, home string) bool {
 	switch {
 	case p == "/" || p == session.UsersRoot:
@@ -56,6 +56,8 @@ func skipShared(p, home string) bool {
 	case p == files.BuiltinSkillsPath || strings.HasPrefix(p, files.BuiltinSkillsPath+"/"):
 		return true
 	case p == files.AddonSkillsPath || strings.HasPrefix(p, files.AddonSkillsPath+"/"):
+		return true
+	case p == files.PluginsPath || strings.HasPrefix(p, files.PluginsPath+"/"):
 		return true
 	}
 	return false

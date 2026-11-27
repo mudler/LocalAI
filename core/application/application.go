@@ -236,7 +236,7 @@ type Application struct {
 	studioTempDir         string                 // removed at shutdown; set only in memory-only mode
 	studioHostExec        *hostexec.Runner       // the chats' built-in bash on this machine
 	studioFiles           *files.Service
-	pluginsService        *plugins.Service
+	pluginsService        atomic.Pointer[plugins.Service] // set at startup after the chats service; turns read it
 	pluginsReason         string
 	studioFilesIndex      io.Closer          // closes the workspace index: ends pending blob removals, frees the JSON folder
 	studioFilesTemp       string             // blob cache folder of a cluster with no data path; removed at shutdown

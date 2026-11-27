@@ -21,11 +21,11 @@ import (
 
 // Plugins returns the service of the plugins in the Claude Code plugin
 // format, or nil when it is off; PluginsUnavailable says why.
-func (a *Application) Plugins() *plugins.Service { return a.pluginsService }
+func (a *Application) Plugins() *plugins.Service { return a.pluginsService.Load() }
 
 // PluginsUnavailable returns why the Plugins service is off, or "".
 func (a *Application) PluginsUnavailable() string {
-	if a.pluginsService != nil {
+	if a.pluginsService.Load() != nil {
 		return ""
 	}
 	if a.pluginsReason == "" {
@@ -135,6 +135,19 @@ func (a *Application) initPlugins() error {
 		xlog.Warn("plugins: seed the default marketplaces", "error", err)
 	}
 	go svc.Run(cfg.Context)
-	a.pluginsService = svc
+	a.pluginsService.Store(svc)
 	return nil
+}
+
+// latePlugins gives the chats the turn view of the Plugins service, which
+// starts after the chats service. Before it starts, or when it is off, a
+// turn has no plugins.
+type latePlugins struct{ a *Application }
+
+func (l latePlugins) TurnView(ctx context.Context, principal string, chat plugins.ChatRef) ([]plugins.ActivePlugin, error) {
+	svc := l.a.Plugins()
+	if svc == nil {
+		return nil, nil
+	}
+	return svc.TurnView(ctx, principal, chat)
 }

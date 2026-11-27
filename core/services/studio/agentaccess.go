@@ -323,7 +323,7 @@ func (s *Service) skillRoots(ctx context.Context, base workspace.Actor) ([]works
 	owner.ChatID = ""
 	var out []workspace.FenceRoot
 	var paths []string
-	for _, p := range []string{files.SharedSkillsPath, files.BuiltinSkillsPath, files.AddonSkillsPath} {
+	for _, p := range []string{files.SharedSkillsPath, files.BuiltinSkillsPath, files.AddonSkillsPath, files.PluginsPath} {
 		if n, err := s.d.Files.Store().Stat(ctx, owner, p); err == nil && n.Kind == workspace.KindDir {
 			out = append(out, workspace.FenceRoot{Node: n.ID, Mode: workspace.ModeRead})
 			paths = append(paths, n.Path)

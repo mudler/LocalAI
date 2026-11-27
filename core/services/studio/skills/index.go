@@ -2,6 +2,7 @@ package skills
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -48,7 +49,8 @@ func Usable(skills []Skill) []Skill {
 	return list
 }
 
-// Index renders the skills that Usable keeps, for the system prompt: a fixed
+// Index renders the skills that Usable keeps, except those the model may not
+// start (NoModel), for the system prompt: a fixed
 // first line that names the load tool, then one line per skill with its name
 // and its description (and, for a skill the product marked Unavailable, the
 // reason). It names no path: the model loads a skill by its name. Nearer
@@ -56,7 +58,7 @@ func Usable(skills []Skill) []Skill {
 // MaxIndexBytes bytes are listed; a last line says how many were left out. It
 // returns "" when no skill is listed.
 func Index(skills []Skill) string {
-	list := Usable(skills)
+	list := slices.DeleteFunc(Usable(skills), func(s Skill) bool { return s.NoModel })
 	if len(list) == 0 {
 		return ""
 	}

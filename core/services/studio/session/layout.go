@@ -215,13 +215,15 @@ func uniqueName(base, sep string, taken func(name string) (bool, error)) (string
 type SkillLayer struct{ Path, At string }
 
 // SkillLayers are the read-only skill layers: the shared skills an
-// administrator gives to everyone, the built-in skills and the skills of the
-// installed add-ons. The file tools read them at these names, and the
+// administrator gives to everyone, the built-in skills, the skills of the
+// installed add-ons and the packages of the installed plugins (one folder per
+// content digest, the CLAUDE_PLUGIN_ROOT of a plugin). The file tools read them at these names, and the
 // commands see them at the same names, so a skill's scripts run in place.
 var SkillLayers = []SkillLayer{
 	{Path: "/skills", At: GuestSharedPrefix + "skills"},
 	{Path: "/builtin-skills", At: GuestSharedPrefix + "builtin-skills"},
 	{Path: "/addon-skills", At: GuestSharedPrefix + "addon-skills"},
+	{Path: "/plugins", At: GuestSharedPrefix + "plugins"},
 }
 
 // SkillLayerMounts returns read-only mounts of the skill layers the actor can

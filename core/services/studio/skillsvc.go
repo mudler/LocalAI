@@ -54,15 +54,16 @@ func cleanSkillSwitches(off []string) ([]string, error) {
 }
 
 // validSwitch says whether n names a skill switch: a skill name, or
-// "layer:name" for the skill of one layer.
+// "layer:name" for the skill of one layer. A plugin skill is switched by its
+// ID only: "plugin:<plugin>:<skill>".
 func validSwitch(n string) bool {
 	layer, name, qualified := strings.Cut(n, ":")
 	if !qualified {
 		return skills.ValidName(n)
 	}
-	switch skills.Layer(layer) {
-	case skills.LayerFolder, skills.LayerProject, skills.LayerPersonal, skills.LayerShared, skills.LayerAddon, skills.LayerBuiltin:
-		return skills.ValidName(name)
+	switch l := skills.Layer(layer); l {
+	case skills.LayerFolder, skills.LayerProject, skills.LayerPersonal, skills.LayerShared, skills.LayerPlugin, skills.LayerAddon, skills.LayerBuiltin:
+		return skills.ValidNameIn(l, name)
 	}
 	return false
 }
@@ -117,7 +118,7 @@ func (s *Service) skillTurn(ctx context.Context, p string, rec session.ChatRecor
 	if !s.d.Files.Available() {
 		return "", "", "", "", nil
 	}
-	list, notes, fallback, err := s.chatSkillSet(ctx, p, rec, off, addonsOff, sc, command)
+	list, notes, fallback, pluginKey, err := s.chatSkillSetKeyed(ctx, p, rec, off, addonsOff, sc, command)
 	if err != nil {
 		var policyErr *providerPolicyError
 		if errors.As(err, &policyErr) {
@@ -129,9 +130,14 @@ func (s *Service) skillTurn(ctx context.Context, p string, rec session.ChatRecor
 	// The key covers every valid skill file, switched off or not: a switch takes
 	// a line out of the index without changing a file, and must not refresh the
 	// sandbox. A shadowed skill is left out, because it is never read.
+	// The key also names the packages of the plugins that contribute, so the
+	// sandbox sees a plugin enabled since the last turn, skills or not.
 	var on []skills.Skill
 	h := sha256.New()
 	valid := 0
+	if pluginKey != "" {
+		_, _ = fmt.Fprintf(h, "plugins\x00%s\n", pluginKey)
+	}
 	for _, sk := range list {
 		if sk.Invalid != "" || sk.Shadowed != "" {
 			continue
@@ -158,7 +164,7 @@ func (s *Service) skillTurn(ctx context.Context, p string, rec session.ChatRecor
 			}
 		}
 	}
-	if valid == 0 {
+	if valid == 0 && pluginKey == "" {
 		return "", strings.Join(notes, "; "), "", fallback, nil
 	}
 	return skills.Index(on), strings.Join(notes, "; "), hex.EncodeToString(h.Sum(nil)), fallback, nil
@@ -228,7 +234,9 @@ const writingSkillsName = "writing-skills"
 // skills.write.
 func (sc *scope) grantsSkill(sk skills.Skill) bool {
 	switch {
-	case sk.Layer == skills.LayerAgent, sk.Layer == skills.LayerProject:
+	// The Plugins service gives a chat with an agent only the plugins the
+	// agent grants; each skill of such a plugin is granted with it.
+	case sk.Layer == skills.LayerAgent, sk.Layer == skills.LayerProject, sk.Layer == skills.LayerPlugin:
 		return true
 	case sk.Layer == skills.LayerBuiltin && sk.Name == writingSkillsName && sc.builtins[contract.CapSkillsWrite]:
 		return true
@@ -250,23 +258,31 @@ func (sc *scope) hostGrants(sk skills.Skill) bool {
 }
 
 // chatSkillSet resolves the skills of one chat: the user's layers, the skills
-// of the add-ons the chat may use now, the chat's switches and the grants of
-// its agent. The index of the turn and load_skill both read it, so the model
-// can load exactly the skills the index lists.
+// of the add-ons and plugins the chat may use now, the chat's switches and the
+// grants of its agent. The index of the turn and load_skill both read it, so
+// the model can load exactly the skills the index lists.
 func (s *Service) chatSkillSet(ctx context.Context, p string, rec session.ChatRecord, off, addonsOff []string, sc *scope, command Commands) ([]skills.Skill, []string, string, error) {
+	list, notes, fallback, _, err := s.chatSkillSetKeyed(ctx, p, rec, off, addonsOff, sc, command)
+	return list, notes, fallback, err
+}
+
+// chatSkillSetKeyed is chatSkillSet that also returns pluginKey, which names
+// the packages of the plugins that contribute (see pluginSkillRoots).
+func (s *Service) chatSkillSetKeyed(ctx context.Context, p string, rec session.ChatRecord, off, addonsOff []string, sc *scope, command Commands) (list []skills.Skill, notes []string, fallback, pluginKey string, err error) {
 	skip := skillOff(off)
 	ad, err := s.addonSkillsFor(ctx, p, addonsOff, sc, command)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, "", "", err
 	}
-	list, notes, err := s.d.Files.ResolveSkills(ctx, p, s.d.Files.SkillRoots(p, slices.Concat(ad.roots(), agentSkillRoots(p, sc), s.projectSkillRoots(ctx, p, rec))...), ad.options(skills.Options{
+	pluginRoots, pluginKey := s.pluginSkillRoots(ctx, p, rec, sc)
+	list, notes, err = s.d.Files.ResolveSkills(ctx, p, s.d.Files.SkillRoots(p, slices.Concat(ad.roots(), pluginRoots, agentSkillRoots(p, sc), s.projectSkillRoots(ctx, p, rec))...), ad.options(skills.Options{
 		Off:    func(sk skills.Skill) bool { return skip(sk) || (sc != nil && !sc.grantsSkill(sk)) },
 		Logger: s.log,
 	}))
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, "", "", err
 	}
-	return list, ad.withNotes(notes), ad.markFallbacks(list), nil
+	return list, ad.withNotes(notes), ad.markFallbacks(list), pluginKey, nil
 }
 
 // Skills lists the skills the user has: every layer, with shadowed and skipped
@@ -298,7 +314,8 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 	if err != nil {
 		return nil, nil, err
 	}
-	list, notes, err := s.d.Files.ResolveSkills(ctx, p, s.d.Files.SkillRoots(p, slices.Concat(ad.roots(), agentSkillRoots(p, sc), s.projectSkillRoots(ctx, p, rec))...), ad.options(skills.Options{
+	pluginRoots, _ := s.pluginSkillRoots(ctx, p, rec, sc)
+	list, notes, err := s.d.Files.ResolveSkills(ctx, p, s.d.Files.SkillRoots(p, slices.Concat(ad.roots(), pluginRoots, agentSkillRoots(p, sc), s.projectSkillRoots(ctx, p, rec))...), ad.options(skills.Options{
 		Off:    skillOff(off),
 		Logger: s.log,
 	}))

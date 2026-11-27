@@ -52,6 +52,7 @@ for the error.
 | Layer | Root `Path` | Meaning |
 |---|---|---|
 | `LayerBuiltin` | the layer folder | skills that ship with the product |
+| `LayerPlugin` | the package folder of one plugin | skills of a plugin in the Claude Code plugin format; one root per plugin, with `Plugin`, `PluginTitle`, `PluginInstall` and `PluginSkills` set. `Resolve` reads no file: the names are `<plugin>:<skill>` |
 | `LayerAddon` | the folder of one add-on | skills an add-on ships; one root per add-on, with `Addon` and `AddonTitle` set |
 | `LayerShared` | the layer folder | skills an administrator gives to everyone |
 | `LayerPersonal` | the layer folder | the skills of one user |

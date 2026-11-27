@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"path"
 	"regexp"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
@@ -36,6 +37,7 @@ var (
 	sharedGuest  = session.GuestRoot + "/" + session.SkillLayers[0].At
 	builtinGuest = session.GuestRoot + "/" + session.SkillLayers[1].At
 	addonGuest   = session.GuestRoot + "/" + session.SkillLayers[2].At
+	pluginsGuest = session.GuestRoot + "/" + session.SkillLayers[3].At
 )
 
 // readOnlyLayers are the skill layers every user reads and none writes, by
@@ -44,6 +46,32 @@ var readOnlyLayers = []struct{ real, guest string }{
 	{SharedSkillsPath, sharedGuest},
 	{BuiltinSkillsPath, builtinGuest},
 	{AddonSkillsPath, addonGuest},
+	{PluginsPath, pluginsGuest},
+}
+
+var digestHexRE = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
+// PluginSkillsRoot returns the root of the plugin layer for one plugin, for
+// skills.Resolve: the package folder of the content digest
+// ("sha256:<hex>"), the plugin ID, its name (the prefix of its skills), the
+// install it comes from and its skills. SkillRoots drops a root whose digest
+// or name is not valid.
+func PluginSkillsRoot(digest, pluginID, name, installID string, entries []skills.PluginSkill) skills.Root {
+	hex := strings.TrimPrefix(digest, "sha256:")
+	return skills.Root{Layer: skills.LayerPlugin, Plugin: pluginID, PluginTitle: name, PluginInstall: installID,
+		Path: PluginsPath + "/" + hex, Guest: pluginsGuest + "/" + hex, PluginSkills: entries}
+}
+
+// pluginRoot rebuilds a root of the plugin layer from its package folder, or
+// reports false when the folder is not a package folder or the plugin name
+// cannot prefix a skill name.
+func pluginRoot(r skills.Root) (skills.Root, bool) {
+	hex, ok := strings.CutPrefix(r.Path, PluginsPath+"/")
+	if !ok || !digestHexRE.MatchString(hex) || !skills.ValidName(r.PluginTitle) {
+		return skills.Root{}, false
+	}
+	r.Path, r.Guest = PluginsPath+"/"+hex, pluginsGuest+"/"+hex
+	return r, true
 }
 
 // AddonSkillsRoot returns the root of the add-on layer for one add-on, for
@@ -101,7 +129,7 @@ func ValidProjectDir(name string) bool { return agentIDRE.MatchString(name) }
 // for the chats and agents of that project.
 //
 // extra are the roots of the add-on layer the chat may use now (see
-// AddonSkillsRoot), of the agent layer of the chat's saved agent (see
+// AddonSkillsRoot), of the plugin layer (see PluginSkillsRoot), of the agent layer of the chat's saved agent (see
 // AgentSkillsRoot) and of the project layer of the chat's project (see
 // ProjectSkillsRoot); the caller decides which are usable. Any other root is
 // dropped. A project root is rebuilt from its folder name, so its path is
@@ -118,6 +146,10 @@ func (s *Service) SkillRoots(principal string, extra ...skills.Root) []skills.Ro
 			roots = append(roots, r)
 		case r.Layer == skills.LayerProject && ValidProjectDir(r.Project):
 			roots = append(roots, ProjectSkillsRoot(principal, r.Project))
+		case r.Layer == skills.LayerPlugin:
+			if pr, ok := pluginRoot(r); ok {
+				roots = append(roots, pr)
+			}
 		}
 	}
 	return append(roots,

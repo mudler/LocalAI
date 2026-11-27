@@ -80,9 +80,10 @@ func (s *Service) chatSkills(ctx context.Context, p string, rec session.ChatReco
 	if err != nil {
 		return nil, err
 	}
-	list, _, err := s.d.Files.ResolveSkills(ctx, p, s.d.Files.SkillRoots(p, slices.Concat(ad.roots(), s.projectSkillRoots(ctx, p, rec))...), ad.options(skills.Options{
+	pluginRoots, _ := s.pluginSkillRoots(ctx, p, rec, sc)
+	list, _, err := s.d.Files.ResolveSkills(ctx, p, s.d.Files.SkillRoots(p, slices.Concat(ad.roots(), pluginRoots, s.projectSkillRoots(ctx, p, rec))...), ad.options(skills.Options{
 		Off: func(sk skills.Skill) bool {
-			return skip(sk) || (sc != nil && !sc.skills[sk.Name] && !sc.hostGrants(sk) && sk.Layer != skills.LayerProject)
+			return skip(sk) || (sc != nil && !sc.skills[sk.Name] && !sc.hostGrants(sk) && sk.Layer != skills.LayerProject && sk.Layer != skills.LayerPlugin)
 		},
 		Logger: s.log,
 	}))
@@ -138,6 +139,7 @@ func (s *Service) skillDirective(ctx context.Context, p string, rec session.Chat
 	if err != nil {
 		return "", nil, fmt.Errorf("studio: read the skill %q: %w", name, err)
 	}
+	body = s.expandPluginSkill(ctx, p, rec, *found, body)
 	return skillDirectiveText(found.Name, found.GuestPath, body, noTask), &session.Invocation{Kind: session.InvokeSkill, Name: found.Name}, nil
 }
 

@@ -21,6 +21,7 @@ import (
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/services/notify"
+	"github.com/mudler/LocalAI/core/services/plugins"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
@@ -120,6 +121,9 @@ type Deps struct {
 	// AddonTools supplies the tools of the installed add-ons the user may use.
 	// Nil: a chat has none.
 	AddonTools AddonTools
+	// Plugins gives the plugins in the Claude Code plugin format that
+	// contribute to a turn. It is read at each turn. Nil: no plugins.
+	Plugins plugins.TurnViewer
 	// Assistant gives a chat the tools that manage this instance. Nil: no
 	// assistant chat can start.
 	Assistant Assistant

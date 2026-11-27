@@ -90,6 +90,10 @@ type ChatRecord struct {
 	// name of a server of the model, or "connector:<id>" for a connector of the
 	// user. It is kept the way AddonsOff is.
 	McpOff []string
+	// PluginsOff holds the install IDs of the plugins this chat has switched
+	// off. A chat keeps what is off, so a plugin enabled later is on in it.
+	// It is kept the way AddonsOff is.
+	PluginsOff []string
 	// BuiltinsOff holds the groups of built-in tools this chat has switched
 	// off, such as "web". It is kept the way AddonsOff is.
 	BuiltinsOff []string

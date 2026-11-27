@@ -51,6 +51,8 @@ type loadOpts struct {
 	// hint, when set, is asked for a text to put before the instructions of
 	// the skill it loaded (see skills.SandboxHint). "" adds nothing.
 	hint func(context.Context, skills.Skill) string
+	// chat is the chat of the call, for the variables of a plugin skill.
+	chat string
 }
 
 // registerLoadSkill adds load_skill to the registry of built-in tools. It has
@@ -183,6 +185,7 @@ func (s *Service) loadSkillRun(a workspace.Actor, o loadOpts) func(context.Conte
 				return "", fmt.Errorf("unknown skill %q: %s", skills.Clean(in.Name), notes[i])
 			}
 		}
+		o.chat = a.ChatID
 		text, err := s.loadSkill(ctx, a.Principal, list, in.Name, o)
 		if err != nil {
 			return text, err
@@ -218,6 +221,9 @@ func (s *Service) loadSkill(ctx context.Context, p string, list []skills.Skill, 
 	if !ok {
 		return "", unknownSkill(list, name)
 	}
+	if sk.NoModel {
+		return fmt.Sprintf("The skill %s is started only by the user, with /%s. Do not start it yourself.", sk.Name, sk.Name), nil
+	}
 	if why := sk.Unavailable; why != "" || (!o.exec && slices.Contains(sk.Requires, skills.RequireExec)) {
 		if why == "" {
 			why = skillNeedsExec
@@ -244,6 +250,11 @@ func (s *Service) loadSkill(ctx context.Context, p string, list []skills.Skill, 
 		return "", fmt.Errorf("the skill %s is too large to load (more than %d KiB)", sk.Name, skills.MaxFileSize>>10)
 	}
 	body := skills.Body(data)
+	if sk.Layer == skills.LayerPlugin && o.chat != "" {
+		if rec, err := s.getChatEffective(ctx, p, o.chat); err == nil {
+			body = s.expandPluginSkill(ctx, p, rec, sk, body)
+		}
+	}
 	if o.hint != nil {
 		if h := o.hint(ctx, sk); h != "" {
 			body = h + "\n\n" + body

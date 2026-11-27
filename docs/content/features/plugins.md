@@ -50,6 +50,14 @@ An install for everyone of a plugin that users installed for themselves replaces
 
 Plugin text is data from its author: skills and commands go into the prompt like any other skill. Community plugins are not signed; the curated marketplace is reviewed by people and is not signed either.
 
+## In a chat
+
+The plugins that contribute to a chat are the ones installed for everyone or for its user, enabled by that user, not switched off for the chat, and, in a chat with a saved agent, granted by the agent. The server reads this at each turn. A chat sees the stored copies of the plugins, read only, at `/workspace/shared-plugins/<digest>/`, the value of `CLAUDE_PLUGIN_ROOT`.
+
+| Component | In a chat |
+|---|---|
+| Skills | The plugin layer of the chat's skills, named `<plugin>:<skill>`. See [Skills]({{% relref "/features/chats-and-agents/chats-skills#skills" %}}). |
+
 ## Settings
 
 | Setting | Default | Meaning |

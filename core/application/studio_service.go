@@ -140,6 +140,7 @@ func (a *Application) initStudioService() {
 		Notify:            a.notifier,
 		Push:              a.notifyPusher,
 		AddonTools:        lateStudioAddons{a},
+		Plugins:           latePlugins{a},
 		SandboxJobs:       studio.NewSandboxJobs(lateStudioAddons{a}, sandboxJobAudit(a.studioHostExecAudit)),
 		Assistant:         studioAssistant{a},
 		ClientTools:       studioAssistant{a},

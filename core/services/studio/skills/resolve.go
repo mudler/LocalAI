@@ -19,7 +19,7 @@ import (
 // Layer is where a skill comes from. A nearer layer wins over a farther one.
 type Layer string
 
-// The seven layers, nearest first.
+// The eight layers, nearest first.
 const (
 	LayerFolder Layer = "folder"
 	// LayerProject holds the skills of one project, in the project folder under
@@ -35,6 +35,11 @@ const (
 	LayerAgent    Layer = "agent"
 	LayerPersonal Layer = "personal"
 	LayerShared   Layer = "shared"
+	// LayerPlugin holds the skills of the plugins in the Claude Code plugin
+	// format that the chat may use now: one root per plugin. Its skill names
+	// carry the plugin name as a prefix ("<plugin>:<skill>"), so a plugin
+	// skill never takes the name of a skill of another layer.
+	LayerPlugin Layer = "plugin"
 	// LayerAddon holds the skills of the add-ons a chat may use now. It is
 	// below every layer a person writes and above the built-in layer.
 	LayerAddon   Layer = "addon"
@@ -54,12 +59,14 @@ func (l Layer) rank() int {
 		return 3
 	case LayerShared:
 		return 4
-	case LayerAddon:
+	case LayerPlugin:
 		return 5
-	case LayerBuiltin:
+	case LayerAddon:
 		return 6
+	case LayerBuiltin:
+		return 7
 	}
-	return 7
+	return 8
 }
 
 // SkillsDir is the name of the folder that holds the skills of a folder.
@@ -111,6 +118,32 @@ type Root struct {
 	// Project is the folder name of the project of a project layer root. It is
 	// copied to the skills found there.
 	Project string
+	// Plugin, PluginTitle and PluginInstall name the plugin of a plugin layer
+	// root: its plugin ID ("<name>@<marketplace>"), its name (the prefix of
+	// its skills) and the install it comes from. They are copied to the
+	// skills of the root.
+	Plugin, PluginTitle, PluginInstall string
+	// PluginSkills are the skills of a plugin layer root, as the Plugins
+	// service parsed them at install. Resolve reads no file for this layer:
+	// Path is the folder of an immutable package, named by its digest.
+	PluginSkills []PluginSkill
+}
+
+// PluginSkill is one skill of a plugin, as its package declares it.
+type PluginSkill struct {
+	// Name is the skill name without the plugin prefix.
+	Name        string
+	Description string
+	// Dir is the folder of the skill, relative to the root's Path.
+	Dir string
+	// Requires are the capabilities the skill needs.
+	Requires []string
+	// NoModel keeps the skill out of the model's index: only the user starts
+	// it, with /<plugin>:<skill>.
+	NoModel bool
+	// NoMenu keeps the skill out of the user's / menu.
+	NoMenu       bool
+	ArgumentHint string
 }
 
 // Skill is one skill that Resolve saw.
@@ -152,6 +185,15 @@ type Skill struct {
 	// Project is the folder name of the project that owns a skill of the
 	// project layer.
 	Project string
+	// Plugin, PluginTitle and PluginInstall name the plugin of a skill of the
+	// plugin layer (see Root). PluginRoot is the guest folder of the
+	// plugin's package, the value of CLAUDE_PLUGIN_ROOT.
+	Plugin, PluginTitle, PluginInstall, PluginRoot string
+	// NoModel and NoMenu are the plugin flags of PluginSkill. Index leaves a
+	// NoModel skill out; the / menu leaves a NoMenu skill out.
+	NoModel, NoMenu bool
+	// ArgumentHint is the hint of a plugin skill's arguments, for the / menu.
+	ArgumentHint string
 	// Fallback, set by the product, names the add-on whose own skill of this
 	// name would replace this built-in one but is off or not running here.
 	Fallback string
@@ -234,7 +276,12 @@ func Resolve(ctx context.Context, s workspace.Store, a workspace.Actor, roots []
 	}
 	var boxes []container
 	walked := 0
+	var out []Skill
 	for _, r := range roots {
+		if r.Layer == LayerPlugin {
+			out = append(out, pluginSkills(r)...)
+			continue
+		}
 		if r.Layer == LayerFolder {
 			rskip := skip
 			if len(r.Skip) > 0 {
@@ -265,7 +312,6 @@ func Resolve(ctx context.Context, s workspace.Store, a workspace.Actor, roots []
 	// Nearest first, so that the cap on files never drops a skill that would win.
 	sort.SliceStable(boxes, func(i, j int) bool { return less(boxes[i].key(), boxes[j].key()) })
 
-	var out []Skill
 	reads, probes := 0, 0
 scan:
 	for _, b := range boxes {
