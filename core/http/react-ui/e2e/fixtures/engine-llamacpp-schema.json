@@ -1747,7 +1747,7 @@
         "llguidance"
       ],
       "default": "auto",
-      "doc": "Engine of the grammars LocalAI builds from a JSON schema (response_format and tool calls). auto: llguidance when the backend build has it, GBNF otherwise. gbnf: always llama.cpp's GBNF sampler. A grammar you write yourself always uses GBNF.",
+      "doc": "Engine of the grammars LocalAI builds from a JSON schema (response_format and tool calls). auto: llguidance when the backend build has it, GBNF otherwise. gbnf: always llama.cpp's GBNF sampler, as upstream. llguidance: also the tool-call grammars of the chat template, with a fallback to GBNF. A grammar you write yourself always uses GBNF.",
       "group": "sampling",
       "localai_only": true
     },

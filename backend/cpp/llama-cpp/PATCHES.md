@@ -19,6 +19,104 @@ patches alive. Other files in `patches/` are not applied.
 | `0005-grammar-repetition-limit.patch` | The limit of the GBNF repetition check in `src/llama-grammar.cpp` comes from `LLAMA_GRAMMAR_MAX_REPETITION` when it is set to a positive number (upstream: a fixed 2000). `grpc-server.cpp` sets it from the `grammar_max_repetition` option, 100000 by default (`grammar_engine.h`). Drop it when the pin can configure the limit (ggml-org/llama.cpp#20867 and the PRs linked there). |
 | `0006-server-prompt-cache-disk.patch` | Backport of ggml-org/llama.cpp#32303 (open): a disk tier under the RAM prompt cache, `cache_disk_path` and `cache_disk_max_size_mib`. Rebased on the pin (`server_prompt::lora` instead of `lora_changed`; the startup lora config is `server_prompt_cache::lora_disk`). Tests, README and the Python test of the pull request are left out. Drop it when the pin contains #32303. |
 | `0007-prompt-cache-disk-localai.patch` | LocalAI hooks on 0006: cache namespaces (a salt in the prefix hash chain), zero-retention prompts kept off disk, the writer thread, the bounded save on unload, retention (ttl, namespace quota), free-space watermarks, the read-or-recompute gate and fewer checkpoints per file. See "Disk prompt cache" below. |
+| `0008-llguidance-template-grammars.patch` | The grammars llama.cpp generates (chat-template tool calls, a response format next to tools) run on llguidance when `common_params_sampling::grammar_llguidance` is set: the GBNF is translated to llguidance Lark at sampler creation, the lazy triggers are kept, and the request falls back to GBNF when translation, compilation or llguidance fails, or when llguidance rejects a sampled token that GBNF accepts. `grpc-server.cpp` sets the field when `grammar_engine` is `llguidance` (`template_grammars_on_llguidance`, `grammar_engine.h`). Rules below. |
+
+## Rules for 0008
+
+Scope: `common/` only. New files `common/gbnf-to-lark.{h,cpp}` (the
+translation); additions to `common/llguidance.cpp` (the sampler); small hooks
+in `common/sampling.cpp`, `common/sampling.h`, `common/common.h` and
+`common/CMakeLists.txt`. No change to `src/`, the server or GBNF itself.
+
+With `grammar_llguidance` off (the default), sampling goes through the
+upstream code. Two changes reach the existing llguidance path (the
+JSON-schema grammars LocalAI sends with `%llguidance`), and only when such a
+grammar is in use:
+
+- the llguidance tokenizer marks added (user-defined) tokens such as
+  `<tool_call>` special: a grammar matches them by id, not by text
+  (`common_llg_token_is_special`);
+- the one-token fast path: when the mask is not computed yet and at most 8
+  candidates are left, each one is checked with `llg_matcher_validate_tokens`
+  instead of computing the mask over the whole vocabulary.
+
+| Hook | Anchor (grep) | What it does |
+|---|---|---|
+| L1 | `grammar_llguidance` in `common.h` | The field, off by default. |
+| L2 | `llama_sampler_init_llg_from_gbnf` in `sampling.cpp` | In `common_sampler_init`, before the GBNF branch: for an `OUTPUT_FORMAT` or `TOOL_CALLS` grammar that is GBNF, try llguidance; on failure log a warning and go on to the upstream GBNF branch, now guarded by `!grmr`. |
+| L3 | `grammar_on_llg` in `sampling.cpp` | The upstream prefill loop skips the llguidance sampler, which prefills itself. |
+| L4 | `common_llg_token_is_special` in `llguidance.cpp` | The tokenizer change above. |
+| L5 | `LLG_FAST_PATH_MAX` in `llguidance.cpp` | The fast path above, in `llama_sampler_llg_apply`. |
+| L6 | `llama_sampler_llg_gbnf` in `llguidance.cpp` | The sampler of a translated grammar: lazy triggers, prefill, fast path, GBNF shadow and fallback. The last 8 compiled grammars are kept per process and cloned, since an agent sends the same tool set every turn (Qwen3-Coder format, 128 tools: 430 ms to compile, 19 ms from the cache). |
+
+Upstream invariants it relies on. Check them after a bump:
+
+1. GBNF syntax as `llama-grammar.cpp` parses it, and the generators emit only
+   `<[id]>` and `!<[id]>` token references (no `<name>`). A new construct
+   makes the translation throw, and the request uses GBNF with a warning.
+2. Lazy trigger semantics of `llama_grammar_accept_impl`: token triggers
+   (the trigger token is fed to the grammar), patterns matched against the
+   text since the start (`^...$` must match all of it), the replay from the
+   first non-empty capture group, tokens that start before it fed as a
+   partial piece. `llg_gbnf_trigger_find` and the accept function copy this.
+3. `common_sampler_init` builds the trigger patterns (`WORD` escaped,
+   `PATTERN_FULL` anchored) before the grammar branch, and computes the
+   prefill tokens from `params.generation_prompt` after it. The sampler
+   computes the same prefill for its GBNF replay.
+4. `common_sampler_sample` checks the sampled token alone first (an array of
+   one candidate) and applies the grammar to the full array only after a
+   rejection. The fast path and the GBNF shadow rely on this.
+5. Speculative decoding saves and restores the grammar with
+   `llama_sampler_clone` and `llama_sampler_copy`; the sampler has no
+   `copy_state`, so the copy goes through clone. The clone copies the
+   matcher, the trigger state, the history and the GBNF shadow.
+6. The llguidance C API of the pinned version (v1.0.1): `llg_new_matcher`,
+   `llg_matcher_validate_tokens`, `llg_matcher_is_stopped`,
+   `llg_clone_matcher`.
+
+Why the translation is more than a GBNF to Lark port (keep these when
+editing `gbnf-to-lark.cpp`):
+
+- llguidance runs a rule one byte per Earley step and stops at 50000 items
+  per mask. The "text until a delimiter" and trigger-scan automata of the
+  generated grammars (one rule per state) are right-linear, so each group
+  becomes regex terminals by state elimination; token steps stay rules.
+- llguidance lexes greedily and never backtracks. A text terminal that may
+  hold part of its delimiter would swallow it, so a sequence "group rest"
+  folds the rest into a copy of the group (`fold_group_suffixes`). Where
+  lexeme boundaries still differ between alternatives (two templates of the
+  tree: an undeclared-tool alternative in LFM2.5, the header literals of
+  muse-glimmer), the GBNF shadow catches the rejection and the request goes on
+  on GBNF.
+- llguidance matches a special token only by id. A literal that spells one
+  also accepts the token, and free text (`[^...]`, `.`) also accepts the
+  special tokens the grammar does not name, except end-of-generation tokens.
+
+The check: `llg_template_grammars_check.cpp` (ctest with
+`-DLLAMA_GRPC_BUILD_TESTS=ON` and llguidance) builds the tool grammar of every
+template in `models/templates` for a fixed tool set, through the server path
+(chat session, trigger conversion), with the vocab files of the tree. It
+translates and compiles each grammar and replays free text, the call the
+template renders, the call glued to text (a trigger inside a token), and a
+call with a wrong argument, token by token on both engines, with a
+clone-and-restore halfway. It fails when a grammar does not translate or
+compile, or when the engines disagree. Run it on every bump:
+
+```
+llg_template_grammars_check llama.cpp/models/templates \
+  llama.cpp/models/ggml-vocab-qwen35.gguf llama.cpp/models/ggml-vocab-llama-bpe.gguf \
+  llama.cpp/models/ggml-vocab-gemma-4.gguf
+```
+
+`LLG_CHECK_ONLY=<name>` runs one template, `LLG_CHECK_DUMP=<dir>` writes the
+GBNF and Lark of each, `LLG_CHECK_SHOW=1` prints the rendered call.
+
+Drop 0008 when upstream runs its generated grammars on llguidance with lazy
+triggers (probe: `llguidance` next to `grammar_lazy` or `grammar_triggers` in
+`common/sampling.cpp` or `common/llguidance.cpp`), or when the generators can
+emit llguidance grammars directly. If upstream changes `common_llg`, the
+tokenizer in `llguidance.cpp` or the grammar branch of `common_sampler_init`,
+re-port L2 to L5 from the anchors above.
 
 ## Rules for 0002
 

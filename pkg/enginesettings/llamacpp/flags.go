@@ -655,7 +655,8 @@ var flags = []es.Flag{
 		Key: "grammar_engine", Target: es.TargetOption, Path: "options", Option: "grammar_engine",
 		Type: es.TypeEnum, Enum: []string{"auto", "gbnf", "llguidance"}, Default: "auto", Group: GroupSampling, LocalAIOnly: true,
 		Doc: "Engine of the grammars LocalAI builds from a JSON schema (response_format and tool calls). " +
-			"auto: llguidance when the backend build has it, GBNF otherwise. gbnf: always llama.cpp's GBNF sampler. " +
+			"auto: llguidance when the backend build has it, GBNF otherwise. gbnf: always llama.cpp's GBNF sampler, as upstream. " +
+			"llguidance: also the tool-call grammars of the chat template, with a fallback to GBNF. " +
 			"A grammar you write yourself always uses GBNF.",
 	},
 	{

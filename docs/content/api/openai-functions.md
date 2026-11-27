@@ -335,7 +335,7 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
    }'
 ```
 
-On the llama.cpp backend, a grammar that LocalAI builds from a JSON schema (tool calls, `response_format` and `grammar_json_functions`) uses llguidance when the backend build has it. Set `grammar_engine:gbnf` in the `options` of the model to keep the GBNF engine. See [Grammar engine]({{% relref "/models/capabilities/text/text-generation" %}}#grammar-engine).
+On the llama.cpp backend, a grammar that LocalAI builds from a JSON schema (tool calls, `response_format` and `grammar_json_functions`) uses llguidance when the backend build has it. With `grammar_engine:llguidance`, the tool-call grammars that llama.cpp builds from the chat template use llguidance too. Set `grammar_engine:gbnf` in the `options` of the model to keep the GBNF engine for every grammar. See [Grammar engine]({{% relref "/models/capabilities/text/text-generation" %}}#grammar-engine).
 
 Grammars and function tools can be used as well in conjunction with vision APIs:
 

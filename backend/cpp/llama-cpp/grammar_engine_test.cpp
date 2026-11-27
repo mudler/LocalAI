@@ -41,6 +41,12 @@ int main() {
     // A value that llama.cpp would not route to llguidance is ignored.
     check(&select_grammar(grammar_engine::automatic, true, gbnf, std::string("start: \"a\"")) != &llg, "no prefix: gbnf");
 
+    // Template grammars go to llguidance only on an explicit llguidance, in a build with it.
+    check(!template_grammars_on_llguidance(grammar_engine::automatic, true), "auto: template grammars on GBNF");
+    check(!template_grammars_on_llguidance(grammar_engine::gbnf, true), "gbnf: template grammars on GBNF");
+    check(template_grammars_on_llguidance(grammar_engine::llguidance, true), "llguidance: template grammars on llguidance");
+    check(!template_grammars_on_llguidance(grammar_engine::llguidance, false), "llguidance, not built: GBNF");
+
     // grammar_max_repetition: option, then environment, then the default.
     check(grammar_max_repetition("", nullptr) == "100000", "default when nothing is set");
     check(grammar_max_repetition("5000", nullptr) == "5000", "the option");

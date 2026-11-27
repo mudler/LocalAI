@@ -1,0 +1,2123 @@
+Run the grammars that llama.cpp generates (chat-template tool calls, a
+response format next to tools) on llguidance when
+common_params_sampling::grammar_llguidance is set. The GBNF is translated to
+llguidance Lark at sampler creation (common/gbnf-to-lark.cpp); the lazy
+triggers stay in llama.cpp code, as llama-grammar.cpp runs them. A grammar
+that does not translate or compile stays on GBNF with a warning. During
+generation the sampler moves to GBNF, by replaying the accepted tokens, when
+llguidance fails or rejects a sampled token that GBNF accepts. The
+llguidance tokenizer treats added tokens (such as <tool_call>) as special.
+The one-token fast path checks the sampled token without a full mask.
+User grammars are not touched. With the field off (the default), sampling is
+the same as upstream except for the llguidance tokenizer and fast path, which
+only matter when an llguidance grammar is in use. See PATCHES.md.
+
+diff --git a/common/CMakeLists.txt b/common/CMakeLists.txt
+index c454f6bb3..3d57014fb 100644
+--- a/common/CMakeLists.txt
++++ b/common/CMakeLists.txt
+@@ -92,6 +92,8 @@ add_library(${TARGET}
+     json-schema.h
+     json.cpp
+     json.h
++    gbnf-to-lark.cpp
++    gbnf-to-lark.h
+     llguidance.cpp
+     log.cpp
+     log.h
+diff --git a/common/common.h b/common/common.h
+index 45fee2ae2..63be4be69 100644
+--- a/common/common.h
++++ b/common/common.h
+@@ -229,6 +229,7 @@ inline bool common_grammar_needs_prefill(const common_grammar & g) {
+ 
+ // sampling parameters
+ struct common_params_sampling {
++    bool grammar_llguidance = false; // LocalAI: run generated GBNF grammars (tool calls, response format) on llguidance
+     uint32_t seed = LLAMA_DEFAULT_SEED; // the seed used to initialize llama_sampler
+ 
+     int32_t n_prev             = 64;     // number of previous tokens to remember
+diff --git a/common/gbnf-to-lark.cpp b/common/gbnf-to-lark.cpp
+new file mode 100644
+index 000000000..012b5d97f
+--- /dev/null
++++ b/common/gbnf-to-lark.cpp
+@@ -0,0 +1,1418 @@
++// LocalAI: GBNF to llguidance Lark translation. See gbnf-to-lark.h.
++
++#include "gbnf-to-lark.h"
++
++#include "log.h"
++
++#include <algorithm>
++#include <cstdint>
++#include <cstdio>
++#include <functional>
++#include <map>
++#include <memory>
++#include <mutex>
++#include <set>
++#include <stdexcept>
++#include <string>
++#include <vector>
++
++bool common_llg_token_is_special(const llama_vocab * vocab, llama_token token) {
++    if (llama_vocab_get_attr(vocab, token) & LLAMA_TOKEN_ATTR_USER_DEFINED) {
++        return true;
++    }
++    char buf[8];
++    return llama_token_to_piece(vocab, token, buf, sizeof(buf), 0, false) == 0;
++}
++
++namespace {
++
++// A regex group that grows past this many bytes stays as rules (see regularize()).
++constexpr size_t MAX_REGEX_BYTES = 1 << 20;
++
++// At most this many copies of right-linear groups with a suffix (see fold_group_suffixes()).
++constexpr size_t MAX_GROUP_COPIES = 256;
++
++using codepoints = std::vector<uint32_t>;
++
++codepoints utf8_to_cps(const std::string & s) {
++    static const int lookup[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 4 };
++    codepoints out;
++    size_t     pos = 0;
++    while (pos < s.size()) {
++        const uint8_t first = (uint8_t) s[pos];
++        const int     len   = lookup[first >> 4];
++        uint32_t      v     = first & ((1 << (8 - len)) - 1);
++        pos++;
++        for (int i = 1; i < len && pos < s.size(); i++, pos++) {
++            v = (v << 6) | ((uint8_t) s[pos] & 0x3F);
++        }
++        out.push_back(v);
++    }
++    return out;
++}
++
++std::string token_piece(const llama_vocab * vocab, llama_token t) {
++    std::string out(32, '\0');
++    int n = llama_token_to_piece(vocab, t, out.data(), (int32_t) out.size(), 0, true);
++    if (n < 0) {
++        out.resize(-n);
++        n = llama_token_to_piece(vocab, t, out.data(), (int32_t) out.size(), 0, true);
++    }
++    out.resize(n > 0 ? n : 0);
++    return out;
++}
++
++// ---------------------------------------------------------------- grammar tree
++
++struct gnode;
++using gnode_ptr = std::shared_ptr<gnode>;
++
++struct gnode {
++    enum kind_t { SEQ, ALT, LIT, CLASS, ANY, REF, TOKSET, REP } kind;
++    std::vector<gnode_ptr>                     children;  // SEQ, ALT, REP (one child)
++    codepoints                                 text;      // LIT
++    std::vector<std::pair<uint32_t, uint32_t>> ranges;    // CLASS: codepoints, TOKSET: token ids
++    bool                                       negated = false;
++    std::string                                name;      // REF
++    int                                        min_times = 0;
++    int                                        max_times = -1; // REP: -1 is unbounded
++};
++
++gnode_ptr mk(gnode::kind_t k) {
++    auto n  = std::make_shared<gnode>();
++    n->kind = k;
++    return n;
++}
++
++// ---------------------------------------------------------------- GBNF parser
++//
++// Accepts the GBNF of llama-grammar.cpp: rules, literals, classes, ".", groups, the repetition
++// operators and token references <[id,id-id]> and !<[...]>. Named token references (<name>) are
++// not produced by the generators and are rejected.
++
++struct gbnf_reader {
++    const std::string &                            s;
++    size_t                                         pos = 0;
++    std::vector<std::pair<std::string, gnode_ptr>> rules;
++
++    explicit gbnf_reader(const std::string & src) : s(src) {}
++
++    [[noreturn]] void fail(const std::string & msg) const {
++        throw std::runtime_error("gbnf-to-lark: " + msg + " at offset " + std::to_string(pos) + ": '" +
++                                 s.substr(pos, 40) + "'");
++    }
++
++    char cur() const { return pos < s.size() ? s[pos] : '\0'; }
++
++    void skip_space(bool newline_ok) {
++        while (pos < s.size()) {
++            const char c = s[pos];
++            if (c == ' ' || c == '\t') {
++                pos++;
++            } else if (c == '#') {
++                while (pos < s.size() && s[pos] != '\r' && s[pos] != '\n') {
++                    pos++;
++                }
++            } else if (newline_ok && (c == '\r' || c == '\n')) {
++                pos++;
++            } else {
++                break;
++            }
++        }
++    }
++
++    static bool is_word(char c) {
++        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_';
++    }
++
++    std::string parse_name() {
++        const size_t start = pos;
++        while (pos < s.size() && is_word(s[pos])) {
++            pos++;
++        }
++        if (pos == start) {
++            fail("expected a name");
++        }
++        return s.substr(start, pos - start);
++    }
++
++    uint32_t parse_hex(int n) {
++        uint32_t v = 0;
++        for (int i = 0; i < n; i++) {
++            const char c = cur();
++            v <<= 4;
++            if (c >= '0' && c <= '9') {
++                v |= c - '0';
++            } else if (c >= 'a' && c <= 'f') {
++                v |= c - 'a' + 10;
++            } else if (c >= 'A' && c <= 'F') {
++                v |= c - 'A' + 10;
++            } else {
++                fail("bad hex escape");
++            }
++            pos++;
++        }
++        return v;
++    }
++
++    uint32_t parse_char() {
++        if (pos >= s.size()) {
++            fail("unexpected end of input");
++        }
++        if (cur() == '\\') {
++            pos++;
++            const char c = cur();
++            pos++;
++            switch (c) {
++                case 'x': return parse_hex(2);
++                case 'u': return parse_hex(4);
++                case 'U': return parse_hex(8);
++                case 't': return '\t';
++                case 'r': return '\r';
++                case 'n': return '\n';
++                case '\\': case '"': case '[': case ']': case '-': return (uint32_t) c;
++                default: pos--; fail("unknown escape");
++            }
++        }
++        // one UTF-8 sequence
++        size_t len = 1;
++        const uint8_t first = (uint8_t) s[pos];
++        if (first >= 0xF0) { len = 4; } else if (first >= 0xE0) { len = 3; } else if (first >= 0xC0) { len = 2; }
++        const codepoints cps = utf8_to_cps(s.substr(pos, len));
++        pos += len;
++        return cps.empty() ? 0 : cps[0];
++    }
++
++    uint32_t parse_uint() {
++        const size_t start = pos;
++        while (cur() >= '0' && cur() <= '9') {
++            pos++;
++        }
++        if (pos == start) {
++            fail("expected an integer");
++        }
++        return (uint32_t) std::stoul(s.substr(start, pos - start));
++    }
++
++    gnode_ptr parse_token(bool negated) {
++        if (cur() != '<' || pos + 1 >= s.size() || s[pos + 1] != '[') {
++            fail("only <[...]> token references are supported");
++        }
++        pos += 2;
++        auto n     = mk(gnode::TOKSET);
++        n->negated = negated;
++        while (true) {
++            const uint32_t a = parse_uint();
++            uint32_t       b = a;
++            if (cur() == '-') {
++                pos++;
++                b = parse_uint();
++            }
++            n->ranges.emplace_back(a, b);
++            if (cur() != ',') {
++                break;
++            }
++            pos++;
++        }
++        if (cur() != ']') { fail("expected ]"); }
++        pos++;
++        if (cur() != '>') { fail("expected >"); }
++        pos++;
++        return n;
++    }
++
++    gnode_ptr parse_repetition(gnode_ptr item, bool nested) {
++        const char op = cur();
++        auto rep = mk(gnode::REP);
++        rep->children.push_back(std::move(item));
++        pos++;
++        if (op == '*') {
++            rep->min_times = 0;
++        } else if (op == '+') {
++            rep->min_times = 1;
++        } else if (op == '?') {
++            rep->max_times = 1;
++        } else {
++            skip_space(nested);
++            rep->min_times = (int) parse_uint();
++            skip_space(nested);
++            if (cur() == ',') {
++                pos++;
++                skip_space(nested);
++                rep->max_times = (cur() >= '0' && cur() <= '9') ? (int) parse_uint() : -1;
++                skip_space(nested);
++            } else {
++                rep->max_times = rep->min_times;
++            }
++            if (cur() != '}') { fail("expected }"); }
++            pos++;
++        }
++        skip_space(nested);
++        return rep;
++    }
++
++    gnode_ptr parse_sequence(bool nested) {
++        auto seq = mk(gnode::SEQ);
++        while (pos < s.size()) {
++            const char c = cur();
++            gnode_ptr  item;
++            if (c == '"') {
++                pos++;
++                item = mk(gnode::LIT);
++                while (cur() != '"') {
++                    if (pos >= s.size()) { fail("unterminated literal"); }
++                    item->text.push_back(parse_char());
++                }
++                pos++;
++            } else if (c == '[') {
++                pos++;
++                item = mk(gnode::CLASS);
++                if (cur() == '^') {
++                    item->negated = true;
++                    pos++;
++                }
++                while (cur() != ']') {
++                    if (pos >= s.size()) { fail("unterminated char class"); }
++                    const uint32_t a = parse_char();
++                    uint32_t       b = a;
++                    if (cur() == '-' && pos + 1 < s.size() && s[pos + 1] != ']') {
++                        pos++;
++                        b = parse_char();
++                    }
++                    item->ranges.emplace_back(a, b);
++                }
++                pos++;
++            } else if (c == '.') {
++                pos++;
++                item = mk(gnode::ANY);
++            } else if (c == '<') {
++                item = parse_token(false);
++            } else if (c == '!') {
++                pos++;
++                item = parse_token(true);
++            } else if (c == '(') {
++                pos++;
++                skip_space(true);
++                item = parse_alternates(true);
++                if (cur() != ')') { fail("expected )"); }
++                pos++;
++            } else if (is_word(c)) {
++                item       = mk(gnode::REF);
++                item->name = parse_name();
++            } else {
++                break;
++            }
++            skip_space(nested);
++            const char op = cur();
++            if (op == '*' || op == '+' || op == '?' || op == '{') {
++                item = parse_repetition(item, nested);
++            }
++            seq->children.push_back(item);
++        }
++        return seq;
++    }
++
++    gnode_ptr parse_alternates(bool nested) {
++        auto alt = mk(gnode::ALT);
++        alt->children.push_back(parse_sequence(nested));
++        while (cur() == '|') {
++            pos++;
++            skip_space(true);
++            alt->children.push_back(parse_sequence(nested));
++        }
++        return alt;
++    }
++
++    void parse() {
++        skip_space(true);
++        while (pos < s.size()) {
++            std::string name = parse_name();
++            skip_space(false);
++            if (s.compare(pos, 3, "::=") != 0) {
++                fail("expected ::=");
++            }
++            pos += 3;
++            skip_space(true);
++            rules.emplace_back(name, parse_alternates(false));
++            if (cur() == '\r') { pos++; }
++            if (cur() == '\n') { pos++; }
++            skip_space(true);
++        }
++    }
++};
++
++// ---------------------------------------------------------------- special tokens of a vocab
++
++struct vocab_specials {
++    std::set<uint32_t>                         ids;          // all special tokens (llguidance view)
++    std::vector<std::pair<codepoints, uint32_t>> spelled;    // special tokens with 2+ characters, longest first
++    std::set<uint32_t>                         first_chars;  // first codepoints of `spelled`
++};
++
++// The scan over the vocab costs a few ms on a 150k vocab, so it is done once per vocab.
++const vocab_specials & get_vocab_specials(const llama_vocab * vocab) {
++    static std::mutex                                                      mtx;
++    static std::map<const llama_vocab *, std::shared_ptr<vocab_specials>> cache;
++    std::lock_guard<std::mutex> lock(mtx);
++    auto & entry = cache[vocab];
++    if (entry) {
++        return *entry;
++    }
++    entry = std::make_shared<vocab_specials>();
++    const int32_t n_vocab = llama_vocab_n_tokens(vocab);
++    for (int32_t t = 0; t < n_vocab; t++) {
++        if (!common_llg_token_is_special(vocab, t)) {
++            continue;
++        }
++        entry->ids.insert((uint32_t) t);
++        codepoints cps = utf8_to_cps(token_piece(vocab, t));
++        if (cps.size() >= 2) {
++            entry->first_chars.insert(cps[0]);
++            entry->spelled.emplace_back(std::move(cps), (uint32_t) t);
++        }
++    }
++    std::stable_sort(entry->spelled.begin(), entry->spelled.end(),
++                     [](const auto & a, const auto & b) { return a.first.size() > b.first.size(); });
++    return *entry;
++}
++
++// ---------------------------------------------------------------- Lark writer
++
++std::string json_escape_cp(uint32_t c) {
++    switch (c) {
++        case '"':  return "\\\"";
++        case '\\': return "\\\\";
++        case '\n': return "\\n";
++        case '\r': return "\\r";
++        case '\t': return "\\t";
++        default: break;
++    }
++    char buf[16];
++    if (c < 0x20 || c == 0x7F) {
++        snprintf(buf, sizeof(buf), "\\u%04X", c);
++        return buf;
++    }
++    std::string out;
++    if (c < 0x80) {
++        out += (char) c;
++    } else if (c < 0x800) {
++        out += (char) (0xC0 | (c >> 6));
++        out += (char) (0x80 | (c & 0x3F));
++    } else if (c < 0x10000) {
++        out += (char) (0xE0 | (c >> 12));
++        out += (char) (0x80 | ((c >> 6) & 0x3F));
++        out += (char) (0x80 | (c & 0x3F));
++    } else {
++        out += (char) (0xF0 | (c >> 18));
++        out += (char) (0x80 | ((c >> 12) & 0x3F));
++        out += (char) (0x80 | ((c >> 6) & 0x3F));
++        out += (char) (0x80 | (c & 0x3F));
++    }
++    return out;
++}
++
++std::string regex_cp(uint32_t c) {
++    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == ' ' || c == '_') {
++        return std::string(1, (char) c);
++    }
++    char buf[16];
++    snprintf(buf, sizeof(buf), "\\x{%X}", c);
++    return buf;
++}
++
++std::string lit(const codepoints & text) {
++    std::string out = "\"";
++    for (auto c : text) {
++        out += json_escape_cp(c);
++    }
++    return out + "\"";
++}
++
++std::string ranges_str(const std::vector<uint32_t> & sorted_ids) {
++    std::string out = "<[";
++    for (size_t i = 0; i < sorted_ids.size();) {
++        size_t j = i;
++        while (j + 1 < sorted_ids.size() && sorted_ids[j + 1] == sorted_ids[j] + 1) {
++            j++;
++        }
++        out += (i ? "," : "") + std::to_string(sorted_ids[i]);
++        if (j > i) {
++            out += "-" + std::to_string(sorted_ids[j]);
++        }
++        i = j + 1;
++    }
++    return out + "]>";
++}
++
++std::string rep_suffix(int min_times, int max_times) {
++    if (min_times == 0 && max_times == -1) { return "*"; }
++    if (min_times == 1 && max_times == -1) { return "+"; }
++    if (min_times == 0 && max_times == 1)  { return "?"; }
++    if (max_times == -1) { return "{" + std::to_string(min_times) + ",}"; }
++    if (min_times == max_times) { return "{" + std::to_string(min_times) + "}"; }
++    return "{" + std::to_string(min_times) + "," + std::to_string(max_times) + "}";
++}
++
++std::string upper(std::string s) {
++    for (auto & c : s) {
++        c = (c >= 'a' && c <= 'z') ? (char) (c - 'a' + 'A') : c;
++    }
++    return s;
++}
++
++struct lark_writer {
++    const llama_vocab *    vocab    = nullptr;
++    const vocab_specials * specials = nullptr;
++
++    std::map<std::string, gnode_ptr>   rules;
++    std::vector<std::string>           order;
++    std::map<std::string, std::string> lark_name;
++    std::set<std::string>              terminal;
++
++    // special tokens the grammar does not name: free text also accepts them (see apply_free_tokens)
++    std::vector<std::pair<uint32_t, uint32_t>> free_ranges;
++
++    // results of regularize()
++    std::map<std::string, std::string>               regular_body;  // entry rule -> Lark body
++    std::set<std::string>                            regular_skip;  // group rules that are not entries
++    std::vector<std::pair<std::string, std::string>> regular_terms; // new terminals: name, /regex/
++
++    bool is_special(uint32_t t) const { return specials && specials->ids.count(t) > 0; }
++
++    // ------------------------------------------------------------ special tokens
++
++    // Split a literal into text parts and the special tokens it spells (id -1 for text).
++    std::vector<std::pair<codepoints, int64_t>> split_literal(const codepoints & text) const {
++        std::vector<std::pair<codepoints, int64_t>> parts;
++        codepoints pending;
++        size_t     i = 0;
++        while (i < text.size()) {
++            int64_t hit = -1;
++            size_t  len = 0;
++            if (specials && specials->first_chars.count(text[i])) {
++                for (const auto & [cps, id] : specials->spelled) {
++                    if (cps.size() <= text.size() - i && std::equal(cps.begin(), cps.end(), text.begin() + i)) {
++                        hit = id;
++                        len = cps.size();
++                        break;
++                    }
++                }
++            }
++            if (hit < 0) {
++                pending.push_back(text[i++]);
++                continue;
++            }
++            if (!pending.empty()) {
++                parts.emplace_back(pending, -1);
++                pending.clear();
++            }
++            parts.emplace_back(codepoints(text.begin() + i, text.begin() + i + len), hit);
++            i += len;
++        }
++        if (!pending.empty() || parts.empty()) {
++            parts.emplace_back(pending, -1);
++        }
++        return parts;
++    }
++
++    // Does the node need a token reference in Lark (so it cannot be inside a terminal)?
++    bool has_token(const gnode_ptr & n) const {
++        switch (n->kind) {
++            case gnode::TOKSET:
++                if (n->negated) {
++                    return true;
++                }
++                for (auto [a, b] : n->ranges) {
++                    for (uint32_t t = a; t <= b; t++) {
++                        if (is_special(t)) {
++                            return true;
++                        }
++                    }
++                }
++                return false; // only text tokens: matched by their text
++            case gnode::LIT:
++                for (const auto & p : split_literal(n->text)) {
++                    if (p.second >= 0) {
++                        return true;
++                    }
++                }
++                return false;
++            default:
++                for (const auto & c : n->children) {
++                    if (has_token(c)) {
++                        return true;
++                    }
++                }
++                return false;
++        }
++    }
++
++    void collect_named_tokens(const gnode_ptr & n, std::set<uint32_t> & out) const {
++        if (n->kind == gnode::TOKSET && !n->negated) {
++            for (auto [a, b] : n->ranges) {
++                for (uint32_t t = a; t <= b; t++) {
++                    out.insert(t);
++                }
++            }
++        }
++        if (n->kind == gnode::LIT) {
++            for (const auto & p : split_literal(n->text)) {
++                if (p.second >= 0) {
++                    out.insert((uint32_t) p.second);
++                }
++            }
++        }
++        for (const auto & c : n->children) {
++            collect_named_tokens(c, out);
++        }
++    }
++
++    // GBNF matches the text of a special token it does not name; llguidance matches such a token
++    // only by id. So free text also accepts the special tokens the grammar does not name.
++    // End-of-generation tokens stay out: they end the output, as on GBNF.
++    void prepare_free_tokens() {
++        if (!specials) {
++            return;
++        }
++        std::set<uint32_t> named;
++        for (const auto & name : order) {
++            collect_named_tokens(rules[name], named);
++        }
++        std::vector<uint32_t> ids;
++        for (auto t : specials->ids) {
++            if (!named.count(t) && !llama_vocab_is_eog(vocab, (llama_token) t)) {
++                ids.push_back(t);
++            }
++        }
++        for (size_t i = 0; i < ids.size();) {
++            size_t j = i;
++            while (j + 1 < ids.size() && ids[j + 1] == ids[j] + 1) {
++                j++;
++            }
++            free_ranges.emplace_back(ids[i], ids[j]);
++            i = j + 1;
++        }
++    }
++
++    // in the rules (not the terminals), "[^...]" and "." become "([^...] | <[free tokens]>)"
++    gnode_ptr add_free_tokens(const gnode_ptr & n) {
++        if ((n->kind == gnode::CLASS && n->negated) || n->kind == gnode::ANY) {
++            auto tok      = mk(gnode::TOKSET);
++            tok->ranges   = free_ranges;
++            auto alt      = mk(gnode::ALT);
++            alt->children = { n, tok };
++            return alt;
++        }
++        for (auto & c : n->children) {
++            c = add_free_tokens(c);
++        }
++        return n;
++    }
++
++    void apply_free_tokens() {
++        if (free_ranges.empty()) {
++            return;
++        }
++        for (const auto & name : order) {
++            if (!terminal.count(name)) {
++                rules[name] = add_free_tokens(rules[name]);
++            }
++        }
++    }
++
++    // ------------------------------------------------------------ rules and terminals
++
++    static void refs_of(const gnode_ptr & n, std::set<std::string> & out) {
++        if (n->kind == gnode::REF) {
++            out.insert(n->name);
++        }
++        for (const auto & c : n->children) {
++            refs_of(c, out);
++        }
++    }
++
++    // A rule is a terminal when it names no token and references only terminals (so no recursion).
++    void classify(const std::string & root) {
++        std::map<std::string, std::set<std::string>> deps;
++        std::set<std::string> candidates;
++        for (const auto & name : order) {
++            refs_of(rules[name], deps[name]);
++            for (const auto & d : deps[name]) {
++                if (!rules.count(d)) {
++                    throw std::runtime_error("gbnf-to-lark: undefined rule " + d);
++                }
++            }
++            if (name != root && !has_token(rules[name])) {
++                candidates.insert(name);
++            }
++        }
++        for (bool changed = true; changed;) {
++            changed = false;
++            for (const auto & name : candidates) {
++                if (terminal.count(name)) {
++                    continue;
++                }
++                bool ok = true;
++                for (const auto & d : deps[name]) {
++                    ok = ok && terminal.count(d);
++                }
++                if (ok) {
++                    terminal.insert(name);
++                    changed = true;
++                }
++            }
++        }
++        // names: lower case for rules, upper case for terminals, unique
++        std::set<std::string> & used = used_names;
++        used.insert("start");
++        for (const auto & name : order) {
++            if (name == root) {
++                lark_name[name] = "start";
++                continue;
++            }
++            std::string base;
++            for (char c : name) {
++                const char lc = (c >= 'A' && c <= 'Z') ? (char) (c - 'A' + 'a') : c;
++                base += (lc == '-') ? '_' : lc;
++            }
++            if (base.empty() || !(base[0] >= 'a' && base[0] <= 'z')) {
++                base = "r_" + base;
++            }
++            if (terminal.count(name)) {
++                base = upper(base);
++            }
++            std::string candidate = base;
++            for (int k = 2; used.count(candidate); k++) {
++                candidate = base + "_" + std::to_string(k);
++            }
++            used.insert(candidate);
++            lark_name[name] = candidate;
++        }
++    }
++
++    // ------------------------------------------------------------ right-linear groups to terminals
++    //
++    // llama.cpp writes "text until a delimiter" and the trigger scan as an Aho-Corasick automaton:
++    // one rule per state, one character per step, a tail reference to the next state. llguidance
++    // runs such rules one byte at a time in its Earley parser and hits its item limit. A group of
++    // mutually recursive rules that recurse only in tail position is a regular language, so each
++    // entry rule becomes  T0 | T1 exit1 | T2 exit2 ...  where every Ti is a regex terminal and the
++    // exits are token steps or rules outside the group.
++
++    // Flatten an alternative into plain item lists. A group that holds a token is distributed, so
++    // "(/[^<]/ | <[id]>) next" becomes two alternatives: a character step and a token step.
++    void flatten(const gnode_ptr & n, std::vector<std::vector<gnode_ptr>> & out) const {
++        const std::vector<gnode_ptr> items = n->kind == gnode::SEQ ? n->children : std::vector<gnode_ptr>{ n };
++        for (const auto & it : items) {
++            if (it->kind == gnode::SEQ) {
++                flatten(it, out);
++            } else if (it->kind == gnode::ALT && it->children.size() == 1) {
++                flatten(it->children[0], out);
++            } else if (it->kind == gnode::ALT && has_token(it)) {
++                std::vector<std::vector<gnode_ptr>> next;
++                for (const auto & a : it->children) {
++                    std::vector<std::vector<gnode_ptr>> sub = { {} };
++                    flatten(a, sub);
++                    for (const auto & pre : out) {
++                        for (const auto & suf : sub) {
++                            auto v = pre;
++                            v.insert(v.end(), suf.begin(), suf.end());
++                            next.push_back(std::move(v));
++                        }
++                    }
++                }
++                out = std::move(next);
++            } else {
++                for (auto & v : out) {
++                    v.push_back(it);
++                }
++            }
++        }
++    }
++
++    // can the node go inside a terminal (no tokens, no rule of the group)?
++    bool term_safe(const gnode_ptr & n, const std::set<std::string> & group) const {
++        if (n->kind == gnode::REF) {
++            return terminal.count(n->name) && !group.count(n->name);
++        }
++        if (has_token(n)) {
++            return false;
++        }
++        for (const auto & c : n->children) {
++            if (!term_safe(c, group)) {
++                return false;
++            }
++        }
++        return true;
++    }
++
++    // Rust regex for a node that is safe inside a terminal. The eliminated groups are written as
++    // one regex because a Lark expression nests at most 30 levels and a regex much deeper.
++    std::string emit_regex(const gnode_ptr & n) const {
++        switch (n->kind) {
++            case gnode::LIT: {
++                std::string out;
++                for (auto c : n->text) {
++                    out += regex_cp(c);
++                }
++                return n->text.size() == 1 ? out : "(?:" + out + ")";
++            }
++            case gnode::CLASS: {
++                std::string out = n->negated ? "[^" : "[";
++                for (auto [a, b] : n->ranges) {
++                    out += regex_cp(a);
++                    if (b != a) {
++                        out += "-" + regex_cp(b);
++                    }
++                }
++                return out + "]";
++            }
++            case gnode::ANY: return "(?s:.)";
++            case gnode::TOKSET: {
++                // only text tokens get here (term_safe)
++                std::string out;
++                for (auto [a, b] : n->ranges) {
++                    for (uint32_t t = a; t <= b; t++) {
++                        std::string piece;
++                        for (auto c : utf8_to_cps(token_piece(vocab, (llama_token) t))) {
++                            piece += regex_cp(c);
++                        }
++                        out += (out.empty() ? "" : "|") + piece;
++                    }
++                }
++                return "(?:" + out + ")";
++            }
++            case gnode::REF: return "(?:" + emit_regex(rules.at(n->name)) + ")";
++            case gnode::SEQ: {
++                std::string out;
++                for (const auto & c : n->children) {
++                    out += emit_regex(c);
++                }
++                return "(?:" + out + ")";
++            }
++            case gnode::ALT: {
++                std::string out;
++                for (const auto & c : n->children) {
++                    out += (out.empty() ? "" : "|") + emit_regex(c);
++                }
++                return "(?:" + out + ")";
++            }
++            case gnode::REP: {
++                return "(?:" + emit_regex(n->children[0]) + ")" + rep_suffix(n->min_times, n->max_times);
++            }
++        }
++        return "";
++    }
++
++    static std::string alt_join(const std::string & a, const std::string & b) {
++        if (a.empty()) { return b; }
++        if (b.empty()) { return a; }
++        return a + "|" + b;
++    }
++
++    static std::string cat(const std::string & a, const std::string & b) {
++        // "(?:)" is the empty string
++        if (a == "(?:)") { return b; }
++        if (b == "(?:)") { return a; }
++        return "(?:" + a + ")(?:" + b + ")";
++    }
++
++    std::vector<std::set<std::string>> recursive_groups(std::map<std::string, std::set<std::string>> & deps) const {
++        // Tarjan SCC over the rules that are not terminals
++        for (const auto & name : order) {
++            if (terminal.count(name)) {
++                continue;
++            }
++            std::set<std::string> d;
++            refs_of(rules.at(name), d);
++            for (const auto & x : d) {
++                if (!terminal.count(x)) {
++                    deps[name].insert(x);
++                }
++            }
++        }
++        std::map<std::string, int>         index, low;
++        std::set<std::string>              on_stack;
++        std::vector<std::string>           stack;
++        std::vector<std::set<std::string>> sccs;
++        int counter = 0;
++        std::function<void(const std::string &)> visit = [&](const std::string & v) {
++            index[v] = low[v] = counter++;
++            stack.push_back(v);
++            on_stack.insert(v);
++            for (const auto & w : deps[v]) {
++                if (!index.count(w)) {
++                    visit(w);
++                    low[v] = std::min(low[v], low[w]);
++                } else if (on_stack.count(w)) {
++                    low[v] = std::min(low[v], index[w]);
++                }
++            }
++            if (low[v] == index[v]) {
++                std::set<std::string> scc;
++                std::string w;
++                do {
++                    w = stack.back();
++                    stack.pop_back();
++                    on_stack.erase(w);
++                    scc.insert(w);
++                } while (w != v);
++                if (scc.size() > 1 || deps[v].count(v)) {
++                    sccs.push_back(std::move(scc));
++                }
++            }
++        };
++        for (const auto & name : order) {
++            if (!terminal.count(name) && !index.count(name)) {
++                visit(name);
++            }
++        }
++        return sccs;
++    }
++
++    // Equations of a group: state -> (next state -> regex) in `coef`, state -> (exit -> regex) in
++    // `exits`, where an exit is "[token] [rule]" in Lark ("" accepts). False when the group is not
++    // right-linear.
++    using equations = std::map<std::string, std::map<std::string, std::string>>;
++
++    bool refs_group(const gnode_ptr & n, const std::set<std::string> & group) const {
++        std::set<std::string> refs;
++        refs_of(n, refs);
++        for (const auto & r : refs) {
++            if (group.count(r)) {
++                return true;
++            }
++        }
++        return false;
++    }
++
++    std::string emit_items(const std::vector<gnode_ptr> & items, size_t from) const {
++        std::string out;
++        for (size_t i = from; i < items.size(); i++) {
++            const std::string e = emit(items[i], false);
++            out += out.empty() ? "" : " ";
++            out += (items[i]->kind == gnode::ALT && items[i]->children.size() > 1) ? "(" + e + ")" : e;
++        }
++        return out;
++    }
++
++    bool group_equations(const std::set<std::string> & group, equations & coef, equations & exits,
++                         std::set<std::string> & token_targets) const {
++        for (const auto & r : group) {
++            const auto & body = rules.at(r);
++            const std::vector<gnode_ptr> alts =
++                body->kind == gnode::ALT ? body->children : std::vector<gnode_ptr>{ body };
++            for (const auto & alt : alts) {
++                std::vector<std::vector<gnode_ptr>> flat = { {} };
++                flatten(alt, flat);
++                for (const auto & items : flat) {
++                    // leading terminal atoms become the regex; the rest is the exit, in which a rule of
++                    // the group may appear only as the last item
++                    std::string x;
++                    size_t i = 0;
++                    for (; i < items.size(); i++) {
++                        const auto & it = items[i];
++                        if ((it->kind == gnode::REF && !terminal.count(it->name)) || !term_safe(it, group)) {
++                            break;
++                        }
++                        x += emit_regex(it);
++                    }
++                    if (x.empty()) {
++                        x = "(?:)";
++                    }
++                    if (i == items.size()) {
++                        exits[r][""] = alt_join(exits[r][""], x);
++                        continue;
++                    }
++                    const auto & last      = items.back();
++                    const bool   tail_ref  = last->kind == gnode::REF && group.count(last->name);
++                    for (size_t j = i; j + 1 < items.size(); j++) {
++                        if (refs_group(items[j], group)) {
++                            LOG_DBG("gbnf-to-lark: rule %s is not right-linear: %s\n", r.c_str(), emit(alt, false).c_str());
++                            return false;
++                        }
++                    }
++                    if (!tail_ref && refs_group(last, group)) {
++                        LOG_DBG("gbnf-to-lark: rule %s is not right-linear: %s\n", r.c_str(), emit(alt, false).c_str());
++                        return false;
++                    }
++                    if (tail_ref && i + 1 == items.size()) {
++                        coef[r][last->name] = alt_join(coef[r][last->name], x);
++                        continue;
++                    }
++                    if (tail_ref) {
++                        token_targets.insert(last->name);
++                    }
++                    const std::string key = emit_items(items, i);
++                    exits[r][key] = alt_join(exits[r][key], x);
++                }
++            }
++        }
++        return true;
++    }
++
++    // ------------------------------------------------------------ suffixes into right-linear groups
++    //
++    // llguidance lexes greedily and never backtracks. GBNF "text until </x>" may end anywhere, even
++    // inside a partial delimiter, and the parser keeps every split; in llguidance the text terminal
++    // keeps "...</x" and the separate "</x>" literal can no longer start. So in a sequence
++    // "G rest...", where G is a rule of a right-linear group, the rest goes into a copy of the group,
++    // appended at every place the group can end (a regular concatenation). The delimiter then lands
++    // in the same regex terminal as the text, and its automaton handles the split.
++
++    std::set<std::string>                                 used_names;
++    std::map<std::string, std::string>                    clone_of;   // key -> clone rule name
++    std::vector<std::pair<std::set<std::string>, bool>>   rl_groups;  // groups and whether right-linear
++
++    static gnode_ptr deep_copy(const gnode_ptr & n) {
++        auto c = std::make_shared<gnode>(*n);
++        for (auto & ch : c->children) {
++            ch = deep_copy(ch);
++        }
++        return c;
++    }
++
++    gnode_ptr with_suffix(const gnode_ptr & n, const std::vector<gnode_ptr> & suffix,
++                          const std::map<std::string, std::string> & rename) const {
++        if (n->kind == gnode::REF && rename.count(n->name)) {
++            auto r  = mk(gnode::REF);
++            r->name = rename.at(n->name);
++            return r;
++        }
++        if (n->kind == gnode::ALT) {
++            auto a = mk(gnode::ALT);
++            for (const auto & c : n->children) {
++                a->children.push_back(with_suffix(c, suffix, rename));
++            }
++            return a;
++        }
++        auto seq = mk(gnode::SEQ);
++        if (n->kind == gnode::SEQ) {
++            seq->children = n->children;
++            if (!seq->children.empty()) {
++                seq->children.back() = with_suffix(seq->children.back(), suffix, rename);
++                return seq;
++            }
++        } else {
++            seq->children.push_back(n);
++        }
++        for (const auto & s : suffix) {
++            seq->children.push_back(deep_copy(s));
++        }
++        return seq;
++    }
++
++    std::string new_lark_name(const std::string & base) {
++        std::string candidate = base;
++        for (int k = 2; used_names.count(candidate); k++) {
++            candidate = base + "_" + std::to_string(k);
++        }
++        used_names.insert(candidate);
++        return candidate;
++    }
++
++    // the copy of the group of `entry` with `suffix` appended; returns the copy of `entry`
++    std::string group_with_suffix(const std::set<std::string> & group, const std::string & entry,
++                                  const std::vector<gnode_ptr> & suffix) {
++        std::string key = entry + "\x1f" + emit_items(suffix, 0);
++        auto it = clone_of.find(key);
++        if (it != clone_of.end()) {
++            return it->second;
++        }
++        std::map<std::string, std::string> rename;
++        for (const auto & r : group) {
++            std::string gname = r + "-sfx";
++            for (int k = 2; rules.count(gname); k++) {
++                gname = r + "-sfx" + std::to_string(k);
++            }
++            rename[r] = gname;
++            rules[gname] = nullptr; // reserve the name
++        }
++        for (const auto & r : group) {
++            const std::string & gname = rename[r];
++            rules[gname] = with_suffix(deep_copy(rules.at(r)), suffix, rename);
++            order.push_back(gname);
++            lark_name[gname] = new_lark_name(lark_name.at(r) + "_sfx");
++        }
++        clone_of[key] = rename[entry];
++        return rename[entry];
++    }
++
++    const std::set<std::string> * right_linear_group_of(const std::string & name) const {
++        for (const auto & [g, ok] : rl_groups) {
++            if (ok && g.count(name)) {
++                return &g;
++            }
++        }
++        return nullptr;
++    }
++
++    // rewrite "G rest..." and "G? rest..." in a sequence
++    gnode_ptr fold_suffixes(const gnode_ptr & n, const std::set<std::string> & own_group) {
++        for (auto & c : n->children) {
++            c = fold_suffixes(c, own_group);
++        }
++        if (n->kind != gnode::SEQ || n->children.size() < 2) {
++            return n;
++        }
++        auto & items = n->children;
++        // from the end, so "G1 x G2 y" folds y into G2 and then "x G2'" into G1
++        for (size_t i = items.size() - 1; i-- > 0;) {
++            if (clone_of.size() >= MAX_GROUP_COPIES) {
++                break;
++            }
++            gnode_ptr ref      = items[i];
++            bool      optional = false;
++            if (ref->kind == gnode::REP && ref->min_times == 0 && ref->max_times == 1 &&
++                ref->children[0]->kind == gnode::REF) {
++                ref      = ref->children[0];
++                optional = true;
++            }
++            if (ref->kind != gnode::REF || terminal.count(ref->name) || own_group.count(ref->name)) {
++                continue;
++            }
++            const auto * group = right_linear_group_of(ref->name);
++            if (!group) {
++                continue;
++            }
++            const std::vector<gnode_ptr> suffix(items.begin() + i + 1, items.end());
++            auto folded  = mk(gnode::REF);
++            folded->name = group_with_suffix(*group, ref->name, suffix);
++            gnode_ptr repl = folded;
++            if (optional) {
++                auto plain      = mk(gnode::SEQ);
++                plain->children = suffix;
++                repl            = mk(gnode::ALT);
++                repl->children  = { folded, plain };
++            }
++            items.resize(i);
++            items.push_back(repl);
++        }
++        return n;
++    }
++
++    void fold_group_suffixes() {
++        std::map<std::string, std::set<std::string>> deps;
++        for (auto & g : recursive_groups(deps)) {
++            equations c, x;
++            std::set<std::string> t;
++            const bool ok = group_equations(g, c, x, t);
++            rl_groups.emplace_back(std::move(g), ok);
++        }
++        const std::vector<std::string> names = order; // the copies are added to `order`
++        for (const auto & name : names) {
++            if (terminal.count(name)) {
++                continue;
++            }
++            std::set<std::string> own;
++            for (const auto & [g, ok] : rl_groups) {
++                if (g.count(name)) {
++                    own = g;
++                }
++            }
++            rules[name] = fold_suffixes(rules[name], own);
++        }
++    }
++
++    // Eliminate every state of the group but `entry` (Arden's rule, then substitution). The states
++    // far from the entry go first: in a scan automaton every state jumps back to the first ones,
++    // so eliminating those first would copy them everywhere. False when a regex grows too big.
++    bool eliminate(const std::string & entry, const std::set<std::string> & group, equations c, equations x,
++                   std::map<std::string, std::string> & result) const {
++        std::map<std::string, int> dist  = { { entry, 0 } };
++        std::vector<std::string>   queue = { entry };
++        for (size_t qi = 0; qi < queue.size(); qi++) {
++            for (const auto & [t, v] : c[queue[qi]]) {
++                if (!dist.count(t)) {
++                    dist[t] = dist[queue[qi]] + 1;
++                    queue.push_back(t);
++                }
++            }
++        }
++        std::vector<std::string> states(group.begin(), group.end());
++        std::stable_sort(states.begin(), states.end(), [&](const std::string & a, const std::string & b) {
++            const int da = dist.count(a) ? dist[a] : 1 << 20;
++            const int db = dist.count(b) ? dist[b] : 1 << 20;
++            return da > db;
++        });
++        auto self_loop = [&](const std::string & k) {
++            auto it = c[k].find(k);
++            if (it == c[k].end()) {
++                return;
++            }
++            const std::string star = "(?:" + it->second + ")*";
++            c[k].erase(it);
++            for (auto & [t, v] : c[k]) { v = cat(star, v); }
++            for (auto & [t, v] : x[k]) { v = cat(star, v); }
++        };
++        for (const auto & k : states) {
++            if (k == entry) {
++                continue;
++            }
++            self_loop(k);
++            for (const auto & i : states) {
++                if (i == k) {
++                    continue;
++                }
++                auto it = c[i].find(k);
++                if (it == c[i].end()) {
++                    continue;
++                }
++                const std::string pre = it->second;
++                c[i].erase(it);
++                for (const auto & [t, v] : c[k]) {
++                    c[i][t] = alt_join(c[i][t], cat(pre, v));
++                    if (c[i][t].size() > MAX_REGEX_BYTES) {
++                        return false;
++                    }
++                }
++                for (const auto & [t, v] : x[k]) {
++                    x[i][t] = alt_join(x[i][t], cat(pre, v));
++                    if (x[i][t].size() > MAX_REGEX_BYTES) {
++                        return false;
++                    }
++                }
++            }
++            c.erase(k);
++            x.erase(k);
++        }
++        self_loop(entry);
++        result = x[entry];
++        return true;
++    }
++
++    void regularize(const std::string & root) {
++        std::map<std::string, std::set<std::string>> deps;
++        const auto groups = recursive_groups(deps);
++
++        // who references each rule
++        std::map<std::string, std::set<std::string>> users;
++        for (const auto & [name, d] : deps) {
++            for (const auto & x : d) {
++                users[x].insert(name);
++            }
++        }
++
++        for (const auto & group : groups) {
++            equations coef, exits;
++            std::set<std::string> token_targets; // states reached after a token step stay rules
++            if (!group_equations(group, coef, exits, token_targets)) {
++                continue;
++            }
++            // entries: rules of the group used from outside it, after a token step, or the root
++            std::vector<std::string> entries;
++            for (const auto & r : group) {
++                bool outside = r == root || token_targets.count(r);
++                for (const auto & u : users[r]) {
++                    outside = outside || !group.count(u);
++                }
++                if (outside) {
++                    entries.push_back(r);
++                }
++            }
++            std::map<std::string, std::string> bodies;
++            std::vector<std::pair<std::string, std::string>> terms;
++            bool ok = true;
++            for (const auto & entry : entries) {
++                std::map<std::string, std::string> entry_exits;
++                if (!eliminate(entry, group, coef, exits, entry_exits)) {
++                    LOG_DBG("gbnf-to-lark: group of %s: regex too big, kept as rules\n", entry.c_str());
++                    ok = false;
++                    break;
++                }
++                std::string body;
++                int k = 0;
++                for (const auto & [t, v] : entry_exits) {
++                    std::string alt;
++                    if (v == "(?:)") {
++                        alt = t.empty() ? "\"\"" : t;
++                    } else {
++                        const std::string tname = upper(lark_name.at(entry)) + "_RX" + std::to_string(k++);
++                        terms.emplace_back(tname, "/" + v + "/");
++                        alt = t.empty() ? tname : tname + " " + t;
++                    }
++                    body = body.empty() ? alt : body + " | " + alt;
++                }
++                bodies[entry] = body.empty() ? "\"\"" : body;
++            }
++            if (!ok) {
++                continue;
++            }
++            regular_terms.insert(regular_terms.end(), terms.begin(), terms.end());
++            for (const auto & r : group) {
++                if (bodies.count(r)) {
++                    regular_body[r] = bodies[r];
++                } else {
++                    regular_skip.insert(r);
++                }
++            }
++        }
++    }
++
++    // ------------------------------------------------------------ emit
++
++    // GBNF matches a token by id; llguidance matches a special token by id and any other by text.
++    std::string tokset(const gnode_ptr & n) const {
++        if (!vocab) {
++            throw std::runtime_error("gbnf-to-lark: a token reference needs the vocab");
++        }
++        std::vector<std::string> alts;
++        std::vector<uint32_t>    ids;
++        if (n->negated) {
++            // any token outside the set: any character, or a special token outside the set
++            std::set<uint32_t> excluded;
++            for (auto [a, b] : n->ranges) {
++                for (uint32_t t = a; t <= b; t++) {
++                    excluded.insert(t);
++                }
++            }
++            for (auto t : specials->ids) {
++                if (!excluded.count(t)) {
++                    ids.push_back(t);
++                }
++            }
++            alts.push_back("/(?s:.)/");
++        } else {
++            for (auto [a, b] : n->ranges) {
++                for (uint32_t t = a; t <= b; t++) {
++                    if (is_special(t)) {
++                        ids.push_back(t);
++                    } else {
++                        alts.push_back(lit(utf8_to_cps(token_piece(vocab, (llama_token) t))));
++                    }
++                }
++            }
++        }
++        if (!ids.empty()) {
++            alts.push_back(ranges_str(ids));
++        }
++        if (alts.size() == 1) {
++            return alts[0];
++        }
++        std::string out;
++        for (const auto & a : alts) {
++            out += (out.empty() ? "(" : " | ") + a;
++        }
++        return out + ")";
++    }
++
++    // is_term: inside a terminal definition, where token references are not allowed
++    std::string emit(const gnode_ptr & n, bool is_term) const {
++        switch (n->kind) {
++            case gnode::LIT: {
++                if (is_term || !specials) {
++                    return lit(n->text);
++                }
++                const auto  parts = split_literal(n->text);
++                std::string out;
++                for (const auto & [cps, id] : parts) {
++                    out += out.empty() ? "" : " ";
++                    out += id < 0 ? lit(cps) : "(" + lit(cps) + " | <[" + std::to_string(id) + "]>)";
++                }
++                return parts.size() > 1 ? "(" + out + ")" : out;
++            }
++            case gnode::CLASS: {
++                std::string out = n->negated ? "/[^" : "/[";
++                for (auto [a, b] : n->ranges) {
++                    out += regex_cp(a);
++                    if (b != a) {
++                        out += "-" + regex_cp(b);
++                    }
++                }
++                return out + "]/";
++            }
++            case gnode::ANY:    return "/(?s:.)/";
++            case gnode::TOKSET: return tokset(n);
++            case gnode::REF:    return lark_name.at(n->name);
++            case gnode::SEQ: {
++                if (n->children.empty()) {
++                    return "\"\"";
++                }
++                std::string out;
++                for (const auto & c : n->children) {
++                    out += out.empty() ? "" : " ";
++                    const std::string e = emit(c, is_term);
++                    out += (c->kind == gnode::ALT && c->children.size() > 1) ? "(" + e + ")" : e;
++                }
++                return out;
++            }
++            case gnode::ALT: {
++                if (n->children.size() == 1) {
++                    return emit(n->children[0], is_term);
++                }
++                std::string out;
++                for (const auto & c : n->children) {
++                    out += (out.empty() ? "" : " | ") + emit(c, is_term);
++                }
++                return out;
++            }
++            case gnode::REP: {
++                const auto & c = n->children[0];
++                std::string  e = emit(c, is_term);
++                const bool atomic = c->kind == gnode::LIT || c->kind == gnode::CLASS || c->kind == gnode::ANY ||
++                                    c->kind == gnode::REF || c->kind == gnode::TOKSET;
++                if (!atomic) {
++                    e = "(" + e + ")";
++                }
++                if (n->min_times == 1 && n->max_times == 1) {
++                    return e;
++                }
++                return e + rep_suffix(n->min_times, n->max_times);
++            }
++        }
++        return "";
++    }
++};
++
++} // namespace
++
++std::string common_gbnf_to_lark(const std::string & gbnf, const llama_vocab * vocab, const std::string & root) {
++    gbnf_reader reader(gbnf);
++    reader.parse();
++
++    lark_writer w;
++    w.vocab    = vocab;
++    w.specials = vocab ? &get_vocab_specials(vocab) : nullptr;
++    for (auto & [name, body] : reader.rules) {
++        if (!w.rules.count(name)) {
++            w.order.push_back(name);
++        }
++        w.rules[name] = body; // a later definition wins, as in llama-grammar
++    }
++    if (!w.rules.count(root)) {
++        throw std::runtime_error("gbnf-to-lark: no rule named " + root);
++    }
++    w.prepare_free_tokens();
++    w.classify(root);
++    w.fold_group_suffixes();
++    w.apply_free_tokens();
++    w.regularize(root);
++
++    // the rules the folding left unused are not written
++    std::set<std::string> reachable = { root };
++    for (std::vector<std::string> todo = { root }; !todo.empty();) {
++        const std::string name = todo.back();
++        todo.pop_back();
++        std::set<std::string> refs;
++        lark_writer::refs_of(w.rules[name], refs);
++        for (const auto & r : refs) {
++            if (reachable.insert(r).second) {
++                todo.push_back(r);
++            }
++        }
++    }
++
++    std::string out = "%llguidance {}\n\n";
++    for (const auto & name : w.order) {
++        if (w.regular_skip.count(name) || !reachable.count(name)) {
++            continue;
++        }
++        const bool        term = w.terminal.count(name) > 0;
++        const std::string body = w.regular_body.count(name) ? w.regular_body[name] : w.emit(w.rules[name], term);
++        out += w.lark_name[name] + ": " + body + "\n";
++    }
++    for (const auto & [name, expr] : w.regular_terms) {
++        out += name + ": " + expr + "\n";
++    }
++    return out;
++}
+diff --git a/common/gbnf-to-lark.h b/common/gbnf-to-lark.h
+new file mode 100644
+index 000000000..1709aba55
+--- /dev/null
++++ b/common/gbnf-to-lark.h
+@@ -0,0 +1,30 @@
++#pragma once
++
++#include "llama.h"
++
++#include <string>
++
++// LocalAI: translation of the GBNF grammars that llama.cpp generates (chat-template tool calls,
++// response formats) to the Lark dialect of llguidance, so they can run on the llguidance sampler.
++
++// True when llguidance sees the token as special: it matches the token only by id, never by its
++// text. That is a token with no text without special rendering (a control token), or an added
++// (user-defined) token such as <tool_call> in Qwen, which GBNF also treats as one unit when a
++// grammar names it with <[id]>. The llguidance tokenizer and the translation use this one test.
++bool common_llg_token_is_special(const llama_vocab * vocab, llama_token token);
++
++// Translates a GBNF grammar, as llama.cpp generates it, to llguidance Lark. The result starts with
++// "%llguidance {}" and its start rule is the GBNF rule `root`. Needs the vocab of the model when the
++// grammar names tokens or spells special tokens.
++//
++// - A rule that names no token and is not recursive becomes a Lark terminal (one lexeme).
++// - A group of rules that recurse only in tail position (the "text until a delimiter" and trigger
++//   scan automata) becomes regex terminals, with the token steps kept as rules between them.
++// - <[id]> is kept for a special token and becomes the token text otherwise. !<[id]> becomes "any
++//   character or any special token outside the set".
++// - A literal that spells a special token also accepts that token, and free text ("[^...]", ".")
++//   in a rule also accepts the special tokens the grammar does not name, except end-of-generation
++//   tokens: GBNF matches the text of such a token, llguidance only its id.
++//
++// Throws std::runtime_error on a grammar it cannot translate.
++std::string common_gbnf_to_lark(const std::string & gbnf, const llama_vocab * vocab, const std::string & root = "root");
+diff --git a/common/llguidance.cpp b/common/llguidance.cpp
+index 500bb0914..b2eac77c7 100644
+--- a/common/llguidance.cpp
++++ b/common/llguidance.cpp
+@@ -1,10 +1,16 @@
+ #include "sampling.h"
++#include "common.h"
++#include "gbnf-to-lark.h"
+ #include "log.h"
+ 
+ #ifdef LLAMA_USE_LLGUIDANCE
+ 
+ #    include "llguidance.h"
++#    include <algorithm>
++#    include <cctype>
+ #    include <cmath>
++#    include <mutex>
++#    include <regex>
+ 
+ struct llama_sampler_llg {
+     const llama_vocab * vocab;
+@@ -43,8 +49,46 @@ static void llama_sampler_llg_accept_impl(llama_sampler * smpl, llama_token toke
+     }
+ }
+ 
++// LocalAI: when the mask is not computed yet and only a few candidates are left (common_sampler
++// checks the sampled token alone first), check each candidate instead of computing the mask over the
++// whole vocab. Returns false when llguidance fails; the caller handles the error.
++static constexpr size_t LLG_FAST_PATH_MAX = 8;
++
++static bool llama_sampler_llg_apply_few(LlgMatcher * grammar, const llama_vocab * vocab, llama_token_data_array * cur_p) {
++    if (llg_matcher_is_error(grammar)) {
++        return false;
++    }
++    // a complete output that cannot go on: only the end (validate_tokens reports it as an error)
++    const bool stopped = llg_matcher_is_stopped(grammar);
++    for (size_t i = 0; i < cur_p->size; ++i) {
++        const llama_token token = cur_p->data[i].id;
++        bool ok;
++        if (llama_vocab_is_eog(vocab, token)) {
++            ok = llg_matcher_is_accepting(grammar);
++        } else if (stopped) {
++            ok = false;
++        } else {
++            const uint32_t t = (uint32_t) token;
++            const int32_t  n = llg_matcher_validate_tokens(grammar, &t, 1);
++            if (n < 0) {
++                return false;
++            }
++            ok = n == 1;
++        }
++        if (!ok) {
++            cur_p->data[i].logit = -INFINITY;
++        }
++    }
++    return true;
++}
++
+ static void llama_sampler_llg_apply(llama_sampler * smpl, llama_token_data_array * cur_p) {
+     auto * ctx = (llama_sampler_llg *) smpl->ctx;
++    if (ctx->grammar && cur_p->size <= LLG_FAST_PATH_MAX && llg_matcher_get_mask(ctx->grammar) == nullptr) {
++        if (llama_sampler_llg_apply_few(ctx->grammar, ctx->vocab, cur_p)) {
++            return;
++        }
++    }
+     if (ctx->grammar) {
+         const uint32_t * mask = llg_matcher_get_mask(ctx->grammar);
+         if (mask == nullptr) {
+@@ -170,6 +214,11 @@ static LlgTokenizer * llama_sampler_llg_new_tokenizer(const llama_vocab * vocab)
+         if (size < 0) {
+             GGML_ABORT("llama_detokenize failed\n");
+         }
++        // LocalAI: an added token (such as <tool_call> in Qwen) is special too, as GBNF treats a token
++        // that a grammar names; see common_llg_token_is_special()
++        if (size > 0 && common_llg_token_is_special(vocab, token)) {
++            size = 0;
++        }
+         if (size == 0) {
+             size = llama_detokenize(vocab, &token, 1, dp + 1, max_token - 1, false, true);
+             if (size < 0) {
+@@ -250,6 +299,468 @@ llama_sampler * llama_sampler_init_llg(const llama_vocab * vocab, const char * g
+         /* .ctx   = */ ctx);
+ }
+ 
++
++// LocalAI: a llama.cpp-generated GBNF grammar (tool calls, response format) run on llguidance after
++// translation to Lark (gbnf-to-lark.h).
++//
++// - Lazy grammars keep the trigger semantics of llama-grammar.cpp: no constraint until a trigger
++//   token or pattern shows up, then the tokens from the trigger start on are replayed into
++//   llguidance (a token that starts before the trigger is tokenized again from the trigger start).
++// - The generation prompt is prefilled as plain text: llguidance checks bytes, and GBNF matches the
++//   text of a special token that the grammar does not name.
++// - When llguidance fails during generation, the sampler continues on GBNF: it builds the GBNF
++//   sampler, prefills it as common_sampler_init would, and replays every token it accepted.
++// - llguidance never rejects a sampled token that GBNF accepts: on the first rejection the sampler
++//   builds GBNF the same way and keeps it in step; when GBNF accepts the token, the request goes
++//   on on GBNF. llguidance lexes greedily without backtracking, which a few grammars need.
++struct llama_sampler_llg_gbnf {
++    const llama_vocab * vocab;
++
++    LlgTokenizer * tokenizer;
++    LlgMatcher *   matcher; // nullptr once on the fallback
++
++    std::vector<llama_token> llg_prefill;  // generation prompt as plain-text tokens
++    std::vector<llama_token> gbnf_prefill; // generation prompt as common_sampler_init feeds GBNF
++
++    bool lazy;
++    bool awaiting;
++    std::string                                                       buffer;
++    std::vector<std::pair<llama_token, std::pair<size_t, size_t>>>   buffer_pos;
++    std::vector<std::string>                                          patterns;
++    std::vector<std::regex>                                           regexes;
++    std::vector<llama_token>                                          trigger_tokens;
++
++    std::string              gbnf;
++    std::vector<llama_token> history;       // tokens accepted since the start, for the GBNF replay
++    llama_sampler *          shadow;        // GBNF in step with llguidance, built on the first rejection
++    bool                     shadow_failed; // GBNF cannot be built or replayed: no shadow
++    llama_sampler *          fallback;      // GBNF, after an llguidance error or disagreement
++    bool                     failed;        // the fallback failed too: no constraint
++};
++
++static const char * llama_sampler_llg_gbnf_name(const llama_sampler * smpl) {
++    const auto * ctx = (const llama_sampler_llg_gbnf *) smpl->ctx;
++    return ctx->fallback ? "llguidance-gbnf:on-gbnf" : (ctx->failed ? "llguidance-gbnf:none" : "llguidance-gbnf");
++}
++
++// Same as llama_grammar_trigger_pattern::find: the start of the first non-empty capture group, else
++// of the match. A pattern anchored with ^...$ must match the whole buffer.
++static size_t llg_gbnf_trigger_find(const std::string & pattern, const std::regex & re, const std::string & input) {
++    std::smatch m;
++    const bool full  = !pattern.empty() && pattern.front() == '^' && pattern.back() == '$';
++    const bool found = full ? std::regex_match(input, m, re) : std::regex_search(input, m, re);
++    if (!found) {
++        return std::string::npos;
++    }
++    for (size_t i = 1; i < m.size(); i++) {
++        if (m.length(i) > 0) {
++            return m.position(i);
++        }
++    }
++    return m.position(0);
++}
++
++// GBNF prefilled as common_sampler_init would, with every accepted token replayed; nullptr on failure
++static llama_sampler * llg_gbnf_build_gbnf(const llama_sampler_llg_gbnf * ctx, std::string & error) {
++    llama_sampler * g = nullptr;
++    try {
++        if (ctx->lazy) {
++            std::vector<const char *> pats;
++            for (const auto & p : ctx->patterns) {
++                pats.push_back(p.c_str());
++            }
++            g = llama_sampler_init_grammar_lazy_patterns(ctx->vocab, ctx->gbnf.c_str(), "root", pats.data(), pats.size(),
++                                                         ctx->trigger_tokens.data(), ctx->trigger_tokens.size());
++        } else {
++            g = llama_sampler_init_grammar(ctx->vocab, ctx->gbnf.c_str(), "root");
++        }
++        if (!g) {
++            throw std::runtime_error("GBNF rejected the grammar");
++        }
++        for (const auto t : ctx->gbnf_prefill) {
++            llama_sampler_accept(g, t);
++        }
++        for (const auto t : ctx->history) {
++            if (!llama_vocab_is_eog(ctx->vocab, t)) {
++                llama_sampler_accept(g, t);
++            }
++        }
++    } catch (const std::exception & e) {
++        if (g) {
++            llama_sampler_free(g);
++        }
++        error = e.what();
++        return nullptr;
++    }
++    return g;
++}
++
++static void llg_gbnf_to_fallback(llama_sampler_llg_gbnf * ctx, const char * reason) {
++    LOG_WRN("llguidance: %s; continuing this request on GBNF\n", reason ? reason : "unknown error");
++    if (ctx->matcher) {
++        llg_free_matcher(ctx->matcher);
++        ctx->matcher = nullptr;
++    }
++    if (ctx->shadow) {
++        ctx->fallback = ctx->shadow;
++        ctx->shadow   = nullptr;
++        return;
++    }
++    std::string error;
++    ctx->fallback = ctx->shadow_failed ? nullptr : llg_gbnf_build_gbnf(ctx, error);
++    if (!ctx->fallback) {
++        LOG_ERR("llguidance: the GBNF fallback failed too (%s); the rest of this output is not constrained\n",
++                ctx->shadow_failed ? "no GBNF for this grammar" : error.c_str());
++        ctx->failed = true;
++    }
++}
++
++// llguidance rejected a token. llguidance lexes greedily and never backtracks, so in a few grammars it
++// rejects a token GBNF accepts. Ask GBNF (built once, then kept in step); if GBNF accepts the token,
++// the request goes on on GBNF. Returns true when it switched.
++static bool llg_gbnf_check_rejection(llama_sampler_llg_gbnf * ctx, llama_token token) {
++    if (ctx->shadow_failed) {
++        return false;
++    }
++    if (!ctx->shadow) {
++        std::string error;
++        ctx->shadow = llg_gbnf_build_gbnf(ctx, error);
++        if (!ctx->shadow) {
++            LOG_DBG("llguidance: no GBNF shadow: %s\n", error.c_str());
++            ctx->shadow_failed = true;
++            return false;
++        }
++    }
++    llama_token_data       d   = { token, 1.0f, 0.0f };
++    llama_token_data_array arr = { &d, 1, -1, false };
++    llama_sampler_apply(ctx->shadow, &arr);
++    if (d.logit == -INFINITY) {
++        return false;
++    }
++    const std::string piece = common_token_to_piece(ctx->vocab, token, true);
++    const std::string msg   = "llguidance rejects token '" + piece + "' that GBNF accepts";
++    llg_gbnf_to_fallback(ctx, msg.c_str());
++    return true;
++}
++
++static bool llg_gbnf_consume(llama_sampler_llg_gbnf * ctx, llama_token token) {
++    if (llg_matcher_consume_token(ctx->matcher, (uint32_t) token) != 0) {
++        llg_gbnf_to_fallback(ctx, llg_matcher_get_error(ctx->matcher));
++        return false;
++    }
++    return true;
++}
++
++static void llama_sampler_llg_gbnf_accept(llama_sampler * smpl, llama_token token) {
++    auto * ctx = (llama_sampler_llg_gbnf *) smpl->ctx;
++    ctx->history.push_back(token);
++    if (ctx->shadow && !llama_vocab_is_eog(ctx->vocab, token)) {
++        try {
++            llama_sampler_accept(ctx->shadow, token);
++        } catch (const std::exception & e) {
++            LOG_DBG("llguidance: GBNF shadow dropped: %s\n", e.what());
++            llama_sampler_free(ctx->shadow);
++            ctx->shadow        = nullptr;
++            ctx->shadow_failed = true;
++        }
++    }
++    if (ctx->fallback) {
++        llama_sampler_accept(ctx->fallback, token);
++        return;
++    }
++    if (!ctx->matcher) {
++        return;
++    }
++    if (!ctx->awaiting) {
++        // an end-of-generation token after a complete output ends it, as on GBNF
++        if (llama_vocab_is_eog(ctx->vocab, token) && llg_matcher_is_accepting(ctx->matcher)) {
++            return;
++        }
++        llg_gbnf_consume(ctx, token);
++        return;
++    }
++    if (std::find(ctx->trigger_tokens.begin(), ctx->trigger_tokens.end(), token) != ctx->trigger_tokens.end()) {
++        ctx->awaiting = false;
++        ctx->buffer.clear();
++        ctx->buffer_pos.clear();
++        LOG_DBG("llguidance: triggered on token %d\n", token);
++        llg_gbnf_consume(ctx, token);
++        return;
++    }
++    const std::string piece = common_token_to_piece(ctx->vocab, token, true);
++    ctx->buffer_pos.push_back({ token, { ctx->buffer.size(), ctx->buffer.size() + piece.size() } });
++    ctx->buffer += piece;
++    for (size_t i = 0; i < ctx->regexes.size(); i++) {
++        const size_t start = llg_gbnf_trigger_find(ctx->patterns[i], ctx->regexes[i], ctx->buffer);
++        if (start == std::string::npos) {
++            continue;
++        }
++        ctx->awaiting = false;
++        // replay the tokens from the trigger start on; a token that starts before it is tokenized
++        // again from the trigger start, as llama-grammar.cpp feeds its partial piece
++        std::vector<llama_token> replay;
++        for (const auto & [tok, pos] : ctx->buffer_pos) {
++            if (pos.second <= start) {
++                continue;
++            }
++            if (pos.first >= start) {
++                replay.push_back(tok);
++                continue;
++            }
++            const auto part = common_tokenize(ctx->vocab, ctx->buffer.substr(start, pos.second - start), false, true);
++            replay.insert(replay.end(), part.begin(), part.end());
++        }
++        LOG_DBG("llguidance: triggered on pattern '%s', replaying %zu tokens of '%s'\n", ctx->patterns[i].c_str(),
++                replay.size(), ctx->buffer.substr(start).c_str());
++        ctx->buffer.clear();
++        ctx->buffer_pos.clear();
++        for (const auto t : replay) {
++            if (!llg_gbnf_consume(ctx, t)) {
++                return;
++            }
++        }
++        return;
++    }
++}
++
++static void llama_sampler_llg_gbnf_apply(llama_sampler * smpl, llama_token_data_array * cur_p) {
++    auto * ctx = (llama_sampler_llg_gbnf *) smpl->ctx;
++    if (ctx->fallback) {
++        llama_sampler_apply(ctx->fallback, cur_p);
++        return;
++    }
++    if (!ctx->matcher || ctx->awaiting) {
++        return;
++    }
++    const uint32_t * mask = llg_matcher_get_mask(ctx->matcher);
++    if (mask == nullptr && cur_p->size <= LLG_FAST_PATH_MAX) {
++        std::vector<float> logits(cur_p->size);
++        for (size_t i = 0; i < cur_p->size; ++i) {
++            logits[i] = cur_p->data[i].logit;
++        }
++        if (!llama_sampler_llg_apply_few(ctx->matcher, ctx->vocab, cur_p)) {
++            for (size_t i = 0; i < cur_p->size; ++i) {
++                cur_p->data[i].logit = logits[i];
++            }
++            llg_gbnf_to_fallback(ctx, llg_matcher_get_error(ctx->matcher));
++            llama_sampler_llg_gbnf_apply(smpl, cur_p);
++            return;
++        }
++        for (size_t i = 0; i < cur_p->size; ++i) {
++            if (cur_p->data[i].logit == -INFINITY && logits[i] != -INFINITY &&
++                llg_gbnf_check_rejection(ctx, cur_p->data[i].id)) {
++                for (size_t k = 0; k < cur_p->size; ++k) {
++                    cur_p->data[k].logit = logits[k];
++                }
++                llama_sampler_llg_gbnf_apply(smpl, cur_p);
++                return;
++            }
++        }
++        return;
++    }
++    if (mask == nullptr) {
++        if (llg_matcher_compute_mask(ctx->matcher) != 0) {
++            llg_gbnf_to_fallback(ctx, llg_matcher_get_error(ctx->matcher));
++            llama_sampler_llg_gbnf_apply(smpl, cur_p);
++            return;
++        }
++        mask = llg_matcher_get_mask(ctx->matcher);
++    }
++    // llguidance allows only its own end token; any end-of-generation token ends a complete output
++    const bool accepting = llg_matcher_is_accepting(ctx->matcher);
++    for (size_t i = 0; i < cur_p->size; ++i) {
++        const llama_token token = cur_p->data[i].id;
++        // the mask allows an end token only when accepting (llguidance's own); add the other ones then
++        const bool ok = (mask[token / 32] & (1u << (token % 32))) != 0 || (accepting && llama_vocab_is_eog(ctx->vocab, token));
++        if (!ok) {
++            cur_p->data[i].logit = -INFINITY;
++        }
++    }
++}
++
++static void llg_gbnf_start(llama_sampler_llg_gbnf * ctx) {
++    ctx->awaiting = ctx->lazy;
++    ctx->buffer.clear();
++    ctx->buffer_pos.clear();
++    ctx->history.clear();
++    for (const auto t : ctx->llg_prefill) {
++        if (!llg_gbnf_consume(ctx, t)) {
++            break;
++        }
++    }
++}
++
++static void llama_sampler_llg_gbnf_reset(llama_sampler * smpl) {
++    auto * ctx = (llama_sampler_llg_gbnf *) smpl->ctx;
++    if (ctx->shadow) {
++        llama_sampler_free(ctx->shadow);
++        ctx->shadow = nullptr;
++    }
++    if (ctx->fallback) {
++        // stays on GBNF for the life of this sampler
++        llama_sampler_reset(ctx->fallback);
++        ctx->history.clear();
++        for (const auto t : ctx->gbnf_prefill) {
++            llama_sampler_accept(ctx->fallback, t);
++        }
++        return;
++    }
++    if (ctx->matcher && llg_matcher_reset(ctx->matcher) == 0) {
++        llg_gbnf_start(ctx);
++    }
++}
++
++static llama_sampler * llama_sampler_llg_gbnf_clone(const llama_sampler * smpl);
++
++static void llama_sampler_llg_gbnf_free(llama_sampler * smpl) {
++    auto * ctx = (llama_sampler_llg_gbnf *) smpl->ctx;
++    if (ctx->matcher) {
++        llg_free_matcher(ctx->matcher);
++    }
++    if (ctx->tokenizer) {
++        llg_free_tokenizer(ctx->tokenizer);
++    }
++    if (ctx->fallback) {
++        llama_sampler_free(ctx->fallback);
++    }
++    if (ctx->shadow) {
++        llama_sampler_free(ctx->shadow);
++    }
++    delete ctx;
++}
++
++static llama_sampler_i llama_sampler_llg_gbnf_i = {
++    /* .name              = */ llama_sampler_llg_gbnf_name,
++    /* .accept            = */ llama_sampler_llg_gbnf_accept,
++    /* .apply             = */ llama_sampler_llg_gbnf_apply,
++    /* .reset             = */ llama_sampler_llg_gbnf_reset,
++    /* .clone             = */ llama_sampler_llg_gbnf_clone,
++    /* .free              = */ llama_sampler_llg_gbnf_free,
++    /* .backend_init      = */ NULL,
++    /* .backend_accept    = */ NULL,
++    /* .backend_apply     = */ NULL,
++    /* .backend_set_input = */ NULL,
++    /* .backend_reset     = */ NULL,
++    /* .copy_state        = */ NULL,
++};
++
++static llama_sampler * llama_sampler_llg_gbnf_clone(const llama_sampler * smpl) {
++    const auto * ctx  = (const llama_sampler_llg_gbnf *) smpl->ctx;
++    auto *       copy = new llama_sampler_llg_gbnf(*ctx);
++    copy->tokenizer   = ctx->tokenizer ? llg_clone_tokenizer(ctx->tokenizer) : nullptr;
++    copy->matcher     = ctx->matcher ? llg_clone_matcher(ctx->matcher) : nullptr;
++    copy->fallback    = ctx->fallback ? llama_sampler_clone(ctx->fallback) : nullptr;
++    copy->shadow      = ctx->shadow ? llama_sampler_clone(ctx->shadow) : nullptr;
++    return llama_sampler_init(&llama_sampler_llg_gbnf_i, copy);
++}
++
++llama_sampler * llama_sampler_init_llg_from_gbnf(const llama_vocab * vocab, const std::string & gbnf, bool lazy,
++                                                 const std::vector<std::string> & trigger_patterns,
++                                                 const std::vector<llama_token> & trigger_tokens,
++                                                 const std::string & generation_prompt, std::string * error) {
++    auto set_error = [&](const std::string & msg) {
++        if (error) {
++            *error = msg;
++        }
++        return nullptr;
++    };
++
++    std::string lark;
++    try {
++        lark = common_gbnf_to_lark(gbnf, vocab);
++    } catch (const std::exception & e) {
++        return set_error(e.what());
++    }
++    LOG_DBG("%s: grammar translated to llguidance:\n%s\n", __func__, lark.c_str());
++
++    LlgTokenizer * tokenizer = llama_sampler_llg_new_tokenizer(vocab);
++    if (!tokenizer) {
++        return set_error("cannot build the llguidance tokenizer");
++    }
++    // Compiling a large grammar takes up to a few hundred ms, and an agent sends the same tool set
++    // on every turn: keep the last compiled matchers and clone them.
++    static std::mutex                                                                cache_mutex;
++    static std::vector<std::pair<std::pair<const llama_vocab *, std::string>, LlgMatcher *>> cache;
++    constexpr size_t                                                                 cache_max = 8;
++    LlgMatcher * matcher = nullptr;
++    {
++        std::lock_guard<std::mutex> lock(cache_mutex);
++        for (const auto & [key, m] : cache) {
++            if (key.first == vocab && key.second == lark) {
++                matcher = llg_clone_matcher(m);
++                break;
++            }
++        }
++    }
++    if (!matcher) {
++        LlgConstraintInit cinit;
++        llg_constraint_init_set_defaults(&cinit, tokenizer);
++        const char * log_level = getenv("LLGUIDANCE_LOG_LEVEL");
++        if (log_level && *log_level) {
++            cinit.log_stderr_level = atoi(log_level);
++        }
++        matcher = llg_new_matcher(&cinit, "lark", lark.c_str());
++        if (llg_matcher_get_error(matcher)) {
++            std::string msg = llg_matcher_get_error(matcher);
++            llg_free_matcher(matcher);
++            llg_free_tokenizer(tokenizer);
++            return set_error("llguidance rejected the translated grammar: " + msg);
++        }
++        std::lock_guard<std::mutex> lock(cache_mutex);
++        if (cache.size() >= cache_max) {
++            llg_free_matcher(cache.front().second);
++            cache.erase(cache.begin());
++        }
++        cache.push_back({ { vocab, lark }, llg_clone_matcher(matcher) });
++    }
++
++    auto * ctx           = new llama_sampler_llg_gbnf;
++    ctx->vocab           = vocab;
++    ctx->tokenizer       = tokenizer;
++    ctx->matcher         = matcher;
++    ctx->lazy            = lazy;
++    ctx->awaiting        = lazy;
++    ctx->patterns        = trigger_patterns;
++    ctx->trigger_tokens  = trigger_tokens;
++    ctx->gbnf            = gbnf;
++    ctx->fallback        = nullptr;
++    ctx->failed          = false;
++    ctx->shadow          = nullptr;
++    ctx->shadow_failed   = false;
++    try {
++        for (const auto & p : trigger_patterns) {
++            ctx->regexes.emplace_back(p);
++        }
++    } catch (const std::exception & e) {
++        llg_free_matcher(matcher);
++        llg_free_tokenizer(tokenizer);
++        delete ctx;
++        return set_error(std::string("bad trigger pattern: ") + e.what());
++    }
++    if (!lazy && !generation_prompt.empty()) {
++        ctx->llg_prefill = common_tokenize(vocab, generation_prompt, false, false);
++        // the same tokens as the prefill of common_sampler_init, for the GBNF fallback
++        const auto tokens = common_tokenize(vocab, generation_prompt, false, true);
++        for (size_t i = 0; i < tokens.size(); i++) {
++            const std::string piece = common_token_to_piece(vocab, tokens[i], true);
++            if (i == 0 && !piece.empty() && std::isspace((unsigned char) piece[0]) && !std::isspace((unsigned char) generation_prompt[0])) {
++                continue;
++            }
++            ctx->gbnf_prefill.push_back(tokens[i]);
++        }
++    }
++    for (const auto t : ctx->llg_prefill) {
++        if (llg_matcher_consume_token(ctx->matcher, (uint32_t) t) != 0) {
++            std::string msg = llg_matcher_get_error(ctx->matcher);
++            llg_free_matcher(ctx->matcher);
++            llg_free_tokenizer(ctx->tokenizer);
++            delete ctx;
++            return set_error("llguidance rejected the generation prompt: " + msg);
++        }
++    }
++    return llama_sampler_init(&llama_sampler_llg_gbnf_i, ctx);
++}
++
+ #else
+ 
+ llama_sampler * llama_sampler_init_llg(const llama_vocab *, const char *, const char *) {
+@@ -257,4 +768,13 @@ llama_sampler * llama_sampler_init_llg(const llama_vocab *, const char *, const
+     return nullptr;
+ }
+ 
++llama_sampler * llama_sampler_init_llg_from_gbnf(const llama_vocab *, const std::string &, bool,
++                                                 const std::vector<std::string> &, const std::vector<llama_token> &,
++                                                 const std::string &, std::string * error) {
++    if (error) {
++        *error = "llguidance (cmake -DLLAMA_LLGUIDANCE=ON) is not enabled";
++    }
++    return nullptr;
++}
++
+ #endif  // LLAMA_USE_LLGUIDANCE
+diff --git a/common/sampling.cpp b/common/sampling.cpp
+index 078bfd984..353c1db31 100644
+--- a/common/sampling.cpp
++++ b/common/sampling.cpp
+@@ -216,6 +216,7 @@ struct common_sampler * common_sampler_init(
+ 
+     llama_sampler * grmr = nullptr;
+     llama_sampler * rbudget = nullptr;
++    bool grammar_on_llg = false; // LocalAI: a generated GBNF grammar runs on llguidance
+     llama_sampler * chain = llama_sampler_chain_init(lparams);
+ 
+     std::vector<llama_sampler *> samplers;
+@@ -273,7 +274,18 @@ struct common_sampler * common_sampler_init(
+             trigger_patterns_c.push_back(regex.c_str());
+         }
+ 
+-        if (!grammar_str.empty()) {
++        // LocalAI: a generated grammar (tool calls, response format) can run on llguidance, translated
++        // from GBNF; it falls back to GBNF when that fails. A user grammar stays GBNF.
++        if (!grammar_str.empty() && params.grammar_llguidance && common_grammar_needs_prefill(params.grammar)) {
++            std::string error;
++            grmr = llama_sampler_init_llg_from_gbnf(vocab, grammar_str, params.grammar_lazy, trigger_patterns,
++                    trigger_tokens, params.grammar_lazy ? std::string() : params.generation_prompt, &error);
++            grammar_on_llg = grmr != nullptr;
++            if (!grmr) {
++                LOG_WRN("%s: grammar not on llguidance, using GBNF: %s\n", __func__, error.c_str());
++            }
++        }
++        if (!grmr && !grammar_str.empty()) {
+              if (params.grammar_lazy) {
+                  grmr = llama_sampler_init_grammar_lazy_patterns(vocab, grammar_str.c_str(), "root",
+                          trigger_patterns_c.data(), trigger_patterns_c.size(),
+@@ -306,7 +318,8 @@ struct common_sampler * common_sampler_init(
+     // Feed generation prompt tokens to the grammar sampler so it advances past
+     // tokens the template already placed in the prompt.
+     // Only applies to output-format and tool-call grammars; user-supplied grammars must not be prefilled.
+-    if (grmr && !params.grammar_lazy && common_grammar_needs_prefill(params.grammar)) {
++    // LocalAI: llama_sampler_init_llg_from_gbnf() did its own prefill.
++    if (grmr && !grammar_on_llg && !params.grammar_lazy && common_grammar_needs_prefill(params.grammar)) {
+         try {
+             for (const auto & token : prefill_tokens) {
+                 llama_sampler_accept(grmr, token);
+diff --git a/common/sampling.h b/common/sampling.h
+index f19bd27c4..c9306376f 100644
+--- a/common/sampling.h
++++ b/common/sampling.h
+@@ -127,6 +127,14 @@ void common_sampling_add_grammar_triggers(common_params_sampling & sampling, con
+ llama_sampler * llama_sampler_init_llg(const llama_vocab * vocab,
+                 const char * grammar_kind, const char * grammar_data);
+ 
++// LocalAI: a generated GBNF grammar on llguidance (translated to Lark), with the lazy triggers of
++// GBNF and a GBNF fallback when llguidance fails during generation. A non-lazy grammar is prefilled
++// with generation_prompt. Returns nullptr, with the reason in *error, when the grammar cannot be
++// translated or llguidance rejects it; the caller then uses GBNF.
++llama_sampler * llama_sampler_init_llg_from_gbnf(const llama_vocab * vocab, const std::string & gbnf, bool lazy,
++                const std::vector<std::string> & trigger_patterns, const std::vector<llama_token> & trigger_tokens,
++                const std::string & generation_prompt, std::string * error);
++
+ struct common_sampler_deleter {
+     void operator()(common_sampler * s) { common_sampler_free(s); }
+ };

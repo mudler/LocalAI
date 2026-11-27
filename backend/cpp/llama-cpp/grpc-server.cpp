@@ -1810,6 +1810,13 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         params.enable_reasoning = 0;
     }
 
+    // Tool-call grammars of the chat template on llguidance (patches/0008).
+    // The field is the default of every request's sampling parameters.
+#if LOCALAI_HAS_LLG_TEMPLATE_GRAMMARS
+    params.sampling.grammar_llguidance =
+        llama_grpc::template_grammars_on_llguidance(grammar_engine_option, built_with_llguidance);
+#endif
+
     // The GBNF repetition limit (patches/0005 reads it from the environment).
     {
         const std::string v = llama_grpc::grammar_max_repetition(grammar_max_repetition_option, std::getenv("LLAMA_GRAMMAR_MAX_REPETITION"));

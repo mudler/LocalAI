@@ -803,21 +803,33 @@ The `grammar_engine` option selects the engine:
 
 | Value | Behavior |
 |---|---|
-| `auto` (default) | Use llguidance when the backend build has it, GBNF otherwise. |
-| `gbnf` | Always use GBNF. |
-| `llguidance` | Use llguidance. A build without it logs a warning and uses GBNF. |
+| `auto` (default) | Use llguidance for the grammars LocalAI builds when the backend build has it, GBNF otherwise. The tool-call grammars of the chat template use GBNF. |
+| `gbnf` | Always use GBNF, exactly as upstream llama.cpp. |
+| `llguidance` | Use llguidance, also for the tool-call grammars of the chat template (see below). A build without it logs a warning and uses GBNF. |
 
 ```yaml
 options:
   - grammar_engine:gbnf
 ```
 
-The option applies only to grammars that LocalAI builds from a JSON schema. These always use GBNF:
+These grammars always use GBNF:
 
 - a grammar you write yourself (the `grammar` request field or the `grammar` key of the model config),
 - `response_format` of type `json_object`,
-- function calling with `mixed_mode: true` (free text or JSON) or `schema_type: llama3.1`,
-- grammars that the chat template builds for tools (`grammar.disable: true` with `use_tokenizer_template: true`). These are lazy grammars, which llguidance does not support in llama.cpp.
+- function calling with `mixed_mode: true` (free text or JSON) or `schema_type: llama3.1`.
+
+###### Tool-call grammars of the chat template
+
+When llama.cpp parses tool calls itself (`grammar.disable: true` with `use_tokenizer_template: true`), it builds a GBNF grammar from the chat template of the model. With `grammar_engine:llguidance`, the backend translates that grammar to llguidance when the request starts. It is the same grammar, for every template: no format has its own rules.
+
+- **Speed.** On GBNF, the cost of the allowed-token mask grows with the tool set, to tens of milliseconds per token with 48 or 128 tools. On llguidance it stays below about 1 ms. The backend first checks the token the model picked and computes the full mask only when that token is rejected, so text outside a tool call costs almost nothing.
+- **Large tool sets.** GBNF rejects some large schemas, for example an array with `maxItems: 2000` or hundreds of optional properties ("exceeds sane defaults", "chained more than 256 levels deep"). llguidance accepts them.
+- **Fallback.** If the grammar does not translate or llguidance rejects it, the request uses GBNF and the backend logs one warning. If llguidance fails during generation, or rejects a token that GBNF accepts, the request goes on with GBNF from that point. The output is never left without a grammar because of llguidance.
+- **Lazy grammars.** Most templates constrain the output only after a trigger such as `<tool_call>`. The trigger rules are the same as on GBNF.
+
+Under `auto`, these grammars stay on GBNF for now. To go fully stock, set `grammar_engine:gbnf`: every grammar then uses llama.cpp's GBNF sampler, as upstream.
+
+With llguidance (any grammar, also the JSON-schema grammars above), tokens that a model adds to its vocabulary, such as `<tool_call>` in Qwen, count as special tokens: the grammar matches them by token, not by text. As a result, such a token cannot appear inside a JSON string of the output as one token; the model can still write the same characters with ordinary tokens.
 
 With llguidance, an object in the schema that has no `required` list requires all its properties, and an object without `additionalProperties` allows no other property, as with the GBNF grammar of LocalAI. A `required` list and `additionalProperties` that the schema sets are kept, and keywords such as `minLength`, `pattern` and `maxItems`, which the GBNF converter ignores, are enforced. Between two JSON tokens the model may write one space or none, as with the GBNF grammar.
 

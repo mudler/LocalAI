@@ -10,11 +10,12 @@ namespace llama_grpc {
 
 // grammar_engine is the value of the grammar_engine model option. It selects
 // the engine that constrains sampling for the grammars LocalAI builds from a
-// JSON schema (response_format and tool calls).
+// JSON schema (response_format and tool calls) and, with llguidance, for the
+// tool-call grammars that llama.cpp builds from the chat template.
 enum class grammar_engine {
-    automatic,  // llguidance when the build has it, GBNF otherwise
-    gbnf,       // always llama.cpp's GBNF sampler
-    llguidance, // llguidance; a build without it falls back to GBNF with a warning
+    automatic,  // llguidance for LocalAI's grammars when the build has it, GBNF otherwise; template grammars stay GBNF
+    gbnf,       // always llama.cpp's GBNF sampler, as upstream
+    llguidance, // llguidance for LocalAI's grammars and the template grammars; a build without it uses GBNF with a warning
 };
 
 // The metadata key of PredictOptions that carries the llguidance form of the
@@ -54,6 +55,16 @@ inline const std::string & select_grammar(grammar_engine engine, bool built_with
         return gbnf;
     }
     return llg;
+}
+
+// template_grammars_on_llguidance tells whether the grammars llama.cpp
+// generates from the chat template (tool calls, and a response format next to
+// tools) run on llguidance: patches/0008 translates them from GBNF and falls
+// back to GBNF when that fails. Only an explicit llguidance turns it on for
+// now; auto keeps them on GBNF until the all-templates check
+// (llg_template_grammars_check.cpp) and trials with real models back a switch.
+inline bool template_grammars_on_llguidance(grammar_engine engine, bool built_with_llguidance) {
+    return built_with_llguidance && engine == grammar_engine::llguidance;
 }
 
 // Default of grammar_max_repetition: the limit of llama.cpp's GBNF repetition

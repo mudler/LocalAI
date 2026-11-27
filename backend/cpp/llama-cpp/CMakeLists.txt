@@ -205,4 +205,18 @@ if(LLAMA_GRPC_BUILD_TESTS)
         target_compile_features(realtime_chat_check PRIVATE cxx_std_17)
         add_test(NAME realtime_chat_check COMMAND realtime_chat_check "${CMAKE_SOURCE_DIR}/models/templates/LFM3.jinja")
     endif()
+
+    # patches/0008: the tool grammar of every chat template of the tree, translated to llguidance,
+    # compiled and replayed against GBNF, with the vocab files of the tree. Catches drift on a bump.
+    if(LLAMA_LLGUIDANCE AND EXISTS "${CMAKE_SOURCE_DIR}/common/gbnf-to-lark.h")
+        add_executable(llg_template_grammars_check llg_template_grammars_check.cpp)
+        target_include_directories(llg_template_grammars_check PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+        target_link_libraries(llg_template_grammars_check PRIVATE ${_LLAMA_COMMON_TARGET} llama)
+        target_compile_features(llg_template_grammars_check PRIVATE cxx_std_17)
+        add_test(NAME llg_template_grammars_check COMMAND llg_template_grammars_check
+                 "${CMAKE_SOURCE_DIR}/models/templates"
+                 "${CMAKE_SOURCE_DIR}/models/ggml-vocab-qwen35.gguf"
+                 "${CMAKE_SOURCE_DIR}/models/ggml-vocab-llama-bpe.gguf"
+                 "${CMAKE_SOURCE_DIR}/models/ggml-vocab-gemma-4.gguf")
+    endif()
 endif()

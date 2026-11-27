@@ -33,7 +33,9 @@ The image builds link llguidance (`LLGUIDANCE=ON` in `.docker/llama-cpp-compile.
 
 - The Go side builds the GBNF grammar and, through `ModelConfig.SchemaGrammar`, its llguidance form (`pkg/functions/grammars/llguidance.go`). The form travels in `PredictOptions.Metadata["llguidance_grammar"]`, which a client cannot set.
 - `grpc-server.cpp` picks the form in `parse_options` with `select_grammar` (`grammar_engine.h`): llguidance only when the build has it and `grammar_engine` is not `gbnf`.
-- A grammar the user wrote, mixed mode, `schema_type: llama3.1` and the lazy grammars of the chat template stay GBNF. llama.cpp has no lazy triggers for llguidance.
+- A grammar the user wrote, mixed mode and `schema_type: llama3.1` stay GBNF.
+- The tool-call grammars of the chat template run on llguidance only with `grammar_engine: llguidance` (`template_grammars_on_llguidance`; `auto` keeps them on GBNF until the default changes). `patches/0008` translates the generated GBNF to llguidance Lark, keeps the lazy triggers and falls back to GBNF on any failure, or when llguidance rejects a sampled token that GBNF accepts. `grammar_engine: gbnf` is upstream behaviour. Read the 0008 rules in `PATCHES.md` before you touch it, and run `llg_template_grammars_check` (all templates of the tree) after a bump.
+- The llguidance tokenizer treats added tokens such as `<tool_call>` as special, for every llguidance grammar.
 - With the flag on, upstream `json_schema_to_grammar()` returns an llguidance grammar unless `force_gbnf` is set. Check new callers of it after a llama.cpp bump.
 
 ## Architecture
@@ -44,7 +46,7 @@ The image builds link llguidance (`LLGUIDANCE=ON` in `.docker/llama-cpp-compile.
 
 ## Patches to llama.cpp
 
-`prepare.sh` applies `backend/cpp/llama-cpp/patches/*.patch` to the pinned checkout: the score task (0001) and the paged serving hooks (0002: admission, preemption with resume by recompute, prefill budget; options `paged_kv`, `prefill_budget`, `kv_output_reserve`, `paged_preempt`, `kv_pool_tokens`). Read [backend/cpp/llama-cpp/PATCHES.md](../backend/cpp/llama-cpp/PATCHES.md) before you bump llama.cpp or touch a patch: it lists each hook, the upstream invariants it relies on, the re-porting steps and the upstream changes to watch (`upstream-watch.sh`). The paged serving policy is in `serving_policy.h`, tested by `serving_policy_test.cpp`.
+`prepare.sh` applies `backend/cpp/llama-cpp/patches/*.patch` to the pinned checkout: the score task (0001), the paged serving hooks (0002: admission, preemption with resume by recompute, prefill budget; options `paged_kv`, `prefill_budget`, `kv_output_reserve`, `paged_preempt`, `kv_pool_tokens`) and the others listed in PATCHES.md, among them the template grammars on llguidance (0008). Read [backend/cpp/llama-cpp/PATCHES.md](../backend/cpp/llama-cpp/PATCHES.md) before you bump llama.cpp or touch a patch: it lists each hook, the upstream invariants it relies on, the re-porting steps and the upstream changes to watch (`upstream-watch.sh`). The paged serving policy is in `serving_policy.h`, tested by `serving_policy_test.cpp`.
 
 ## Common Issues When Updating llama.cpp
 
