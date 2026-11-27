@@ -285,7 +285,11 @@
       "activity": "活动",
       "apiKeys": "API 密钥",
       "defaultOn": "默认为用户开启",
-      "defaultOnHint": "立即保存。适用于访问权限未设置此功能的所有用户。"
+      "defaultOnHint": "立即保存。适用于访问权限未设置此功能的所有用户。",
+      "followsDefault": "此用户遵循默认值。",
+      "explicit": "已为此用户单独设置：更改默认值不会生效。",
+      "useDefault": "使用默认值",
+      "useDefaultFor": "为 {{feature}} 使用默认值"
     },
     "empty": {
       "title": "还没有用户",

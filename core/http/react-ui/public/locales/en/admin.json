@@ -212,7 +212,11 @@
       "activity": "Activity",
       "apiKeys": "API keys",
       "defaultOn": "On by default for users",
-      "defaultOnHint": "Saved at once. Applies to every user whose access does not set this feature."
+      "defaultOnHint": "Saved at once. Applies to every user whose access does not set this feature.",
+      "followsDefault": "This user follows the default.",
+      "explicit": "Set for this user: a change of the default does not apply.",
+      "useDefault": "Use default",
+      "useDefaultFor": "Use the default for {{feature}}"
     },
     "empty": {
       "title": "No users yet",

@@ -285,7 +285,11 @@
       "activity": "Aktivitas",
       "apiKeys": "Kunci API",
       "defaultOn": "Aktif secara default untuk pengguna",
-      "defaultOnHint": "Langsung disimpan. Berlaku untuk setiap pengguna yang aksesnya tidak mengatur fitur ini."
+      "defaultOnHint": "Langsung disimpan. Berlaku untuk setiap pengguna yang aksesnya tidak mengatur fitur ini.",
+      "followsDefault": "Pengguna ini mengikuti bawaan.",
+      "explicit": "Diatur untuk pengguna ini: perubahan bawaan tidak berlaku.",
+      "useDefault": "Gunakan bawaan",
+      "useDefaultFor": "Gunakan bawaan untuk {{feature}}"
     },
     "empty": {
       "title": "Belum ada pengguna",

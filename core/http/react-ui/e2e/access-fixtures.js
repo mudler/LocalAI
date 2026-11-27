@@ -49,7 +49,7 @@ export function usersFixture() {
   return [
     { id: 'u-alice', email: 'alice@lab.example', name: 'alice', role: 'admin', status: 'active', provider: 'local', createdAt: iso(-90 * DAY), lastActiveAt: iso(-30_000), apiKeyCount: 3, permissions: allOn },
     { id: 'u-bob', email: 'bob@lab.example', name: 'bob', role: 'user', status: 'active', provider: 'github', createdAt: iso(-60 * DAY), lastActiveAt: iso(-2 * HOUR), apiKeyCount: 1,
-      permissions: { ...allOn, agents: true, skills: true }, allowed_models: { enabled: true, models: ['qwen3-8b-instruct', 'bge-m3'] }, quotas: [] },
+      permissions: { ...allOn, agents: true, skills: true }, explicit_permissions: { agents: true, skills: true }, allowed_models: { enabled: true, models: ['qwen3-8b-instruct', 'bge-m3'] }, quotas: [] },
     { id: 'u-carol', email: 'carol@lab.example', name: 'carol', role: 'user', status: 'active', provider: 'oidc', createdAt: iso(-30 * DAY), lastActiveAt: iso(-5 * DAY), apiKeyCount: 2,
       permissions: { ...allOn, agents: true }, allowed_models: { enabled: false, models: [] },
       quotas: [{ id: 'q1', model: '', max_requests: null, max_total_tokens: 2_000_000, window: '1d', current_requests: 0, current_total_tokens: 1_180_000 }] },

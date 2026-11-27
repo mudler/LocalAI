@@ -285,7 +285,11 @@
       "activity": "활동",
       "apiKeys": "API 키",
       "defaultOn": "사용자에게 기본으로 켜기",
-      "defaultOnHint": "즉시 저장됩니다. 접근 권한에 이 기능이 지정되지 않은 모든 사용자에게 적용됩니다."
+      "defaultOnHint": "즉시 저장됩니다. 접근 권한에 이 기능이 지정되지 않은 모든 사용자에게 적용됩니다.",
+      "followsDefault": "이 사용자는 기본값을 따릅니다.",
+      "explicit": "이 사용자에게 직접 설정됨: 기본값을 바꿔도 적용되지 않습니다.",
+      "useDefault": "기본값 사용",
+      "useDefaultFor": "{{feature}}에 기본값 사용"
     },
     "empty": {
       "title": "아직 사용자가 없습니다",

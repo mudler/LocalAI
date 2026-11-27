@@ -285,7 +285,11 @@
       "activity": "Attività",
       "apiKeys": "Chiavi API",
       "defaultOn": "Attivo di default per gli utenti",
-      "defaultOnHint": "Salvato subito. Vale per ogni utente il cui accesso non imposta questa funzione."
+      "defaultOnHint": "Salvato subito. Vale per ogni utente il cui accesso non imposta questa funzione.",
+      "followsDefault": "Questo utente segue il default.",
+      "explicit": "Impostato per questo utente: una modifica del default non si applica.",
+      "useDefault": "Usa il default",
+      "useDefaultFor": "Usa il default per {{feature}}"
     },
     "empty": {
       "title": "Nessun utente",

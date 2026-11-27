@@ -283,6 +283,27 @@ These rules apply:
 - Administrators always have every feature.
 - The default is stored in the auth database (table `feature_defaults`, with the time of the change and the administrator who made it), so it survives a restart. Each frontend keeps a copy for up to 30 seconds. The frontend that took the change applies it at once; in [distributed mode]({{%relref "/administration/distributed-mode" %}}) the other frontends apply it within 30 seconds.
 
+#### Follow the default or set a value
+
+For each feature, a user either follows the default or has an explicit value:
+
+- **Follows the default**: the user's permissions do not name the feature. When you change the default, the user gets the new value.
+- **Explicit value**: the user's permissions name the feature with `true` or `false`. A change of the default does not apply to this user.
+
+In the web UI, open **Users**, then the access sheet of a user. Under each configurable feature the sheet shows which of the two applies. **Use default** removes the explicit value, and the user follows the default again. When you save the sheet, it keeps the explicit values the user already had and adds only the features you changed. The other features keep following the default.
+
+The API shows both maps. `GET /api/auth/admin/users` and `GET /api/auth/admin/users/{id}/permissions` return `permissions`, the effective value of every feature, and `explicit_permissions`, only the features the user has an explicit value for. `PUT /api/auth/admin/users/{id}/permissions` replaces the explicit map. To make a user follow the default of a feature, send the map without that feature, or with the feature set to `null`:
+
+```bash
+# Keep mcp on for this user; p2p_pair follows the default
+curl -X PUT http://localhost:8080/api/auth/admin/users/<user-id>/permissions \
+  -H "Authorization: Bearer <admin-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"mcp": true, "p2p_pair": null}'
+```
+
+Read `explicit_permissions` first and send it back with your changes: a key you leave out follows the default.
+
 ### Registration Modes
 
 | Mode | Description |

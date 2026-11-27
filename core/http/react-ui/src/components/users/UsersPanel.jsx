@@ -254,8 +254,8 @@ export default function UsersPanel({ addToast, registrationMode, initialQuery = 
     { key: 'delete', icon: 'trash', label: t('users.menu.delete'), danger: true, onClick: () => { setDeleting(u); setTyped('') } },
   ]
 
-  const handlePermissionSave = (userId, perms, models, quotas) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: perms, allowed_models: models, quotas } : u))
+  const handlePermissionSave = (userId, perms, models, quotas, explicit) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: perms, explicit_permissions: explicit, allowed_models: models, quotas } : u))
   }
 
   const sheetActions = (u) => (

@@ -212,7 +212,11 @@
       "activity": "Activité",
       "apiKeys": "Clés API",
       "defaultOn": "Activé par défaut pour les utilisateurs",
-      "defaultOnHint": "Enregistré immédiatement. S'applique à chaque utilisateur dont l'accès ne définit pas cette fonction."
+      "defaultOnHint": "Enregistré immédiatement. S'applique à chaque utilisateur dont l'accès ne définit pas cette fonction.",
+      "followsDefault": "Cet utilisateur suit la valeur par défaut.",
+      "explicit": "Défini pour cet utilisateur : un changement de la valeur par défaut ne s'applique pas.",
+      "useDefault": "Utiliser la valeur par défaut",
+      "useDefaultFor": "Utiliser la valeur par défaut pour {{feature}}"
     },
     "empty": {
       "title": "Aucun utilisateur pour l'instant",

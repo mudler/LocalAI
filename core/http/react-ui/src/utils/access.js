@@ -70,7 +70,9 @@ export function filterCounts(users, now = Date.now()) {
 // `default`. The words are the caller's, so a page can translate them.
 export function accessInfo(user, featureMeta) {
   if (user.role === 'admin') return { all: true, models: null, more: 0, fewer: 0, limits: 0, isDefault: false }
-  const perms = user.permissions || {}
+  // The stored keys, read against the defaults in force, so the summary
+  // follows a default changed after the list was loaded.
+  const perms = user.explicit_permissions || user.permissions || {}
   const features = [
     ...(featureMeta?.api_features || []),
     ...(featureMeta?.agent_features || []),
@@ -86,6 +88,61 @@ export function accessInfo(user, featureMeta) {
   const models = user.allowed_models?.enabled ? (user.allowed_models.models || []).length : null
   const limits = (user.quotas || []).length
   return { all: false, models, more, fewer, limits, isDefault: models === null && !more && !fewer && !limits }
+}
+
+// A user's permission map, as stored: only the features set to an explicit
+// value. A feature it does not name follows its default. The PUT of the access
+// sheet replaces this map, so the sheet must start from it and never from the
+// effective map, or every feature would become explicit. A server older than
+// explicit_permissions sends only the effective map, which then counts as
+// stored (what the sheet did before).
+export function storedPermissions(user) {
+  return { ...(user?.explicit_permissions || user?.permissions || {}) }
+}
+
+// The sheet keeps the administrator's changes apart from the stored map:
+// `edits` maps a feature to true or false (an explicit value) or to null (back
+// to the default). An edit that ends where the stored map already was is
+// dropped, so the save sends only real changes.
+const has = (map, key) => Object.prototype.hasOwnProperty.call(map, key)
+
+// What the switch of a feature shows, and whether the user has an explicit
+// value for it. `def` is the default in force, so a following feature moves
+// when the default changes.
+export function featureState(stored, edits, key, def) {
+  if (has(edits, key)) {
+    return edits[key] === null ? { on: !!def, explicit: false } : { on: !!edits[key], explicit: true }
+  }
+  if (has(stored, key)) return { on: !!stored[key], explicit: true }
+  return { on: !!def, explicit: false }
+}
+
+// The edits after the administrator sets a feature to value.
+export function setFeature(stored, edits, key, value, def) {
+  const next = { ...edits }
+  const unchanged = has(stored, key) ? stored[key] === value : value === !!def
+  if (unchanged) delete next[key]
+  else next[key] = value
+  return next
+}
+
+// The edits after "Use default": the feature follows its default again.
+export function followDefault(stored, edits, key) {
+  const next = { ...edits }
+  if (has(stored, key)) next[key] = null
+  else delete next[key]
+  return next
+}
+
+// The body of PUT /api/auth/admin/users/{id}/permissions: the stored keys with
+// the edits applied.
+export function permissionPayload(stored, edits) {
+  const out = { ...stored }
+  for (const [key, value] of Object.entries(edits)) {
+    if (value === null) delete out[key]
+    else out[key] = value
+  }
+  return out
 }
 
 // One line on what a person can use, in English: "2 models only · 1 limit".

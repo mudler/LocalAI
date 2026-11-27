@@ -285,7 +285,11 @@
       "activity": "Actividad",
       "apiKeys": "Claves API",
       "defaultOn": "Activado por defecto para los usuarios",
-      "defaultOnHint": "Se guarda al instante. Se aplica a cada usuario cuyo acceso no define esta función."
+      "defaultOnHint": "Se guarda al instante. Se aplica a cada usuario cuyo acceso no define esta función.",
+      "followsDefault": "Este usuario sigue el valor predeterminado.",
+      "explicit": "Definido para este usuario: un cambio del valor predeterminado no se aplica.",
+      "useDefault": "Usar el predeterminado",
+      "useDefaultFor": "Usar el predeterminado para {{feature}}"
     },
     "empty": {
       "title": "Todavía no hay usuarios",

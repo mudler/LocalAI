@@ -2,11 +2,11 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { adminUsersApi } from '../../utils/api'
-import { initialOf } from '../../utils/access'
+import { featureState, followDefault, initialOf, permissionPayload, setFeature, storedPermissions } from '../../utils/access'
 import { relativeTime } from '../../utils/p2p'
 import SideSheet from '../SideSheet'
 import Icon from '../Icon'
-import { Switch } from '../ui'
+import { Button, Switch } from '../ui'
 
 const WINDOW_OPTIONS = [
   { value: '1m', label: '1 minute' },
@@ -21,8 +21,10 @@ const WINDOW_OPTIONS = [
 // A feature whose default the administrator may change (configurable) gets a
 // second switch under it: "On by default for users". That switch is saved at
 // once for every user whose access does not name the feature, so it is not
-// part of the Save of this sheet.
-function FeatureGroup({ title, features, permissions, onToggle, onAll, onDefault, savingDefault }) {
+// part of the Save of this sheet. Under it the sheet says whether this user
+// follows that default or has their own value, with "Use default" to go back.
+// stateOf(feature) is { on, explicit }.
+function FeatureGroup({ title, features, stateOf, onToggle, onAll, onDefault, onFollow, savingDefault }) {
   const { t } = useTranslation('admin')
   if (!features.length) return null
   return (
@@ -35,12 +37,14 @@ function FeatureGroup({ title, features, permissions, onToggle, onAll, onDefault
         </div>
       </div>
       <ul className="us-switches">
-        {features.map(f => (
+        {features.map(f => {
+          const state = stateOf(f)
+          return (
           <li key={f.key} className={f.configurable && onDefault ? 'us-switch us-switch--has-default' : 'us-switch'}>
             <span id={`perm-${f.key}`}>{f.label}</span>
             <button
-              type="button" role="switch" className="dk-switch" aria-checked={!!permissions[f.key]}
-              aria-labelledby={`perm-${f.key}`} onClick={() => onToggle(f.key)}
+              type="button" role="switch" className="dk-switch" aria-checked={state.on}
+              aria-labelledby={`perm-${f.key}`} onClick={() => onToggle(f)}
             />
             {f.configurable && onDefault && (
               <div className="us-switch us-switch--default" data-testid={`feature-default-${f.key}`}>
@@ -54,16 +58,28 @@ function FeatureGroup({ title, features, permissions, onToggle, onAll, onDefault
                 />
               </div>
             )}
+            {f.configurable && onDefault && (
+              <div className="us-switch us-switch--default" data-testid={`feature-source-${f.key}`}>
+                <span className="us-hint">{state.explicit ? t('users.sheet.explicit') : t('users.sheet.followsDefault')}</span>
+                {state.explicit && (
+                  <Button size="sm" variant="ghost" onClick={() => onFollow(f.key)} aria-label={t('users.sheet.useDefaultFor', { feature: f.label })}>
+                    {t('users.sheet.useDefault')}
+                  </Button>
+                )}
+              </div>
+            )}
           </li>
-        ))}
+          )
+        })}
       </ul>
     </section>
   )
 }
 
 // What one user may use: features, models and limits. Saving makes the same
-// calls as before: permissions, the model allow-list, then the quota rules that
-// were removed, then those that changed or are new.
+// calls as before: permissions (the stored keys plus the ones changed here),
+// the model allow-list, then the quota rules that were removed, then those
+// that changed or are new.
 //
 // Account actions that do not belong to the access form (reset password, role,
 // delete) sit at the bottom and are handled by the page.
@@ -71,7 +87,11 @@ function FeatureGroup({ title, features, permissions, onToggle, onAll, onDefault
 //                                   feature at once; returns a promise
 export default function AccessSheet({ user, featureMeta, availableModels, onClose, onSave, addToast, actions, onFeatureDefault }) {
   const { t, i18n } = useTranslation('admin')
-  const [permissions, setPermissions] = useState({ ...(user.permissions || {}) })
+  // The stored map is what PUT replaces; edits are the changes made here. The
+  // switch of a feature the user does not name shows the default in force,
+  // read from featureMeta, so it moves when the default changes in this sheet.
+  const [stored] = useState(() => storedPermissions(user))
+  const [edits, setEdits] = useState({})
   const [allowedModels, setAllowedModels] = useState(user.allowed_models || { enabled: false, models: [] })
   const [quotas, setQuotas] = useState((user.quotas || []).map(q => ({ ...q, _dirty: false })))
   const [deletedQuotaIds, setDeletedQuotaIds] = useState([])
@@ -90,14 +110,12 @@ export default function AccessSheet({ user, featureMeta, availableModels, onClos
   const agentFeatures = featureMeta?.agent_features || []
   const generalFeatures = featureMeta?.general_features || []
 
-  const toggleFeature = (key) => setPermissions(prev => ({ ...prev, [key]: !prev[key] }))
+  const stateOf = (f) => featureState(stored, edits, f.key, f.default)
+  const toggleFeature = (f) => setEdits(prev => setFeature(stored, prev, f.key, !featureState(stored, prev, f.key, f.default).on, f.default))
   const setAllFeatures = (features, value) => {
-    setPermissions(prev => {
-      const updated = { ...prev }
-      features.forEach(f => { updated[f.key] = value })
-      return updated
-    })
+    setEdits(prev => features.reduce((acc, f) => setFeature(stored, acc, f.key, value, f.default), prev))
   }
+  const followFeatureDefault = (key) => setEdits(prev => followDefault(stored, prev, key))
   const toggleModel = (model) => {
     setAllowedModels(prev => {
       const models = prev.models || []
@@ -123,7 +141,8 @@ export default function AccessSheet({ user, featureMeta, availableModels, onClos
   const handleSave = async () => {
     setSaving(true)
     try {
-      await adminUsersApi.setPermissions(user.id, permissions)
+      const explicit = permissionPayload(stored, edits)
+      await adminUsersApi.setPermissions(user.id, explicit)
       await adminUsersApi.setModels(user.id, allowedModels)
       for (const qid of deletedQuotaIds) await adminUsersApi.deleteQuota(user.id, qid)
       for (const q of quotas) {
@@ -144,7 +163,9 @@ export default function AccessSheet({ user, featureMeta, availableModels, onClos
       } catch {
         freshQuotas = quotas.map(q => ({ ...q, _dirty: false, _new: false }))
       }
-      onSave(user.id, permissions, allowedModels, freshQuotas)
+      const effective = {}
+      for (const f of [...apiFeatures, ...agentFeatures, ...generalFeatures]) effective[f.key] = featureState(explicit, {}, f.key, f.default).on
+      onSave(user.id, effective, allowedModels, freshQuotas, explicit)
       addToast(`Permissions updated for ${user.name || user.email}`, 'success')
       onClose()
     } catch (err) {
@@ -180,9 +201,9 @@ export default function AccessSheet({ user, featureMeta, availableModels, onClos
         </dl>
 
         <p className="us-eyebrow">What they can use</p>
-        <FeatureGroup title="API endpoints" features={apiFeatures} permissions={permissions} onToggle={toggleFeature} onAll={setAllFeatures} onDefault={setDefault} savingDefault={savingDefault} />
-        <FeatureGroup title="Agent features" features={agentFeatures} permissions={permissions} onToggle={toggleFeature} onAll={setAllFeatures} onDefault={setDefault} savingDefault={savingDefault} />
-        <FeatureGroup title="Features" features={generalFeatures} permissions={permissions} onToggle={toggleFeature} onAll={setAllFeatures} onDefault={setDefault} savingDefault={savingDefault} />
+        <FeatureGroup title="API endpoints" features={apiFeatures} stateOf={stateOf} onToggle={toggleFeature} onAll={setAllFeatures} onDefault={setDefault} onFollow={followFeatureDefault} savingDefault={savingDefault} />
+        <FeatureGroup title="Agent features" features={agentFeatures} stateOf={stateOf} onToggle={toggleFeature} onAll={setAllFeatures} onDefault={setDefault} onFollow={followFeatureDefault} savingDefault={savingDefault} />
+        <FeatureGroup title="Features" features={generalFeatures} stateOf={stateOf} onToggle={toggleFeature} onAll={setAllFeatures} onDefault={setDefault} onFollow={followFeatureDefault} savingDefault={savingDefault} />
 
         <p className="us-eyebrow">Models</p>
         <section className="us-section" aria-label="Model access">

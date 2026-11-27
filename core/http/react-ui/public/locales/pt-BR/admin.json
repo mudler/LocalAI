@@ -285,7 +285,11 @@
       "activity": "Atividade",
       "apiKeys": "Chaves de API",
       "defaultOn": "Ligado por padrão para usuários",
-      "defaultOnHint": "Salvo na hora. Vale para todo usuário cujo acesso não define este recurso."
+      "defaultOnHint": "Salvo na hora. Vale para todo usuário cujo acesso não define este recurso.",
+      "followsDefault": "Este usuário segue o padrão.",
+      "explicit": "Definido para este usuário: uma mudança do padrão não se aplica.",
+      "useDefault": "Usar o padrão",
+      "useDefaultFor": "Usar o padrão para {{feature}}"
     },
     "empty": {
       "title": "Nenhum usuário ainda",

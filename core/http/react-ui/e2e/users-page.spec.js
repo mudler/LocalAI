@@ -157,7 +157,8 @@ test.describe('Users: access sheet', () => {
     await expect(sheet).toHaveCount(0)
     const puts = state.writes.filter(w => w.method === 'PUT').map(w => w.path.replace('/api/auth/admin/users/u-bob', ''))
     expect(puts).toEqual(['/permissions', '/models', '/quotas'])
-    expect(state.writes[0].body).toMatchObject({ fine_tuning: true, chat: true })
+    // Only the stored keys and the changed one: the others follow their default.
+    expect(state.writes[0].body).toEqual({ agents: true, skills: true, fine_tuning: true })
     expect(state.writes[1].body).toEqual({ enabled: true, models: ['qwen3-8b-instruct', 'bge-m3', 'kokoro-82m'] })
     expect(state.writes[2].body).toEqual({ model: '', max_requests: null, max_total_tokens: 500000, window: '1h' })
   })

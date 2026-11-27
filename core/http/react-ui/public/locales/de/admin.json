@@ -285,7 +285,11 @@
       "activity": "Aktivität",
       "apiKeys": "API-Schlüssel",
       "defaultOn": "Standardmäßig an für Benutzer",
-      "defaultOnHint": "Wird sofort gespeichert. Gilt für jeden Benutzer, dessen Zugriff diese Funktion nicht festlegt."
+      "defaultOnHint": "Wird sofort gespeichert. Gilt für jeden Benutzer, dessen Zugriff diese Funktion nicht festlegt.",
+      "followsDefault": "Dieser Benutzer folgt dem Standard.",
+      "explicit": "Für diesen Benutzer festgelegt: Eine Änderung des Standards gilt nicht.",
+      "useDefault": "Standard verwenden",
+      "useDefaultFor": "Standard für {{feature}} verwenden"
     },
     "empty": {
       "title": "Noch keine Benutzer",

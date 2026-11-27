@@ -32,6 +32,41 @@ test.describe('User pairing, admin side', () => {
     expect(puts).toEqual([{ url: '/api/auth/admin/features/p2p_pair/default', body: { enabled: true } }])
   })
 
+  test('Users: a user who follows the default moves with it, and Use default drops an explicit value', async ({ page }) => {
+    const state = await mockAccess(page)
+    await page.route('**/api/auth/admin/features', route => route.fulfill({ json: featuresWithPair(false) }))
+    await page.route('**/api/auth/admin/features/*/default', route => {
+      const body = route.request().postDataJSON()
+      return route.fulfill({ json: { key: 'p2p_pair', label: 'Pair own devices (P2P)', default: body.enabled, configurable: true } })
+    })
+    await page.goto('/app/users')
+    await page.getByRole('button', { name: 'Edit access for bob' }).click()
+    const sheet = page.getByTestId('access-sheet')
+    const pair = sheet.getByRole('switch', { name: 'Pair own devices (P2P)' })
+    const source = sheet.getByTestId('feature-source-p2p_pair')
+    const useDefault = sheet.getByRole('button', { name: 'Use the default for Pair own devices (P2P)' })
+    await expect(pair).toHaveAttribute('aria-checked', 'false')
+    await expect(source).toContainText('follows the default')
+    await expect(useDefault).toHaveCount(0)
+
+    // The default changes in the open sheet: bob follows it.
+    await sheet.getByRole('switch', { name: 'On by default for users' }).click()
+    await expect(pair).toHaveAttribute('aria-checked', 'true')
+
+    // An explicit value for bob, then back to the default.
+    await pair.click()
+    await expect(pair).toHaveAttribute('aria-checked', 'false')
+    await expect(source).toContainText('Set for this user')
+    await useDefault.click()
+    await expect(pair).toHaveAttribute('aria-checked', 'true')
+    await expect(useDefault).toHaveCount(0)
+
+    await sheet.getByRole('button', { name: 'Save access' }).click()
+    await expect(sheet).toHaveCount(0)
+    const put = state.writes.find(w => w.method === 'PUT' && w.path.endsWith('/permissions'))
+    expect(put.body).toEqual({ agents: true, skills: true })
+  })
+
   test('P2P settings: the User pairing section edits p2p_user_pairing', async ({ page }) => {
     await mockP2PSettings(page)
     const state = await mockUserPairing(page)
