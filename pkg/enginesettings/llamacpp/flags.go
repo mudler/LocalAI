@@ -102,10 +102,10 @@ var flags = []es.Flag{
 	},
 	// GPU sampling is read by LocalAI's llama.cpp backend as a plain option.
 	// A backend without it ignores the entry. The editor draws it as the
-	// backendSampling combined control: Off (no entry), Auto, On.
+	// backendSampling combined control: Off, Auto (no entry), On.
 	{
 		Key: "backend_sampling", Target: es.TargetOption, Path: "options", Option: "backend_sampling",
-		Type: es.TypeEnum, Enum: []string{"off", "auto", "on"}, Default: "off", Group: GroupSpeed, LocalAIOnly: true,
+		Type: es.TypeEnum, Enum: []string{"off", "auto", "on"}, Default: "auto", Group: GroupSpeed, LocalAIOnly: true,
 		OptionAliases: []string{"gpu_sampling"},
 		Doc: "Sample tokens on the GPU. off: on the CPU. auto: on the GPU when the model runs on a GPU with several parallel requests " +
 			"and the request does not need grammar or logprobs. on: always on the GPU, turned off for a request with a grammar, a reasoning budget or logprobs.",
@@ -215,7 +215,7 @@ var flags = []es.Flag{
 	},
 	{
 		Key: "backend_sampling_min_slots", Target: es.TargetOption, Path: "options", Option: "backend_sampling_min_slots",
-		Type: es.TypeInt, Min: es.F64(1), Default: "4", Group: GroupAdvanced, LocalAIOnly: true,
+		Type: es.TypeInt, Min: es.F64(1), Default: "16", Group: GroupAdvanced, LocalAIOnly: true,
 		Doc: "With GPU sampling on Auto: the fewest parallel requests that turn GPU sampling on.",
 	},
 	{
