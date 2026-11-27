@@ -35,7 +35,7 @@ export default function PluginDetails({ install, api, onClose, onSettings }) {
           <dl className="dk-kv pl-kv">
             <dt>{t('plugins.facts.scope')}</dt><dd>{t(`plugins.scope.${d.scope === 'instance' ? 'instance' : 'user'}`)}</dd>
             <dt>{t('plugins.facts.commit')}</dt><dd><Sha sha={d.sha} /></dd>
-            <dt>{t('plugins.facts.digest')}</dt><dd className="pl-mono ad-wrap">{d.digest}</dd>
+            <dt>{t('plugins.facts.digest')}</dt><dd className="pl-mono pl-digest" data-testid="plugin-digest">{d.digest}</dd>
             <dt>{t('plugins.facts.size')}</dt><dd>{t('plugins.facts.sizeValue', { size: formatBytes(d.sizeBytes || 0), count: (d.files || []).length })}</dd>
             {d.installedBy && (<><dt>{t('plugins.facts.installedBy')}</dt><dd>{d.installedBy}</dd></>)}
             {d.approvedBy && (<><dt>{t('plugins.facts.approvedBy')}</dt><dd>{d.approvedBy}</dd></>)}

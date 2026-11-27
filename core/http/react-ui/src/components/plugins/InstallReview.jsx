@@ -108,7 +108,7 @@ export default function InstallReview({ entry, api, isAdmin, onReviewed, onQueue
             <dt>{t('plugins.facts.plugin')}</dt><dd className="pl-mono">{p.plugin}</dd>
             {p.version && (<><dt>{t('plugins.facts.version')}</dt><dd>{p.version}</dd></>)}
             <dt>{t('plugins.facts.commit')}</dt><dd><Sha sha={p.sha} testId="plugin-review-sha" /></dd>
-            <dt>{t('plugins.facts.digest')}</dt><dd className="pl-mono ad-wrap">{p.digest}</dd>
+            <dt>{t('plugins.facts.digest')}</dt><dd className="pl-mono pl-digest" data-testid="plugin-digest">{p.digest}</dd>
             <dt>{t('plugins.facts.size')}</dt><dd>{t('plugins.facts.sizeValue', { size: formatBytes(p.sizeBytes), count: p.fileCount })}</dd>
           </dl>
 

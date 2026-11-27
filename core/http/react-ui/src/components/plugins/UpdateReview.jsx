@@ -93,7 +93,7 @@ export default function UpdateReview({ install, api, onQueued, onClose }) {
           <dl className="dk-kv pl-kv">
             <dt>{t('plugins.update.from')}</dt><dd><Sha sha={p.fromSha} /></dd>
             <dt>{t('plugins.update.to')}</dt><dd><Sha sha={p.toSha} testId="plugin-update-to" /></dd>
-            <dt>{t('plugins.facts.digest')}</dt><dd className="pl-mono ad-wrap">{p.toDigest}</dd>
+            <dt>{t('plugins.facts.digest')}</dt><dd className="pl-mono pl-digest" data-testid="plugin-digest">{p.toDigest}</dd>
           </dl>
 
           {gains.length > 0 && (

@@ -163,9 +163,8 @@ function PluginCard({ item, marketplace, isAdmin, op, preview, model, onInstall,
       </span>
       {known && <ContributionTags model={known.model} hosts={known.hosts} runsCode={runsCode} />}
       {!known && runsCode === true && <span className="ui-tags pl-tags"><CodeMarks /></span>}
-      {/* Whether a plugin runs code is known only once a version of it was
-          reviewed or installed: until then the card says so and never
-          suggests that it runs none. */}
+      {/* With no install, review or curated claim, the card says that
+          nothing is known yet and never suggests that it runs none. */}
       {runsCode === null && item.supported !== false && (
         <span className="ui-tags pl-tags">
           <Tag icon="help-circle" title={t('plugins.adds.uncheckedTitle')} testId="plugin-unchecked">{t('plugins.adds.unchecked')}</Tag>

@@ -35,8 +35,11 @@
 /* The review dialogs and the details pane. */
 .pl-loading { display: flex; align-items: center; gap: var(--sp-2); color: var(--dk-muted); font-size: var(--fs-small); }
 .pl-review { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
-.pl-kv { margin: 0; }
+.pl-kv { margin: 0; width: 100%; min-width: 0; }
 .pl-kv dd { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+/* A digest is one 71-character word: break it anywhere, so it never widens
+   a review dialog or the details pane. */
+.pl-kv dd.pl-digest { word-break: break-all; max-width: 100%; }
 .pl-section { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
 .pl-section__title { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 600; }
 .pl-subhead { display: flex; align-items: center; gap: var(--sp-1); margin: 0; font-size: var(--fs-meta); line-height: var(--lh-meta); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--dk-muted); }
