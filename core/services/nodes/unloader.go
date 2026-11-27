@@ -141,7 +141,7 @@ var (
 	_ ScopedFanout                     = (*TunnelControl)(nil)
 )
 
-const exactModelStopTimeout = 10 * time.Second
+const exactModelStopTimeout = workerctl.ModelStopTimeout
 
 // StopModelReplica stops only the process represented by replica. Configuration
 // cleanup intentionally has no backend.stop fallback: an old worker that does

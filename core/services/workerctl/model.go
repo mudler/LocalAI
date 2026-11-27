@@ -1,5 +1,12 @@
 package workerctl
 
+import "time"
+
+// ModelStopTimeout is how long a frontend waits for the reply to a model.stop
+// request. A worker that waits for something before it replies keeps the
+// wait well under it, so the reply arrives before the frontend gives up.
+const ModelStopTimeout = 10 * time.Second
+
 type ModelStopRequest struct {
 	ModelName       string `json:"model_name"`
 	ProcessKey      string `json:"process_key"`

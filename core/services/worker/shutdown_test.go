@@ -2,11 +2,14 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
@@ -77,6 +80,32 @@ var _ = Describe("Worker shutdown", func() {
 		reply := s.stopModelExact(workerctl.ModelStopRequest{ModelName: "model", ProcessKey: "model#0", ExpectedAddress: "127.0.0.1:59003", Force: true})
 		Expect(reply.Terminated).To(BeFalse())
 		Expect(reply.Error).To(ContainSubstring("already stopping"))
+	})
+
+	It("waits for a process that another stop is ending for less than the frontend waits for the reply", func() {
+		Expect(defaultStoppingWait).To(BeNumerically("<=", workerctl.ModelStopTimeout/2),
+			"the reply must reach the frontend before it gives up on the stop")
+	})
+
+	It("does not hold up other stops while one waits for a process another stop is ending", func() {
+		proc := startModelStopProcess()
+		DeferCleanup(func() { _ = proc.Stop() })
+		s := newLifecycleTestSupervisor(make(chan os.Signal, 1))
+		s.stoppingWait = 5 * time.Second
+		s.processes["model#0"] = &backendProcess{proc: proc, addr: "127.0.0.1:59004", port: 59004, instance: "i1", stopping: true}
+		bus := newRecordingBus()
+		Expect(registerLifecycleForTest(s, bus)).To(Succeed())
+
+		stop := func(key string) []byte {
+			data, err := json.Marshal(workerctl.ModelStopRequest{ModelName: "model", ProcessKey: key, ExpectedAddress: "127.0.0.1:59004", Force: true})
+			Expect(err).NotTo(HaveOccurred())
+			return data
+		}
+		slow := bus.deliver(messaging.SubjectNodeModelStop("n1"), stop("model#0"))
+		other := bus.deliver(messaging.SubjectNodeModelStop("n1"), stop("model#1"))
+		Eventually(other, time.Second).Should(Receive(ContainSubstring(`"terminated":true`)),
+			"a stop of a process that is gone answers while the first stop still waits")
+		Expect(slow).NotTo(Receive())
 	})
 
 	It("reads the shutdown windows", func() {

@@ -48,7 +48,8 @@ func (s *backendSupervisor) registerLifecycleVerbs(srv controlServer) error {
 			return srv.handle(verbModelUnload, unary(decodeJSON[workerctl.ModelUnloadRequest], refuseUnload, s.unloadModel))
 		},
 		func() error {
-			return srv.handle(verbModelStop, unary(decodeJSON[workerctl.ModelStopRequest], refuseModelStop, s.stopModelExactCtx))
+			// A stop may wait for a process that another stop is ending.
+			return srv.handleConcurrent(verbModelStop, unary(decodeJSON[workerctl.ModelStopRequest], refuseModelStop, s.stopModelExactCtx))
 		},
 		func() error {
 			return srv.handle(verbModelOp, unary(decodeJSON[workerctl.OperationRequest], refuseModelOp, s.serveOperations))

@@ -21,10 +21,13 @@ import (
 // The replicas that serve keep serving through the graceful window, then the
 // worker deregisters and stops its backends.
 
-// defaultStoppingWait bounds how long a stop request waits for a process that
-// another stop is already ending. A forced stop ends a process group within
-// seconds; this only bounds a process that ignores its kill.
-const defaultStoppingWait = 30 * time.Second
+// defaultStoppingWait bounds how long a model.stop request waits for a
+// process that another stop is already ending. A forced stop ends a process
+// group within seconds. The wait stays at half the time the frontend waits for
+// the reply (workerctl.ModelStopTimeout), so the reply arrives before the
+// frontend gives up; a process that takes longer gets "already stopping", and
+// the frontend tries again later.
+const defaultStoppingWait = workerctl.ModelStopTimeout / 2
 
 func (s *backendSupervisor) stoppingWaitOrDefault() time.Duration {
 	if s.stoppingWait > 0 {

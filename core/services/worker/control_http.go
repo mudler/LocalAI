@@ -104,6 +104,12 @@ func (s *httpControlServer) handle(v controlVerb, h controlHandler) error {
 	return nil
 }
 
+// handleConcurrent is handle: the HTTP server already delivers the requests
+// of a verb concurrently.
+func (s *httpControlServer) handleConcurrent(v controlVerb, h controlHandler) error {
+	return s.handle(v, h)
+}
+
 // handleWithProgress serves a verb that runs for a long time and reports
 // progress while it runs. The body is a stream of workerctl.Envelope lines: any
 // number of progress lines and then exactly one reply line.
