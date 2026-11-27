@@ -87,3 +87,45 @@ func (p *StreamToolCallParser) Parse() StreamToolCalls {
 	p.last = StreamToolCalls{JSON: calls, JSONErr: err}
 	return p.last
 }
+
+// StreamOutput keeps the output of a stream for the endpoints that parse it
+// for tool calls on every token, and tells when a parse cannot find one yet.
+type StreamOutput struct {
+	b          strings.Builder
+	hasTrigger bool
+}
+
+// Write appends a token.
+func (o *StreamOutput) Write(token string) {
+	o.b.WriteString(token)
+	if !o.hasTrigger && strings.ContainsAny(token, toolCallTriggers) {
+		o.hasTrigger = true
+	}
+}
+
+// String returns the output so far.
+func (o *StreamOutput) String() string { return o.b.String() }
+
+// Len returns the length of the output so far.
+func (o *StreamOutput) Len() int { return o.b.Len() }
+
+// MayHoldPartialToolCall reports whether CleanupLLMResult followed by
+// ParseXMLIterative or ParseJSONIterative can find a tool call in the output.
+// Without a '<', '{' or '[' they cannot, unless a replacement rule can write
+// one or a custom XML format starts its calls with another byte.
+func (o *StreamOutput) MayHoldPartialToolCall(config FunctionsConfig) bool {
+	return o.hasTrigger || len(config.ReplaceLLMResult) > 0 || config.XMLFormat != nil
+}
+
+// MayHoldFunctionCall reports whether CleanupLLMResult followed by
+// ParseFunctionCall can find a tool call in the output. It answers yes for
+// every config that can match text without a '<', '{' or '[': replacement
+// rules, response regexes, JSON match regexes, a custom XML format and the
+// markers a backend detected.
+func (o *StreamOutput) MayHoldFunctionCall(config FunctionsConfig) bool {
+	return o.MayHoldPartialToolCall(config) ||
+		len(config.ReplaceFunctionResults) > 0 ||
+		len(config.ResponseRegex) > 0 ||
+		len(config.JSONRegexMatch) > 0 ||
+		config.ToolFormatMarkers != nil
+}
