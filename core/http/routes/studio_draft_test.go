@@ -79,6 +79,20 @@ var _ = Describe("Chats draft switches", func() {
 		Expect(s.do("alice", http.MethodGet, "/api/chats/"+id, nil).Code).To(Equal(http.StatusOK))
 	})
 
+	It("starts a chat with plugins switched off and shows them, and refuses a bad plugin switch", func() {
+		chat := s.do("alice", http.MethodPost, "/api/chats", map[string]any{"model": "test-model", "switches": map[string]any{
+			"plugins_off": []string{"inst1", "inst1", "inst2"},
+		}})
+		Expect(chat.Code).To(Equal(http.StatusCreated), chat.Body.String())
+		id := decodeJSON(chat)["id"].(string)
+		got := s.do("alice", http.MethodGet, "/api/chats/"+id, nil)
+		Expect(got.Code).To(Equal(http.StatusOK), got.Body.String())
+		Expect(decodeJSON(got)).To(HaveKeyWithValue("plugins_off", ConsistOf("inst1", "inst2")))
+
+		bad := s.do("alice", http.MethodPost, "/api/chats", map[string]any{"model": "test-model", "switches": map[string]any{"plugins_off": []string{"not an id"}}})
+		Expect(bad.Code).To(Equal(http.StatusBadRequest), bad.Body.String())
+	})
+
 	It("creates no chat when a switch is bad", func() {
 		before := decodeJSON(s.do("alice", http.MethodGet, "/api/chats", nil))["conversations"].([]any)
 		bad := s.do("alice", http.MethodPost, "/api/chats", map[string]any{"model": "test-model", "switches": map[string]any{"builtins_on": []string{"nope"}}})

@@ -96,6 +96,8 @@ func (h *Handlers) skillList(c echo.Context, fc fileCall, list []skills.Skill, n
 			Removable: sk.Layer == skills.LayerAgent, ShadowedBy: sk.ShadowedBy, Fallback: sk.Fallback,
 			Enabled: !sk.Off, Shadowed: string(sk.Shadowed), Invalid: sk.Invalid, Editable: editable(c, sk.Layer),
 			Provider: sk.Provider, Locked: sk.Locked,
+			Plugin: sk.Plugin, PluginTitle: sk.PluginTitle, PluginInstall: sk.PluginInstall,
+			NoModel: sk.NoModel, NoMenu: sk.NoMenu, ArgumentHint: sk.ArgumentHint,
 			New: sk.Layer == skills.LayerPersonal && fc.f.SkillIsNew(c.Request().Context(), fc.p, sk.Name),
 		})
 	}
