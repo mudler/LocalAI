@@ -276,6 +276,16 @@ func AdminListUsersHandler(db *gorm.DB) echo.HandlerFunc {
 }
 
 // RegisterAuthRoutes registers authentication-related API routes.
+// revokeUserP2PDevices revokes the P2P sign-in devices of a user that an
+// administrator disabled or deleted. The account change already stands; a
+// failure here is logged, and the allowlist reload of every frontend leaves
+// those devices out anyway because their owner is not active.
+func revokeUserP2PDevices(c echo.Context, app *application.Application, userID, by string) {
+	if err := app.RevokeUserDevices(c.Request().Context(), userID, by); err != nil {
+		xlog.Warn("Could not revoke the P2P devices of a user", "user", userID, "error", err)
+	}
+}
+
 func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 	appConfig := app.ApplicationConfig()
 	db := app.AuthDB()
@@ -1060,6 +1070,9 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		if result.RowsAffected == 0 {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
 		}
+		if body.Status == auth.StatusDisabled {
+			revokeUserP2PDevices(c, app, targetID, currentUser.ID)
+		}
 
 		return c.JSON(http.StatusOK, map[string]string{"message": "status updated"})
 	}, adminMw)
@@ -1123,6 +1136,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to delete user: " + err.Error()})
 		}
+		revokeUserP2PDevices(c, app, targetID, currentUser.ID)
 
 		return c.JSON(http.StatusOK, map[string]string{"message": "user deleted"})
 	}, adminMw)
