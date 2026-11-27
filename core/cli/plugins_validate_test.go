@@ -84,6 +84,16 @@ var _ = Describe("local-ai plugins validate", func() {
 			Expect(os.Symlink("/etc/hostname", filepath.Join(dir, "leak"))).To(Succeed())
 		}, "leak"),
 		Entry("two paths that differ only in case", func(dir string) {
+			// A file system that ignores case (the default on Windows and
+			// macOS) cannot hold both paths: the second write replaces the
+			// first.
+			probe := filepath.Join(dir, "CaseProbe")
+			Expect(os.WriteFile(probe, nil, 0o600)).To(Succeed())
+			_, err := os.Stat(filepath.Join(dir, "caseprobe"))
+			Expect(os.Remove(probe)).To(Succeed())
+			if err == nil {
+				Skip("the file system ignores case")
+			}
 			writeTree(dir, map[string]string{"README.md": "a", "readme.md": "b"})
 		}, "readme.md"),
 		Entry("a plugin.json that does not parse", func(dir string) {
