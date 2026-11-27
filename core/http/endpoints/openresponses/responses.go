@@ -1814,8 +1814,12 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			// For tool calls, we need to track accumulated result and parse incrementally
 			// We'll handle this differently - track the full result and parse tool calls
 			var accumulatedResult functions.StreamOutput
+			// toolParser keeps its parse work across tokens; it finds what a
+			// parse of the whole output finds.
+			toolParser := functions.NewStreamToolCallParser(cfg.FunctionsConfig)
 			tokenCallback := func(token string, tokenUsage backend.TokenUsage) bool {
 				accumulatedResult.Write(token)
+				toolParser.Write(token)
 
 				// Try to parse tool calls incrementally. Until the output can
 				// hold one, both parses find none.
@@ -1824,18 +1828,9 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				var partialResults []functions.FuncCallResults
 				var parseErr error
 				if mayHoldToolCall {
-					cleanedResult = functions.CleanupLLMResult(accumulatedResult.String(), cfg.FunctionsConfig)
-
-					// Determine XML format from config
-					var xmlFormat *functions.XMLToolCallFormat
-					if cfg.FunctionsConfig.XMLFormat != nil {
-						xmlFormat = cfg.FunctionsConfig.XMLFormat
-					} else if cfg.FunctionsConfig.XMLFormatPreset != "" {
-						xmlFormat = functions.GetXMLFormatPreset(cfg.FunctionsConfig.XMLFormatPreset)
-					}
-
+					cleanedResult = toolParser.Cleaned()
 					// Try XML parsing first
-					partialResults, parseErr = functions.ParseXMLIterative(cleanedResult, xmlFormat, true)
+					partialResults, parseErr = toolParser.ParseXML()
 				}
 				if parseErr == nil && len(partialResults) > lastEmittedToolCallCount {
 					// New tool calls detected
@@ -1921,7 +1916,8 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				// Only completed JSON calls can be emitted as completed SSE items.
 				var jsonResults []functions.FuncCallResults
 				if mayHoldToolCall {
-					jsonResults = parseStreamingJSONToolCalls(cleanedResult)
+					objects, _ := toolParser.ParseJSON(false)
+					jsonResults = streamingJSONToolCalls(objects)
 				}
 				if len(jsonResults) > lastEmittedToolCallCount {
 					for i := lastEmittedToolCallCount; i < len(jsonResults); i++ {

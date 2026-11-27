@@ -11,6 +11,11 @@ func parseStreamingJSONToolCalls(text string) []functions.FuncCallResults {
 	// events and never revisits emitted calls, so only accept complete JSON.
 	// Keep completed objects returned before an unfinished trailing object.
 	objects, _ := functions.ParseJSONIterative(text, false)
+	return streamingJSONToolCalls(objects)
+}
+
+// streamingJSONToolCalls returns the calls of the objects that name a function.
+func streamingJSONToolCalls(objects []map[string]any) []functions.FuncCallResults {
 	var calls []functions.FuncCallResults
 	for _, object := range objects {
 		name, ok := object["name"].(string)
