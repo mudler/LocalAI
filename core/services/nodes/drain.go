@@ -114,14 +114,22 @@ func (r *NodeRegistry) DrainNode(ctx context.Context, nodeID string, opts DrainO
 		case node.Status == StatusDraining && node.DrainDeadline != nil:
 			res.Deadline = node.DrainDeadline
 		default:
-			deadline := time.Now().Add(timeout)
-			res.Deadline = &deadline
-			updates["drain_deadline"] = deadline
+			// The deadline comes from the database clock, the clock the
+			// reconciler compares it with, so frontends whose clocks
+			// disagree still end the drain at the same time.
+			updates["drain_deadline"] = r.dbAfter(timeout)
 		}
 		if err := tx.Model(&BackendNode{}).Where("id = ?", nodeID).Updates(updates).Error; err != nil {
 			return fmt.Errorf("marking node %s draining: %w", nodeID, err)
 		}
 		if !res.Immediate {
+			if res.Deadline == nil {
+				var stored BackendNode
+				if err := tx.Select("drain_deadline").First(&stored, "id = ?", nodeID).Error; err != nil {
+					return fmt.Errorf("reading the drain deadline of node %s: %w", nodeID, err)
+				}
+				res.Deadline = stored.DrainDeadline
+			}
 			return nil
 		}
 		removedModels = r.nodeModelNames(ctx, tx, nodeID)
@@ -169,6 +177,23 @@ func (r *NodeRegistry) ListDrainingNodes(ctx context.Context) ([]BackendNode, er
 		return nil, fmt.Errorf("listing draining nodes: %w", err)
 	}
 	return nodes, nil
+}
+
+// DrainingNodesPastDeadline returns the IDs of the draining nodes whose drain
+// deadline has passed by the database clock.
+func (r *NodeRegistry) DrainingNodesPastDeadline(ctx context.Context) (map[string]bool, error) {
+	var ids []string
+	if err := r.db.WithContext(ctx).Model(&BackendNode{}).
+		Where("status = ? AND node_type = ? AND drain_deadline IS NOT NULL AND drain_deadline <= ?",
+			StatusDraining, NodeTypeBackend, r.dbNow()).
+		Pluck("id", &ids).Error; err != nil {
+		return nil, fmt.Errorf("listing draining nodes past their deadline: %w", err)
+	}
+	out := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		out[id] = true
+	}
+	return out, nil
 }
 
 // ReleaseDrainingNode removes every replica row of a draining node. The drain

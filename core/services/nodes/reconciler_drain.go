@@ -32,11 +32,20 @@ func (rc *ReplicaReconciler) reconcileDraining(ctx context.Context) {
 		xlog.Warn("Reconciler: failed to list draining nodes", "error", err)
 		return
 	}
+	if len(nodes) == 0 {
+		return
+	}
+	// The database clock decides the deadline, as it set it (DrainNode).
+	pastDeadline, err := rc.registry.DrainingNodesPastDeadline(ctx)
+	if err != nil {
+		xlog.Warn("Reconciler: failed to list draining nodes past their deadline", "error", err)
+		return
+	}
 	for _, node := range nodes {
 		if err := ctx.Err(); err != nil {
 			return
 		}
-		if node.DrainDeadline != nil && !rc.now().Before(*node.DrainDeadline) {
+		if pastDeadline[node.ID] {
 			rc.releaseDrainingNode(ctx, node, "drain deadline passed")
 			continue
 		}

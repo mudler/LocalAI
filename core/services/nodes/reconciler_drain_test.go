@@ -168,10 +168,26 @@ var _ = Describe("ReplicaReconciler drain", func() {
 		rc.reconcile(ctx)
 		Expect(replicas("stuck")).To(HaveKey(n1.ID))
 
-		rc.now = func() time.Time { return time.Now().Add(2 * time.Minute) }
+		// The deadline is judged by the database clock, not by the clock of
+		// the frontend that runs the pass: a frontend clock that is behind
+		// does not hold the replicas past the deadline.
+		rc.now = func() time.Time { return time.Now().Add(-time.Hour) }
+		Expect(db.Model(&BackendNode{}).Where("id = ?", n1.ID).
+			Update("drain_deadline", time.Now().Add(-time.Second)).Error).To(Succeed())
 		rc.reconcile(ctx)
 		Expect(replicas("stuck")).To(BeEmpty())
 		Expect(unloader.unloadCalls).To(ContainElement(n1.ID + ":stuck"))
+	})
+
+	It("does not remove the replicas early when the frontend clock is ahead", func() {
+		Expect(registry.SetModelScheduling(ctx, &ModelSchedulingConfig{ModelName: "early", MinReplicas: 1})).To(Succeed())
+		scheduler.scheduleErr = ErrNoAvailableNodes
+		loaded(n1, "early")
+		drain(n1, time.Hour)
+
+		rc.now = func() time.Time { return time.Now().Add(2 * time.Hour) }
+		rc.reconcile(ctx)
+		Expect(replicas("early")).To(HaveKey(n1.ID))
 	})
 
 	It("replaces the last replica of a model without a rule that is in use", func() {
