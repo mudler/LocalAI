@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
@@ -64,7 +65,9 @@ var _ = Describe("Prompt cache endpoints", func() {
 
 	AfterEach(func() {
 		cancel()
-		Expect(os.RemoveAll(tmp)).To(Succeed())
+		// Background services of the app (plugins) may still write under the
+		// data path for a moment after the cancel.
+		Eventually(func() error { return os.RemoveAll(tmp) }, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
 	do := func(method, path, body string) *httptest.ResponseRecorder {
