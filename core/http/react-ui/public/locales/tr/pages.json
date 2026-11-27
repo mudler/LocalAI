@@ -1,0 +1,299 @@
+{
+  "title": "Sayfalar",
+  "subtitle": "Asistanın senin için yaptığı küçük araçlar. Burada, bir sandbox içinde açılır ve verilerini senin dosyalarında tutar.",
+  "loading": "Sayfaların yükleniyor",
+  "error": "Sayfalar okunamadı: {{message}}",
+  "retry": "Yeniden dene",
+  "off": "Sayfalar kullanılamıyor: {{reason}}",
+  "justNow": "az önce",
+  "card": {
+    "changed": "Değiştirilme: {{when}}",
+    "author": {
+      "you": "senin tarafından",
+      "assistant": "asistan tarafından"
+    },
+    "open": "Aç",
+    "pin": "Kenar çubuğuna sabitle",
+    "unpin": "Kenar çubuğundan kaldır",
+    "pinFailed": "Sabitleme kaydedilmedi: {{message}}",
+    "ask": "Asistandan bunu değiştirmesini iste",
+    "list": "Sayfaların",
+    "changedBy": {
+      "you": "{{when}} sen değiştirdin",
+      "assistant": "{{when}} asistan değiştirdi"
+    },
+    "menu": "{{title}} için daha fazlası",
+    "files": "Dosyalarını göster",
+    "rename": "Yeniden adlandır",
+    "renameLabel": "Yeni klasör adı",
+    "renameHint": "Küçük harf, rakam ve tire.",
+    "renameSave": "Kaydet",
+    "renameCancel": "İptal",
+    "renameFailed": "Sayfa yeniden adlandırılamadı: {{message}}",
+    "delete": "Sayfayı sil",
+    "deleteTitle": "\"{{title}}\" silinsin mi?",
+    "deleteMessage": "{{folder}} klasörü Çöp Kutusu'na gider. Dosyalar'dan geri yükleyebilirsin.",
+    "deleted": "{{title}} Çöp Kutusu'nda.",
+    "deleteFailed": "Sayfa silinemedi: {{message}}",
+    "share": "Paylaş",
+    "shared": "Paylaşıldı",
+    "sharedWith_one": "{{count}} kişiyle paylaşıldı",
+    "sharedWith_other": "{{count}} kişiyle paylaşıldı",
+    "sharedEveryone": "Herkesle paylaşıldı",
+    "someone": "biri",
+    "othersEdit": "Başkaları düzenleyebilir"
+  },
+  "empty": {
+    "title": "Henüz sayfa yok",
+    "text": "Bir sayfa, görev panosu veya okuma listesi gibi küçük bir araçtır. Bir sohbette asistandan bir tane iste ya da hazır bir sayfayla başla.",
+    "starter": "Bir görev panosuyla başla",
+    "starting": "Sayfa kopyalanıyor",
+    "starterFailed": "Sayfa kopyalanamadı: {{message}}",
+    "ask": "Bir sayfa iste",
+    "askPrompt": "Şunu yapan bir sayfa yap: ",
+    "starterReading": "Bir okuma listesiyle başla",
+    "note": "Hiç sayfan olmadığında bu girdi kenar çubuğundan kalkar. Bir sonrakini yaptığında geri gelir.",
+    "learn": "Sayfalar nasıl çalışır"
+  },
+  "view": {
+    "runsAsYou": "Senin olarak çalışır",
+    "runsAsYouHint": "Sayfa, klasöründeki dosyaları senin haklarınla okur ve yazar. Ağa veya diğer dosyalarına ulaşamaz.",
+    "updated": {
+      "you": "{{when}} sen güncelledin",
+      "assistant": "{{when}} asistan güncelledi"
+    },
+    "reload": "Yeniden yükle",
+    "ask": "Asistandan bunu değiştirmesini iste",
+    "askPrompt": "pages/{{name}}/ içindeki sayfayı şu şekilde değiştir: ",
+    "sandbox": "Korumalı alandaki çerçeve, yalnızca kendi klasörü",
+    "frameTitle": "Sayfa: {{title}}",
+    "loading": "Sayfa yükleniyor",
+    "notFound": "{{name}} adlı bir sayfa yok.",
+    "failed": "Sayfa yüklenemedi: {{message}}",
+    "back": "Tüm sayfalar",
+    "navigated": "Sayfa başka bir adresi açmayı denedi ve durduruldu. Yeniden başlatmak için yeniden yükle.",
+    "untrusted": "Bu sayfa paylaşılan bir klasörden geliyor. İzin vermeden çalışmaz.",
+    "startPage": "Başlangıç sayfası",
+    "makeStart": "Bunu ilk sabitlenen sayfam yap",
+    "startAlone": "Sabitlenmiş tek sayfan bu.",
+    "startFailed": "Başlangıç sayfası kaydedilemedi: {{message}}"
+  },
+  "send": {
+    "label": "Bu sayfa asistana bir mesaj göndermek istiyor",
+    "to": "Gönderilecek yer",
+    "pageChat": "Bu sayfanın sohbeti",
+    "send": "Gönder",
+    "dismiss": "Gizle",
+    "sending": "Gönderiliyor",
+    "sent": "Gönderildi: {{title}}",
+    "openChat": "Sohbeti aç",
+    "failed": "Gönderilmedi: {{message}}"
+  },
+  "askNew": "Yeni bir sayfa iste",
+  "yours": "Senin",
+  "filter": "Sayfaları filtrele",
+  "shared": {
+    "yours": "Senin",
+    "group": "Seninle paylaşılan",
+    "note": "Paylaşılan bir sayfa yalnızca sen izin verdikten sonra çalışır. Yazarı onu değiştirirse yeniden sorulur.",
+    "offNotice": "Bu sunucuda paylaşılan sayfalar kapalı. Bir yönetici kapattı.",
+    "off": "Bu sunucuda paylaşılan sayfalar kapalı. Bir yönetici kapattı.",
+    "gone": "Bu sayfa artık paylaşılan klasörde değil ya da ona artık erişimin yok.",
+    "review": "İncele",
+    "from": "Gönderen: {{author}}",
+    "menu": "Sayfa menüsü",
+    "badge": {
+      "notAllowed": "Henüz izin verilmedi",
+      "changed": "İzin verdiğinden beri değişti",
+      "allowed": "İzin verildi"
+    },
+    "userOff": "Bir yönetici tarafından kapatıldı.",
+    "stopFailed": "Sayfa durdurulamadı: {{message}}"
+  },
+  "viewer": {
+    "stopAllowing": "Bu sayfaya izin vermeyi bırak",
+    "authorChanged": "{{author}} bu sayfayı değiştirdi. İzin verdiğin sürüm, değişikliği inceleyene kadar çalışmaya devam eder.",
+    "sandboxShared": "Sandbox içinde. Senin olarak, yalnızca {{folder}} içinde çalışır ve ağa ulaşamaz.",
+    "sandboxUser": "Sandbox içinde. Senin olarak, yalnızca kendi klasöründe çalışır ve ağa ulaşamaz."
+  },
+  "trust": {
+    "title": "\"{{title}}\" açılsın mı?",
+    "desc": "Bu sayfa paylaşılan bir klasörden geliyor. Sayfalar senin olarak çalışır, bu yüzden çalışmadan önce kontrol et.",
+    "who": "Yazan: {{author}}",
+    "whereLabel": "Paylaşılan klasör",
+    "whereWhen": ", değiştirilme: {{when}}",
+    "someone": "biri",
+    "close": "Kapat",
+    "canTitle": "Yapabilir",
+    "canStillTitle": "Yine de yapabilir",
+    "cannotTitle": "Yapamaz",
+    "items": {
+      "files": "Kendi klasöründeki dosyaları okuma ve yazma",
+      "readOnly": "Bu paylaşılan klasörü yalnızca okuyabilirsin, bu yüzden sayfa değişikliklerini kaydedemez.",
+      "chat": "Bir sohbete mesaj yazma",
+      "chatNote": "Asistan yanıtlamadan önce mesajı sohbette görürsün.",
+      "noFiles": "Diğer dosyalarını veya sohbetlerini okuma",
+      "noNet": "Ağa veya diğer sitelere ulaşma",
+      "noNetNote": "Tek sınır: kendi çerçevesinde başka bir adresi yükleyebilir. Bu bir istek gönderir, sonra sayfa durur.",
+      "noTools": "Araç kullanma veya ayarlarını değiştirme"
+    },
+    "warn": "Klasörünün içinde senin olarak davranır. {{author}} onu değiştirirse yeniden sorulur.",
+    "viewSource": "Kaynağı gör",
+    "cancel": "İptal",
+    "allowOnce": "Bir kez izin ver",
+    "allow": "İzin ver",
+    "changed": {
+      "title": "\"{{title}}\" değişti",
+      "desc": "Önceki bir sürüme izin vermiştin. Yeniden çalışmadan önce neyin değiştiğini kontrol et.",
+      "who": "Değiştiren: {{author}}, {{when}}",
+      "allowed": "{{date}} tarihli sürüme izin verdin",
+      "what": "Ne değişti",
+      "same": "Yapabildikleri öncekiyle aynı.",
+      "warn": "İzin verirsen bu sürüm, {{author}} onu yeniden değiştirene kadar her açışında çalışır.",
+      "view": "Değişiklikleri gör",
+      "lines": "{{before}} → {{after}} satır",
+      "code": "Sayfanın bir betiği, stil sayfası veya modülü değişti: {{files}}"
+    },
+    "pill": {
+      "notYet": "Henüz izin verilmedi",
+      "not": "İzin verilmedi",
+      "once": "Bu ziyaret için izin verildi",
+      "allowed": "İzin verildi",
+      "changed": "İzin verdiğinden beri değişti"
+    },
+    "from": "Gönderen: {{author}}",
+    "frame": {
+      "chrome": "{{folder}} klasöründen paylaşılan sayfa. Çalışmadı."
+    },
+    "blocked": {
+      "title": "Bu sayfa çalışmadı",
+      "body": "Çalıştırmamayı seçtin. {{author}} kişisinin paylaşılan {{folder}} klasöründen geliyor. İçindeki hiçbir şey çalışmadı ve hiçbir şey kaydedilmedi.",
+      "review": "İncele ve izin ver"
+    },
+    "waiting": {
+      "title": "Seni bekliyor",
+      "body": "Sen izin verene kadar bu sayfadaki hiçbir şey çalışmaz."
+    },
+    "stopped": {
+      "revoked": "Bu sayfaya izin vermeyi bıraktın. Çalışmayı durdurdu ve sen yeniden izin verene kadar içindeki hiçbir şey çalışmaz.",
+      "refused": "Bu sayfaya artık izin verilmiyor, bu yüzden durduruldu. Yeniden izin vermek için incele.",
+      "off": "Bu sunucuda paylaşılan sayfalar kapatıldı, bu yüzden bu sayfa durduruldu."
+    },
+    "changedMeanwhile": "Sayfa, sen incelerken değişti. Bu yeni sürüm.",
+    "sourceTitle": "\"{{title}}\" kaynağı",
+    "sourceLines_one": "{{count}} satır",
+    "sourceLines_other": "{{count}} satır",
+    "sourceNote": "Kaynak metin olarak gösterilir. İçindeki hiçbir şey burada çalışmaz.",
+    "embed": {
+      "desc": "Bu sayfanın açılmasına izin verdin. Ana Sayfa'da, bir slotta ve dock'ta ekran gösterir göstermez, tıklama olmadan çalışır, bu yüzden kendi evetine ihtiyacı var.",
+      "item": "Ana Sayfa'da, uygulamanın slotlarında ve dock'ta çalıştır",
+      "note": "Ekran gösterdiğinde tıklama olmadan başlar. Yazarının değişikliği yeniden sorar.",
+      "allow": "Ana Sayfa'da, slotlarda ve dock'ta izin ver"
+    },
+    "user": {
+      "desc": "Biri bu sayfayı seninle paylaştı. Sayfalar senin olarak çalışır, bu yüzden çalışmadan önce kontrol et.",
+      "who": "Yazan: {{author}}. Bir yönetici tarafından kontrol edilmedi.",
+      "unchecked": "Bir yönetici tarafından kontrol edilmedi.",
+      "where": "Paylaşılan sayfa",
+      "readOnly": "Bu sayfaya yalnızca bakabilirsin, bu yüzden değişikliklerini kaydedemez.",
+      "chrome": "Paylaşılan sayfa. Çalışmadı.",
+      "blocked": "Çalıştırmamayı seçtin. {{author}} kişisinden geliyor. İçindeki hiçbir şey çalışmadı ve hiçbir şey kaydedilmedi.",
+      "files": "Kendi klasöründeki dosyaları okuma ve yazma"
+    },
+    "owner": {
+      "desc": "Başkaları bu sayfayı düzenleyebilir. Sayfalar senin olarak çalışır, bu yüzden çalışmadan önce kontrol et.",
+      "who": "Başkaları bu sayfayı düzenleyebilir. Çalışmadan önce kontrol et.",
+      "changedWho": "Bu sayfa, izin verdiğinden beri değişti.",
+      "where": "Senin sayfan",
+      "warn": "Klasörünün içinde senin olarak davranır. Biri onu değiştirirse yeniden sorulur.",
+      "changedWarn": "İzin verirsen bu sürüm, biri onu yeniden değiştirene kadar her açışında çalışır.",
+      "blocked": "Çalıştırmamayı seçtin. Başkaları onu düzenleyebilir. İçindeki hiçbir şey çalışmadı ve hiçbir şey kaydedilmedi.",
+      "stale": "Bu sayfa değişti. Yeniden incele."
+    }
+  },
+  "frame": {
+    "filesFailed": "Bu sayfanın yanındaki dosyalar yüklenmedi: {{files}}. Nedenini tarayıcı konsolu söyler.",
+    "tooLarge": "Bu sayfa, klasöründeki {{limit}} üzerinde dosyayı kendi içine koyuyor, bu yüzden bazıları dışarıda bırakıldı. Bunun yerine verileri fetch() ile yükle.",
+    "dismiss": "Gizle"
+  },
+  "link": {
+    "label": "Sayfa bir bağlantı açmak istiyor",
+    "open": "{{site}} sitesini aç",
+    "cancel": "İptal",
+    "lookalike": "Bu adres başka alfabelerden harfler kullanıyor ve {{display}} gibi okunuyor. Başka bir siteyi taklit ediyor olabilir: açmadan önce kontrol et."
+  },
+  "dock": {
+    "button": "Dock",
+    "buttonTitle": "Dock'u göster veya gizle (Ctrl+\\)",
+    "region": "Sohbetin yanındaki sayfalar",
+    "tabs": "Dock'taki sayfalar",
+    "closeTab": "{{title}} sayfasını kapat",
+    "add": "Dock'ta başka bir sayfa aç",
+    "hide": "Dock'u gizle",
+    "hideKeys": "Dock'u gizle (Ctrl+\\)",
+    "openFull": "{{title}} sayfasını tam sayfa olarak aç",
+    "by": {
+      "assistant": "Asistanın yaptığı sayfa",
+      "you": "Senin yaptığın sayfa"
+    },
+    "shared": "Paylaşılan: {{folder}}",
+    "askPrompt": "pages/{{name}}/ içindeki {{title}} sayfasını şu şekilde değiştir: ",
+    "live": "Canlı: dosyalar değiştikçe güncellenir",
+    "liveShort": "Canlı",
+    "sandboxed": "Korumalı alanda, ağ yok",
+    "resize": "Dock genişliği",
+    "resizeHint": "Kenarı sürükle veya ok tuşlarını kullan. Genişliği sıfırlamak için çift tıkla ya da Enter'a bas.",
+    "fullScreen": "Dock'u tam ekran yap",
+    "halfScreen": "Dock'u ekranın yarısı yap",
+    "sheetHint": "Tam ekran için tutamacı yukarı, kapatmak için aşağı sürükle",
+    "pickTitle": "Dock'ta bir sayfa aç",
+    "pickEmpty": "Henüz sayfan yok. Asistandan bir tane yapmasını iste.",
+    "missing": "{{name}} sayfası yok ya da şu an okuyamıyorsun.",
+    "off": "Bir yönetici paylaşılan sayfaları kapattı.",
+    "error": "Sayfa yüklenemedi.",
+    "allowText": "Bu sayfa paylaşılan bir klasörden. Burada yalnızca sen izin verdikten sonra çalışır.",
+    "allow": "İncele ve izin ver",
+    "run": "Burada çalıştır",
+    "sendLabel": "Sayfa bu mesajı bu sohbete göndermek istiyor:",
+    "saveFailed": "Dock kaydedilemedi: {{message}}",
+    "openInDock": "Dock'ta aç"
+  },
+  "share": {
+    "intro": "Bu sayfayı kimlerin açabileceğini seç. Sayfa olduğu yerde kalır.",
+    "warning": "Paylaştığın kişiler, izin verdikten sonra bu sayfanın kodunu kendi tarayıcılarında, kendi haklarıyla çalıştırır. Kodu değiştirdiğinde yeniden sorulurlar.",
+    "role": {
+      "view": "Görüntüle",
+      "use": "Kullan",
+      "edit": "Düzenle"
+    },
+    "roleHelp": {
+      "view": "Sayfayı çalıştırabilir ve verilerini okuyabilir. Kaydedemez.",
+      "use": "Sayfayı çalıştırabilir ve içinde veri kaydedebilir. Kodunu değiştiremez.",
+      "edit": "Kod dahil her şeyi değiştirebilir."
+    },
+    "count": {
+      "people_one": "{{count}} kişiyle paylaşıldı.",
+      "people_other": "{{count}} kişiyle paylaşıldı.",
+      "everyone": "Herkesle paylaşıldı.",
+      "everyoneAnd_one": "Herkesle ve adı belirtilen {{count}} kişiyle paylaşıldı.",
+      "everyoneAnd_other": "Herkesle ve adı belirtilen {{count}} kişiyle paylaşıldı.",
+      "allowed_one": "{{count}} kişi bu sürüme izin verdi.",
+      "allowed_other": "{{count}} kişi bu sürüme izin verdi."
+    },
+    "offAdmin": "Bir yönetici sayfa paylaşımını kapattı. Aşağıdaki kişilerle paylaşmayı yine de durdurabilirsin.",
+    "lost": "Bu sayfayı artık paylaşamazsın.",
+    "askAgain_one": "Kodu değiştirdin. {{count}} kişiye yeniden izin vermesi sorulacak.",
+    "askAgain_other": "Kodu değiştirdin. {{count}} kişiye yeniden izin vermesi sorulacak.",
+    "viewOnly": "Bu sayfaya bakabilirsin, değiştiremezsin",
+    "editNote": "Düzenle ile bu sayfa senin için de izin adımından geçerek açılır.",
+    "tile": {
+      "title": "Çalıştırmak için bu sayfayı aç",
+      "text": "Biri bunu seninle paylaştı. Ana Sayfa'da veya bir slotta çalışmaz. Çalıştırmak için aç.",
+      "open": "Sayfayı aç",
+      "dock": "Biri bu sayfayı seninle paylaştı. Çalıştırmak için Sayfalar'dan aç.",
+      "slot": "Çalıştırmak için {{title}} sayfasını aç",
+      "textOwn": "Başkaları bunu düzenleyebilir. Ana Sayfa'da veya bir slotta çalışmaz. Çalıştırmak için aç.",
+      "dockOwn": "Başkaları bu sayfayı düzenleyebilir. Çalıştırmak için Sayfalar'dan aç."
+    }
+  }
+}

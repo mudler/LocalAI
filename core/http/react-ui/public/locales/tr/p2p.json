@@ -1,0 +1,434 @@
+{
+  "title": "Paylaşım",
+  "supporting": "Bu sunucuya P2P üzerinden ulaşan cihazlar ve uzak örnekler, bir de onları içeri alan davetler.",
+  "loadStatusFailed": "P2P durumu okunamadı.",
+  "tabs": {
+    "label": "P2P",
+    "devices": "Cihazlar ve davetler",
+    "federation": "Federasyon",
+    "settings": "Ayarlar"
+  },
+  "mode": {
+    "off": {
+      "title": "P2P kapalı",
+      "reason": "Cihazları, uzak örnekleri ve düğümleri davet etmek için P2P modunu Bağlan ve paylaş olarak ayarla. Bu mod, kimlik doğrulamanın açık olmasını gerektirir."
+    },
+    "connect": {
+      "title": "P2P yalnızca Bağlan modunda",
+      "reason": "Bu sunucu P2P üzerinden uzak örnekleri kullanır ve kimseyi kabul etmez. Cihaz davet etmek için modu Bağlan ve paylaş olarak ayarla. Bu mod, kimlik doğrulamanın açık olmasını gerektirir."
+    },
+    "fix": "P2P ayarlarını aç"
+  },
+  "kinds": {
+    "device": {
+      "title": "Cihaz",
+      "body": "Bir başlatıcı veya başka bir tarayıcı. Kişi her zamanki gibi giriş yapar."
+    },
+    "remote": {
+      "title": "Uzak",
+      "body": "Başka bir LocalAI, bu örneğin modellerini kullanır; hepsini ya da seçtiklerini."
+    },
+    "worker": {
+      "title": "Worker",
+      "body": "Bu kümenin bir işlem düğümü. P2P üzerinden katılır ve onayını bekler."
+    },
+    "split": {
+      "title": "Model bölmeli worker"
+    }
+  },
+  "ttl": {
+    "600": "10 dk",
+    "3600": "1 saat",
+    "86400": "1 gün"
+  },
+  "share": {
+    "open": "Bu örneği paylaş…",
+    "title": "Bu örneği paylaş",
+    "intro": "Tek kullanımlık bir davet bağlantısı oluştur. Karşı taraf onu yapıştırır veya QR kodunu tarar.",
+    "kind": "Tür",
+    "qrNote": "Cihaz ve uzak davetleri, telefon veya tablet için bir QR kodu gösterir.",
+    "kindNote": {
+      "device": {
+        "title": "Yalnızca P2P kabulü.",
+        "body": "Bir cihaz daveti, cihazın bu örneğe ulaşmasını sağlar. Kişi web arayüzüne yine kendi hesabıyla giriş yapar."
+      },
+      "remote": {
+        "title": "Yalnızca modeller, başka bir şey değil.",
+        "body": "Diğer LocalAI, aşağıda seçtiğin modeller için bir API anahtarı alır: hepsi (sonradan eklediklerin de) ya da bir liste. Araç eklenmiş modeller dışarıda bırakılır. Anahtar başka hiçbir şeye ulaşmaz: ayarlara, dosyalara veya API'nin başka bir bölümüne erişemez."
+      },
+      "worker": {
+        "title": "Bu küme için bir düğüm.",
+        "body": "Makine, bağlantıyla local-ai worker --join komutunu çalıştırır. P2P üzerinden, açık port ve kayıt token'ı olmadan kaydolur ve sen onaylayana kadar Düğümler sayfasında bekler."
+      }
+    },
+    "label": "Etiket",
+    "labelPlaceholder": {
+      "device": "Ali'nin dizüstü bilgisayarı",
+      "remote": "Şube ofisi",
+      "worker": "gpu-box-5"
+    },
+    "labelHint": "Cihazlar ve davetler bölümünde gösterilir.",
+    "models": {
+      "label": "Modeller",
+      "all": "Tüm modeller",
+      "specific": "Model seç",
+      "allHint": "Anahtar, bu örneğin her modelini kullanabilir; sonradan eklediklerin de dahil.",
+      "specificHint": "Anahtar yalnızca işaretlediğin modelleri kullanabilir. Araç eklenmiş bir model paylaşılamaz.",
+      "loading": "Modeller yükleniyor…",
+      "loadFailed": "Modeller yüklenemedi.",
+      "retry": "Yeniden dene",
+      "empty": "Bu örnekte henüz paylaşılacak model yok.",
+      "search": "Modellerde ara",
+      "noMatch": "Eşleşen model yok.",
+      "selected_one": "{{count}} model seçildi",
+      "selected_other": "{{count}} model seçildi",
+      "reason": {
+        "noModels": "En az bir model seç ya da Tüm modeller'i seç."
+      }
+    },
+    "expires": "Geçerlilik süresi",
+    "singleUseHint": "Her davet bir kez çalışır.",
+    "nothingYet": "Davet oluştur'a basana kadar hiçbir şey oluşturulmaz.",
+    "cancel": "İptal",
+    "close": "Kapat",
+    "mint": "Davet oluştur",
+    "mintFailed": "Davet oluşturulamadı.",
+    "needsAccount": {
+      "title": "Uzak örnekle paylaşmak için bir kullanıcı hesabıyla giriş yap",
+      "body": "Diğer LocalAI, kullanıcı hesabına ait bir API anahtarı alır. Şu an hesabı olmayan, LOCALAI_API_KEY ile ayarlanmış API anahtarıyla giriş yaptın. Bir kullanıcı hesabıyla giriş yap ve daveti yeniden oluştur. Cihaz davetleri eskisi gibi çalışır."
+    },
+    "copy": "Kopyala",
+    "copied": "Kopyalandı",
+    "copyFailed": "Bağlantı kopyalanamadı. Seç ve elle kopyala.",
+    "canceled": "Davet iptal edildi.",
+    "revoked": "{{label}} yetkisi kaldırıldı.",
+    "result": {
+      "title": "{{label}} için davet",
+      "sub": "{{kind}} · tek kullanımlık · {{ttl}}",
+      "link": "Davet bağlantısı",
+      "qrLabel": "Davet bağlantısının QR kodu",
+      "qrCaption": "Telefon veya tablet için",
+      "how": {
+        "device": "Başlatıcıda: Sunucu ekle, sonra Davet bağlantısı. Bağlantı bu sunucunun peer ID'sini ve relay geçişini içerir, bu yüzden tek başına kısa bir kod yetmez.",
+        "remote": "Diğer LocalAI'de: Ana Sayfa veya Bağlantılar, Uzak örnek bağlan, sonra Davet bağlantısı. Bağlantının tamamını yapıştır.",
+        "worker": "Yeni makinede local-ai worker --join komutunu, bağlantının tamamı tırnak içinde olacak şekilde çalıştır. Düğüm sonra Düğümler sayfasında onayını bekler."
+      },
+      "waiting": "Cihaz bekleniyor… Daveti iptal et, relay geçişini de iptal eder.",
+      "waitingWorker": "Worker bekleniyor… Daveti iptal et, relay geçişini de iptal eder.",
+      "expired": "Davetin süresi doldu.",
+      "expiredTitle": "Bu davetin süresi doldu.",
+      "expiredBody": "Kimse zamanında kullanmadı. Karşı taraf hazır olduğunda yeni bir tane oluştur.",
+      "again": "Yeniden oluştur",
+      "cancel": "Daveti iptal et",
+      "done": "Bitti"
+    },
+    "facts": {
+      "expires": "Geçerlilik",
+      "singleUse": "tek kullanımlık",
+      "serverPeer": "Sunucu peer ID'si",
+      "devicePeer": "Cihaz peer ID'si",
+      "relay": "Relay ipucu",
+      "relayGated": "{{relay}} (senin relay'in, kısıtlı)",
+      "relayOpen": "{{relay}} (açık relay)",
+      "none": "Yok",
+      "pass": "Relay geçişi",
+      "passOn": "{{relay}} üzerinde kayıtlı, {{ttl}} geçerli, tek kullanımlık",
+      "passUnreachable": "Yok: {{relay}} yanıt vermedi",
+      "passNone": "Yok",
+      "public": "Genel adres",
+      "publicYes": "Evet",
+      "publicNo": "Yok (NAT arkasında)",
+      "models": "Modeller",
+      "modelsAll": "Tüm modeller",
+      "modelsSome_one": "{{count}} model",
+      "modelsSome_other": "{{count}} model"
+    },
+    "admission": {
+      "title": "Yalnızca P2P kabulü.",
+      "result": "Davet, cihazın bu örneğe ulaşmasını sağlar. Kişi web arayüzüne yine giriş yapar."
+    },
+    "warn": {
+      "unreachable": {
+        "title": "Bu davetin relay geçişi yok. Yalnızca doğrudan bağlantıyla eşleşebilir.",
+        "body": "Davet oluşturulurken {{relay}} yanıt vermedi, bu yüzden üzerinde kayıtlı bir geçiş yok. Relay geri geldiğinde daveti yeniden oluştur.",
+        "again": "Yeniden oluştur",
+        "check": "Relay'i kontrol et"
+      },
+      "noRelay": {
+        "title": "Sıkı NAT arkasındaki cihazlar relay olmadan bağlanamaz.",
+        "body": "Bu sunucunun relay'i yok. Ağların yaklaşık 10'da 3'ü doğrudan bağlantıları engeller. Bir relay ekle ya da kendin çalıştır.",
+        "add": "Relay ekle"
+      },
+      "openRelay": {
+        "title": "Bu davet açık bir relay'i gösteriyor.",
+        "body": "{{relay}} herkes tarafından kullanılabilir ve her bağlantının hızını sınırlayabilir."
+      },
+      "noPublic": {
+        "title": "Bu sunucunun genel adresi yok.",
+        "body": "Cihaz hole punching ile bağlanır; bu başarısız olursa bir relay üzerinden."
+      }
+    },
+    "connected": {
+      "title": "{{label}} bağlandı",
+      "sub": "{{kind}} · az önce eşleşti",
+      "confirm": "Karşı tarafın gösterdiğini doğrula",
+      "hint": "{{label}} şimdi aynı kelimeleri gösteriyor. Eşleşmiyorsa daveti başka biri kullanmıştır.",
+      "signIn": "Kişi web arayüzüne yine giriş yapar.",
+      "keyNote": "İstediğin zaman Cihazlar ve davetler bölümünden yetkisini kaldırabilirsin.",
+      "mismatch": "Eşleşmiyor: yetkiyi kaldır",
+      "match": "Eşleşiyor",
+      "approve": "Düğüm sonra kaydolur ve Düğümler sayfasında onayını bekler."
+    }
+  },
+  "invites": {
+    "title": "Bekleyen davetler",
+    "note": "Bir davet bir kez çalışır ve süresi dolar. Bir daveti iptal etmek relay geçişini de iptal eder.",
+    "loadFailed": "Davetler yüklenemedi.",
+    "empty": {
+      "title": "Bekleyen davet yok",
+      "body": "Bir cihazın veya uzak örneğin bu sunucuya ulaşması için davet oluştur."
+    },
+    "col": {
+      "label": "Etiket",
+      "kind": "Tür",
+      "created": "Oluşturuldu",
+      "expires": "Kalan süre",
+      "pass": "Relay geçişi",
+      "actions": "İşlemler"
+    },
+    "passOn": "{{relay}} üzerinde",
+    "passNone": "Yok: yalnızca doğrudan bağlantıyla eşleşir",
+    "cancel": "İptal",
+    "canceled": "{{label}} için davet iptal edildi.",
+    "cancelFailed": "Davet iptal edilemedi: {{message}}"
+  },
+  "devices": {
+    "title": "Cihazlar",
+    "active_one": "{{count}} etkin",
+    "active_other": "{{count}} etkin",
+    "note": "Her cihazın kendi anahtarı var. Birinin yetkisini kaldırırsan diğerleri çalışmaya devam eder.",
+    "loadFailed": "Cihazlar yüklenemedi.",
+    "empty": {
+      "title": "Henüz eşleşmiş cihaz yok",
+      "body": "Bir cihaz daveti kullandığında burada görünür."
+    },
+    "col": {
+      "label": "Etiket",
+      "kind": "Tür",
+      "peer": "Peer ID",
+      "seen": "Son görülme",
+      "path": "Yol",
+      "status": "Durum",
+      "actions": "İşlemler"
+    },
+    "never": "Hiç",
+    "status": {
+      "active": "Etkin",
+      "revoked": "Yetkisi kaldırıldı"
+    },
+    "path": {
+      "direct": "Doğrudan",
+      "holePunched": "Hole punching ile",
+      "relayed": "{{relay}} üzerinden",
+      "relayedUnknown": "Bir relay üzerinden",
+      "none": "Bağlı değil",
+      "offline": "Bağlı değil",
+      "limited": "Sınırlı",
+      "limitedHint": "Relay, her bağlantının veri miktarını veya süresini sınırlar. Büyük aktarımlar için doğrudan bir yol gerekir.",
+      "rtt": "{{ms}} ms"
+    },
+    "revoke": "Yetkiyi kaldır…",
+    "revokeTitle": "{{label}} yetkisi kaldırılsın mı?",
+    "revokeConfirm": "Yetkiyi kaldır",
+    "revokeBody": {
+      "device": "Cihaz P2P anahtarını hemen kaybeder ve açık bağlantıları kapanır. Kişi hesabını korur. Diğer cihazlar etkilenmez. Yeniden bağlamak için yeni bir davet oluştur.",
+      "remote": "Uzak örnek P2P anahtarını ve API anahtarını hemen kaybeder ve açık bağlantıları kapanır. Modelleriniz karşı tarafta çalışmayı bırakır. Diğer cihazlar etkilenmez. Yeniden bağlamak için yeni bir davet oluştur.",
+      "other": "Düğüm P2P anahtarını hemen kaybeder ve açık bağlantıları kapanır. Diğer cihazlar etkilenmez. Yeniden bağlamak için yeni bir davet oluştur."
+    },
+    "revoked": "{{label}} yetkisi kaldırıldı."
+  },
+  "invite": {
+    "connectWith": "Şununla bağlan",
+    "withAddress": "Adres",
+    "withInvite": "Davet bağlantısı",
+    "link": "Davet bağlantısı",
+    "linkHint": "Diğer LocalAI'nin yöneticisinden bir Uzak daveti iste ve bağlantının tamamını yapıştır.",
+    "problem": {
+      "malformed": "Bu bir LocalAI davet bağlantısı değil. localai://pair ile başlamalı.",
+      "wrongKind": "Bu bir {{kind}} daveti. Diğer LocalAI'nin yöneticisinden bir Uzak daveti iste.",
+      "expired": "Bu davetin süresi doldu. Diğer LocalAI'nin yöneticisinden yenisini iste."
+    },
+    "preview": {
+      "server": "Sunucu",
+      "kind": "Tür",
+      "pass": "Relay geçişi",
+      "passIncluded": "Dahil · {{relay}}",
+      "passNone": "Yok: bağlantı doğrudan bağlantı veya hole punching ile eşleşir",
+      "path": "Yol",
+      "pathRelay": "Önce doğrudan, sonra hole punching, sonra {{relay}}",
+      "pathDirect": "Önce doğrudan, sonra hole punching",
+      "expires": "Geçerlilik",
+      "expiresAt": "{{when}} · tek kullanımlık"
+    },
+    "openRelay": "Bağlantı açık bir relay'i gösteriyor. Herkes onu kullanabilir ve her bağlantının hızını sınırlayabilir.",
+    "connect": "Bağlan",
+    "connecting": "Bağlanılıyor…",
+    "connected": "Bağlandı",
+    "ok_one": "{{name}} ile P2P üzerinden bağlandı. {{count}} model bulundu.",
+    "ok_other": "{{name}} ile P2P üzerinden bağlandı. {{count}} model bulundu.",
+    "switched": {
+      "title": "P2P yalnızca Bağlan modunda açık. Bu sunucu kimseyi kabul etmez.",
+      "body": "P2P kapalıydı. Bağlanmak, bu sunucunun diğer LocalAI'ye ulaşabilmesi için onu açtı. Modu Swarm, P2P, Ayarlar altından değiştir."
+    },
+    "fail": {
+      "title": "Bağlanılamadı",
+      "invalid": "Davet geçerli değil: kullanılmış, iptal edilmiş veya süresi dolmuş. Yenisini iste.",
+      "rateLimited": "Çok fazla deneme. Birkaç dakika bekle, sonra yeniden dene.",
+      "malformed": "Diğer LocalAI bu daveti okuyamadı.",
+      "unsupported": "Bu sunucu bir davet bağlantısıyla uzak örnek bağlayamaz.",
+      "conflict": "Bu sunucu o LocalAI ile zaten eşleşmiş ya da aynı adda bir uzak örnek var."
+    },
+    "blocked": {
+      "title": "Her iki ağ da doğrudan bağlantıları engelliyor.",
+      "body": "Hole punching başarısız oldu. Ağ çiftlerinin yaklaşık 10'da 3'ü çalışan bir relay gerektirir.",
+      "bodyRelay": "Hole punching başarısız oldu ve {{relay}} yanıt vermedi. Ağ çiftlerinin yaklaşık 10'da 3'ü çalışan bir relay gerektirir.",
+      "relayTitle": "Bir relay çalıştır.",
+      "relayBody": "Diğer LocalAI'nin yöneticisi genel adresi olan bir makinede bir relay çalıştırır, sonra yeni bir davet gönderir.",
+      "portTitle": "Bir port aç.",
+      "portBody": "UDP ve TCP 4001 portunu bu sunucuya ya da diğerine yönlendir.",
+      "networkTitle": "Başka bir ağ kullan.",
+      "networkBody": "Bu sunucuyu başka bir ağa, örneğin telefon hotspot'una bağla ve yeniden dene.",
+      "retry": "Yeniden dene",
+      "copy": "Yönetici için ayrıntıları kopyala"
+    }
+  },
+  "home": {
+    "title": "Diğer makineleri bağla",
+    "optional": "İsteğe bağlı",
+    "body": "Bu sunucuyu dizüstü bilgisayarından kullan ya da daha fazla makine ekle. Kimlik doğrulamanın açık olmasını gerektirir.",
+    "open": "Swarm, P2P'yi aç",
+    "openNote": "Orada P2P modunu Bağlan ve paylaş olarak ayarla. Bunu sonra da yapabilirsin.",
+    "auth": "Önce kimlik doğrulamayı aç",
+    "authNote": "Kimlik doğrulama kapalı. Bunun yerine başka bir örneğin modellerini kullanmak için yukarıdan Başka bir sunucuda veya hizmette seçeneğini seç: bu, kimlik doğrulama gerektirmez."
+  },
+  "federation": {
+    "title": "Federasyon",
+    "loadFailed": "Federasyon okunamadı.",
+    "routing": {
+      "label": "Yönlendirme",
+      "least_busy": {
+        "title": "En az meşgul",
+        "body": "Bir istek, bu sunucudan en az sürmekte olan isteğe sahip örneğe gider. Başarısız olursa isteği sonraki örnek alır."
+      },
+      "round_robin": {
+        "title": "Sırayla (round robin)",
+        "body": "İstekler her örneğe sırayla gider. Biri başarısız olursa isteği sonraki örnek alır."
+      }
+    },
+    "groups": {
+      "title": "Gruplar",
+      "note": "Bir grup, birkaç örneğin sunduğu tek bir model adıdır. İstemciler grubun adını herhangi bir model gibi çağırır.",
+      "new": "Yeni grup",
+      "delete": "Sil",
+      "serving": "{{count}} hizmette",
+      "degraded": "Hiçbir örnek yanıt vermiyor",
+      "created": "{{name}} grubu kaydedildi.",
+      "deleted": "{{name}} grubu silindi.",
+      "changeFailed": "Değişiklik kaydedilemedi: {{message}}",
+      "deleteTitle": "{{name}} grubu silinsin mi?",
+      "deleteBody": "Bu adı çağıran istemciler hata alır. Örneklerin modelleri olduğu gibi kalır.",
+      "deleteConfirm": "Grubu sil",
+      "empty": {
+        "title": "Henüz grup yok",
+        "body": "Tek bir model adını bu sunucudan ve diğer LocalAI örneklerinden sun. İstekler bunlara dağıtılır ve biri başarısız olursa sonraki yanıtlar.",
+        "factInstances_one": "{{count}} başka örnek",
+        "factInstances_other": "{{count}} başka örnek",
+        "factFailover": "Failover dahil"
+      }
+    },
+    "members": {
+      "caption": "{{name}} örnekleri",
+      "col": {
+        "instance": "Örnek",
+        "model": "Oradaki model",
+        "status": "Durum",
+        "inFlight": "Süren",
+        "actions": "İşlemler"
+      },
+      "state": {
+        "healthy": "Kullanımda",
+        "recovering": "Toparlanıyor",
+        "down": "Yanıt vermiyor",
+        "missing": "Model yok",
+        "unknown": "Henüz kontrol edilmedi",
+        "drained": "Boşaltıldı"
+      },
+      "constrained": "Yalnızca küçük istekler",
+      "constrainedHint": "Bir relay bu bağlantıyı sınırlıyor, bu yüzden örnek yalnızca başka hiçbir örnek alamadığında istek alır.",
+      "drain": "Boşalt",
+      "undrain": "Geri koy",
+      "drained": "{{model}} yeni istek almıyor.",
+      "undrained": "{{model}} yeniden istek alıyor.",
+      "lastServing": "Hizmetteki son örnek boşaltılamaz."
+    },
+    "instances": {
+      "title": "Örnekler",
+      "note": "Bu sunucu ve kullandığı uzak LocalAI örnekleri. Her uzak örnek ayrıca Modeller, Uzak örnekler altında listelenir.",
+      "add": "Federe örnek ekle",
+      "local": "Bu örnek",
+      "otherProxy": "Başka bir sunucu",
+      "http": "HTTP",
+      "inFlightNote": "Süren istekler bu sunucunun istekleridir. Bir kümenin her sunucusu kendininkini sayar.",
+      "col": {
+        "instance": "Örnek",
+        "peer": "Peer ID",
+        "path": "Yol",
+        "inFlight": "Süren",
+        "models": "Modeller"
+      },
+      "status": {
+        "ok": "Yanıt veriyor",
+        "never": "Henüz iletişim kurulmadı",
+        "auth_failed": "Anahtar reddedildi",
+        "unreachable": "Erişilemiyor"
+      }
+    },
+    "path": {
+      "local": "Bu örnek",
+      "http": "HTTP",
+      "off": "P2P kapalı",
+      "down": "Bağlı değil",
+      "waiting": "Bir istek bekleniyor",
+      "direct": "Doğrudan",
+      "holePunched": "Hole punching ile",
+      "relayed": "Bir relay üzerinden",
+      "limited": "Sınırlı",
+      "limitedHint": "Relay, her bağlantının veri miktarını veya süresini sınırlar."
+    },
+    "sheet": {
+      "title": "Yeni grup",
+      "description": "Birkaç örneğin sunduğu tek bir model adı.",
+      "name": "Model adı",
+      "nameHint": "İstemciler bu adı çağırır. Var olan bir modelin adı olmamalı.",
+      "members": "Örnekler ({{count}} seçildi)",
+      "membersHint": "İki veya daha fazla örnekte aynı modeli seç.",
+      "noModels": "Hiçbir örnekte henüz model yok. Önce Modeller, Uzak örnekler altında bir uzak örnek ekle.",
+      "save": "Kaydet"
+    }
+  },
+  "grant": {
+    "all": "Tüm modeller",
+    "some_one": "{{count}} model",
+    "some_other": "{{count}} model"
+  },
+  "sharing": {
+    "on": "Paylaşım açık",
+    "address": "Paylaşım adresin",
+    "copy": "Kopyala",
+    "addressCopied": "Paylaşım adresi kopyalandı",
+    "addressCopyFailed": "Paylaşım adresi kopyalanamadı",
+    "settings": "Mod ve relay'ler P2P ayarlarında",
+    "workersNote": "P2P üzerinden katılan worker'lar Worker'lar sayfasında.",
+    "workersLink": "Worker'lar'a git"
+  }
+}

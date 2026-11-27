@@ -1,0 +1,132 @@
+{
+  "title": "Posta",
+  "intro": "Ajanlarının bir posta kutusunu IMAP üzerinden okumasına, izin verirsen SMTP üzerinden posta yazmasına izin ver. IMAP ve SMTP sunan her sağlayıcıyla çalışır.",
+  "limits": "Bu bağlantı gelen postaya kendi kendine yanıt vermez. Bir ajan, postanda yalnızca bir sohbette ondan istediğinde çalışır. Posta kutusundaki her şeye ulaşılabilir, bu yüzden yalnızca ajanın okumasını istediğin bir posta kutusunu bağla.",
+  "new": "Yeni posta bağlantısı",
+  "edit": "Posta bağlantısını düzenle",
+  "name": "Ad",
+  "agent": "Ajan",
+  "agentNone": "Bir ajan seç",
+  "agentCredentialsOnly": "Ajan yok (yalnızca kimlik bilgileri)",
+  "credentialsOnly": "Yalnızca kimlik bilgileri",
+  "agentNoModel": "{{name}} (model gerekli)",
+  "test": "Sına",
+  "testOk": "{{bot}} olarak bağlandı.",
+  "checkFailed": "Kaydedildi. Giriş kontrolü başarısız oldu: {{reason}}",
+  "checkSeveral": "Giriş kontrolleri, tek bir posta bağlantın olduğunda çalışır, çünkü bu sayfadan yapılan bir kontrol hangisini kastettiğini ayırt edemez. Bir sohbette bağlantıları Araçlar menüsünden etkinleştir.",
+  "check": {
+    "title": "{{name}} kontrolü",
+    "running": "İki giriş kontrol ediliyor...",
+    "at": "Kontrol zamanı: {{time}}",
+    "imapOk": "Posta okuma (IMAP): giriş çalışıyor.",
+    "smtpOk": "Posta gönderme (SMTP): giriş çalışıyor.",
+    "imapFailed": "Posta okuma (IMAP) başarısız oldu. {{reason}}",
+    "smtpFailed": "Posta gönderme (SMTP) başarısız oldu. {{reason}}"
+  },
+  "save": "Kaydet",
+  "cancel": "İptal",
+  "editButton": "Düzenle",
+  "delete": "Sil",
+  "empty": "Henüz posta bağlantısı yok.",
+  "noAddress": "Adres yok",
+  "agentOf": "Ajan: {{name}}",
+  "inactive": "Çalışmıyor: {{reason}}.",
+  "confirmDelete": {
+    "title": "{{name}} silinsin mi?",
+    "message": "Ajan artık bu posta kutusuna ulaşamaz ve onunla kaydedilen şifre silinir. Yeniden kurmak için her şeyi tekrar girmen gerekir.",
+    "confirm": "Sil"
+  },
+  "replace": "Sunucuyu veya giriş bilgilerini değiştir",
+  "savedAs": "{{address}} için kaydedildi. Sunucular ve şifre mühürlü saklanır ve gösterilemez. Herhangi birini değiştirmek için hepsini yeniden gir.",
+  "address": "Posta kutusu adresi",
+  "addressHelp": "Posta kutusunun adresi. Aynı zamanda ajanın gönderdiği postanın Kimden adresidir.",
+  "addressShape": "Tek bir düz adres yaz, örneğin name@example.com.",
+  "display": "Gönderen adı",
+  "displayHelp": "Ajanın gönderdiği postada adresin yanında gösterilir.",
+  "displayShape": "Tek satırda en fazla 100 karakter kullan.",
+  "username": "Kullanıcı adı",
+  "usernameHelp": "Her iki sunucunun girişi. Çoğu zaman adresin tamamı.",
+  "userShape": "Posta kutusunun kullanıcı adını gir.",
+  "password": "Şifre",
+  "passwordHelp": "Birçok sağlayıcı burada normal şifreyi değil, bir uygulama şifresi ister. Mühürlü saklanır ve bir daha gösterilmez.",
+  "passMissing": "Şifreyi gir.",
+  "passShape": "Şifre en fazla 512 karakterdir ve satır sonu içermez.",
+  "host": "Sunucu",
+  "port": "Port",
+  "imap": {
+    "title": "Posta okuma (IMAP)",
+    "hostExample": "imap.example.com"
+  },
+  "smtp": {
+    "title": "Posta gönderme (SMTP)",
+    "hostExample": "smtp.example.com"
+  },
+  "imapHostShape": "Yalnızca IMAP sunucusunun adını yaz, imap.example.com gibi: https://, port veya yol olmadan.",
+  "smtpHostShape": "Yalnızca SMTP sunucusunun adını yaz, smtp.example.com gibi: https://, port veya yol olmadan.",
+  "imapPortShape": "IMAP portu 993 veya 143'tür.",
+  "smtpPortShape": "SMTP portu 465 veya 587'dir.",
+  "imapPortSecurityMismatch": "993 portu TLS kullanır; 143 portu STARTTLS kullanır. Port ile korumayı eşleştir.",
+  "smtpPortSecurityMismatch": "465 portu TLS kullanır; 587 portu STARTTLS kullanır. Port ile korumayı eşleştir.",
+  "plainNotConfirmed": "Şifrenin korumasız gönderilmesini kabul ettiğini onayla veya TLS ya da STARTTLS seç.",
+  "security": {
+    "label": "Koruma",
+    "tls": "TLS",
+    "starttls": "STARTTLS",
+    "none": "Yok (güvenli değil)",
+    "plainWarning": "Koruma olmadan şifre ve tüm posta düz metin olarak iletilir. Ağ yolundaki herkes bunları okuyabilir. Yalnızca güvendiğin bir ağda kullan.",
+    "plainConfirm": "Şifrenin ve postanın korumasız gönderilmesini kabul ediyorum."
+  },
+  "folders": "Ajanın kullanabileceği klasörler",
+  "foldersHelp": "Her satıra bir tane. Her klasöre izin vermek için boş bırak. Listelenmeyen bir klasör reddedilir ve INBOX büyük/küçük harf ayırt edilmeden eşleşir.",
+  "foldersMany": "En fazla 20 klasör.",
+  "foldersShape": "Bir klasör adı tek satırda en fazla 200 karakterdir.",
+  "drafts": "Taslaklar klasörü",
+  "draftsHelp": "Yalnızca sunucu taslaklar klasörünü işaretlemiyorsa gerekir. Taslaklar önce sunucunun Drafts olarak işaretlediği klasöre gider.",
+  "tooLong": "Bağlantı kaydedilemeyecek kadar uzun. Klasör listesini kısalt.",
+  "setup": {
+    "title": "Posta kutusu nasıl bağlanır",
+    "step1": "Sağlayıcının yardım sayfalarında IMAP ve SMTP sunucu adlarını bul. İkisi de TLS veya STARTTLS kullanır.",
+    "step2": "Sağlayıcı destekliyorsa LocalAI için bir uygulama şifresi oluştur ve şifre olarak onu kullan. Normal bir şifre çoğu zaman IMAP ile çalışmaz.",
+    "step3": "Adresi, kullanıcı adını, şifreyi ve iki sunucuyu gir, sonra kaydet. Kaydetme, iki sunucuda da oturum açar.",
+    "step4": "Ajanın posta gönderip taslak oluşturup oluşturamayacağını ve önce sana sorup sormayacağını seç. Hepsine izin ver ile sormadan işlem yapar ve gönderilen posta geri alınamaz.",
+    "private": "Posta sunucuları herkese açık internette olmalı: özel bir ağın içindeki adresler reddedilir."
+  },
+  "writeMode": {
+    "label": "Ajanın postayla yapabilecekleri",
+    "hint": "Gönderme ve taslak kaydetme. Postayı asla silmez, taşımaz, işaretlemez veya iletmez.",
+    "off": "Salt okunur",
+    "propose": "Önce sana sorar",
+    "line": {
+      "off": "Yalnızca okuyabilir.",
+      "propose": "Her gönderim ve her taslak senin onayını bekler.",
+      "auto": "Sohbetlerin sormadan gönderir ve kaydeder."
+    },
+    "note": {
+      "off": "Yazma erişimi kapalı: bu bağlantı yalnızca okur.",
+      "propose": "Her gönderim ve her taslak, sen onaylayana kadar onaylarında bekler. Gönderilen posta geri alınamaz ve Kime ile Cc'deki herkes onu okuyacak.",
+      "auto": "Senin bir sohbetin postayı sormadan hemen gönderir ve kaydeder. Gönderilen posta geri alınamaz ve Kime ile Cc'deki herkes onu okuyacak. Sen yokken çalışan işler yine de onayını bekler."
+    },
+    "row": {
+      "off": "Salt okunur",
+      "propose": "Önce sana sorar",
+      "auto": "Hepsine izin ver"
+    },
+    "auto": "Hepsine izin ver"
+  },
+  "approval": {
+    "action": {
+      "send-message": "E-posta gönder",
+      "save-draft": "E-posta taslağı kaydet"
+    },
+    "from": "Kimden",
+    "to": "Kime",
+    "cc": "Cc",
+    "subject": "Konu",
+    "reply": "Yanıt",
+    "replyYes": "Mevcut bir konuşmanın parçası",
+    "text": "Postanın metni",
+    "cut": "Burada gösterilen metin kısaltıldı. Metnin tamamı, {{bytes}} bayt, kullanılır.",
+    "noteSend": "Gönderme geri alınamaz. Kime ve Cc'deki herkes bunu senin adresinden okuyacak.",
+    "noteDraft": "Bu, Taslaklar klasörüne kaydedilir. Hiçbir şey gönderilmez."
+  }
+}

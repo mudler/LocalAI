@@ -12,11 +12,12 @@ import fr from './i18n/slack.fr.json'
 import zh from './i18n/slack.zh-CN.json'
 import id from './i18n/slack.id.json'
 import ko from './i18n/slack.ko.json'
+import tr from './i18n/slack.tr.json'
 import pt from './i18n/slack.pt-BR.json'
 import { APP_MANIFEST, SLACK_LISTS, isTrustChannel, slackSecret, tokenProblem } from './tokens'
 
 // The words of the page, in every language of the web UI; a key a language lacks reads in English.
-registerLocales({ slack: { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
+registerLocales({ slack: { en, it, es, de, fr, 'zh-CN': zh, id, ko, tr, 'pt-BR': pt } })
 
 // The two tokens of a Slack app. They are typed only to replace them.
 function SlackTokens({ form, setForm, t }) {

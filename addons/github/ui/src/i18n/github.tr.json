@@ -1,0 +1,145 @@
+{
+  "title": "GitHub",
+  "intro": "Ajanlarının listelediğin depoların kodunu, issue'larını ve pull request'lerini okumasına izin ver. İzin verirsen orada yorum yapabilir ve issue açabilirler.",
+  "limits": "Bu bağlantı GitHub'daki @mention'lara henüz yanıt vermez. Bir ajan, GitHub'da yalnızca bir sohbette ondan istediğinde çalışır.",
+  "new": "Yeni GitHub bağlantısı",
+  "edit": "GitHub bağlantısını düzenle",
+  "name": "Ad",
+  "token": "İnce ayrıntılı erişim token'ı",
+  "tokenHelp": "github_pat_ ile başlar. Mühürlü saklanır ve bir daha gösterilmez.",
+  "tokenLink": "GitHub'da token oluştur",
+  "tokenSaved": "Kaydedildi. Değiştirmek için bir token yaz.",
+  "tokenShape": "İnce ayrıntılı (fine-grained) bir token kullan: github_pat_ ile başlar.",
+  "tokenSpace": "Token'da boşluk yoktur. Etrafındaki boşluklar olmadan yeniden kopyala.",
+  "repos": "Ajanın kullanabileceği depolar",
+  "reposHelp": "Her satıra bir tane: owner/name, bir sahibin tüm depoları için owner/* veya token'ın ulaşabildiği her depo için *. {{count}} listelendi. Başka her depo reddedilir.",
+  "reposShape": "\"{{entry}}\" owner/name (veya owner/*, veya *) biçiminde yazılmamış, örneğin mudler/LocalAI.",
+  "reposMany": "En fazla 50 depo.",
+  "agent": "Ajan",
+  "agentNone": "Bir ajan seç",
+  "agentCredentialsOnly": "Ajan yok (yalnızca kimlik bilgileri)",
+  "credentialsOnly": "Yalnızca kimlik bilgileri",
+  "agentNoModel": "{{name}} (model gerekli)",
+  "test": "Sına",
+  "testOk": "{{bot}} olarak bağlandı.",
+  "checkFailed": "Kaydedildi. Token kontrolü başarısız oldu: {{reason}}",
+  "checkSeveral": "Depo kontrolleri, tek bir GitHub bağlantın olduğunda çalışır, çünkü bu sayfadan yapılan bir kontrol hangisini kastettiğini ayırt edemez. Bir sohbette bağlantıları Araçlar menüsünden etkinleştir.",
+  "check": {
+    "title": "{{name}} kontrolü",
+    "running": "Depolar kontrol ediliyor...",
+    "at": "Kontrol zamanı: {{time}}",
+    "unreachable": "{{repo}}: bu token ona ulaşamıyor. GitHub'da token'ın depolarına ekle.",
+    "readOnly": "{{repo}}: ulaşılabilir, salt okunur.",
+    "readWrite": "{{repo}}: ulaşılabilir ve token yazabilir.",
+    "refused": "{{repo}}: GitHub bu token'ı reddetti. Süresinin dolmadığını ve bu depoyu kapsadığını kontrol et.",
+    "failed": "{{repo}}: kontrol tamamlanmadı. Biraz sonra yeniden dene.",
+    "owner": "{{repo}}: bu sahibin tüm depoları. Token yalnızca GitHub'ın onun için listelediği depolara ulaşır.",
+    "any": "Herhangi bir depo: token {{count}} depoya ulaşıyor.",
+    "anyMore": "Herhangi bir depo: token en az {{count}} depoya ulaşıyor."
+  },
+  "save": "Kaydet",
+  "cancel": "İptal",
+  "editButton": "Düzenle",
+  "delete": "Sil",
+  "empty": "Henüz GitHub bağlantısı yok.",
+  "noRepos": "Listelenmiş depo yok: ajan hiçbirini okuyamaz.",
+  "reposOf": "{{count}} depo: {{list}}",
+  "agentOf": "Ajan: {{name}}",
+  "inactive": "Çalışmıyor: {{reason}}.",
+  "confirmDelete": {
+    "title": "{{name}} silinsin mi?",
+    "message": "Ajan artık bu depolara ulaşamaz ve onunla kaydedilen token silinir. Yeniden kurmak için token'ı tekrar girmen gerekir.",
+    "confirm": "Sil"
+  },
+  "setup": {
+    "title": "Token nasıl oluşturulur",
+    "link": "GitHub'da token oluştur",
+    "linkLabel": "GitHub'da token oluştur (yeni sekmede açılır)",
+    "step1": "Yukarıdaki düğmeyle GitHub'ı aç. Token'a bir ad ver, örneğin LocalAI, ve bir son kullanma tarihi belirle. Doksan gün iyi bir başlangıç.",
+    "step2": "Repository access altında Only select repositories'i seç ve buraya listelediklerini işaretle.",
+    "step3": "Permissions altında, istediğin mod için tablonun söylediğini ayarla. Diğer her şeyi kapalı bırak.",
+    "step4": "Token'ı oluştur, kopyala ve token alanına yapıştır. GitHub onu yalnızca bir kez gösterir.",
+    "table": {
+      "caption": "Token'a verilecek depo izinleri",
+      "permission": "İzin",
+      "read": "Salt okunur",
+      "write": "Önce sorar veya sormadan işlem yapar",
+      "contents": "Contents",
+      "issues": "Issues",
+      "pulls": "Pull requests",
+      "metadata": "Metadata",
+      "levels": {
+        "read": "Okuma",
+        "readwrite": "Okuma ve yazma",
+        "auto": "Okuma (GitHub ayarlar)"
+      }
+    }
+  },
+  "writeMode": {
+    "label": "Ajanın GitHub'da değiştirebilecekleri",
+    "hint": "Yorumlar, yeni issue'lar, etiketler ve issue kapatma. Kodu asla birleştirmez, silmez veya push etmez.",
+    "off": "Salt okunur",
+    "propose": "Önce sorar",
+    "auto": "Hemen çalıştırır",
+    "line": {
+      "off": "GitHub'da hiçbir şeyi değiştiremez.",
+      "propose": "Her değişiklik senin onayını bekler.",
+      "auto": "Sohbetlerin hemen gönderir."
+    },
+    "note": {
+      "off": "Yazma erişimi kapalı: bu bağlantı yalnızca okur.",
+      "propose": "Her değişiklik, sen onaylayana kadar onaylarında bekler. Bir ajanın yazdığı her şey, depoyu görebilen herkese açıktır.",
+      "auto": "Senin bir sohbetin değişikliği sormadan hemen gönderir. Ajanın yazdığı her şey, depoyu görebilen herkese açıktır. Sen yokken çalışan işler yine de onayını bekler."
+    },
+    "row": {
+      "off": "Salt okunur",
+      "propose": "Önce sorar",
+      "auto": "Hemen çalıştırır"
+    }
+  },
+  "approval": {
+    "action": {
+      "comment-issue": "#{{number}} numaralı issue'ya yorum yap",
+      "comment-pr": "#{{number}} numaralı pull request'e yorum yap",
+      "create-issue": "Yeni issue aç",
+      "edit-issue": "#{{number}} numaralıyı değiştir",
+      "add-labels": "#{{number}} numaralıya etiket ekle",
+      "review-comment-pr": "#{{number}} numaralı pull request'in bir satırına yorum yap"
+    },
+    "where": "Nerede",
+    "repo": "Depo: {{repo}}",
+    "open": "GitHub'da #{{number}} numaralıyı aç",
+    "as": "Şu olarak",
+    "asOne": "{{name}} bağlantısı",
+    "asFirst": "{{repo}} deposunu listeleyen ilk bağlantı",
+    "asUnknown": "{{repo}} deposunu listeleyen bir GitHub bağlantısı",
+    "text": "Gönderilecek metin",
+    "title": "Başlık",
+    "newTitle": "Yeni başlık",
+    "labels": "Etiketler",
+    "file": "Dosya ve satır",
+    "fileLine": "{{path}}, satır {{line}} ({{side}})",
+    "sideRight": "yeni dosya",
+    "sideLeft": "eski dosya",
+    "state": "Değişiklik",
+    "close": "Kapat",
+    "closeReason": "Kapat, sebep: {{reason}}",
+    "reopen": "Yeniden aç",
+    "completed": "tamamlandı",
+    "not_planned": "planlanmadı",
+    "public": "Herkese açık: {{repo}} deposunu görebilen herkes bunu görecek.",
+    "cut": "Burada gösterilen metin kısaltıldı. Metnin tamamı, {{bytes}} bayt, gönderilir."
+  },
+  "tokenClassic": "Bu klasik bir token (ghp_). Kullanmak için aşağıda klasik token'lara izin ver veya github_pat_ ile başlayan bir token oluştur.",
+  "classic": {
+    "allow": "Bu bağlantıda klasik bir token'a (ghp_) izin ver",
+    "warning": "Klasik bir token, listelediğin depolarla sınırlı değildir. Kapsamları hesabının ulaşabildiği her depoyu içerir. LocalAI listende olmayan her depoyu yine reddeder ve yazma modunu yine izler, ancak token sızarsa GitHub'ın kendisi bu token'a daha fazlasını yaptırırdı. İnce ayrıntılı bir token daha güvenlidir.",
+    "confirm": "Klasik bir token'ın depo listesinden daha geniş olduğunu anlıyorum."
+  },
+  "reposAnyAlone": "* zaten her depoyu kapsar. Diğer satırları kaldır.",
+  "any": {
+    "warning": "* ajanın, sonradan oluşturulanlar dahil token'ın ulaşabildiği her depoyu kullanmasına izin verir. Neyi değiştirebileceğine yine aşağıdaki yazma modu karar verir: Salt okunur ile hiçbir şeyi değiştirmez.",
+    "confirm": "Ajanın bu token'ın ulaştığı herhangi bir depoyu kullanabilmesini istiyorum."
+  },
+  "anyRepos": "Token'ın ulaşabildiği herhangi bir depo"
+}

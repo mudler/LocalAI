@@ -194,7 +194,7 @@ test('change proposals: a voice profile proposal reads its fields, has no Undo a
 
 test('voice profile card: every locale tells an administrator the voice becomes available to all users', async () => {
   const { readFileSync } = await import('node:fs')
-  for (const l of ['en', 'de', 'es', 'fr', 'id', 'it', 'ko', 'pt-BR', 'zh-CN']) {
+  for (const l of ['en', 'de', 'es', 'fr', 'id', 'it', 'ko', 'pt-BR', 'tr', 'zh-CN']) {
     const chats = JSON.parse(readFileSync(new URL(`../../public/locales/${l}/chats.json`, import.meta.url), 'utf8'))
     assert.ok(chats.changes.voice.consentAdmin, `${l}: changes.voice.consentAdmin`)
     assert.notEqual(chats.changes.voice.consentAdmin, chats.changes.voice.consent, l)
@@ -205,7 +205,7 @@ test('voice library: the name hint no longer says only admins make profiles', as
   const { readFileSync, readdirSync } = await import('node:fs')
   const dir = new URL('../../../../../addons/voice/ui/src/i18n/', import.meta.url)
   const files = readdirSync(dir).filter(f => f.startsWith('voice.') && f.endsWith('.json'))
-  assert.equal(files.length, 10)
+  assert.equal(files.length, 11)
   for (const f of files) {
     const body = JSON.parse(readFileSync(new URL(f, dir), 'utf8'))['voiceCreate.sections.details.body']
     assert.ok(body && !/admins|administrators|amministratori|administradores|administrateurs/i.test(body), f)
@@ -215,7 +215,7 @@ test('voice library: the name hint no longer says only admins make profiles', as
 test('change proposals: the project scope has a card label in every locale', async () => {
   const { readFileSync } = await import('node:fs')
   assert.ok(KNOWN_SCOPES.includes('project'))
-  for (const lang of ['de', 'en', 'es', 'fr', 'id', 'it', 'ko', 'pt-BR', 'zh-CN']) {
+  for (const lang of ['de', 'en', 'es', 'fr', 'id', 'it', 'ko', 'pt-BR', 'tr', 'zh-CN']) {
     const chats = JSON.parse(readFileSync(new URL(`../../public/locales/${lang}/chats.json`, import.meta.url), 'utf8'))
     for (const scope of KNOWN_SCOPES) {
       assert.ok(chats.changes.scope[scope], `${lang}: changes.scope.${scope}`)

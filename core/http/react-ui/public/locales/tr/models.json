@@ -1,0 +1,1052 @@
+{
+  "lifecycle": {
+    "update": {
+      "update": "Güncelleme var",
+      "edited": "Güncelleme var, tercihlerin gerekiyor",
+      "updating": "Yükseltiliyor",
+      "failed": "Yükseltme başarısız",
+      "held": "Bu sürümde tutuluyor"
+    },
+    "supporting": "Bu makineye uyan bir model bul, kur ve sahip olduklarına göz kulak ol.",
+    "title": "Modeller",
+    "navLabel": "Model yaşam döngüsü",
+    "views": {
+      "explore": "Keşfet",
+      "installed": "Kurulu"
+    },
+    "filters": {
+      "motion": "Hareket Yakalama",
+      "all": "Tümü",
+      "running": "Çalışıyor",
+      "idle": "Boşta",
+      "disabled": "Devre dışı",
+      "pinned": "Sabitlenmiş",
+      "distributed": "Dağıtık"
+    },
+    "installed": {
+      "searchPlaceholder": "Kurulu modellerde ara",
+      "count": "{{total}} içinden {{shown}}",
+      "backToAll": "Tüm kurulu modeller",
+      "eyebrow": "Bu makinede kurulu",
+      "summary": "{{count}} model hizmet vermeye hazır.",
+      "summaryHint": "Çalışma durumunu ve denetimlerini incelemek için bir model seç.",
+      "filterLabel": "Duruma göre filtrele",
+      "storageSummary": "Diskte {{total}} · modeller arasında {{shared}} paylaşılıyor",
+      "storageMissing": "{{count}} eksik başvuru"
+    },
+    "states": {
+      "running": "Çalışıyor",
+      "idle": "Boşta",
+      "disabled": "Devre dışı",
+      "working": "Çalışıyor…"
+    },
+    "actions": {
+      "load": "Yükle",
+      "loading": "Yükleniyor…",
+      "stop": "Durdur",
+      "reload": "Yeniden yükle",
+      "reloading": "Yeniden yükleniyor…",
+      "enable": "Modeli etkinleştir",
+      "disable": "Modeli devre dışı bırak",
+      "pin": "Sabitle (boştayken kaldırılmasın)",
+      "unpin": "Sabitlemeyi kaldır (boştayken kaldırılabilsin)",
+      "edit": "Yapılandırmayı düzenle",
+      "logs": "Backend günlükleri",
+      "delete": "Modeli sil",
+      "forModel": "{{model}} için işlemler",
+      "open": "{{useCase}} aç",
+      "manageInstallation": "Kurulumu yönet"
+    },
+    "actionNames": {
+      "load": "yüklenemedi",
+      "stop": "durdurulamadı",
+      "enable": "etkinleştirilemedi",
+      "disable": "devre dışı bırakılamadı",
+      "pin": "sabitlenemedi",
+      "unpin": "sabitlemesi kaldırılamadı",
+      "delete": "silinemedi",
+      "reload": "yeniden yüklenemedi"
+    },
+    "toasts": {
+      "loaded": "{{model}} yüklendi",
+      "stopped": "{{model}} durduruldu",
+      "enabled": "{{model}} etkinleştirildi",
+      "disabled": "{{model}} devre dışı bırakıldı",
+      "pinned": "{{model}} sabitlendi",
+      "unpinned": "{{model}} sabitlemesi kaldırıldı",
+      "deleted": "{{model}} silindi",
+      "reloaded": "Model yapılandırmaları yeniden yüklendi"
+    },
+    "confirm": {
+      "stopTitle": "Modeli Durdur",
+      "stopMessage": "{{model}} modeli durdurulsun mu?",
+      "deleteTitle": "Modeli Sil",
+      "deleteMessage": "{{model}} modeli silinsin mi? Bu işlem geri alınamaz."
+    },
+    "errors": {
+      "action": "{{model}} {{action}}: {{message}}",
+      "loadList": "Kurulu modeller yüklenemedi: {{message}}"
+    },
+    "detail": {
+      "title": "Ayrıntılar",
+      "state": "Durum",
+      "backend": "Backend",
+      "auto": "Otomatik",
+      "pinned": "Sabitlenmiş",
+      "yes": "evet",
+      "description": "Açıklama",
+      "noDescription": "Bu model için galeri açıklaması yok.",
+      "license": "Lisans",
+      "tags": "Etiketler",
+      "links": "Bağlantılar",
+      "distributed": "Dağıtık",
+      "source": "Kaynak",
+      "files": "Dosyalar",
+      "fileCount": "{{count}} dosya",
+      "fileCount_other": "{{count}} dosya",
+      "size": "Diskteki boyut",
+      "sharesFiles": "Dosya paylaştığı modeller",
+      "sharedBytes": "Diğer modellerle {{size}} paylaşılıyor",
+      "storageFiles": "Diskteki dosyalar",
+      "missingFiles": "Eksik dosyalar",
+      "missingCount": "{{count}} başvurulan dosya eksik",
+      "missingCount_other": "{{count}} başvurulan dosya eksik",
+      "adopted": "Sahiplenilmiş",
+      "adoptedHint": "Bir worker üzerinde bulundu ancak yerel olarak yapılandırılmamış. Kalıcı yapmak için yapılandırmayı kaydet.",
+      "alias": "takma ad → {{target}}",
+      "aliasTitle": "Takma ad → {{target}}",
+      "chain": "zincir → {{target}}",
+      "chainTitle": "Yük devretme zinciri → {{target}}"
+    },
+    "open": {
+      "title": "Aç",
+      "chat": "Sohbet",
+      "completion": "Tamamlama",
+      "image": "Görsel",
+      "video": "Video",
+      "tts": "TTS",
+      "transcribe": "Yazıya dök",
+      "sound": "Ses efekti",
+      "face": "Yüz",
+      "voice": "Ses",
+      "embeddings": "Embedding'ler",
+      "rerank": "Rerank",
+      "vad": "VAD",
+      "score": "Puan",
+      "decisions": "Kararlar"
+    },
+    "empty": {
+      "title": "Henüz kurulu model yok",
+      "text": "Başlamak için galeriyi keşfet veya bir model içe aktar.",
+      "explore": "Modelleri keşfet",
+      "import": "Model içe aktar",
+      "noMatches": "Bu filtrelerle eşleşen kurulu model yok.",
+      "clear": "Filtreleri temizle"
+    }
+  },
+  "title": "Modeller",
+  "subtitle": "Galeriden yapay zekâ modellerine göz at ve kur",
+  "models": "Modeller",
+  "storage": {
+    "searchPlaceholder": "Dosyaya veya modele göre filtrele…",
+    "columns": {
+      "file": "Dosya",
+      "size": "Boyut",
+      "status": "Durum",
+      "models": "Kullanan"
+    },
+    "status": {
+      "missing": "eksik",
+      "shared": "{{count}} tarafından paylaşılıyor"
+    },
+    "empty": "Başvurulan dosya yok."
+  },
+  "recommended": {
+    "title": "Bu makine için en iyisi",
+    "cpuNote": "GPU algılanmadı - CPU üzerinde de akıcı kalan küçük modeller.",
+    "gpuNote": "Kullanılabilir VRAM'ine ve bağlam payına sığacak şekilde boyutlandırıldı.",
+    "install": "Kur",
+    "installing": "Kuruluyor",
+    "installStarted": "{{model}} kuruluyor…",
+    "installFailed": "Kurulum başarısız: {{message}}",
+    "dismiss": "Önerileri kapat",
+    "summary": "{{n}} model önerildi",
+    "bestFit": "En uygun",
+    "window": "{{window}} bağlam",
+    "memory": "yaklaşık {{memory}} kullanımda",
+    "more": "sığan {{count}} tane daha",
+    "fewer": "Daha az göster",
+    "alternative": "Bu da sığar"
+  },
+  "stats": {
+    "available": "Mevcut",
+    "installed": "Kurulu"
+  },
+  "actions": {
+    "addModel": "Model ekle",
+    "importModel": "Model içe aktar",
+    "install": "Kur",
+    "reinstall": "Yeniden kur",
+    "delete": "Sil"
+  },
+  "filters": {
+    "sheetDone": "Modelleri göster",
+    "sheetTitle": "Filtreler",
+    "sheetButtonCount": "Filtreler ({{count}})",
+    "sheetButton": "Filtreler",
+    "motion": "Hareket Yakalama",
+    "forecast": "Tahminleme",
+    "all": "Tümü",
+    "llm": "Sohbet",
+    "image": "Görsel",
+    "video": "Video",
+    "threed": "3D",
+    "threedAnimation": "3D Animasyon",
+    "multimodal": "Çok kipli",
+    "vision": "Görü",
+    "tts": "TTS",
+    "stt": "STT",
+    "diarization": "Konuşmacı ayrımı",
+    "soundClassification": "Ses Etiketleme",
+    "soundGen": "Ses",
+    "audioTransform": "Ses Efektleri",
+    "realtimeAudio": "Gerçek Zamanlı Ses",
+    "embedding": "Embedding'ler",
+    "rerank": "Rerank",
+    "detection": "Algılama",
+    "vad": "VAD",
+    "ner": "NER",
+    "fitsGpu": "GPU'ya sığar",
+    "fitsMemory": "Belleğe sığar",
+    "collapseVariants": "Model başına tek satır",
+    "allBackends": "Tüm Backend'ler",
+    "searchBackends": "Backend ara...",
+    "contextSize": "Bağlam:",
+    "useCaseLabel": "Kullanım amacına göre filtrele",
+    "unavailableForBackend": "Seçili backend için kullanılamıyor",
+    "someSelected": "{{count}} seçili",
+    "refineLabel": "Daralt"
+  },
+  "search": {
+    "placeholder": "Modellerde ara...",
+    "clearFilters": "Filtreleri temizle"
+  },
+  "table": {
+    "modelName": "Model Adı",
+    "description": "Açıklama",
+    "backend": "Backend",
+    "sizeVram": "Boyut / VRAM",
+    "status": "Durum",
+    "actions": "İşlemler",
+    "size": "Boyut: {{size}}",
+    "vram": "VRAM: {{vram}}",
+    "fits": "Sığar",
+    "mayNotFit": "Sığmayabilir",
+    "trustRemoteCode": "Uzak Koda Güven",
+    "installing": "Kuruluyor",
+    "installingPct": "Kuruluyor · %{{percent}}",
+    "installed": "Kurulu",
+    "notInstalled": "Kurulu Değil"
+  },
+  "detail": {
+    "description": "Açıklama",
+    "gallery": "Galeri",
+    "backend": "Backend",
+    "size": "Boyut",
+    "vram": "VRAM",
+    "license": "Lisans",
+    "tags": "Etiketler",
+    "links": "Bağlantılar",
+    "warning": "Uyarı",
+    "files": "Dosyalar",
+    "fitsGpu": "GPU'ya sığar",
+    "mayNotFitGpu": "GPU'ya sığmayabilir",
+    "requiresTrustRemoteCode": "Uzak Koda Güven gerektirir",
+    "fileCount_one": "{{count}} dosya",
+    "fileCount_other": "{{count}} dosya",
+    "filename": "Dosya adı",
+    "uri": "URI",
+    "sha256": "SHA256",
+    "backToAll": "Tüm modeller",
+    "vramAt": "{{context}} bağlamda VRAM",
+    "memoryAt": "{{context}} bağlamda bellek",
+    "headroom": "Boşta kalan pay",
+    "headroomOn": "{{node}} üzerinde boşta kalan pay"
+  },
+  "empty": {
+    "title": "Model bulunamadı",
+    "withFilters": "Geçerli aramanla veya filtrelerinle eşleşen model yok.",
+    "library": "{{name}} kitaplığının bu sayfada modeli yok.",
+    "collapsedVariantsHint": "Başka bir girdinin zaten sunduğu alternatif yapılar gizli. Bunları dahil etmek için \"Model başına tek satır\" seçeneğini kapat.",
+    "noFilters": "Model galerisi boş."
+  },
+  "deleteDialog": {
+    "title": "Modeli Sil",
+    "message": "{{model}} modeli silinsin mi?",
+    "confirm": "{{model}} sil",
+    "deletingToast": "{{model}} siliniyor..."
+  },
+  "errors": {
+    "loadFailed": "Modeller yüklenemedi: {{message}}",
+    "installFailed": "Kurulamadı: {{message}}",
+    "deleteFailed": "Silinemedi: {{message}}"
+  },
+  "selector": {
+    "loading": "Modeller yükleniyor...",
+    "selectModel": "Model seç...",
+    "searchPlaceholder": "Modellerde ara...",
+    "noModels": "Kullanılabilir model yok"
+  },
+  "variants": {
+    "title": "Varyantlar",
+    "chooseVariant": "Bir varyant seç",
+    "auto": "Otomatik",
+    "autoSelected": "Otomatik seçildi",
+    "base": "Temel yapı",
+    "doesNotFit": "Sığmaz",
+    "unknownSize": "Bilinmeyen boyut",
+    "unknownBackend": "Bilinmeyen backend",
+    "loading": "Varyantlar yükleniyor...",
+    "installVariant": "{{variant}} kur",
+    "quantizationTitle": "Ağırlık biçimi",
+    "unknownQuantization": "Bilinmeyen biçim",
+    "showDetails": "{{variant}} için tüm ayrıntıları göster",
+    "hideDetails": "{{variant}} için tüm ayrıntıları gizle",
+    "detailsLoading": "Ayrıntılar yükleniyor...",
+    "detailsUnavailable": "{{variant}} için ayrıntılar yüklenemedi.",
+    "features": {
+      "dflash": "Daha hızlı: DFlash",
+      "mtp": "Daha hızlı: MTP"
+    }
+  },
+  "rail": {
+    "sortLabel": "Modelleri sırala",
+    "downloadingPct": "indiriliyor %{{percent}}",
+    "tooLarge": "{{size}} · çok büyük",
+    "fitsSize": "{{size}} · sığar",
+    "previousPage": "Önceki sayfa",
+    "nextPage": "Sonraki sayfa",
+    "showingCount": "{{total}} içinden {{shown}}",
+    "sizing": "boyutlandırılıyor…"
+  },
+  "groups": {
+    "text": "Metin ve akıl yürütme",
+    "vision": "Görü",
+    "audio": "Konuşma ve ses",
+    "visual": "Görsel ve video",
+    "other": "Diğer her şey"
+  },
+  "chart": {
+    "title": "Bağlam uzunluğuna göre VRAM",
+    "titleRam": "Bağlam uzunluğuna göre bellek",
+    "available": "{{vram}} kullanılabilir",
+    "barTitle": "{{context}} bağlam için {{vram}} gerekiyor",
+    "fitsEverywhere": "Bu makinede her bağlam uzunluğunda çalışır.",
+    "fitsNowhere": "Bu makineye hiçbir bağlam uzunluğunda sığmaz.",
+    "fitsUpTo": "{{context}} bağlama kadar sığar."
+  },
+  "shelves": {
+    "hostLabel": "Makinen",
+    "heroWithGpu": "{{vram}} GPU belleği, galeride {{count}} model.",
+    "heroNoGpu": "Galeride {{count}} model.",
+    "heroHint": "Boyutunu, varyantlarını ve burada çalışıp çalışmayacağını görmek için soldan herhangi birini seç.",
+    "browsing": "Göz atılıyor",
+    "pickHint": "Ayrıntısını görmek için bir model seç.",
+    "heroWithRam": "{{ram}} sistem belleği, galeride {{count}} model.",
+    "heroWithCluster": "{{nodes}} düğümün en büyüğü olan {{node}} üzerinde {{vram}}, galeride {{count}} model.",
+    "heroWithNode": "{{node}} üzerinde {{vram}}, galeride {{count}} model.",
+    "byUseCase": "Veya bir kullanım amacıyla başla",
+    "pickText": "Sohbet, akıl yürütme, embedding'ler",
+    "pickVision": "Görselleri ve belgeleri oku",
+    "pickAudio": "Konuşmayı anla ve konuş",
+    "pickVisual": "Görsel ve video üret"
+  },
+  "failover": {
+    "title": "Yük devretme zinciri",
+    "servedBy": "Hizmet veren",
+    "changed": "{{time}} değişti",
+    "pinnedTo": "{{target}} hedefine sabitlendi",
+    "warm": "Hazır",
+    "never": "Hiç",
+    "states": {
+      "primary": "Birincil",
+      "fallback": "Yedek",
+      "degraded": "Düşük performanslı",
+      "healthy": "Sağlıklı",
+      "down": "Çalışmıyor",
+      "recovering": "Toparlanıyor",
+      "missing": "Eksik"
+    },
+    "kinds": {
+      "local": "Yerel",
+      "remote": "Uzak"
+    },
+    "columns": {
+      "target": "Hedef",
+      "kind": "Tür",
+      "warm": "Hazır",
+      "health": "Sağlık",
+      "lastProbe": "Son yoklama",
+      "lastError": "Son hata",
+      "actions": "İşlemler"
+    },
+    "actions": {
+      "pin": "Sabitle",
+      "pinning": "Sabitleniyor…",
+      "unpin": "Sabitlemeyi kaldır",
+      "unpinning": "Sabitleme kaldırılıyor…"
+    },
+    "confirm": {
+      "pinTitle": "{{target}} sabitlensin mi?",
+      "pinMessage": "Sabitlemeyi kaldırana kadar {{chain}} zincirine yalnızca {{target}} hizmet verir. Bu zincir için otomatik yük devretme durur.",
+      "unpinTitle": "{{chain}} sabitlemesi kaldırılsın mı?",
+      "unpinMessage": "{{chain}} otomatik yük devretmeye döner."
+    },
+    "errors": {
+      "pin": "Sabitleme başarısız: {{error}}",
+      "unpin": "Sabitlemeyi kaldırma başarısız: {{error}}"
+    },
+    "overview": {
+      "title": "Yük devretme zincirleri",
+      "subtitle": "Her yük devretme zinciri için canlı sağlık durumu ve etkin hedef.",
+      "columns": {
+        "chain": "Zincir",
+        "state": "Durum",
+        "active": "Etkin hedef",
+        "targets": "Hedefler",
+        "changed": "Değişiklik"
+      },
+      "empty": {
+        "title": "Henüz yük devretme zinciri yok",
+        "text": "Sağlıksız hedeflerin çevresinden otomatik yönlendirme yapmak için bir yük devretme zinciri ekle.",
+        "cta": "Yük devretme zinciri oluştur"
+      }
+    }
+  },
+  "ledger": {
+    "caption": "{{context}} bağlamda boyut ve uyumla galeri modelleri",
+    "selected": "Seçili",
+    "inspector": "Model ayrıntıları",
+    "closeInspector": "Ayrıntıları kapat",
+    "builds": "Birkaç yapı",
+    "retry": "Yeniden dene",
+    "retryNamed": "{{model}} kurulumunu yeniden dene",
+    "installNamed": "{{model}} kur",
+    "failedInstall": "Kurulum başarısız: {{message}}",
+    "sizeUnknownTitle": "Galeri bu modeli listelemiyor, bu yüzden diskteki boyutu bilinmiyor",
+    "sizeEstimateTitle": "Galerideki dosya boyutlarından tahmin edildi. Diskteki boyut okunamadı.",
+    "sizeOnDiskTitle": "Diskte {{exact}}",
+    "sharedSize": "{{size}} paylaşılıyor",
+    "sharedSizeTitle": "Bu modelin dosyalarının {{size}} kadarını {{models}} de kullanıyor. Bu modeli kaldırmak onları diskte bırakır.",
+    "columns": {
+      "size": "Boyut",
+      "fit": "{{context}} bağlamda uyum"
+    },
+    "density": {
+      "label": "Satır yoğunluğu",
+      "comfortable": "Rahat satırlar",
+      "compact": "Sıkı satırlar"
+    },
+    "basis": {
+      "gpu": "Uyum, {{memory}} GPU belleğine göre ölçülür",
+      "ram": "GPU bulunamadı. Uyum, {{memory}} belleğe göre ölçülür",
+      "cluster": "Uyum, {{node}} üzerindeki {{memory}} değerine göre ölçülür"
+    },
+    "fit": {
+      "free": "{{amount}} boş",
+      "spill": "CPU'da +{{amount}}",
+      "over": "{{amount}} fazla",
+      "noEstimate": "Tahmin yok",
+      "fitsTitle": "{{context}} bağlamda {{need}} gerekiyor. Sığar, {{amount}} boş kalır.",
+      "spillTitle": "{{context}} bağlamda {{need}} gerekiyor. {{amount}} CPU üzerinde çalışır.",
+      "overTitle": "{{context}} bağlamda {{need}} gerekiyor. Bu, bu makinedekinden {{amount}} fazla."
+    },
+    "summary": {
+      "title": "Bu makineye uyum",
+      "onNode": " en büyük düğümde",
+      "fits": "{{context}} bağlamda {{need}} gerekiyor. Sığar, {{free}} boş kalır.",
+      "spill": "{{context}} bağlamda {{need}} gerekiyor. {{cpu}} CPU üzerinde çalışır, bu da daha yavaştır.",
+      "overGpu": "{{context}} bağlamda {{need}} gerekiyor. Bu, GPU belleği ve RAM'in birlikte boş olan miktarından {{over}} fazla.",
+      "overRam": "{{context}} bağlamda {{need}} gerekiyor. Bu, bu makinedekinden {{over}} fazla.",
+      "gpu": "GPU",
+      "ram": "RAM"
+    },
+    "offline": {
+      "title": "Galeriye ulaşılamıyor.",
+      "stale": "Son liste gösteriliyor. Kurulum için bağlantı gerekir. ({{message}})",
+      "empty": "{{message}}",
+      "emptyTitle": "Gösterilecek liste yok",
+      "emptyText": "Galeriye ulaşılamadı. Bağlantını kontrol et, ardından yeniden dene."
+    },
+    "hostOnly": {
+      "gpu": "{{memory}} GPU belleği",
+      "ram": "{{memory}} bellek, GPU yok",
+      "none": "Bu makine"
+    },
+    "emptyGalleryHint": "Galeride model yok. Yukarıdaki düğmelerle yapılandırmasından bir model ekle veya bir tane içe aktar.",
+    "keys": {
+      "search": "ara",
+      "move": "gezin",
+      "install": "kur",
+      "density": "yoğunluk",
+      "close": "kapat"
+    }
+  },
+  "disk": {
+    "free": "{{amount}} boş",
+    "low": "Disk az",
+    "lowShort": "Disk az.",
+    "stripAria": "Model diski: {{total}} içinden {{free}} boş. {{low}} Temizlik incelemesini aç.",
+    "leaves": "{{size}} indirme, {{amount}} boş bırakır",
+    "notEnough": "{{size}} indirme. Diskte boş alan bundan {{amount}} daha az.",
+    "freeUp": "Yer aç"
+  },
+  "cleanup": {
+    "title": "Disk ve temizlik",
+    "desc": "{{total}} içinden {{free}} boş. Modeller {{models}} yer kaplıyor.",
+    "close": "Kapat",
+    "meterAria": "Disk: {{other}} diğer dosyalar, {{models}} modeller, {{free}} boş",
+    "legend": {
+      "other": "Diğer",
+      "models": "Modeller",
+      "frees": "Açılan",
+      "free": "Boş"
+    },
+    "noUsage": {
+      "title": "Kullanım geçmişi henüz kaydedilmiyor.",
+      "text": "Modeller, LocalAI'nin görebildiği şeylere göre sıralanır: yüklü, sabitlenmiş veya bir ajan, görev, yük devretme zinciri ya da takma ad tarafından kullanılıp kullanılmadığı, başka bir yapısının kurulu olup olmadığı ve galerinin onu yeniden indirebilip indiremeyeceği."
+    },
+    "sizes": {
+      "disk": "Boyutlar, her modelin diskte kapladığı yerdir. Kurulu başka bir modelin de kullandığı dosya hesaba katılmaz, çünkü bir modeli kaldırmak onu geride bırakır.",
+      "estimate": "Diskteki boyut okunamadı, bu yüzden boyutlar galerideki dosya boyutlarından tahmin edildi. Galerinin listelemediği bir modelin tahmini yoktur."
+    },
+    "sharedWith": "{{models}} ile {{size}} paylaşıyor. Bu dosyalar, o model de gitmedikçe diskte kalır.",
+    "missing": {
+      "note": "Yapılandırma diskte olmayan dosyalara işaret ediyor: {{models}}. İndirme tamamlanmamış olabilir veya dosyalar elle kaldırılmış olabilir.",
+      "item": "Yapılandırma diskte olmayan {{count}} dosyaya işaret ediyor.",
+      "item_other": "Yapılandırma diskte olmayan {{count}} dosyaya işaret ediyor."
+    },
+    "unverified": "Bazı ajanlar veya görevler okunamadı, bu yüzden hiçbir şey güvenli olarak işaretlenmedi. Daha sonra yeniden dene.",
+    "count_one": "{{count}} model",
+    "count_other": "{{count}} model",
+    "selectAll": "Tümünü seç",
+    "clearGroup": "Temizle",
+    "selectModel": "{{model}} seç",
+    "sizeUnknown": "boyut bilinmiyor",
+    "checkingBuilds": "Kurulu yapılar denetleniyor",
+    "tier": {
+      "safe": {
+        "title": "Kaldırması güvenli",
+        "hint": "Aynı modelin başka bir yapısı kurulu ve bunu hiçbir şey kullanmıyor."
+      },
+      "probably": {
+        "title": "Muhtemelen güvenli",
+        "hint": "Kapalı ve kullanılmıyor. Galeri bunları yeniden indirebilir."
+      },
+      "call": {
+        "title": "Karar senin",
+        "hint": "Bunları hiçbir şey kullanmıyor ve hiçbiri yüklü değil. LocalAI bunları en son ne zaman kullandığını bilemez, bu yüzden sen karar verirsin."
+      }
+    },
+    "reason": {
+      "duplicate": "Başka bir yapı kurulu: {{keep}}. LocalAI bu makinede onu seçerdi.",
+      "disabledGallery": "Devre dışı ve kullanılmıyor. Yeniden indirilebilir.",
+      "disabledLocal": "Devre dışı ve kullanılmıyor. Galeride olmadığı için yeniden indirilemez.",
+      "idleGallery": "Yüklü değil ve hiçbir şey tarafından kullanılmıyor. Yeniden indirilebilir.",
+      "idleLocal": "Yüklü değil ve hiçbir şey tarafından kullanılmıyor. Galeride olmadığı için yeniden indirilemez.",
+      "unverified": "Ajanlar veya görevler denetlenemedi.",
+      "running": "Şu an yüklü.",
+      "pinned": "Sabitlenmiş.",
+      "usedBy": "Kullanan: {{by}}."
+    },
+    "ref": {
+      "agent": "\"{{name}}\" ajanı",
+      "task": "\"{{name}}\" görevi",
+      "chain": "\"{{name}}\" yük devretme zinciri",
+      "alias": "\"{{name}}\" takma adı"
+    },
+    "protected": {
+      "title": "Korumalı",
+      "never": "asla önerilmez"
+    },
+    "empty": {
+      "title": "Yer açılacak bir şey yok",
+      "text": "Kurulu her model yüklü, sabitlenmiş veya kullanımda ya da hiç model kurulu değil."
+    },
+    "effect": {
+      "none": "Hiçbir şey seçilmedi",
+      "couldFree": "{{count}} model en fazla {{amount}} yer açabilir.",
+      "couldFreeUnknown": "{{count}} model kaldırılabilir. Boyutları bilinmiyor.",
+      "selected_one": "{{count}} model seçildi",
+      "selected_other": "{{count}} model seçildi",
+      "frees": "{{freed}} yer açar. Sonrasında {{after}} boş olur, şu an {{now}}.",
+      "freesNoDisk": "{{freed}} yer açar.",
+      "unknown_one": "{{count}} boyut bilinmiyor ve sayılmıyor.",
+      "unknown_other": "{{count}} boyut bilinmiyor ve sayılmıyor.",
+      "pending": "Bir kaldırma işlemi bekliyor. Önce onu geri al veya bitmesini bekle."
+    },
+    "clear": "Temizle",
+    "pickSafe_one": "Güvenli olanı seç",
+    "pickSafe_other": "Güvenli olan {{count}} modeli seç",
+    "remove_one": "{{count}} modeli kaldır",
+    "remove_other": "{{count}} modeli kaldır",
+    "confirm": {
+      "title_one": "{{count}} model kaldırılsın mı?",
+      "title_other": "{{count}} model kaldırılsın mı?",
+      "caption": "Kaldırılacak modeller, nedenleri ve boyutları",
+      "effect": "Bu işlem {{freed}} yer açar. {{after}} boş alanın olur, şu an {{now}}.",
+      "effectNoDisk": "Bu işlem {{freed}} yer açar.",
+      "unknownSizes_one": "{{count}} modelin bilinen boyutu yok ve sayılmıyor.",
+      "unknownSizes_other": "{{count}} modelin bilinen boyutu yok ve sayılmıyor.",
+      "none": "Kaldırılacak bir şey kalmadı",
+      "close": "Kapat",
+      "dropped": "Artık kullanımda oldukları için dışarıda bırakıldı: {{names}}.",
+      "checked": "Az önce denetlendi. Yüklü hiçbir model, sabitlenmiş model, ajan, görev, yük devretme zinciri veya takma ad bunları kullanmıyor.",
+      "hold": "Henüz hiçbir şey silinmedi. Dosyalar, geri alabilmen için {{seconds}} saniye saklanır. Sonrasında diskten silinir. Bunları yeniden indirmek zaman alır."
+    },
+    "undo": "Geri al",
+    "toasts": {
+      "undoMessage_one": "{{count}} model kaldırıldı. Geri alma süresi {{seconds}} sn içinde bitince {{amount}} yer açılır.",
+      "undoMessage_other": "{{count}} model kaldırıldı. Geri alma süresi {{seconds}} sn içinde bitince {{amount}} yer açılır.",
+      "removing_one": "{{count}} model siliniyor...",
+      "removing_other": "{{count}} model siliniyor...",
+      "removed_one": "{{count}} model silindi.",
+      "removed_other": "{{count}} model silindi.",
+      "failed": "{{model}} silinemedi: {{message}}",
+      "skipped": "Bu arada yüklendikleri için silinmedi: {{models}}",
+      "abandoned_one": "Sayfadan ayrıldığın için {{count}} model silinmedi.",
+      "abandoned_other": "Sayfadan ayrıldığın için {{count}} model silinmedi."
+    }
+  },
+  "page": {
+    "back": "Modeller",
+    "openDetails": "Ayrıntıları aç",
+    "openFor": "{{model}} için ayrıntıları aç",
+    "loading": "Model yükleniyor",
+    "chooseBuild": "Bir yapı seç",
+    "installBuild": "{{build}} kur",
+    "walk": {
+      "label": "Bu listedeki modeller",
+      "previous": "Önceki model",
+      "next": "Sonraki model",
+      "position": "{{total}} içinden {{index}}"
+    },
+    "keys": {
+      "walk": "önceki ve sonraki model",
+      "tabs": "bölümler",
+      "back": "listeye dön"
+    },
+    "tabs": {
+      "label": "Bu modelin bölümleri",
+      "overview": "Genel bakış",
+      "fit": "Uyum ve bellek",
+      "variants": "Varyantlar ve dosyalar",
+      "usage": "Kullanım ve geçmiş",
+      "config": "Yapılandırma",
+      "logs": "Günlükler"
+    },
+    "primary": {
+      "running": "Şu an çalışıyor",
+      "idle": "Yüklü değil. İlk kullanımda yüklenir.",
+      "disabled": "Kapalı. Kullanmak için etkinleştir."
+    },
+    "install": {
+      "title": "{{build}} kuruluyor",
+      "bytes": "{{total}} içinden {{done}}",
+      "eta": "yaklaşık {{time}} kaldı",
+      "seconds": "{{count}} sn",
+      "minutes": "{{count}} dk",
+      "cancel": "İptal"
+    },
+    "missing": {
+      "title": "{{id}} adlı model yok",
+      "text": "Ne bu sunucuda ne de galeride bu adda bir model var. Kaldırılmış veya yeniden adlandırılmış olabilir.",
+      "closest": "En yakın eşleşmeler",
+      "back": "Modellere dön"
+    },
+    "offline": {
+      "installDisabled": "Galeri gerekiyor",
+      "text": "Kurulum için bağlantı gerekir. Bağlantını kontrol et, ardından yeniden dene.",
+      "installedOnly": "Bu sunucunun kurulu model hakkında bildikleri gösteriliyor."
+    },
+    "answer": {
+      "label": "Tek bakışta",
+      "fit": "Bu makineye uyum",
+      "does": "Ne yapar",
+      "install": "Kur",
+      "state": "Durum",
+      "fitLoading": "Tahmin okunuyor...",
+      "fitNone": "Bu model için henüz tahmin yok.",
+      "opensIn": "{{useCases}} içinde açılır.",
+      "opensAfter": "Kurulumdan sonra eşleşen sayfada açılır.",
+      "installing": "Kuruluyor",
+      "installingPct": "Kuruluyor %{{percent}}",
+      "installingNote": "Bu sayfadan ayrılırsan indirme devam eder.",
+      "failed": "Kurulum başarısız",
+      "notInstalled": "Kurulu değil",
+      "notInstalledNote": "Kullanmak için kur.",
+      "leaves": "Model diskinde {{amount}} boş bırakır.",
+      "runningNote": "Bellekte yüklü ve hazır.",
+      "idleNote": "Kurulu. İlk kullanımda yüklenir veya şimdi yükleyebilirsin.",
+      "disabledNote": "Kapalı. Kullanmak için etkinleştir."
+    },
+    "overview": {
+      "about": "Hakkında",
+      "glance": "Tek bakışta uyum",
+      "status": "Durum ve kullanım",
+      "maxContext": "En büyük bağlam",
+      "tokens": "{{size}} token"
+    },
+    "usedBy": {
+      "title": "Kullanan",
+      "loading": "Ajanlar, görevler, zincirler ve takma adlar aranıyor...",
+      "none": "Hiçbir ajan, görev, yük devretme zinciri veya takma ad bu modelin adını anmıyor.",
+      "unknown": "Hiçbir şey bulunamadı, ancak her arama okunamadı, bu yüzden eksik olabilir.",
+      "partial": "Her arama okunamadı, bu yüzden bu liste eksik olabilir.",
+      "kind": {
+        "agent": "Ajan",
+        "task": "Görev",
+        "chain": "Zincir",
+        "alias": "Takma ad"
+      }
+    },
+    "fit": {
+      "fitsGpu": "GPU'ya sığar",
+      "fitsMemory": "Belleğe sığar",
+      "spill": "CPU'ya taşar",
+      "over": "Sığmaz",
+      "fitsText": "{{context}} bağlamda kullanılabilir {{free}} içinden {{need}} gerekiyor. {{spare}} boş kalır.",
+      "build": "Yapı",
+      "context": "Bağlam",
+      "weights": "Ağırlıklar ve çalışma belleği",
+      "poolGpu": "GPU, {{memory}}",
+      "poolRam": "Sistem belleği, {{memory}}",
+      "barAria": "{{pool}}: bu model {{need}} gerektirir. İşaret, bu sayfanın bir modele kullandırdığı {{limit}} değerini gösterir.",
+      "limitNote": "Uyum, listeyle aynı sınır olan belleğin yüzde {{percent}} değerine kadar sayılır.",
+      "chartTitle": "Bağlam boyutuna göre gereken bellek ({{build}})",
+      "chartTitleRam": "Bağlam boyutuna göre gereken sistem belleği ({{build}})",
+      "limitLabel": "{{memory}} kullanılabilir {{pool}}",
+      "gpuMemory": "GPU belleği",
+      "systemMemory": "sistem belleği",
+      "dataTable": "Veri tablosu",
+      "needs": "Gereken",
+      "verdict": "Sonuç",
+      "tableFits": "Sığar",
+      "tableOver": "Sığmaz",
+      "flat": "Bu model için bellek bağlam boyutuyla artmıyor, bu yüzden grafik yok.",
+      "footnote": "Tahminler, model dosyasından ve bu makinenin belleğinden gelir. Farklı bir yapı veya bağlam boyutu çubukları değiştirir.",
+      "loading": "Tahmin okunuyor",
+      "noMachine": "Bu makinenin belleği okunamadı, bu yüzden bir sonuç yok.",
+      "unavailableTitle": "Tahmin yok",
+      "unavailableText": "Tahmin için modelin dosyaları gerekir ve galeri bu yapı için hiçbirini listelemiyor.",
+      "unavailableInstalled": "Sunucu bu modelin dosyalarını okuyamadı. Eksik olabilirler, hâlâ iniyor olabilirler veya tahminin kapsamadığı bir biçimde olabilirler."
+    },
+    "variants": {
+      "caption": "Bu modelin yapıları: boyut ve uyum",
+      "build": "Yapı",
+      "chosen": "Seçilen yapı",
+      "choose": "{{build}} yapısını kullan",
+      "fit": "Uyum",
+      "fitAt": "Uyum {{context}} bağlamda gösteriliyor",
+      "fitsGpu": "GPU'ya sığar",
+      "fitsMemory": "Belleğe sığar",
+      "fitsServer": "Sığar",
+      "spill": "CPU'da +{{amount}} GB",
+      "over": "{{amount}} GB fazla",
+      "single": "Bu modelin tek bir yapısı var.",
+      "error": "Yapı listesi okunamadı.",
+      "noFiles": "Galeri bu yapı için dosya listelemiyor.",
+      "filesCaption": "{{build}} dosyaları",
+      "source": "Kaynak",
+      "status": "Durum",
+      "notDownloaded": "İndirilmedi",
+      "onDisk": "Diskte",
+      "downloading": "İndiriliyor %{{percent}}"
+    },
+    "files": {
+      "title": "Diskteki dosyalar",
+      "view": "Dosyaları gör",
+      "caption": "{{model}} modelinin diskte kullandığı dosyalar: boyut ve durum",
+      "total": "{{count}} dosyada {{size}}",
+      "total_other": "{{count}} dosyada {{size}}",
+      "sharedWith": "Şunlar da kullanıyor",
+      "sharedNote": "Kurulu başka bir modelin kullandığı dosya, bu model kaldırıldığında diskte kalır.",
+      "missing": "Yapılandırma diskte olmayan dosyalara işaret ediyor. İndirme tamamlanmamış olabilir veya dosyalar elle kaldırılmış olabilir.",
+      "unavailable": "Diskteki boyut yalnızca yöneticilere gösterilir veya sunucu onu okuyamadı."
+    },
+    "usage": {
+      "title": "Kullanım, son 30 gün",
+      "emptyTitle": "Kullanım geçmişi henüz kaydedilmiyor",
+      "emptyText": "LocalAI her model için istek sayısını, sürelerini veya değişikliklerini tutmaz, bu yüzden grafiğe dökülecek bir şey yok. Sunucu bunları kaydetmeye başladığında burada görünürler.",
+      "missingLabel": "Burada neler görünecek",
+      "notRecorded": "Kaydedilmiyor",
+      "missing": {
+        "requests": {
+          "name": "Günlük istekler",
+          "why": "Sunucu model başına istek sayısı tutmaz."
+        },
+        "ttft": {
+          "name": "İlk token'a kadar süre",
+          "why": "Sunucu model başına süre tutmaz."
+        },
+        "loads": {
+          "name": "Yüklemeler ve durdurmalar",
+          "why": "Sunucu bir modelin ne zaman yüklendiğine dair geçmiş tutmaz."
+        },
+        "changes": {
+          "name": "Yapılandırma değişiklikleri",
+          "why": "Sunucu bir modelin dosyasında yapılan düzenlemelerin günlüğünü tutmaz."
+        }
+      },
+      "known": "Sunucunun şu an bildikleri",
+      "count": {
+        "agent_one": "{{count}} ajan",
+        "agent_other": "{{count}} ajan",
+        "task_one": "{{count}} görev",
+        "task_other": "{{count}} görev",
+        "chain_one": "{{count}} yük devretme zinciri",
+        "chain_other": "{{count}} yük devretme zinciri",
+        "alias_one": "{{count}} takma ad",
+        "alias_other": "{{count}} takma ad"
+      }
+    },
+    "config": {
+      "fullEditor": "Tam düzenleyiciyi aç",
+      "thisModel": "bu model",
+      "generated": "Kaydettikten sonra yapılandırma dosyası",
+      "save": "Değişiklikleri kaydet",
+      "saving": "Kaydediliyor...",
+      "savedLabel": "Kaydedildi",
+      "saved": "Yerleşim kaydedildi",
+      "saveFailed": "Kaydedilemedi: {{message}}",
+      "loading": "Yapılandırma okunuyor",
+      "loadFailed": "Yapılandırma okunamadı: {{message}}",
+      "appliesNext": "Bu model yüklü. Değişiklikler bir sonraki yüklenişinde uygulanır."
+    },
+    "logs": {
+      "note": "Backend sürecinin çıktısı",
+      "fullPage": "Bu modeli barındıran düğümdeki günlükleri aç"
+    }
+  },
+  "placement": {
+    "title": "Yerleşim",
+    "runOn": "Bu modeli şurada çalıştır",
+    "modes": {
+      "cpu": "Yalnızca CPU",
+      "auto": "Otomatik",
+      "custom": "Özel",
+      "autoWrites": "hiçbir şey yazmaz"
+    },
+    "autoHint": "gpu_layers ayarsız kalır. LocalAI bu durumda her katmanı GPU'da ister ve llama.cpp motoru bunu sığana indirir. Diğer motorlar ayarsız bir değeri kendi varsayılanı olarak okur.",
+    "noGpu": "GPU bulunamadı, bu yüzden bu model CPU üzerinde çalışır.",
+    "noMachine": "Bu makinenin belleği okunamadı, bu yüzden bellek görünümü yok.",
+    "layers": "GPU katmanları",
+    "layersAll": "Tümü",
+    "allLayers": "Tüm katmanlar",
+    "sliderValue": "{{total}} katmandan {{count}} tanesi GPU'da",
+    "noSlider": "Bu modelin katman sayısı bildirilmiyor, bu yüzden kaydırıcı yok. Bir sayı gir veya {{all}} yazan Tüm katmanlar'ı kullan.",
+    "context": "Bağlam boyutu",
+    "contextTokens": "Token cinsinden bağlam boyutu",
+    "contextHint": "Aşağıdaki çubuklardaki KV önbelleğini besler.",
+    "contextUnset": "Ayarlanmadı. Tahmin {{context}} değerini kullanır.",
+    "split": {
+      "title": "GPU'lar arasında böl",
+      "byFree": "Boş belleğe göre böl",
+      "share": "GPU {{index}} payı",
+      "sliderLabel": "İlk GPU'daki pay",
+      "main": "Ana GPU",
+      "gpu": "GPU {{index}}"
+    },
+    "memory": "Bellek",
+    "weights": "Diskte {{size}} ağırlık. Bellek {{context}} bağlam için gösteriliyor.",
+    "noBars": "Bu seçim için çizilecek bir şey yok.",
+    "cluster": "Bu sunucu modelleri başka makinelere zamanlar, bu yüzden bu makinenin aygıtları modelin nerede çalışacağını söylemez. Tahmin aygıt başına gösterilmez.",
+    "estimateLoading": "Tahmin okunuyor",
+    "unavailable": {
+      "title": "Tahmin kullanılamıyor",
+      "text": "LocalAI model dosyasını okuyamadı, bu yüzden bu ayarın ne kadar belleğe ihtiyaç duyduğunu söyleyemiyor. Dosya hâlâ iniyor olabilir veya tahminin kapsamadığı bir biçimde olabilir.",
+      "retry": "Tahmini yeniden dene"
+    },
+    "bar": {
+      "gpu": "GPU, {{name}}",
+      "gpuNamed": "GPU {{index}}, {{name}}",
+      "ram": "Sistem belleği",
+      "freeAfter": "Sonrasında {{amount}} boş",
+      "over": "{{amount}} fazla",
+      "aria": "{{name}}: {{parts}}, toplam {{capacity}}"
+    },
+    "legend": {
+      "other": "Diğer uygulamalar",
+      "model": "Bu model",
+      "weights": "Ağırlıklar ve çalışma belleği",
+      "kv": "Bağlam (KV önbelleği)"
+    },
+    "fit": {
+      "fits": {
+        "title": "GPU'ya sığar",
+        "text": "Kullanılabilir {{free}} içinden GPU'da {{gpu}}. Bu en hızlı ayardır."
+      },
+      "spill": {
+        "title": "CPU'ya taşar",
+        "text": "GPU {{gpu}} tutar ve yaklaşık {{cpu}} sistem belleğinde kalır. Tüm katmanların GPU'da olmasından daha yavaştır."
+      },
+      "trimmed": {
+        "title": "Hepsi sığmayacak",
+        "text": "Tüm katmanlar {{allNeed}} gerektirir ancak {{free}} kullanılabilir. llama.cpp motoru yükleme sırasında katman sayısını düşürür, bu yüzden modelin bir kısmı CPU üzerinde çalışır, bu da daha yavaştır."
+      },
+      "toomany": {
+        "title": "GPU için çok fazla katman",
+        "text": "Bunun için GPU'da {{need}} gerekir, ancak GPU'da {{free}} kullanılabilir. llama.cpp motoru, fit kapatılmadıysa bunu yükleme sırasında düşürür; diğer motorlar yüklenemeyebilir. Katmanları veya bağlamı düşür."
+      },
+      "cpu": {
+        "title": "Yalnızca CPU üzerinde çalışır",
+        "text": "Boş {{ramFree}} sistem belleğinden {{need}} kullanır. GPU'dan daha yavaştır."
+      },
+      "cpu-over": {
+        "title": "Yeterli bellek yok",
+        "text": "{{need}} gerekiyor ancak sistem belleğinde yalnızca {{ramFree}} boş."
+      },
+      "nogpu": {
+        "title": "GPU bulunamadı",
+        "text": "Bu model CPU üzerinde çalışır ve boş {{ramFree}} sistem belleğinden {{need}} kullanır. GPU'dan daha yavaştır."
+      },
+      "nogpu-over": {
+        "title": "Yeterli bellek yok",
+        "text": "GPU bulunamadı. {{need}} gerekiyor ancak sistem belleğinde yalnızca {{ramFree}} boş."
+      },
+      "spill-over": {
+        "title": "Yeterli bellek yok",
+        "text": "GPU {{gpu}} tutar ve kalan {{cpu}} sistem belleğinde kalır, ancak orada {{ramFree}} boş."
+      },
+      "trimmed-over": {
+        "title": "Yeterli bellek yok",
+        "text": "Tüm katmanlar {{allNeed}} gerektirir ancak {{free}} GPU belleği kullanılabilir ve artan {{cpu}}, boş olan {{ramFree}} sistem belleğinden fazla."
+      }
+    },
+    "fitForMe": "Benim için uyumla",
+    "fitApplied": {
+      "all": "Tüm katmanlara ayarlandı. Her şey sığıyor.",
+      "layers": "GPU'da {{count}} katmana ayarlandı."
+    },
+    "fitFailed": {
+      "none": "{{free}} içine tek bir katman bile sığmıyor. Bağlam boyutunu düşür veya CPU üzerinde çalıştır.",
+      "flat": "Tahmin bu model için katman sayısıyla değişmiyor ve {{free}} kullanılabilirken {{need}} gerekiyor. Bağlam boyutunu düşür.",
+      "unavailable": "Tahmin okunamadı, bu yüzden bir katman sayısı seçilemedi."
+    },
+    "undo": "Geri al",
+    "moe": {
+      "title": "Uzmanlar (MoE)",
+      "keepOn": "Uzmanları şurada tut",
+      "modes": {
+        "gpu": "GPU",
+        "some": "Bazı katmanlar CPU'da",
+        "all": "Tümü CPU'da"
+      },
+      "autoHint": "Otomatik uyum, uzmanları kendiliğinden sistem belleğine taşıyabilir. Buradaki açık bir seçim bunu geçersiz kılar.",
+      "layers": "Uzmanları CPU'da olan katmanlar",
+      "sliderValue": "{{total}} katmandan ilk {{count}} tanesinin uzmanları CPU'da",
+      "sliderShort": "{{total}} içinden {{count}}",
+      "noSlider": "Bu modelin katman sayısı bildirilmiyor, bu yüzden kaydırıcı yok. Bir katman sayısı gir.",
+      "cache": "Uzman önbelleği",
+      "cacheOff": "Kapalı",
+      "cacheMib": "MiB cinsinden uzman önbelleği",
+      "cachePlaceholder": "MiB",
+      "cacheHint": "Sistem belleğinde tutulan uzmanlar için GPU üzerinde bir önbellek. GPU belleği kullanır. Çok küçük bir önbellek sürekli boşalıp dolar. Deneysel.",
+      "elsewhere": "Uzman yerleşimi seçenek listesindeki diğer girdilerle ({{entries}}) ayarlanmış. Bunları tam düzenleyicide değiştir. Bu bölüm onları olduğu gibi bırakır.",
+      "estimateNote": "Tahmin, uzman yerleşimini içermez."
+    }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "Pirate Face"
+    },
+    "p2p": "p2p",
+    "originGallery": "Galeri",
+    "originOnline": "Çevrimiçi",
+    "sourcesButton": "Kaynaklar",
+    "sourcesTitle": "Arama kaynakları",
+    "sourcesClose": "Kapat",
+    "sourcesHelp": "Model aramasının hangi kaynaklara soracağını seç. Hugging Face yerleşiktir. Diğer kaynaklar eklentilerden gelir.",
+    "sourcesError": "Seçim kaydedilemedi. Yeniden dene.",
+    "sourceBuiltin": "Yerleşik",
+    "sourceAddon": "Bir eklentiden",
+    "sourceNotInstalled": "Eklenti kurulu değil",
+    "missingHint": "{{sources}} açık, ancak eklentisi kurulu değil.",
+    "missingInstall": "Eklentiyi kur",
+    "noSources": "Hiçbir kaynak açık değil, bu yüzden hiçbir yerde arama yapılmıyor.",
+    "dropped_one": "{{count}} sonuç atlandı",
+    "dropped_other": "{{count}} sonuç atlandı",
+    "heading": "{{source}} kaynağından",
+    "latestHeading": "{{source}} üzerinde en yeniler",
+    "placeholder": "{{source}} içinde ara",
+    "resultCount_one": "{{count}} sonuç",
+    "resultCount_other": "{{count}} sonuç",
+    "downloads": "indirme",
+    "seeds_one": "{{count}} seed",
+    "seeds_other": "{{count}} seed",
+    "gated": "Erişim kısıtlı",
+    "ggufOnly": "Yalnızca GGUF",
+    "hint": {
+      "title": "{{source}} içinde ara",
+      "text": "Arama kutusuna bir model adı yaz. Sonuçlar kitaplıklarından değil, doğrudan kaynaktan gelir."
+    },
+    "failed": {
+      "title": "{{source}} yanıt vermedi",
+      "text": "Arama başarısız oldu. Biraz sonra yeniden dene.",
+      "stale": "Bunlar son sonuçlar. {{message}}"
+    },
+    "none": {
+      "title": "{{source}} üzerinde hiçbir şey bulunamadı",
+      "text": "Başka bir ad dene.",
+      "gguf": "GGUF biçiminde hiçbir şey bulunamadı. Aramayı genişletmek için Yalnızca GGUF'u kapat.",
+      "fits": "Her sonuç bu makine için çok büyük. Görmek için sığma filtresini kapat."
+    },
+    "loadMore": "Daha fazla yükle",
+    "noLatest": "{{source}} en yeni modellerini listelemiyor. Modellerini görmek için ada göre ara.",
+    "chooseBuild": "{{variant}} yapısını seç",
+    "recommended": "Önerilen",
+    "fits": "Sığar",
+    "spill": "CPU'ya taşar",
+    "over": "Çok büyük",
+    "installed": "{{model}} kurulu.",
+    "ambiguous": "Bu modeli birden fazla backend çalıştırabilir. Birini seçmek için Model içe aktar'ı kullan.",
+    "gatedTitle": "Erişim kısıtlı.",
+    "gatedBody": "Bu depo Hugging Face'te onay gerektiriyor, bu yüzden LocalAI buradan kuramaz.",
+    "gatedP2p": "Bu modelin Hugging Face'te erişimi kısıtlı. Torrent için token gerekmez, ancak modelin lisans koşulları yine geçerlidir.",
+    "gatedHfInstall": "Hugging Face'te erişimi kısıtlı: onay gerektiriyor, bu yüzden buradan kurulamaz.",
+    "sizesUnknown": "Dosya boyutu bulunamadı. Hugging Face bu depoyu listelemiyor, bu yüzden uyum tahmin edilemiyor.",
+    "importError": "Bu dosyalarla eşleşen backend yok.",
+    "importErrorBody": "Kurulum yine de başarısız olabilir. Bir backend seçmek için Model içe aktar'ı kullan.",
+    "approximate": "Yaklaşık uyum. Model başlığı okunamadı, bu yüzden bellek, dosya boyutu artı bağlam için pratik bir kuraldır.",
+    "noEstimate": "Boyut bilinmiyor, bu yüzden bu model için uyum tahmini yok.",
+    "files": {
+      "failed": {
+        "title": "Dosya listesi okunamadı",
+        "body": "Kaynak yanıt vermedi. Yeniden dene."
+      },
+      "rateLimited": {
+        "title": "Kaynak yavaşlamanı istedi",
+        "body": "Çok fazla istek. Bir dakika bekle ve yeniden dene."
+      },
+      "notFound": {
+        "title": "Depo bulunamadı",
+        "body": "Özel, kaldırılmış veya bu kaynakta listelenmiyor."
+      }
+    }
+  },
+  "remotes": {
+    "tab": "Uzak sunucular",
+    "filter": "Uzak",
+    "unavailable": "Üst sunucu kullanılamıyor",
+    "rowMark": "Uzak model",
+    "sizeRemote": "Uzak",
+    "connectButton": "Uzak sunucu bağla",
+    "sheetTitle": "Uzak sunucu bağla",
+    "sheetDescription": "Başka bir sunucuda veya hizmette çalışan modelleri ekle.",
+    "toastDone": "{{name}} bağlandı. {{count}} model eklendi.",
+    "toastDone_other": "{{name}} bağlandı. {{count}} model eklendi.",
+    "toastSkipped": "{{count}} model eklenmedi.",
+    "toastSkipped_other": "{{count}} model eklenmedi."
+  }
+}

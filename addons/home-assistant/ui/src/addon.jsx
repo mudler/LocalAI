@@ -16,6 +16,7 @@ import fr from './i18n/home-assistant.fr.json'
 import zh from './i18n/home-assistant.zh-CN.json'
 import id from './i18n/home-assistant.id.json'
 import ko from './i18n/home-assistant.ko.json'
+import tr from './i18n/home-assistant.tr.json'
 import pt from './i18n/home-assistant.pt-BR.json'
 import PolicyEditor from './PolicyEditor'
 import ProposalCard from './ProposalCard'
@@ -24,7 +25,7 @@ import { finishTest, resultOf, startTest, subscribe } from './results'
 import './home-assistant.css'
 
 // The words of the page, in every language of the web UI; a key a language lacks reads in English.
-registerLocales({ 'home-assistant': { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
+registerLocales({ 'home-assistant': { en, it, es, de, fr, 'zh-CN': zh, id, ko, tr, 'pt-BR': pt } })
 
 // The long-lived access token. It is typed only to replace it.
 function HaToken({ form, setForm, t }) {

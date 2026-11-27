@@ -10,7 +10,8 @@ import es from './voice.es.json'
 import fr from './voice.fr.json'
 import id from './voice.id.json'
 import ko from './voice.ko.json'
+import tr from './voice.tr.json'
 import pt_BR from './voice.pt-BR.json'
 import zh_CN from './voice.zh-CN.json'
 
-export const locales = { en, it, de, es, fr, id, ko, 'pt-BR': pt_BR, 'zh-CN': zh_CN }
+export const locales = { en, it, de, es, fr, id, ko, tr, 'pt-BR': pt_BR, 'zh-CN': zh_CN }

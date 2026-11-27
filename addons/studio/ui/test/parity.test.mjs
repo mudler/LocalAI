@@ -8,7 +8,7 @@ import { hasKey, hostUi, iconLiterals, iconNames, literalKeys, sourceFiles, spri
 const here = dirname(fileURLToPath(import.meta.url))
 const src = join(here, '../src')
 const files = sourceFiles(src)
-const LANGUAGES = ['en', 'it', 'es', 'de', 'zh-CN', 'id', 'ko', 'pt-BR']
+const LANGUAGES = ['en', 'it', 'es', 'de', 'zh-CN', 'id', 'ko', 'pt-BR', 'tr']
 
 test('the media locale files are byte copies of the host ones', () => {
   for (const lng of LANGUAGES) {

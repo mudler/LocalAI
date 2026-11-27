@@ -1,0 +1,1305 @@
+{
+  "title": "Dosyalar",
+  "home": "Ana dizin",
+  "breadcrumb": "Klasör yolu",
+  "upload": "Yükle",
+  "newFolder": "Yeni klasör",
+  "folderName": "Klasör adı",
+  "download": "İndir",
+  "rename": "Yeniden adlandır",
+  "delete": "Çöp Kutusu'na taşı",
+  "dismiss": "Kapat",
+  "tabs": {
+    "label": "Görünümler",
+    "files": "Dosyalar",
+    "trash": "Çöp Kutusu",
+    "history": "Geçmiş",
+    "shared": "Paylaşılan",
+    "trashCount_one": "Çöp Kutusu'nda {{count}} öğe",
+    "trashCount_other": "Çöp Kutusu'nda {{count}} öğe"
+  },
+  "trash": {
+    "empty": "Çöp Kutusu boş.",
+    "restore": "Geri yükle",
+    "emptyAll": "Çöp Kutusu'nu boşalt",
+    "purge": "Kalıcı olarak sil",
+    "purgeNamed": "{{name}} öğesini kalıcı olarak sil",
+    "files_one": "{{count}} dosya",
+    "files_other": "{{count}} dosya",
+    "folders_one": "{{count}} klasör",
+    "folders_other": "{{count}} klasör",
+    "listJoin": ", ",
+    "summary": "Çöp Kutusu'nda: {{what}}.",
+    "removed": "Kalıcı olarak silindi: {{what}}.",
+    "confirmAll": {
+      "title": "Çöp Kutusu boşaltılsın mı?",
+      "message": "Bu işlem {{what}} öğesini önceki sürümleriyle birlikte kalıcı olarak siler. Geri alınamaz."
+    },
+    "confirmOne": {
+      "title": "Kalıcı olarak silinsin mi?",
+      "message": "{{path}}: bu işlem {{what}} öğesini önceki sürümleriyle birlikte kalıcı olarak siler. Geri alınamaz."
+    }
+  },
+  "history": {
+    "empty": "Henüz değişiklik yok.",
+    "undo": "Geri al",
+    "agent": "sohbet"
+  },
+  "search": {
+    "label": "Dosyalarında ara",
+    "placeholder": "Bu klasörü filtrele",
+    "none": "Bir şey bulunamadı.",
+    "resultsFor": "“{{query}}” içeren dosyalar",
+    "back": "Klasöre dön",
+    "noneBody": "Dosyalarındaki hiçbir ad veya metin eşleşmiyor. Başka sözcükler dene.",
+    "page": "sayfa {{n}}",
+    "sheet": "“{{name}}” sayfası",
+    "slide": "slayt {{n}}",
+    "indexing_one": "{{count}} belge hâlâ dizinleniyor: dahil etmek için biraz sonra yeniden ara.",
+    "indexing_other": "{{count}} belge hâlâ dizinleniyor: dahil etmek için biraz sonra yeniden ara.",
+    "limited": "Sonuçlar sınırlı: arama, her dosyaya bakmadan sınırlarında durdu. Gerisini görmek için bir klasörde ara ya da başka sözcükler kullan.",
+    "filtering_one": "Bu klasördeki {{count}} öğe “{{query}}” ile eşleşiyor.",
+    "filtering_other": "Bu klasördeki {{count}} öğe “{{query}}” ile eşleşiyor.",
+    "everywhere": "Tüm dosyalarda “{{query}}” ara",
+    "everywhereShort": "Tüm dosyalarda ara",
+    "noMatch": "Bu klasörde “{{query}}” ile eşleşen bir şey yok.",
+    "clear": "Filtreyi temizle"
+  },
+  "preview": {
+    "label": "Önizleme",
+    "failed": "Bu dosya gösterilemedi.",
+    "loading": "{{name}} önizlemesi yükleniyor",
+    "failedTitle": "{{name}} gösterilemedi.",
+    "tooLarge": "Bu dosya burada önizlemek için çok büyük. Açmak için indir.",
+    "none": "Bu dosya türü için önizleme yok.",
+    "typeFile": "{{ext}} dosyası",
+    "typeUnknown": "Dosya",
+    "sheets": "Sayfalar",
+    "sheetLabel": "Sayfa {{name}}",
+    "sheetEmpty": "Bu sayfa boş.",
+    "row": "Satır",
+    "showingRows": "{{total}} satırdan {{rows}} tanesi gösteriliyor",
+    "showingCols": "ve {{total}} sütundan {{cols}} tanesi.",
+    "downloadRest": "Geri kalanı için dosyayı indir.",
+    "textOnly": "Metin önizlemesi, biçimlendirme gösterilmiyor.",
+    "truncated": "Metin kısaltıldı.",
+    "noText": "Bu dosyada gösterilecek metin yok.",
+    "slide": "Slayt {{n}}",
+    "notes": "Konuşmacı notları",
+    "pdfTitle": "PDF {{name}}",
+    "pdfFallback": "PDF burada görünmezse indir.",
+    "htmlTitle": "{{name}} önizlemesi",
+    "imageFailed": "Görsel gösterilemedi.",
+    "zoomIn": "Tam boyutta göster",
+    "zoomOut": "Bölmeye sığdır",
+    "items_one": "{{count}} öğe",
+    "items_other": "{{count}} öğe",
+    "textCut": "İlk {{size}} gösteriliyor.",
+    "actions": "Dosya işlemleri",
+    "officeFailed": "Biçimlendirilmiş görünüm çizilemedi, bu yüzden metin gösteriliyor.",
+    "officeTooLarge": "Bu dosya {{size}} boyutunun üzerinde, burada çizilemeyecek kadar büyük, bu yüzden metin gösteriliyor.",
+    "slideOf": "Slayt {{n}} / {{total}}",
+    "prevSlide": "Önceki slayt",
+    "nextSlide": "Sonraki slayt"
+  },
+  "wellKnown": {
+    "revert": "Önceki sürüme dön",
+    "view": "Görüntüle",
+    "form": "Form",
+    "save": "Kaydet",
+    "cancel": "İptal",
+    "notSet": "Ayarlanmadı",
+    "moveUp": "Yukarı taşı",
+    "moveDown": "Aşağı taşı",
+    "remove": "Kaldır",
+    "savedAt": "Kaydedilme: {{time}}",
+    "notSaved": "Henüz kaydedilmedi.",
+    "notSavedPrefilled": "Henüz kaydedilmedi. Bazı değerler senin için dolduruldu; Kaydet onları korur.",
+    "loadFailed": "Bu ayarlar yüklenemedi. Yeniden denemek için sayfayı yenile.",
+    "invalid": "Bu ayarlarda hatalar var ve önceki geçerli bir sürüm yok.",
+    "invalidFallback": "Bu ayarlarda hatalar var. Burada son geçerli sürümü gösteriliyor.",
+    "conflict": "Bu ayarlar sen düzenlerken değişti, muhtemelen asistan tarafından ya da başka bir sekmede. Yeni değerler:",
+    "useTheirs": "Yeni değerleri kullan",
+    "keepMine": "Değişikliklerimi koru",
+    "editWithAssistant": "Asistanla düzenle",
+    "from": {
+      "account": "Hesabından",
+      "browser": "Tarayıcından"
+    },
+    "check": {
+      "required": "Zorunlu.",
+      "tooLong": "En fazla {{max}} karakter.",
+      "format": "Bu değerin biçimi yanlış.",
+      "placeholder": "Bu metindeki bir yer tutucu doğru değil."
+    },
+    "source": {
+      "label": "Kaynak",
+      "hint": "Metin olarak ayarlar. Kaydettiğinde aynı şekilde kontrol edilirler.",
+      "notJson": "Metinde söz dizimi hatası var. Tırnakları, virgülleri ve parantezleri kontrol et.",
+      "notObject": "Metin { ile başlamalı ve } ile bitmeli."
+    },
+    "persona": {
+      "title": "Asistan",
+      "lede": "Her sohbetteki asistanın adı, resmi, karşılaması ve talimatları."
+    },
+    "user": {
+      "title": "Sen",
+      "lede": "Asistan, kiminle konuştuğunu bilmek için bunu okur. Her sohbette modele ulaşır."
+    },
+    "ui": {
+      "title": "Görünüm",
+      "lede": "LocalAI'nin senin için nasıl göründüğü. Değişiklikler hemen görünür; Kaydet onları korur."
+    },
+    "shortcuts": {
+      "title": "Kısayollar",
+      "lede": "Her sohbetin yazma alanının üstündeki prompt'lar.",
+      "edit": "Kısayolları düzenle",
+      "defaults": "Varsayılan kısayollar",
+      "none": "Kısayol yok. Bir tane ekle ya da gizlemek için boş bir liste kaydet.",
+      "label": "Etiket",
+      "prompt": "Prompt",
+      "send": "Hemen gönder",
+      "add": "Kısayol ekle",
+      "invalid": "Bazı kısayollarda hatalar var.",
+      "assistantPrompt": "Kısayollarımı değiştir: "
+    },
+    "home": {
+      "editLayout": "Düzeni düzenle",
+      "ask": "Asistana sor",
+      "askPrompt": "Ana sayfamı değiştir: ",
+      "add": "Widget ekle",
+      "newTitle": "Yeni widget",
+      "noWidgets": "Henüz widget yok.",
+      "type": "Tür",
+      "title": "Başlık",
+      "source": "Veri dosyası",
+      "noSourceNeeded": "Veri dosyası gerekmiyor",
+      "types": {
+        "list": "Liste",
+        "metric": "Metrik",
+        "chats": "Son sohbetler",
+        "page": "Sayfa"
+      },
+      "left": "{{count}} kaldı",
+      "fromChats": "sohbetlerden",
+      "noChats": "Henüz sohbet yok.",
+      "noData": "Henüz veri yok. Asistan şunu yazabilir",
+      "nothing": "Burada bir şey yok.",
+      "noSource": "Bu widget'ın veri dosyası yok. Düzeni düzenle bölümünden birini seç.",
+      "broken": "Bu widget'ın verilerinde hatalar var ve önceki geçerli bir sürüm yok.",
+      "stale": "Son geçerli veriler gösteriliyor. En yeni verilerde hatalar var.",
+      "updated": "Güncellenme: {{when}}",
+      "footer": {
+        "noData": "Henüz veri yok.",
+        "invalid": "Verilerde bir hata var. Son iyi sürüm gösteriliyor.",
+        "revert": "Geri al",
+        "missing": "Bu widget'ın verileri eksik.",
+        "fix": "Asistandan düzeltmesini iste",
+        "fixPrompt": "Ana sayfa widget'ı, eksik veya bozuk olan {{file}} dosyasını okuyor. Düzelt: ",
+        "waiting": "Sohbette tetikleyicisini oluşturmanı bekliyor.",
+        "openChat": "Sohbeti aç",
+        "running": "Şimdi güncelleniyor…",
+        "openRun": "Çalıştırmayı aç",
+        "paused": "Duraklatıldı · önceki zamanlama: {{schedule}}",
+        "resume": "Sürdür",
+        "failedEmpty": "Güncelleme başarısız oldu ve henüz veri yok.",
+        "details": "Ayrıntılar",
+        "retry": "Yeniden dene",
+        "stale": "Son güncelleme başarısız oldu. {{when}} verileri gösteriliyor.",
+        "staleToday": "Son güncelleme başarısız oldu. Bugünün daha önceki verileri gösteriliyor.",
+        "earlier": "daha önceki",
+        "firstRun": "İlk çalıştırma: {{when}}",
+        "firstRunFile": "Bir dosya geldiğinde çalışır",
+        "runNow": "Şimdi çalıştır",
+        "fresh": "{{schedule}} · güncellenme: {{time}}",
+        "pause": "Duraklat",
+        "fromPage": "{{title}} sayfasından",
+        "fromFile": "Dosyalarından",
+        "next": "Sonraki çalıştırma: {{when}}",
+        "cost": "çalıştırma başına yaklaşık {{tokens}} token",
+        "costRemote": "uzak bir modelde çalıştırma başına yaklaşık {{tokens}} token",
+        "cadence": {
+          "paused": "Duraklatıldı",
+          "hourly": "Saatlik",
+          "daily": "Günlük",
+          "weekdays": "Hafta içi",
+          "weekly": "Haftalık",
+          "monthly": "Aylık",
+          "file": "Yeni dosyalarda"
+        },
+        "scheduleNote_one": "{{count}} widget zamanlamaya göre güncelleniyor. Çalıştırmaları modellerini kullanır ve kullanımına sayılır.",
+        "scheduleNote_other": "{{count}} widget zamanlamaya göre güncelleniyor. Çalıştırmaları modellerini kullanır ve kullanımına sayılır."
+      },
+      "opensSite": "{{host}}: yeni sekmede açılır",
+      "linkAsk": "Bu widget bir bağlantı açmak istiyor",
+      "invalid": "Ana sayfa düzeninde hatalar var ve önceki geçerli bir sürüm yok.",
+      "invalidFallback": "Ana sayfa düzeninde hatalar var. Ana sayfa son geçerli sürümünü gösteriyor.",
+      "page": {
+        "gone": "Bu sayfa artık kullanılamıyor",
+        "goneHint": "\"{{name}}\" sayfası taşındı veya silindi ya da artık açamıyorsun.",
+        "noWidget": "Bu sayfanın widget görünümü yok",
+        "noWidgetHint": "Asistandan \"{{name}}\" sayfasına Ana sayfa için kompakt bir görünüm vermesini iste.",
+        "off": "Paylaşılan sayfalar kapalı",
+        "offHint": "Bir yönetici bu sunucuda paylaşılan sayfaları kapattı.",
+        "fix": "Ana sayfayı özelleştir",
+        "failed": "Sayfa yüklenmedi",
+        "retry": "Yeniden dene",
+        "changed": "Bu sayfa, izin verdiğinden beri değişti",
+        "notAllowed": "Bu sayfaya henüz izin vermedin",
+        "allowHint": "Paylaşılan bir klasörden geliyor. Senin kimliğinle çalışmadan önce incele.",
+        "allow": "Bu sayfaya izin ver",
+        "frameTitle": "{{title}} (Ana sayfadaki sayfa)",
+        "refresh": "Yenile",
+        "open": "Sayfayı aç",
+        "add": "Sayfa ekle",
+        "limit": "Ana sayfa en fazla {{max}} sayfa gösterir; yenisini eklemek için birini kaldır.",
+        "noneEligible": "Henüz hiçbir sayfanın Ana sayfa için kompakt görünümü yok. Asistandan bir sayfaya eklemesini iste.",
+        "pick": "Sayfa",
+        "unavailable": "{{name}} (kullanılamıyor)",
+        "sharedLabel": "paylaşılan"
+      },
+      "size": "Boyut",
+      "preview": "Ana sayfa widget'larını şöyle çizer. S bir sütun, M iki, L tam satırdır. Boşluk kendiliğinden kapanır.",
+      "area": {
+        "label": "Sayfa alanı",
+        "none": "Yok",
+        "pickHint": "Ana sayfada yazma alanının altındaki alanı dolduran bir sayfa. Ağa veya diğer dosyalarına erişemez.",
+        "pickOff": "Bir yönetici sayfa alanını kapattı, bu yüzden Ana sayfa orada sayfa göstermez. Seçimin korunur.",
+        "off": "Sayfa alanı kapalı",
+        "offHint": "Bir yönetici bunu bu sunucudaki herkes için kapattı. Seçtiğin sayfa Ana sayfa düzeninde kalır ve yeniden açıldığında tekrar görünür.",
+        "by": {
+          "assistant": "Asistanın sayfası",
+          "you": "Senin sayfan"
+        },
+        "byAuthor": "{{author}} tarafından paylaşılan sayfa",
+        "edit": "Düzenle",
+        "reload": "Yeniden yükle",
+        "loading": "Sayfa yükleniyor",
+        "runsAsYou": "Senin kimliğinle çalışır",
+        "runsAsYouHint": "Sayfa, klasöründeki dosyaları senin yetkilerinle okur ve yazar. Ağa veya diğer dosyalarına erişemez.",
+        "askPrompt": "pages/{{name}}/ içindeki sayfayı şunu yapacak şekilde değiştir: ",
+        "askTitle": "Asistandan bu sayfayı değiştirmesini iste",
+        "frameTitle": "{{title}} (Ana sayfadaki sayfa alanı)",
+        "failedTitle": "Bu sayfa yüklenmedi.",
+        "why": {
+          "script": "Betiği bir hata verdi ve sayfa hiçbir şey çizmedi.",
+          "scriptLine": "Betiği {{line}}. satırda bir hata verdi ve sayfa hiçbir şey çizmedi.",
+          "noPaint": "5 saniye içinde hiçbir şey göstermedi.",
+          "navigated": "Çerçevesinden çıkmaya çalıştı.",
+          "busy": "Bilgisayarı çok uzun süre meşgul etti.",
+          "silent": "Yanıt vermeyi bıraktı.",
+          "noStart": "Başlamadı.",
+          "missing": "\"{{name}}\" sayfası taşındı veya silindi ya da artık açamıyorsun.",
+          "read": "Sayfa okunamadı.",
+          "invalid": "Sayfa alanı için seçilen sayfa geçerli bir sayfa adı değil.",
+          "sharedOff": "Bir yönetici bu sunucuda paylaşılan sayfaları kapattı."
+        },
+        "revert": "Geri al",
+        "openFile": "Dosyayı aç",
+        "remove": "Ana sayfadan kaldır",
+        "nothingToRevert": "Dönülecek önceki bir sürüm yok.",
+        "revertFailed": "Geri alma işe yaramadı.",
+        "removeFailed": "Sayfa Ana sayfadan kaldırılamadı."
+      }
+    },
+    "fields": {
+      "persona": {
+        "name": {
+          "label": "Ad",
+          "help": "Asistanın kendine verdiği ad."
+        },
+        "system_prompt": {
+          "label": "Sistem prompt'u",
+          "help": "Her sohbete, sohbetin kendi prompt'undan ve ajanın talimatlarından sonra eklenir."
+        },
+        "avatar": {
+          "label": "Avatar",
+          "help": "Dosyalarından bir resim. PNG, JPG, WebP, GIF veya AVIF."
+        },
+        "greeting": {
+          "label": "Karşılama",
+          "help": "Asistanın yeni bir sohbetteki ilk satırı. Gösterilir, modele gönderilmez."
+        },
+        "emptyChat": {
+          "label": "Boş sohbet",
+          "help": "Yeni bir sohbetin mesaj kutusunun üstünde gösterdiği."
+        }
+      },
+      "user": {
+        "name": {
+          "label": "Ad",
+          "help": "Asistanın sana nasıl hitap ettiği."
+        },
+        "language": {
+          "label": "Dil",
+          "help": "Asistanın yanıt verdiği dil."
+        },
+        "bio": {
+          "label": "Hakkında",
+          "help": "Asistanın her sohbette okuduğu birkaç satır."
+        },
+        "timezone": {
+          "label": "Saat dilimi",
+          "help": "Yanıtlardaki tarih ve saatler için."
+        }
+      },
+      "ui": {
+        "theme": {
+          "label": "Tema",
+          "help": "Sistem, cihazının ayarını izler.",
+          "options": {
+            "dark": "Koyu",
+            "light": "Açık",
+            "system": "Sistem"
+          }
+        },
+        "accent": {
+          "label": "Vurgu rengi",
+          "help": "Düğmeler ve bağlantılar için. Boş bırakırsan varsayılan kalır."
+        },
+        "density": {
+          "label": "Yoğunluk",
+          "help": "Kompakt, bir ekranda daha fazlasını gösterir.",
+          "options": {
+            "comfortable": "Rahat",
+            "compact": "Kompakt"
+          }
+        },
+        "defaultModel": {
+          "label": "Varsayılan model",
+          "help": "Yeni bir sohbetin başladığı model."
+        },
+        "homeBackground": {
+          "label": "Ana sayfa arka planı",
+          "help": "Ana sayfanın arkasındaki bir renk, gradyan veya dosyalarından bir resim. Diğer sayfalar olduğu gibi kalır."
+        },
+        "chatBackground": {
+          "label": "Sohbet arka planı",
+          "help": "Sohbetlerinin arkasındaki bir renk, gradyan veya dosyalarından bir resim. Diğer sayfalar olduğu gibi kalır."
+        },
+        "look": {
+          "label": "Görünüş",
+          "help": "Yazı tipi, köşeler, mesajlar ve kod; sabit listelerden."
+        },
+        "strings": {
+          "label": "Metin",
+          "help": "Yalnızca burada listelenen anahtarlar değişebilir."
+        }
+      },
+      "home": {
+        "headline": {
+          "label": "Başlık",
+          "help": "Boş bırakırsan günün saatine göre karşılama kalır."
+        }
+      }
+    },
+    "saveInvalid": "Bazı değerler geçerli değil. Kontrol edip yeniden kaydet.",
+    "saveTooLarge": "Bu ayarlar kaydedilemeyecek kadar büyük. Bazı girdileri kaldırıp yeniden dene.",
+    "saveFailed": "Kaydedilemedi. Yeniden dene.",
+    "details": "Ayrıntılar",
+    "bg": {
+      "kind": "Arka plan türü",
+      "kinds": {
+        "none": "Yok",
+        "color": "Renk",
+        "gradient": "Gradyan",
+        "image": "Resim",
+        "video": "Video"
+      },
+      "color": "Arka plan rengi",
+      "from": "Başlangıç",
+      "to": "Bitiş",
+      "angle": "Açı: {{n}} derece",
+      "imagePath": "Resmin dosyalarındaki yolu",
+      "choose": "Bir resim seç",
+      "imageBad": "Dosyalarındaki bir png, jpg, webp, gif veya avif dosyasının yolunu, başında eğik çizgi ve .. olmadan kullan.",
+      "videoPath": "Videonun dosyalarındaki yolu",
+      "chooseVideo": "Bir video seç",
+      "videoBad": "Dosyalarındaki bir mp4, webm veya mov dosyasının yolunu, başında eğik çizgi ve .. olmadan kullan.",
+      "posterPath": "Video oynatılmadan önce gösterilen durağan bir resmin yolu (isteğe bağlı)",
+      "posterHint": "Pictures/poster.jpg (isteğe bağlı durağan resim)",
+      "fit": "Sığdırma",
+      "fits": {
+        "cover": "Sayfayı doldur",
+        "contain": "Resmin tamamını göster"
+      },
+      "opacity": "Güç: %{{n}}",
+      "blur": "Bulanıklık: {{n}} px",
+      "overlay": "Metin için perde: %{{n}}",
+      "clear": "Arka planı kaldır",
+      "pickFailed": "Klasör okunamadı.",
+      "pickEmpty": "Burada resim veya klasör yok.",
+      "pickEmptyVideo": "Burada video veya klasör yok.",
+      "pickClose": "Kapat"
+    },
+    "nav": {
+      "title": "Gezinme",
+      "lede": "Kenar çubuğunu yeniden sırala, yeniden adlandır, gizle veya grupla. Bir satırı sürükle ya da okları kullan. Değişiklikler sağda hemen görünür.",
+      "preview": "Canlı önizleme",
+      "discard": "Değişiklikleri at",
+      "saved": "Kaydedildi.",
+      "reset": "Varsayılana sıfırla",
+      "fixed": "Yeni sohbet, Sohbetler, ayarlar ve arama her zaman gösterilir.",
+      "homeFixed": "Ana sayfa her zaman kalır.",
+      "hide": "{{name}} öğesini gizle",
+      "show": "{{name}} öğesini göster",
+      "drag": "{{name}} öğesini taşı (sürükle ya da ok tuşlarını kullan)",
+      "name": "{{name}} adı",
+      "was": "önceki ad: {{name}}",
+      "moveUp": "{{name}} öğesini yukarı taşı",
+      "moveDown": "{{name}} öğesini aşağı taşı",
+      "remove": "{{name}} öğesini kaldır",
+      "addLink": "Bağlantı ekle",
+      "addGroup": "Grup ekle",
+      "newGroup": "Yeni grup",
+      "missing": "eksik",
+      "missingHint": "Bu {{kind}} artık yok. Kenar çubuğu onu atlar.",
+      "unavailable": "sana gösterilmiyor",
+      "unavailableHint": "Hesabın ya da bu sunucu bu girdiyi henüz göstermiyor.",
+      "tag": {
+        "builtin": "yerleşik",
+        "group": "grup",
+        "page": "sayfa",
+        "chat": "sohbet",
+        "url": "bağlantı"
+      },
+      "add": {
+        "page": "Sayfa",
+        "pageHint": "Sayfalarından biri",
+        "chat": "Sohbet",
+        "chatHint": "Bir konuşmayı sabitle",
+        "url": "URL",
+        "urlHint": "Yeni sekmede açılır",
+        "address": "Adres",
+        "name": "Ad (isteğe bağlı)",
+        "confirm": "Ekle",
+        "back": "Geri",
+        "urlInvalid": "Kullanıcı adı içermeyen bir http veya https adresi kullan.",
+        "pick": {
+          "page": "Bir sayfa seç",
+          "chat": "Bir sohbet seç"
+        },
+        "none": {
+          "page": "Eklenecek sayfan yok.",
+          "chat": "Eklenecek sohbet yok."
+        }
+      }
+    },
+    "blocked": "Kaydetmek için işaretli değerleri düzelt.",
+    "storedIn": "Saklandığı yer",
+    "placeholders": {
+      "unknown_one": "{{names}} bu metnin bir yer tutucusu değil.",
+      "unknown_other": "{{names}} bu metnin yer tutucuları değil.",
+      "unknownUse_one": "{{names}} bu metnin bir yer tutucusu değil. {{use}} kullan.",
+      "unknownUse_other": "{{names}} bu metnin yer tutucuları değil. {{use}} kullan.",
+      "none_one": "{{names}} bir yer tutucu değil. Bu metin hiç yer tutucu almıyor.",
+      "none_other": "{{names}} yer tutucu değil. Bu metin hiç yer tutucu almıyor.",
+      "brace": "Bir süslü parantezin eşi yok. Yer tutucuyu {name} olarak yaz.",
+      "hint": "Kullanabileceğin yer tutucular",
+      "insert": "Bu yer tutucuyu ekle"
+    },
+    "avatar": {
+      "path": "Resmin yolu",
+      "remove": "Kaldır",
+      "bad": "Dosyalarından bir resim kullan: başında eğik çizgi ve .. olmayan, .png, .jpg, .jpeg, .webp, .gif veya .avif ile biten bir yol."
+    },
+    "emptyChat": {
+      "title": "Başlık",
+      "subtitle": "Başlığın altındaki satır",
+      "titleSample": "Bana her şeyi sor",
+      "subtitleSample": "İhtiyacını söyle.",
+      "showShortcuts": "Kısayollarımı mesaj kutusunun üstünde göster"
+    },
+    "look": {
+      "font": {
+        "label": "Yazı tipi",
+        "default": "Geist, varsayılan",
+        "system": "Sistem",
+        "serif": "Serif",
+        "mono": "Mono"
+      },
+      "radius": {
+        "label": "Köşeler",
+        "sharp": "Keskin",
+        "soft": "Yumuşak",
+        "round": "Yuvarlak"
+      },
+      "bubble": {
+        "label": "Mesaj stili",
+        "card": "Kart",
+        "filled": "Dolgulu",
+        "tinted": "Renk tonlu",
+        "outline": "Çerçeveli",
+        "plain": "Düz"
+      },
+      "messageWidth": {
+        "label": "Mesaj genişliği",
+        "narrow": "Dar 640",
+        "medium": "Orta 760",
+        "wide": "Geniş 920",
+        "full": "Tam"
+      },
+      "codeTheme": {
+        "label": "Kod renkleri",
+        "auto": "Otomatik",
+        "mono": "Mono",
+        "vivid": "Canlı",
+        "ink": "Mürekkep"
+      },
+      "note": "Her değer sabit bir listeden gelir ve vurgu rengi okunabilir bir kontrastı korumalı. CSS kutusu yok, bu yüzden bir görünüm bir sayfayı gizleyemez veya bozamaz."
+    },
+    "contrast": {
+      "ok": "AA {{ratio}}:1",
+      "fail": "Çok soluk: {{mode}} üzerinde {{ratio}}:1",
+      "failLong": "Bu vurgu rengi, {{mode}} sayfaya karşı {{ratio}}:1 kontrasta sahip ve 4,5:1 gerekiyor. LocalAI bunun yerine varsayılan vurgu rengini gösterir.",
+      "mode": {
+        "light": "açık",
+        "dark": "koyu"
+      }
+    },
+    "headline": {
+      "title": "Ana sayfa başlığı",
+      "lede": "Ana sayfanın en üstündeki büyük satır."
+    },
+    "strings": {
+      "title": "Metin",
+      "lede": "Birkaç etiket için kendi sözcüklerin. Güvenlik, izin ve onay istemleri kendi metinlerini korur.",
+      "changed_one": "{{count}} değişti",
+      "changed_other": "{{count}} değişti",
+      "find": "Bir metin bul",
+      "key": "Anahtar",
+      "default": "Varsayılan",
+      "yours": "Senin metnin",
+      "yoursFor": "{{key}} için senin metnin",
+      "same": "Varsayılanla aynı",
+      "hint": "Bir metnin yer tutucularını koru, örneğin {model}. Yanlış olan, kaydetmeden önce işaretlenir. Boş bir kutu varsayılanı korur."
+    },
+    "frames": {
+      "stopped": "Bu sayfa durduruldu",
+      "why": {
+        "busy": "Bilgisayarı çok uzun süre meşgul etti (10 saniyede 3 saniyeden fazla iş).",
+        "silent": "5 saniyeden uzun süre yanıt vermeyi bıraktı.",
+        "noStart": "10 saniye içinde başlamadı.",
+        "navigated": "Çerçevesinden çıkmaya çalıştı."
+      },
+      "capped": "Duraklatıldı: uygulamada aynı anda en fazla {{max}} sayfa çalışır.",
+      "run": "Çalıştır"
+    },
+    "slots": {
+      "title": "Slotlar",
+      "lede": "Uygulamanın, sayfa kutucuklarını, araç düğmelerini ve komutlarını soldan sağa gösteren küçük yerleri. Başlığı, modeli veya ayarları asla gizlemezler.",
+      "where": "Slotların bulunduğu yerler",
+      "map": "Slot haritası",
+      "editing": "Düzenleniyor",
+      "count": "{{max}} içinden {{count}}",
+      "names": {
+        "chatHeader": "Sohbet başlığı",
+        "sidebarFooter": "Kenar çubuğu alt bilgisi",
+        "composerToolbar": "Yazma alanı araç çubuğu"
+      },
+      "badge": {
+        "chatHeader": "Sohbet başlığında",
+        "sidebarFooter": "Kenar çubuğunda",
+        "composerToolbar": "Yazma alanında"
+      },
+      "hint": {
+        "chatHeader": "Her sohbetin üstündeki çubuk. Kompakt düzenli bir sayfa 40 px yüksekliğinde bir şeritte çalışır; tıklama onu kutucuğun altında bir kart olarak açar.",
+        "sidebarFooter": "Kenar çubuğunun alt kısmı, her ekranda. Daraltılmış bir kenar çubuğu bunu gizler.",
+        "composerToolbar": "Mesaj kutusunun ek düğmesinin yanında. Araç düğmeleri için uygun."
+      },
+      "empty": "Henüz burada bir şey yok. Bir sayfa kutucuğu, araç düğmesi veya komut ekle.",
+      "addItem": "Öğe ekle",
+      "full": "Bu slot dolu (en fazla {{max}} öğe).",
+      "incomplete": "Kaydetmeden önce her yeni öğeyi doldur: bir sayfa ya da bir araç ve metni ya da bir komut.",
+      "add": {
+        "page": "Sayfa kutucuğu",
+        "pageHint": "Yaptığın veya seninle paylaşılan bir sayfa",
+        "tool": "Araç düğmesi",
+        "toolHint": "Bir aracı çalıştırır, önce sorar",
+        "command": "Komut",
+        "commandHint": "Komutlarından biri"
+      },
+      "kind": {
+        "tool": "Araç düğmesi, önce sorar",
+        "command": "Komut",
+        "pageMissing": "Sayfa bulunamadı",
+        "pageCompact": "Sayfa kutucuğu, kompakt",
+        "pageButton": "Sayfa, tıklanınca açılır"
+      },
+      "form": {
+        "page": "Sayfa",
+        "pickPage": "Bir sayfa seç",
+        "shared": "paylaşılan",
+        "pageHint": "Kompakt düzenli bir sayfa slotta çalışır. Diğer her sayfa, onu açan bir düğme olarak görünür.",
+        "tool": "Araç adı",
+        "arguments": "Sabit argümanlar (isteğe bağlı)",
+        "argumentsHint": "Düz değerli adlar, en fazla {{max}}: metin, sayı, true veya false, örnekteki gibi.",
+        "argumentsBad": "Geçerli değil: adları düz değerlerle, örnekteki gibi, en fazla {{max}} olacak şekilde yaz.",
+        "command": "Komut adı",
+        "commandHint": "Komutlarından birinin adı, eğik çizgi olmadan. Tıklama, metnini mesaj kutusuna koyar.",
+        "label": "Metin (isteğe bağlı)",
+        "labelNeeded": "Düğmenin metni",
+        "icon": "Simge (isteğe bağlı)"
+      },
+      "tool": {
+        "title": "Sen onayladıktan sonra {{tool}} aracını çalıştırır",
+        "confirmTitle": "{{label}} çalıştırılsın mı?",
+        "confirmChat": "Bu, bu sohbete asistandan bu aracı çalıştırmasını isteyen bir mesaj gönderir:",
+        "confirmDraft": "Bu, asistandan bu aracı çalıştırmasını isteyen bir mesajla yeni bir sohbet açar. Mesajı sen gönderirsin.",
+        "tool": "Araç",
+        "arguments": "Argümanlar",
+        "stillAsks": "Araç onayını gerektiriyorsa sohbet yine de sorar.",
+        "run": "Çalıştır"
+      },
+      "tile": {
+        "missing": "{{name}} sayfası yok. Slotları ayarlarında değiştir.",
+        "off": "Paylaşılan sayfalar bu sunucuda kapalı.",
+        "error": "{{name}} sayfası okunamadı. Slotları ayarlarında değiştir.",
+        "open": "{{title}} öğesini aç",
+        "allow": "{{title}} öğesinin burada çalışmasına izin ver",
+        "expand": "{{title}} öğesini göster",
+        "close": "{{title}} öğesini kapat",
+        "sandboxed": "Korumalı alanda, ağ yok"
+      }
+    }
+  },
+  "discovery": {
+    "ex": {
+      "title": "LocalAI'yi kendine göre yap",
+      "lede": "Bir sohbette söyle. Asistan kaydeder ve sen değiştirebilir veya geri alabilirsin.",
+      "hide": "Bunları gizle",
+      "hiddenToast": "Örnekler gizlendi.",
+      "saveFailed": "Kaydedilmedi: {{message}}",
+      "card1": {
+        "kicker": "Sen ve asistan",
+        "prompt": "Bana {{firstName}} de ve yanıtları kısa tut",
+        "promptNoName": "Adımı hatırla ve yanıtları kısa tut",
+        "what": "Adını ve asistanın nasıl yanıt verdiğini kaydeder"
+      },
+      "card2": {
+        "kicker": "Bir sayfa",
+        "prompt": "Bana bir görev panosu yap",
+        "what": "Kenar çubuğundan açtığın bir sayfa ekler"
+      },
+      "card3": {
+        "kicker": "Her sabah",
+        "prompt": "Her sabah gelen kutumu burada özetle",
+        "promptNoMail": "Her sabah dünkü sohbetleri burada listele",
+        "what": "Bir Ana sayfa widget'ı ve onayladığın bir tetikleyici ekler"
+      },
+      "quote": "“{{text}}”",
+      "donePrefix": "Bitti.",
+      "doneLink": "Hesap'tan değiştir",
+      "ready": "Ya da hazır bir sayfadan başla:",
+      "readyTasks": "Görev panosu",
+      "readyReading": "Okuma listesi",
+      "readyFailed": "Sayfa kopyalanmadı: {{message}}",
+      "learn": "Bu nasıl çalışır",
+      "inComposer": "İstersen düzenle, sonra Enter'a bas. Sen gönderene kadar hiçbir şey kaydedilmez.",
+      "live": "Prompt mesaj kutusuna eklendi."
+    },
+    "home": {
+      "customise": "Ana sayfayı özelleştir"
+    },
+    "action": {
+      "undo": "Geri al",
+      "openAccount": "Hesap'ta aç",
+      "openPage": "Sayfayı aç",
+      "openHome": "Ana sayfayı aç",
+      "turnBackOn": "Hesap'tan yeniden aç"
+    },
+    "change": {
+      "profilePersona": "Adını ve asistan için talimatlarını kaydetti. Her sohbet bunları bir sonraki mesajından itibaren kullanır.",
+      "profile": "Profiline kaydedildi.",
+      "persona": "Asistanın talimatları kaydedildi. Her sohbet bunları bir sonraki mesajından itibaren kullanır.",
+      "shortcuts": "Kısayolların kaydedildi.",
+      "home": "Ana sayfan kaydedildi. Ana sayfa değişikliği gösterir.",
+      "ui": "Görünüm ayarların kaydedildi.",
+      "pageCreated": "{{title}} sayfası oluşturuldu.",
+      "pageChanged": "{{title}} sayfası değiştirildi.",
+      "offersOff": "Asistanın önerileri kapalı.",
+      "undoing": "Geri alınıyor…",
+      "undone": "Geri alındı.",
+      "undoFailed": "Geri alınmadı: {{message}}",
+      "defaults": "Varsayılan modellerin kaydedildi. Asistan bunları bir sonraki mesajından itibaren kullanır."
+    },
+    "toast": {
+      "shortcutAdded": "Yazma alanına eklendi: {{label}}",
+      "pageCreated": "{{title}}, kenar çubuğundaki Sayfalar'da",
+      "open": "Aç",
+      "homeChanged": "Ana sayfa güncellendi.",
+      "themeChanged": "Tema değiştirildi."
+    },
+    "files": {
+      "learn": "Bu dosyalar, LocalAI'nin senin için nasıl çalıştığını değiştirir.",
+      "tag": {
+        "profile": "Profilin",
+        "persona": "Asistan",
+        "shortcuts": "Kısayollar",
+        "home": "Ana sayfa düzeni",
+        "ui": "Görünüş",
+        "page": "Sayfa"
+      }
+    },
+    "privacy": "Asistan, her sohbetin başında adını, bu metni, dilini ve saat dilimini alır. Dışarıda tutmak için bir alanı boş bırak.",
+    "versions": {
+      "label": "Sürümler",
+      "title": "Önceki sürümler",
+      "loading": "Geçmiş okunuyor…",
+      "none": "Henüz önceki sürüm yok.",
+      "current": "geçerli",
+      "invalid": "hata içeriyor",
+      "byAssistant": "Asistan tarafından",
+      "byAssistantIn": "Asistan tarafından, \"{{chat}}\" sohbetinde",
+      "byYou": "Senin tarafından",
+      "undo": "Bir geri alma",
+      "upload": "Yüklendi",
+      "revert": "Geri al",
+      "note": "Geri alma, daha yeni sürümü bu listede tutar.",
+      "invalidBadge": "Geçersiz",
+      "revertGood": "Son iyi sürüme dön"
+    },
+    "help": {
+      "title": "Yardım ve öneriler",
+      "sub": "LocalAI'nin neler yapabildiğini sana gösterme yolları. İhtiyacın olmayanları kapat.",
+      "offers": "Asistanın önerileri",
+      "offersHint": "Günde en fazla bir, bir görev sırasında asla: örneğin, ona söylediğin bir şeyi hatırlamak için.",
+      "new": "Yeni şeyler hakkında notlar",
+      "newHint": "Bir şey ilk kez göründüğünde kenar çubuğunda kısa bir \"Yeni\" etiketi.",
+      "examples": "Ana sayfadaki örnekler",
+      "examplesShown": "\"LocalAI'yi kendine göre yap\" kartları, denemen gereken bir şey kaldığı sürece Ana sayfada görünür.",
+      "examplesHidden": "\"LocalAI'yi kendine göre yap\" kartlarını gizledin.",
+      "showExamples": "Örnekleri yeniden göster",
+      "examplesBack": "Örnekler Ana sayfaya geri döndü.",
+      "dismissed": "Asistanın öğrendikleri",
+      "dismissedHint_one": "{{count}} öneriyi reddettin. Sıfırlayana kadar gizli kalır.",
+      "dismissedHint_other": "{{count}} öneriyi reddettin. Sıfırlayana kadar gizli kalırlar.",
+      "forget": "Asistanın ipuçlarım hakkında öğrendiklerini unut",
+      "forgotten": "Bitti. Asistan yeniden öneride bulunabilir.",
+      "learn": "Neleri değiştirebileceğini öğren:",
+      "dismissedNone": "Henüz bir şey yok. Bir öneriyi yanıtladığında asistan bunu burada hatırlar."
+    }
+  },
+  "shared": {
+    "adminTitle": "Paylaşılan klasörler",
+    "adminLede": "Birkaç kişinin kullandığı klasörler. Üyeler sayfalarını açar ve sohbetleri dosyaları okuyabilir veya düzenleyebilir.",
+    "userTitle": "Seninle paylaşılanlar",
+    "userLede": "Bir yöneticinin veya başka bir kişinin seninle paylaştığı klasörler. Sohbetlerin dosyaları kullanabilir.",
+    "new": "Yeni paylaşılan klasör",
+    "nameLabel": "Klasör adı",
+    "nameHint": "En fazla 64 harf, rakam, boşluk, nokta, tire veya alt çizgi. Bir harf veya rakamla başla.",
+    "create": "Oluştur",
+    "cancel": "İptal",
+    "rename": "Yeniden adlandır",
+    "renameSave": "Kaydet",
+    "remove": "Kaldır",
+    "manage": "Üyeler",
+    "menu": "{{name}} için diğer işlemler",
+    "pages_one": "{{count}} sayfa",
+    "pages_other": "{{count}} sayfa",
+    "pagesNone": "Sayfa yok",
+    "people_one": "{{count}} kişi",
+    "people_other": "{{count}} kişi",
+    "membersNone": "Üye yok",
+    "everyone": "Herkes",
+    "everyoneOption": "Herkes (tüm kullanıcılar)",
+    "everyoneHint": "Tüm kullanıcılar, sonradan katılanlar da",
+    "everyoneCan": {
+      "read": "Herkes okuyabilir",
+      "write": "Herkes düzenleyebilir"
+    },
+    "mode": {
+      "read": "Okuyabilir",
+      "write": "Düzenleyebilir"
+    },
+    "addTitle": "Üye ekle",
+    "person": "Kişi",
+    "access": "Erişim",
+    "accessFor": "{{name}} için erişim",
+    "add": "Ekle",
+    "allAdded": "Herkes zaten üye.",
+    "usersUnavailable": "Kullanıcı listesi yüklenemedi. Yine de Herkes'i ekleyebilirsin.",
+    "membersTitle": "Üyeler",
+    "noMembers": "Henüz hiç kimse bu klasörü kullanamıyor. Bir kişi ya da Herkes'i ekle.",
+    "removeMember": "{{name}} üyesini kaldır",
+    "paneNote": "Bir değişiklik hemen uygulanır. Açık bir sohbet bunu bir sonraki açılışında görür.",
+    "created": "“{{name}}” oluşturuldu. Kullanabilecek kişileri ekle.",
+    "removed": "“{{name}}” kaldırıldı. Sayfaları çalışmadan önce yeniden sorar.",
+    "restored": "“{{name}}” üyeleriyle birlikte geri döndü.",
+    "memberAdded": "{{name}} eklendi: {{mode}}.",
+    "memberRemoved": "{{name}} artık “{{folder}}” klasörünü kullanamaz.",
+    "failed": "Yapılamadı: {{message}}",
+    "loadFailed": "Paylaşılan klasörler yüklenemedi.",
+    "emptyAdminTitle": "Henüz paylaşılan klasör yok",
+    "emptyAdminBody": "Paylaşılan klasör, diğer kişilerin okuyabileceği veya düzenleyebileceği dosyaları ve sayfaları barındırır. Bir tane oluştur, ardından üye ekle.",
+    "factMembers": "Bir kişiye ya da herkese okuma veya düzenleme erişimi ver",
+    "factChats": "Üyelerin sohbetleri klasörün dosyalarını görür",
+    "factUndo": "Bir klasörü kaldırmak geri alınabilir",
+    "emptyUserTitle": "Seninle henüz hiçbir şey paylaşılmadı",
+    "emptyUserBody": "Biri seninle bir klasör paylaştığında burada görünür."
+  },
+  "managed": {
+    "group": "LocalAI tarafından yönetilir",
+    "marker": "LocalAI tarafından yönetilir",
+    "about": {
+      "localai": "LocalAI'nin okuduğu ayarlar: persona, profil, kısayollar, Ana sayfa, tema.",
+      "chats": "Sohbet başına bir klasör, sohbetin dosyalarıyla.",
+      "projects": "Projelerin. Her klasör bir projedir.",
+      "memory": "Asistanın senin hakkında tuttuğu notlar.",
+      "pages": "Çalışma alanındaki sayfalar.",
+      "skills": "Ajanların kullandığı yetenekler.",
+      "other": "LocalAI tarafından oluşturulur ve kullanılır."
+    },
+    "open": {
+      "memory": "Hafızayı aç",
+      "pages": "Sayfaları aç",
+      "skills": "Yetenekleri aç",
+      "projects": "Projeleri aç"
+    },
+    "confirm": {
+      "deleteTitle": "{{name}} Çöp Kutusu'na taşınsın mı?",
+      "renameTitle": "{{name}} yeniden adlandırılsın mı?",
+      "delete": "Çöp Kutusu'na taşı",
+      "rename": "Yeniden adlandır",
+      "restore": "Çöp Kutusu'ndan geri yükleyebilirsin.",
+      "renameNote": "LocalAI onu yalnızca bu adla okur, bu yüzden yeniden adlandırdıktan sonra yok olmuş gibi olur."
+    },
+    "loses": {
+      "settings": "LocalAI personanı, profilini, kısayollarını, Ana sayfa düzenini ve temanı unutur.",
+      "chats": "Her sohbet dosyalarını kaybeder: eklediklerini ve asistanın oraya yazdıklarını.",
+      "projects": "Her proje dosyalarını ve hafızasını kaybeder ve bir projedeki sohbetler, onlardan kullandıklarını kaybeder.",
+      "persona": "Asistan adını ve talimatlarını kaybeder.",
+      "user": "Asistan, ona kendin hakkında söylediklerini ve önerilerine verdiğin yanıtları unutur.",
+      "shortcuts": "Mesaj kutusu varsayılan kısayolları yeniden gösterir.",
+      "home": "Ana sayfa widget'larını kaybeder.",
+      "ui": "Temanın, vurgu rengin, yoğunluğun, Ana sayfa ve sohbet arka planların, varsayılan modelin ve sabitlenmiş sayfaların varsayılanlara döner.",
+      "defaults": "Varsayılan modellerin unutulur. Araçlar yeniden kurulu bir modeli kendileri seçer."
+    }
+  },
+  "newFile": "Yeni dosya",
+  "newFolderName": "Yeni klasör",
+  "newFileName": "Adsız.md",
+  "fileName": "Dosya adı",
+  "downloadOne": "{{name}} dosyasını indir",
+  "moveTo": "Şuraya taşı…",
+  "uploadMenu": "Diğer yükleme seçenekleri",
+  "uploadFiles": "Dosya yükle",
+  "uploadFolder": "Klasör yükle",
+  "loading": "Klasör yükleniyor",
+  "loadFailed": "{{folder}} açılamadı.",
+  "types": {
+    "folder": "Klasör",
+    "image": "Görsel",
+    "pdf": "PDF",
+    "sheet": "Hesap tablosu",
+    "doc": "Belge",
+    "slides": "Sunum",
+    "archive": "Arşiv",
+    "audio": "Ses",
+    "video": "Video",
+    "code": "Kod",
+    "text": "Metin",
+    "file": "Dosya"
+  },
+  "columns": {
+    "name": "Ad",
+    "modified": "Değiştirilme",
+    "type": "Tür",
+    "size": "Boyut",
+    "actions": "İşlemler"
+  },
+  "view": {
+    "label": "Görünüm",
+    "list": "Liste",
+    "grid": "Küçük resimler"
+  },
+  "select": {
+    "one": "{{name}} öğesini seç",
+    "all": "Tümünü seç",
+    "bar": "Seçili öğeler",
+    "clear": "Seçimi temizle",
+    "count_one": "{{count}} seçili",
+    "count_other": "{{count}} seçili",
+    "start": "Seç"
+  },
+  "menu": {
+    "label": "{{name}} için işlemler",
+    "more": "{{name}} için diğer işlemler",
+    "openFolder": "Aç",
+    "preview": "Önizleme",
+    "downloadMany_one": "{{count}} dosyayı indir",
+    "downloadMany_other": "{{count}} dosyayı indir",
+    "moveMany_one": "{{count}} öğeyi şuraya taşı…",
+    "moveMany_other": "{{count}} öğeyi şuraya taşı…",
+    "deleteMany_one": "{{count}} öğeyi Çöp Kutusu'na taşı",
+    "deleteMany_other": "{{count}} öğeyi Çöp Kutusu'na taşı",
+    "share": "Paylaş…",
+    "extract": "Buraya çıkar"
+  },
+  "keys": {
+    "delete": "Del"
+  },
+  "crumbs": {
+    "hidden": "Yukarıdaki klasörleri göster"
+  },
+  "naming": {
+    "empty": "Bir ad yaz.",
+    "slash": "Bir ad / veya \\ içeremez.",
+    "taken": "Bu klasörde bu adı taşıyan bir şey zaten var."
+  },
+  "toast": {
+    "undo": "Geri al",
+    "deletedOne": "{{name}} Çöp Kutusu'na taşındı.",
+    "deleted_one": "{{count}} öğe Çöp Kutusu'na taşındı.",
+    "deleted_other": "{{count}} öğe Çöp Kutusu'na taşındı.",
+    "restored": "Geri yüklendi.",
+    "renamed": "Yeni ad: {{name}}.",
+    "renameUndone": "Ad eski haline döndürüldü.",
+    "movedOne": "{{name}}, {{folder}} klasörüne taşındı.",
+    "moved_one": "{{count}} öğe {{folder}} klasörüne taşındı.",
+    "moved_other": "{{count}} öğe {{folder}} klasörüne taşındı.",
+    "moveUndone": "Geri taşındı.",
+    "extracted_one": "{{count}} dosya {{folder}} klasörüne çıkarıldı.",
+    "extracted_other": "{{count}} dosya {{folder}} klasörüne çıkarıldı.",
+    "extractSkipped_one": "{{count}} girdi atlandı (bağlantılar, aygıtlar veya hatalı adlar).",
+    "extractSkipped_other": "{{count}} girdi atlandı (bağlantılar, aygıtlar veya hatalı adlar).",
+    "extractConflicts_one": "{{count}} ad kullanımdaydı: yeni dosya kopya olarak kaydedildi.",
+    "extractConflicts_other": "{{count}} ad kullanımdaydı: yeni dosyalar kopya olarak kaydedildi.",
+    "extractUndone": "Çıkarma geri alındı."
+  },
+  "emptyHome": {
+    "title": "Dosyaların burada"
+  },
+  "emptyFolder": {
+    "title": "Bu klasör boş",
+    "body": "Dosyaları veya klasörleri bu sayfanın herhangi bir yerine bırak, Ctrl+V ile yapıştır ya da bilgisayarından yükle. Asistan da bir sohbetten buraya dosya kaydedebilir.",
+    "bodyTouch": "Dosyaları cihazından yükle. Asistan da bir sohbetten buraya dosya kaydedebilir.",
+    "ask": "Asistana sor"
+  },
+  "drop": {
+    "title": "{{folder}} klasörüne yüklemek için bırak",
+    "body": "Dosyalar ve klasörlerin tamamı kabul edilir.",
+    "limit": "Dosyalar ve klasörlerin tamamı, her biri en fazla {{size}}."
+  },
+  "conflict": {
+    "title_one": "Bu adla bir dosya zaten var",
+    "title_other": "Bu adlarla {{count}} dosya zaten var",
+    "body_one": "{{folder}} klasöründe bu adla bir dosya zaten var.",
+    "body_other": "{{folder}} klasöründe bu adlarla dosyalar zaten var.",
+    "skip_one": "Atla",
+    "skip_other": "Hepsini atla",
+    "keep": "İkisini de koru",
+    "replace_one": "Değiştir",
+    "replace_other": "Hepsini değiştir",
+    "more_one": "ve {{count}} tane daha",
+    "more_other": "ve {{count}} tane daha",
+    "note": "İkisini de koru, yeni dosyaya yeni bir ad verir. Değiştirilen dosya Geçmiş'ten geri getirilebilir.",
+    "cancel": "Yüklemeyi iptal et"
+  },
+  "move": {
+    "title_one": "{{count}} öğeyi taşı",
+    "title_other": "{{count}} öğeyi taşı",
+    "items_one": "{{count}} öğe",
+    "items_other": "{{count}} öğe",
+    "cancel": "İptal",
+    "here": "{{folder}} klasörüne taşı",
+    "failed": "Bu klasör okunamadı.",
+    "noFolders": "Burada klasör yok. Buraya taşı ya da yukarı çık."
+  },
+  "uploads": {
+    "waiting": "Bekliyor",
+    "progress": "{{total}} içinden {{loaded}}",
+    "rate": "{{rate}}/sn",
+    "left": "{{time}} kaldı",
+    "renamed": "{{name}} olarak kaydedildi",
+    "done": "Yüklendi",
+    "canceled": "İptal edildi",
+    "cancel": "İptal",
+    "cancelOne": "{{name}} yüklemesini iptal et",
+    "retry": "Yeniden dene",
+    "retryOne": "{{name}} yüklemesini yeniden dene",
+    "dismiss": "Kapat",
+    "dismissOne": "{{name}} öğesini kapat",
+    "show": "Göster",
+    "showOne": "{{name}} öğesini göster",
+    "meterOne": "{{name}}: %{{percent}}",
+    "meterAll": "Tüm yüklemeler: %{{percent}}",
+    "cancelAll": "Tümünü iptal et",
+    "retryAll": "Tümünü yeniden dene",
+    "fold": "Listeyi gizle",
+    "unfold": "Listeyi göster",
+    "close": "Kapat",
+    "head": {
+      "sending_one": "{{count}} dosya yükleniyor",
+      "sending_other": "{{count}} dosya yükleniyor",
+      "failed_one": "{{count}} yükleme başarısız oldu",
+      "failed_other": "{{count}} yükleme başarısız oldu",
+      "done_one": "{{count}} dosya yüklendi",
+      "done_other": "{{count}} dosya yüklendi"
+    },
+    "say": {
+      "start_one": "{{count}} dosya yükleniyor.",
+      "start_other": "{{count}} dosya yükleniyor.",
+      "done_one": "Yükleme bitti: {{count}} dosya.",
+      "done_other": "Yüklemeler bitti: {{count}} dosya.",
+      "doneFailed": "Yüklemeler bitti: {{count}} yüklendi, {{failed}} başarısız oldu.",
+      "failed": "{{name}} yüklenemedi."
+    },
+    "errors": {
+      "tooBig": "Bu sunucunun {{limit}} sınırından büyük.",
+      "tooLarge": "Sunucu çok büyük olduğu için reddetti.",
+      "off": "Bu sunucuda dosyalar kapalı.",
+      "invalid": "Sunucu bu dosyayı reddetti.",
+      "network": "Bağlantı koptu.",
+      "server": "Sunucu kaydedemedi."
+    },
+    "said": "Sunucu şunu söyledi: {{reason}}."
+  },
+  "picker": {
+    "retry": "Yeniden dene",
+    "noFolders": "Burada klasör yok"
+  },
+  "agentMark": {
+    "usedBy": "Kullanan: {{agents}}",
+    "read": "{{name}} (okuyabilir)",
+    "write": "{{name}} (okuyabilir ve değiştirebilir)",
+    "many": "{{count}} ajan"
+  },
+  "share": {
+    "intro": "Eklediğin kişiler bu klasörü Paylaşılan sekmesinde bulur ve sohbetleri dosyalarını kullanabilir.",
+    "readHelp": "Dosyaları açabilir ve kopyalayabilirler.",
+    "writeHelp": "Burada dosya ekleyebilir, değiştirebilir ve silebilirler.",
+    "failed": "Paylaşım açılamadı: {{message}}",
+    "lost": "Bu klasörü artık burada paylaşamazsın."
+  },
+  "defaults": {
+    "lede": "Her iş türü için bir model. Tek bir istek için başka bir model seçebilirsin.",
+    "kinds": {
+      "chat": {
+        "label": "Sohbet",
+        "use": "Şunlar için kullan: yeni sohbetler, sohbet başlıkları, özetler"
+      },
+      "image": {
+        "label": "Görsel oluşturma",
+        "use": "Şunlar için kullan: \"çiz\", \"görsel yap\", Görseller sayfası"
+      },
+      "tts": {
+        "label": "Metinden konuşmaya",
+        "use": "Şunlar için kullan: sesli okuma, \"bunu söyle\", sesli yanıtlar"
+      },
+      "stt": {
+        "label": "Konuşmadan metne",
+        "use": "Şunlar için kullan: dikte, mikrofon, ses dosyaları"
+      },
+      "embeddings": {
+        "label": "Embedding'ler",
+        "use": "Şunlar için kullan: Bilgi araması, dosya araması"
+      },
+      "video": {
+        "label": "Video oluşturma",
+        "use": "Şunlar için kullan: \"kısa bir klip yap\", Video sayfası"
+      },
+      "rerank": {
+        "label": "Yeniden sıralama",
+        "use": "Şunlar için kullan: Bilgi sonuçlarını sıralama"
+      },
+      "vision": {
+        "label": "Görsel anlama",
+        "use": "Şunlar için kullan: bir sohbete eklediğin görseller"
+      }
+    },
+    "automatic": "Otomatik (ilk kurulu)",
+    "asking": "Her seferinde sorar",
+    "modeLabel": "{{kind}} için seçim",
+    "mode": {
+      "default": "Varsayılan",
+      "ask": "Her seferinde sor"
+    },
+    "noModel": "Model ayarlanmadı",
+    "notInstalled": "Kurulu değil",
+    "installOne": "Bir tane kur",
+    "missing": "Bu model artık kurulu değil. Sen başka bir tane seçene kadar asistan hangi modelin kullanılacağını sorar.",
+    "fromOld": "Bu sayfa var olmadan önce ayarlanmış. Varsayılanın olarak kaydetmek için burada bir model seç.",
+    "modelsFailed": "Kurulu modellerin listesi yüklenmedi. Yeniden denemek için sayfayı yenile.",
+    "help": {
+      "title": "Asistan varsayılanlarını okur",
+      "body": "\"Bir tilki çiz\" veya \"bunu sesli oku\" dediğinde asistan önce varsayılanlarına bakar ve o iş türü için listelenen modeli kullanır.",
+      "example": "Karda bir tilki çiz",
+      "tool": "varsayılanlarına baktı › görsel",
+      "used": "Görseller için varsayılanın olan <code>{{model}}</code> kullanılıyor.",
+      "exampleModel": "görsel modelin"
+    },
+    "preview": "Kaydedilenler"
+  },
+  "identity": {
+    "messageName": "{{name}} adlı asistana mesaj...",
+    "preview": {
+      "title": "Önizleme",
+      "home": "Ana sayfa",
+      "newChat": "Yeni sohbet",
+      "firstMessage": "İlk mesaj",
+      "assistant": "Asistan",
+      "noGreeting": "Karşılama ayarlanmadı. Yeni bir sohbet boş başlar."
+    }
+  },
+  "look": {
+    "preview": {
+      "title": "Canlı önizleme",
+      "question": "Python'da bir dosyanın nasıl okunacağını göster.",
+      "answer": "Kendiliğinden kapanması için bir bağlam yöneticisiyle aç:",
+      "comment": "dosyanın tamamı",
+      "after": "Büyük dosyalar için bunun yerine f üzerinde satır satır döngü kur.",
+      "button": "Çalıştır",
+      "box": "Asistana mesaj yaz..."
+    }
+  },
+  "strings": {
+    "preview": {
+      "title": "Önizleme",
+      "sidebar": "Kenar çubuğu"
+    }
+  },
+  "commands": {
+    "title": "Komutlar",
+    "lede": "Kendi eğik çizgi komutların. Bir komut, mesaj kutusuna bir prompt koyar. Onu okur ve kendin gönderirsin.",
+    "form": "Komut",
+    "new": "Yeni komut",
+    "empty": "Henüz komut yok. Bir tane ekle, eğik çizgi menüsünde görünür.",
+    "type": {
+      "prompt": "Bir prompt'a genişler",
+      "tool": "Bir aracı çağırır"
+    },
+    "field": {
+      "name": "Ad",
+      "description": "Açıklama",
+      "what": "Ne yapar",
+      "template": "Prompt şablonu",
+      "tool": "Araç",
+      "args": "Argümanlar"
+    },
+    "nameHint": "Küçük harfler, rakamlar ve tireler.",
+    "templateHint": "Bir argümanın geleceği yere {{example}} yaz.",
+    "noArgs": "Bu şablonun argümanı yok.",
+    "argKind": {
+      "number": "sayı",
+      "text": "metin"
+    },
+    "argDefault": "varsayılan",
+    "argsHint": "Argümanları sırayla doldurmak için {{example}} yaz. Eksik olanlar varsayılanı kullanır.",
+    "toolHint": "Zaten sahip olduğun bir araç. Komut asistandan onu kullanmasını ister ve araç kendi onay adımını korur.",
+    "toolUnknown": "Bu araç şu anda bir sohbetin araçları arasında değil.",
+    "expands": "Bunu mesaj kutusuna koyar",
+    "valid": "Geçerli",
+    "invalid": "Düzeltme gerekiyor",
+    "save": "Kaydet",
+    "delete": "Sil",
+    "preview": {
+      "title": "Eğik çizgi menüsü önizlemesi",
+      "builtin": "Yerleşik",
+      "none": "Henüz komut yok.",
+      "keys": "Enter kutuyu doldurur"
+    },
+    "problem": {
+      "nameEmpty": "Komuta bir ad ver.",
+      "nameFormat": "Ad bir harfle başlar ve yalnızca küçük harfler, rakamlar ve tireler içerir, en fazla 32.",
+      "nameBuiltin": "Bu ad yerleşik bir komuta ait. Başka bir tane seç.",
+      "nameTaken": "Başka bir komut zaten bu adı kullanıyor.",
+      "descriptionEmpty": "Menü için kısa bir açıklama yaz.",
+      "descriptionLong": "Açıklama en fazla {{max}} karakter olabilir.",
+      "toolEmpty": "Aracın adını yaz.",
+      "toolFormat": "Araç adı yalnızca harf, rakam, nokta, iki nokta, tire ve alt çizgi içerir, en fazla 128.",
+      "templateEmpty": "Prompt'u yaz.",
+      "templateLong": "Prompt en fazla {{template}} karakter olabilir.",
+      "argFormat": "Argüman adı bir harfle başlar ve yalnızca küçük harfler, rakamlar ve alt çizgiler içerir.",
+      "argTwice": "Bir argüman iki kez listelenmiş.",
+      "argDefault": "Her argümanın bir varsayılanı olmalı.",
+      "argDefaultLong": "Bir varsayılan en fazla 200 karakter olabilir.",
+      "argMissing": "Şablondaki bir argümanın geçerli bir adı yok.",
+      "argUnused": "Bir argüman şablonda kullanılmıyor.",
+      "braces": "Çift süslü parantez kapatılmamış.",
+      "argCount": "Bir komut en fazla {{args}} argüman alabilir."
+    }
+  },
+  "sound": {
+    "title": "Ses",
+    "play": "{{event}} sesini çal",
+    "volume": "Ses düzeyi",
+    "volumeReset": "Varsayılan ses düzeyini kullan",
+    "names": {
+      "none": "Yok",
+      "soft-chime": "Yumuşak çan",
+      "double-tap": "Çift dokunuş",
+      "bell": "Zil",
+      "pop": "Pop",
+      "low-tone": "Alçak ton"
+    },
+    "events": {
+      "replyDone": {
+        "label": "Yanıt bitti",
+        "hint": "Uzun bir yanıt hazır"
+      },
+      "approval": {
+        "label": "Onayını gerektirir",
+        "hint": "Bir araç ya da değişiklik çalışmadan önce sorar"
+      },
+      "taskDone": {
+        "label": "Görev veya zamanlama bitti",
+        "hint": "Bir tetikleyici veya ajan işi sona erdi"
+      },
+      "error": {
+        "label": "Hata",
+        "hint": "Bir istek veya iş başarısız oldu"
+      }
+    },
+    "notify": {
+      "title": "Bildirim sesleri",
+      "lede": "Bir şeye ihtiyaç duyulduğunda kısa sesler. Sen açana kadar kapalı kalırlar.",
+      "rule": "Ses yalnızca sayfayı kullandıktan sonra başlar. Yanıt, onay veya hata sesi yalnızca bu sekme arka plandayken çalar. Sessiz saatlerde hiçbir şey çalmaz."
+    },
+    "quiet": {
+      "title": "Sessiz saatler",
+      "between": "{{from}} ile {{to}} arasında ses yok",
+      "none": "Sessiz saat yok. Bir zaman aralığı seçmek için bunu aç.",
+      "from": "Başlangıç",
+      "to": "Bitiş"
+    },
+    "voice": {
+      "title": "Yanıtlar için ses",
+      "lede": "Yanıtlar sesli okunsun.",
+      "readAloud": "Yanıtları sesli oku",
+      "mode": {
+        "off": "Asla",
+        "button": "Hoparlöre bastığımda",
+        "auto": "Her yanıt"
+      },
+      "modeHint": {
+        "off": "Yanıtlar sesli okunmaz.",
+        "button": "Her yanıtın altında bir hoparlör düğmesi görünür.",
+        "auto": "Biten her yanıt hemen okunur. Tarayıcı önce sayfaya tıklamanı isteyebilir."
+      },
+      "voice": "Ses",
+      "voicePlaceholder": "Model varsayılanı",
+      "voiceHint": "Metinden konuşmaya modelinin aldığı ses adı. Modelin başladığı ses için boş bırak.",
+      "speed": "Hız",
+      "speedReset": "Normal hızı kullan",
+      "skipCode": "Kod ve tabloları atla",
+      "skipCodeHint": "Bunun yerine \"kod bloğu atlandı\" der.",
+      "sample": "Örneği çal",
+      "stop": "Durdur",
+      "sampleText": "Merhaba, yanıtların böyle ses çıkaracak.",
+      "sampleFailed": "Örnek çalınamadı.",
+      "madeBy": "Konuşmayı, metinden konuşmaya varsayılanın olan {{model}} üretir.",
+      "madeByAuto": "Konuşmayı, kurulu ilk metinden konuşmaya modeli olan {{model}} üretir. Bir varsayılan seçmedin.",
+      "change": "Varsayılanlar'da değiştir",
+      "model": {
+        "ask": "Varsayılanların her seferinde sormayı söylüyor, bu yüzden okumak için model yok. Bir metinden konuşmaya modeli seç.",
+        "missing": "{{model}} metinden konuşmaya varsayılanın ama kurulu değil.",
+        "none": "Kurulu metinden konuşmaya modeli yok."
+      },
+      "remote": "{{model}} yerel bir model değil. Sesli okunan her yanıtın metni başka bir sunucuya gönderilir."
+    }
+  },
+  "projectMark": {
+    "open": "{{name}} projesini aç"
+  }
+}

@@ -1,0 +1,198 @@
+{
+  "title": "Bilgi",
+  "subtitle": "Ajanların arayabileceği belge koleksiyonları. Hepsinde buradan arama yapabilir veya kullanılmasını istediğinde birini bir ajana ekleyebilirsin.",
+  "newPlaceholder": "Yeni koleksiyon adı...",
+  "actions": {
+    "create": "Oluştur",
+    "details": "Ayrıntılar",
+    "reset": "Sıfırla",
+    "delete": "Sil",
+    "viewDetails": "Ayrıntıları görüntüle",
+    "resetCollection": "Tüm girdileri kaldır, koleksiyonu koru",
+    "deleteCollection": "Koleksiyonu sil",
+    "newCollection": "Yeni koleksiyon",
+    "cancel": "İptal",
+    "save": "Kaydet"
+  },
+  "sections": {
+    "yourCollections": "Koleksiyonların",
+    "otherUsersCollections": "Diğer kullanıcıların koleksiyonları",
+    "sharedWithYou": "Seninle paylaşılanlar"
+  },
+  "empty": {
+    "title": "Bilgi, bir ajanın arayabileceği belgeleri tutar",
+    "text": "Koleksiyon, bir sorunun yanıtlayan pasajları bulabilmesi için dizinlenmiş dosya ve web sayfaları kümesidir. Hiçbir ajan olmadan burada arayabilirsin.",
+    "stepCreate": "Bir koleksiyon oluştur.",
+    "stepFill": "Ona dosya veya web sayfası ekle.",
+    "stepAsk": "Ne döndüğünü görmek için bir soru sor, sonra bir ajana ver.",
+    "noPersonal": "Henüz koleksiyonun yok.",
+    "learn": "Bilgi nasıl çalışır"
+  },
+  "deleteDialog": {
+    "title": "Koleksiyonu Sil",
+    "message": "\"{{name}}\" koleksiyonu silinsin mi? Bu, tüm girdileri kaldırır ve geri alınamaz.",
+    "confirm": "Sil"
+  },
+  "resetDialog": {
+    "title": "Tüm girdileri kaldır",
+    "message": "\"{{name}}\" koleksiyonundaki tüm girdiler kaldırılsın mı? Koleksiyon kalır. Bu işlem geri alınamaz.",
+    "confirm": "Girdileri kaldır"
+  },
+  "toasts": {
+    "created": "\"{{name}}\" koleksiyonu oluşturuldu",
+    "createFailed": "Koleksiyon oluşturulamadı: {{message}}",
+    "deleted": "\"{{name}}\" koleksiyonu silindi",
+    "deleteFailed": "Koleksiyon silinemedi: {{message}}",
+    "reset": "\"{{name}}\" koleksiyonu sıfırlandı",
+    "resetFailed": "Koleksiyon sıfırlanamadı: {{message}}",
+    "uploaded": "{{file}} eklendi",
+    "sourceAdded": "Kaynak eklendi",
+    "sourceFailed": "Kaynak eklenemedi: {{message}}",
+    "sourceRemoved": "Kaynak kaldırıldı",
+    "sourceRemoveFailed": "Kaynak kaldırılamadı: {{message}}",
+    "contentFailed": "Girdi içeriği yüklenemedi: {{message}}",
+    "entryDeleted": "Girdi silindi",
+    "entryDeleteFailed": "Girdi silinemedi: {{message}}"
+  },
+  "newLabel": "Yeni koleksiyon adı",
+  "filter": {
+    "label": "Koleksiyonları filtrele",
+    "placeholder": "Koleksiyonları filtrele",
+    "show": "Göster",
+    "all": "Tümü",
+    "used": "Kullanılan",
+    "unused": "Henüz kullanılmayan",
+    "none": "Eşleşen koleksiyon yok."
+  },
+  "list": {
+    "label": "Koleksiyonlar",
+    "countAll_one": "{{count}} koleksiyon",
+    "countAll_other": "{{count}} koleksiyon",
+    "countOf": "{{total}} koleksiyondan {{shown}} tanesi",
+    "menu": "İşlemler: {{name}}"
+  },
+  "pane": {
+    "back": "Tüm koleksiyonlar",
+    "pick": "Aramak, eklemek veya kimin kullandığını görmek için bir koleksiyon seç.",
+    "counts": "{{files}} dosya, {{sources}} web kaynağı",
+    "failed": "{{count}} başarısız",
+    "addSource": "Kaynak ekle",
+    "addFile": "Dosya ekle"
+  },
+  "add": {
+    "file": "Bir dosya",
+    "upload": "Yükle",
+    "url": "Bir web sayfası veya besleme",
+    "interval": "Yenileme aralığı",
+    "intervalPlaceholder": "dakika",
+    "addUrl": "URL ekle"
+  },
+  "ask": {
+    "title": "Bir soru dene",
+    "label": "Bu koleksiyona bir soru sor",
+    "placeholder": "Bir soru sor",
+    "search": "Ara",
+    "alone": "Yalnızca bu koleksiyonda çalışır. Sohbet, model veya ajan devreye girmez.",
+    "tune": "Aramayı ayarla",
+    "max": "Döndürülecek pasaj",
+    "none": "Bu soru için hiçbir şey dönmedi.",
+    "ranked": "{{count}} pasaj, benzerliğe göre sıralı"
+  },
+  "sources": {
+    "title": "Web kaynakları",
+    "none": "İnternet kaynağı yok. Bu koleksiyonda bir sayfayı veya beslemeyi tutmak için bir URL ekle.",
+    "every": "her {{count}} dk'da bir yenilenir",
+    "manual": "otomatik yenilenmez",
+    "updated": "son güncelleme: {{when}}",
+    "never": "henüz getirilmedi",
+    "remove": "Kaldır: {{url}}",
+    "removeTitle": "Kaynağı kaldır",
+    "loadFailed": "İnternet kaynakları yüklenemedi.",
+    "noneShared": "İnternet kaynağı yok."
+  },
+  "entries": {
+    "title": "Dosyalar",
+    "none": "Henüz dosya yok. Bu koleksiyonu doldurmak için bir dosya veya web sayfası ekle.",
+    "indexing": "Dizinleniyor...",
+    "uploadFailed": "Yükleme başarısız",
+    "retry": "Yeniden dene",
+    "dismiss": "Kapat",
+    "view": "Görüntüle: {{name}}",
+    "viewTitle": "İçeriği görüntüle",
+    "delete": "Sil: {{name}}",
+    "deleteTitle": "Girdiyi sil",
+    "chunks": "{{count}} parça",
+    "close": "Kapat",
+    "empty": "(boş)",
+    "noContent": "Kullanılabilir içerik yok.",
+    "adding": "Dosyalar ekleniyor",
+    "loadFailed": "Dosyalar yüklenemedi.",
+    "filter": "Dosyaları filtrele",
+    "countAll_one": "{{count}} dosya",
+    "countAll_other": "{{count}} dosya",
+    "countOf": "{{total}} dosyadan {{shown}} tanesi",
+    "noMatch": "Eşleşen dosya yok."
+  },
+  "removeSource": {
+    "title": "Kaynağı Kaldır",
+    "message": "Bu kaynak kaldırılsın mı? Eklediği içerik, girdiyi silene kadar kalır.",
+    "confirm": "Kaldır"
+  },
+  "deleteEntry": {
+    "title": "Girdiyi Sil",
+    "message": "Bu girdiyi silmek istediğinden emin misin?",
+    "confirm": "Sil"
+  },
+  "api": {
+    "title": "Dizin, API ve gizlilik",
+    "index": "Dosyalar eklendiklerinde pasajlara bölünür ve dizinlenir. Bir soru, benzerliğe göre pasajlarla eşleştirilir ve her pasaj bir puanla döner.",
+    "privacy": "Yüklediğin dosyalar bu sunucuda kalır. Bir web kaynağı, verdiğin adresten, belirlediğin aralıkla getirilir."
+  },
+  "loadFailed": "Koleksiyonların yüklenemedi.",
+  "starting": {
+    "title": "Bilgi başlıyor.",
+    "text": "Sunucu bilgi hizmetini hâlâ hazırlıyor. Bu sayfa kendiliğinden yeniden sorar."
+  },
+  "embedding": {
+    "missingTitle": "Kurulu embedding modeli yok.",
+    "missingText": "Koleksiyonlar dosyaları dizinlemek ve aramak için {{model}} kullanır. Kurulana kadar dosya ekleme ve arama başarısız olur.",
+    "noneSet": "Koleksiyonlar için embedding modeli ayarlanmamış (collections_embedding_model), bu yüzden dosya ekleme ve arama başarısız olur.",
+    "install": "Modeller'de bul",
+    "askAdmin": "Bir yöneticiden kurmasını iste."
+  },
+  "searchMode": {
+    "label": "Arama: {{mode}}",
+    "semantic": "anlamsal",
+    "hybrid": "hibrit",
+    "semanticHint": "Pasajları tam sözcüklere veya kodlara göre değil, anlamına göre bulur.",
+    "hybridHint": "Pasajları anlamına ve tam sözcüklere göre bulur."
+  },
+  "share": {
+    "label": "Paylaş",
+    "button": "Paylaş: {{name}}",
+    "intro": "Eklediğin kişiler bu koleksiyonu kendi listelerinde bulur ve ajanları onu adıyla arayabilir.",
+    "failed": "Koleksiyon paylaşılamadı: {{message}}",
+    "roles": {
+      "viewer": "Görüntüleyebilir",
+      "viewerHelp": "Onda arama yapabilir ve dosyalarını okuyabilir.",
+      "editor": "Düzenleyebilir",
+      "editorHelp": "Ayrıca dosya ekleyip kaldırabilir."
+    },
+    "noteViewer": "Onda arama yapabilir ve dosyalarını okuyabilirsin.",
+    "noteEditor": "Onda arama yapabilir, dosya ekleyip kaldırabilirsin."
+  },
+  "create": {
+    "title": "Yeni koleksiyon",
+    "hint": "Tanıyacağın bir ad ver. Koleksiyon oluşunca dosya ve web sayfası eklersin."
+  },
+  "sort": {
+    "label": "Koleksiyonları sırala",
+    "name": "Ad, A'dan Z'ye",
+    "name-desc": "Ad, Z'den A'ya",
+    "used": "En çok kullanılan",
+    "unused": "Önce kullanılmayanlar"
+  },
+  "menu": {
+    "try": "Bir soru dene"
+  }
+}

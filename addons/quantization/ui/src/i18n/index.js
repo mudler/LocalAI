@@ -10,7 +10,8 @@ import es from './quantization.es.json'
 import fr from './quantization.fr.json'
 import id from './quantization.id.json'
 import ko from './quantization.ko.json'
+import tr from './quantization.tr.json'
 import pt_BR from './quantization.pt-BR.json'
 import zh_CN from './quantization.zh-CN.json'
 
-export const locales = { en, it, de, es, fr, id, ko, 'pt-BR': pt_BR, 'zh-CN': zh_CN }
+export const locales = { en, it, de, es, fr, id, ko, tr, 'pt-BR': pt_BR, 'zh-CN': zh_CN }

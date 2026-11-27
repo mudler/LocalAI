@@ -28,7 +28,7 @@ test('connector words: Italian wins, plural forms follow the language, and a mis
   assert.equal(translator('sv', ['connector'])('matrix.title'), 'Who can do what', 'a language without a bundle reads in English')
 })
 
-const LANGS = ['en', 'it', 'es', 'de', 'fr', 'zh-CN', 'id', 'ko', 'pt-BR']
+const LANGS = ['en', 'it', 'es', 'de', 'fr', 'zh-CN', 'id', 'ko', 'pt-BR', 'tr']
 
 test('connector words: the quiet line of a new connection counts the things to set, in every language', () => {
   for (const lng of LANGS) {

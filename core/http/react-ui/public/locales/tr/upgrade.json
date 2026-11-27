@@ -1,0 +1,10 @@
+{
+  "badge": {
+    "available": "Güncelleme var",
+    "availableVersion": "Güncelleme var: {{version}}"
+  },
+  "reason": {
+    "checkAgain": "Yeniden kontrol et",
+    "checking": "Kontrol ediliyor..."
+  }
+}

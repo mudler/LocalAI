@@ -74,7 +74,7 @@ test('chat failure: every locale has every reason and hint the codes use', () =>
     .concat(Object.keys(load('en').error.hint).map(k => `hint.${k}`))
     .concat(['title', 'kept', 'retry', 'detail', 'openBackends', 'updateBackend', 'updateBackendBusy', 'updateBackendStarted', 'updateBackendFailed', 'openUpdates'])
   const langs = readdirSync(locales).filter(l => l !== 'en')
-  assert.equal(langs.length, 9)
+  assert.equal(langs.length, 10)
   for (const lng of langs) {
     const error = load(lng).error
     for (const key of want) {

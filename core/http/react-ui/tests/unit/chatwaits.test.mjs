@@ -175,7 +175,7 @@ test('a looping sub-agent shows its loop or its wait in one line', () => {
 test('every locale has every key of the wait strings', () => {
   const flat = (o, p = '') => Object.entries(o).flatMap(([k, v]) => (v && typeof v === 'object' ? flat(v, `${p}${k}.`) : [`${p}${k}`]))
   const want = flat(en.loops.wait).sort()
-  for (const lng of ['de', 'es', 'fr', 'id', 'it', 'ko', 'pt-BR', 'zh-CN']) {
+  for (const lng of ['de', 'es', 'fr', 'id', 'it', 'ko', 'pt-BR', 'tr', 'zh-CN']) {
     const other = JSON.parse(readFileSync(new URL(`../../public/locales/${lng}/chats.json`, import.meta.url), 'utf8'))
     assert.deepEqual(flat(other.loops.wait).sort(), want, lng)
     assert.ok(other.subAgents.waiting && other.subAgents.looping, lng)

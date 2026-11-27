@@ -1,0 +1,81 @@
+{
+  "title": "Discord",
+  "intro": "Bir Discord botunu kayıtlı ajanlarından birine bağla. İnsanlar ajanla bot ile doğrudan mesajlaşarak veya bir kanalda ya da iş parçacığında botu anarak konuşur. Her kişinin ve her iş parçacığının kendi sohbeti olur.",
+  "new": "Yeni Discord botu",
+  "edit": "Discord botunu düzenle",
+  "name": "Ad",
+  "token": "Bot token'ı",
+  "tokenHelp": "Discord geliştirici portalında uygulamanın Bot sayfasından alınır (Reset Token). Mühürlü saklanır ve bir daha gösterilmez.",
+  "tokenSaved": "Kaydedildi. Değiştirmek için yeni bir token yaz.",
+  "tokenSpace": "Token'da boşluk yoktur. Yalnızca token'ı yapıştır, başındaki Bot sözcüğü olmadan.",
+  "tokenShape": "Bu, bir bot token'ı için çok kısa.",
+  "agent": "Ajan",
+  "agentNone": "Bir ajan seç",
+  "agentNoModel": "{{name}} (model gerekli)",
+  "anyoneWarning": "Bu, herkese açık kanallar ve yalnızca okuyan ajanlar içindir. Bota ulaşabilen herkes bu ajanla konuşabilir: botla ortak bir sunucuları varsa doğrudan mesajla, botun okuyabildiği ve onu andıkları her kanalda. Listede olmayan kişilerin kendi izinleri yoktur: ajan onlar için bellek kaydedemez, tetikleyici öneremez veya dosyalarını alamaz ve hassas eylemler kapalı kalır. Ajanın diğer araçları herkes için yine çalışır. İnsanların herkese açık bir kanalda yazdığı şey güvenilmeyen metindir ve ajanı yönlendirmeye çalışabilir (prompt injection). Ajana bu bağlantı için salt okunur araçlar ver; mesaj gönderen, para harcayan veya dosyaları değiştiren hiçbir araç verme. Her kişinin kendi sohbeti olur ve bir kişinin dakikada gönderebileceği mesaj sayısı sınırlıdır.",
+  "anyoneConfirm": "Herkesin bu ajanı kullanabileceğini ve araçlarının salt okunur olması gerektiğini anlıyorum",
+  "allowIdsHint": "Bir kullanıcı kimliği veya kanal kimliği (sayılar)",
+  "rules": "Listedeki kişiler doğrudan mesajla yazabilir ve herhangi bir kanalda botu anabilir. Listedeki bir kanal, içindeki herkesin orada botu anmasına izin verir, ancak onlara kendi izinlerini vermez. Bir sunucuda bot yalnızca anıldığında veya yanıtlandığında ya da anıldığı bir iş parçacığı içinde yanıt verir. Botlara veya webhook'lara asla yanıt vermez ve mesajları kimseyi asla etiketlemez. Kanal kimliklerini kullan: sunucu (guild) kimliği hiçbir şeyle eşleşmez. Yalnızca kimlik, ad yok: Discord'da Geliştirici Modu'nu aç (Ayarlar, Gelişmiş), sonra bir kişiye veya kanala sağ tıklayıp Copy ID'yi seç.",
+  "badIds": "Bunlar Discord kimliği değil: {{list}}. Copy ID'deki sayıyı kullan (17 ile 20 basamak). Adlar kabul edilmez.",
+  "notifyHelp": "İsteğe bağlı. Bir kanal kimliği veya bildirimleri doğrudan mesaj olarak almak için user: ve ardından kullanıcı kimliğin.",
+  "test": "Sına",
+  "testOk": "{{bot}} hesabına bağlandı.",
+  "checkFailed": "Kaydedildi. Token kontrolü başarısız oldu: {{reason}}",
+  "senders": "Gönderenler",
+  "noSenders": "Bu bota henüz kimse yazmadı.",
+  "allowButton": "Bu kişiyi listele",
+  "ignored": "Yok sayıldı",
+  "accepted": "Kabul edildi",
+  "save": "Kaydet",
+  "cancel": "İptal",
+  "editButton": "Düzenle",
+  "delete": "Sil",
+  "empty": "Henüz Discord botu yok.",
+  "agentOf": "Ajan: {{name}}",
+  "accepts": "Kabul edilen: {{who}}",
+  "modes": {
+    "anyone": "herkes",
+    "nobody": "henüz kimse",
+    "listed_one": "1 listelenmiş girdi",
+    "listed_other": "{{count}} listelenmiş girdi"
+  },
+  "on": "Açık",
+  "onFor": "{{name}} açık",
+  "inactive": "Çalışmıyor: {{reason}}.",
+  "confirmDelete": {
+    "title": "{{name}} silinsin mi?",
+    "message": "Bot yanıt vermeyi bırakır ve onunla kaydedilen token silinir. Yeniden kurmak için token'ı tekrar girmen gerekir.",
+    "confirm": "Sil"
+  },
+  "setup": {
+    "title": "Discord botu nasıl yapılır",
+    "step1": "discord.com/developers/applications adresinde New Application'ı seç ve bir ad ver.",
+    "step2": "Bot sayfasında Reset Token'ı seç, token'ı bir kez kopyala ve buradaki Bot token'ı alanına yapıştır. Gizli tut.",
+    "step3": "Aynı sayfada, Privileged Gateway Intents altında Message Content Intent'i aç. Onsuz bot, bir sunucuda insanların yazdığını okuyamaz. Diğer iki intent'i kapalı bırak.",
+    "step4": "İsteğe bağlı: Public Bot'u kapat, böylece botu yalnızca sen bir sunucuya ekleyebilirsin.",
+    "step5": "Aşağıya Application ID'yi (General Information) yaz ve oluşturduğu bağlantıyı aç. Sunucuyu seç ve izinleri olduğu gibi bırak.",
+    "step6": "Sunucuda botun rolünün yanıt vermesi gereken kanalları görebildiğini kontrol et. Sonra kanal kimliklerini buraya listele ve denemek için botu an.",
+    "appId": "Application ID",
+    "appIdHelp": "Uygulamanın General Information bölümündeki sayı. Gizli değildir. Yalnızca bağlantıyı oluşturur; hiçbir şey kaydedilmez.",
+    "appIdBad": "Application ID, 17 ile 20 basamaklı bir sayıdır.",
+    "invite": "Botu bir sunucuya ekleyen bağlantı",
+    "copy": "Bağlantıyı kopyala",
+    "copied": "Kopyalandı",
+    "permissions": "Bağlantı şu izinleri ister ({{number}} sayısı):",
+    "perm": {
+      "viewChannels": "View Channels: nerede anıldığını görmek için",
+      "sendMessages": "Send Messages: yanıt vermek için",
+      "sendInThreads": "Send Messages in Threads: iş parçacıklarında yanıt vermek için",
+      "attachFiles": "Attach Files: ajanın ürettiği dosyaları göndermek için",
+      "readHistory": "Read Message History: bir iş parçacığını ve bir mesajın dosyalarını okumak için"
+    },
+    "never": "Bota asla Administrator, Manage Messages veya Mention Everyone verme. Bunların hiçbirine ihtiyacı yok."
+  },
+  "answer": {
+    "reply": {
+      "off": "Yalnızca yanıt (Discord'da burada yazıyor göstergesi yok)"
+    },
+    "replyHelp": "İlerleme ve Canlı, tek bir çalışıyor mesajı gösterir ve yanıt onun yerine geçer. Düzenlemeler Discord tarafından sınırlandırılır, bu yüzden Canlı yaklaşık saniyede bir güncellenir. Uzun bir yanıt, en fazla 2000 karakterlik yeni mesajlarla devam eder.",
+    "conversationHelp": "Yeni bir sohbet başlatmak için Discord'da !new gönder. Eğik çizgiyle başlayan bir mesaj, Discord tarafından kendi komutlarından biri sanılabilir."
+  }
+}

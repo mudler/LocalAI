@@ -10,7 +10,8 @@ import es from './fine-tuning.es.json'
 import fr from './fine-tuning.fr.json'
 import id from './fine-tuning.id.json'
 import ko from './fine-tuning.ko.json'
+import tr from './fine-tuning.tr.json'
 import pt_BR from './fine-tuning.pt-BR.json'
 import zh_CN from './fine-tuning.zh-CN.json'
 
-export const locales = { en, it, de, es, fr, id, ko, 'pt-BR': pt_BR, 'zh-CN': zh_CN }
+export const locales = { en, it, de, es, fr, id, ko, tr, 'pt-BR': pt_BR, 'zh-CN': zh_CN }

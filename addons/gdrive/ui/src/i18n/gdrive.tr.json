@@ -1,0 +1,90 @@
+{
+  "title": "Google Drive",
+  "intro": "Ajanlarının listelediğin Drive klasörlerindeki dosyaları okumasına izin ver. İzin verirsen orada metin dosyası da oluşturabilir ve değiştirebilirler.",
+  "limits": "Bağlantı eklemek ve Google hesabında oturum açmak için Google ile bağlan'ı seç. Bu sayfa her bağlantının klasörlerini ve yazma modunu ayarlar. Bir ajan, Drive'da yalnızca bir sohbette ondan istediğinde çalışır.",
+  "edit": "Google Drive bağlantısını düzenle",
+  "name": "Ad",
+  "folders": "Ajanın kullanabileceği klasörler",
+  "foldersHelp": "Her satıra bir klasör kimliği veya klasör adresi. {{count}} listelendi. Bir klasör, içindeki her şeyi kapsar. Başka her dosya reddedilir.",
+  "foldersShape": "\"{{entry}}\" bir klasör kimliği değil. Tarayıcındaki klasör adresinden, /folders/ sonrasından kopyala.",
+  "foldersMany": "En fazla 50 klasör.",
+  "allFolders": {
+    "label": "Tüm klasörler (Drive'ım ve paylaşılan sürücüler)",
+    "hint": "Ajan, Google girişinin görebildiği her dosyayı, Drive'ımda ve paylaşılan sürücülerde okuyabilir. Bu kapalıyken yalnızca listelediğin klasörleri kullanır.",
+    "warning": "Bu, ajanın yalnızca bir klasördeki dosyaları değil, Google girişinin ulaşabildiği her dosyayı okumasına izin verir. Aşağıdaki yazma modu yine geçerlidir.",
+    "confirm": "Anladım: tüm klasörlere izin ver",
+    "row": "Tüm klasörler (Drive'ım ve paylaşılan sürücüler)"
+  },
+  "agent": "Ajan",
+  "agentNone": "Bir ajan seç",
+  "agentCredentialsOnly": "Ajan yok (yalnızca kimlik bilgileri)",
+  "agentOptionalHint": "İsteğe bağlı. Ajan olmadan bu bağlantı yalnızca girişi, klasör listesini ve sohbetlerin için yazma modunu tutar. Hiçbir mesaja yanıt vermez ve hiçbir şeyi dinlemez.",
+  "credentialsOnly": "Yalnızca kimlik bilgileri",
+  "agentNoModel": "{{name}} (model gerekli)",
+  "test": "Sına",
+  "testOk": "{{bot}} olarak bağlandı.",
+  "checkFailed": "Kaydedildi. Kontrol başarısız oldu: {{reason}}",
+  "save": "Kaydet",
+  "cancel": "İptal",
+  "editButton": "Düzenle",
+  "delete": "Sil",
+  "empty": "Henüz Google Drive bağlantısı yok. Eklemek için Google ile bağlan'ı seç.",
+  "connect": "Google ile bağlan",
+  "defaultName": "Google Drive",
+  "noFolders": "Listelenmiş klasör yok: ajan hiçbir şey okuyamaz.",
+  "foldersOf": "{{count}} klasör: {{list}}",
+  "agentOf": "Ajan: {{name}}",
+  "inactive": "Çalışmıyor: {{reason}}.",
+  "confirmDelete": {
+    "title": "{{name}} silinsin mi?",
+    "message": "Ajan artık bu klasörlere ulaşamaz. LocalAI, Google'dan girişi iptal etmesini ister, sonra onu unutur.",
+    "confirm": "Sil"
+  },
+  "setup": {
+    "title": "Klasörler nasıl seçilir",
+    "step1": "Klasörü tarayıcında Google Drive'da aç. Adres /folders/ ve klasörün kimliğiyle biter.",
+    "step2": "Adresin tamamını veya yalnızca kimliği kopyalayıp listeye yapıştır. Drive'ım'ın en üstü için root kullan.",
+    "step3": "Aşağıdaki yazma modu için, bağlanırken isteğe bağlı erişime de izin verilmesi gerekir. Onsuz ajan yalnızca okuyabilir."
+  },
+  "writeMode": {
+    "label": "Ajanın Drive'da değiştirebilecekleri",
+    "hint": "Metin dosyası oluşturabilir, bir dosyanın metnini değiştirebilir, bir dosyayı yeniden adlandırabilir veya taşıyabilir ve bir dosyayı çöpe taşıyabilir. Bir dosyayı asla paylaşmaz veya kalıcı olarak silmez.",
+    "off": "Salt okunur",
+    "propose": "Önce sana sorar",
+    "auto": "Hepsine izin ver",
+    "line": {
+      "off": "Drive'da hiçbir şeyi değiştiremez.",
+      "propose": "Her değişiklik senin onayını bekler.",
+      "auto": "Sohbetlerin değişikliği hemen yapar."
+    },
+    "note": {
+      "off": "Yazma erişimi kapalı: bu bağlantı yalnızca okur.",
+      "propose": "Her değişiklik, sen onaylayana kadar onaylarında bekler. Ayrıca bağlanırken izin verdiğin isteğe bağlı yazma erişimi gerekir.",
+      "auto": "Senin bir sohbetin her değişikliği sormadan hemen yapar ve LocalAI bunu geri alamaz. Sen yokken çalışan işler yine de onayını bekler. Ayrıca bağlanırken izin verdiğin isteğe bağlı yazma erişimi gerekir."
+    },
+    "row": {
+      "off": "Salt okunur",
+      "propose": "Önce sana sorar",
+      "auto": "Hepsine izin ver"
+    }
+  },
+  "approval": {
+    "action": {
+      "create-file": "Dosya oluştur",
+      "update-file": "Dosyayı değiştir",
+      "move-file": "Dosyayı taşı",
+      "trash-file": "Dosyayı çöpe taşı"
+    },
+    "file": "Dosya",
+    "name": "Ad",
+    "newName": "Yeni ad",
+    "in": "Klasör",
+    "allowedFolder": "İzin verdiğin klasör",
+    "moveTo": "Taşınacağı yer",
+    "type": "Tür",
+    "text": "Kaydedilecek metin ({{bytes}} bayt)",
+    "cut": "Burada gösterilen metin kısaltıldı. Metnin tamamı, {{bytes}} bayt, kaydedilir.",
+    "trashNote": "Dosya çöpe gider. Oradan geri yükleyebilirsin.",
+    "replaceNote": "Yeni metin, dosyanın metninin tamamının yerine geçer."
+  }
+}

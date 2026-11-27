@@ -13,8 +13,8 @@ import (
 // Every capability and every refusal code has a text in every language. A new
 // code or capability fails here until all the languages carry it.
 func TestEveryCodeIsInEveryLanguage(t *testing.T) {
-	if len(connectortext.Languages) != 8 {
-		t.Fatalf("want 8 languages, got %v", connectortext.Languages)
+	if len(connectortext.Languages) != 9 {
+		t.Fatalf("want 9 languages, got %v", connectortext.Languages)
 	}
 	for _, lang := range connectortext.Languages {
 		for _, name := range contract.ConnectorCapabilityNames() {
@@ -114,6 +114,7 @@ func TestNegotiate(t *testing.T) {
 		{"zh", "", "zh-CN"},
 		{"zh-Hans", "", "zh-CN"},
 		{"", "ko-KR,ko;q=0.9,en;q=0.5", "ko"},
+		{"", "tr-TR,tr;q=0.9,en;q=0.5", "tr"},
 		{"it", "de", "it"},
 		{"en", "de", ""},
 		{"xx", "de", ""},

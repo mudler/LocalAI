@@ -1,0 +1,200 @@
+{
+  "kinds": {
+    "localai": "LocalAI",
+    "openai": "OpenAI uyumlu",
+    "anthropic": "Anthropic"
+  },
+  "presets": {
+    "openai": "OpenAI",
+    "openrouter": "OpenRouter",
+    "groq": "Groq",
+    "custom": "Özel"
+  },
+  "connect": {
+    "kind": "Uzak sunucu türü",
+    "provider": "Sağlayıcı",
+    "address": "Adres",
+    "addressHintLocalai": "Diğer LocalAI sunucusunun adresi.",
+    "addressHintOpenai": "Hizmetin temel adresi. Genellikle /v1 ile biter.",
+    "key": "API anahtarı",
+    "optional": "isteğe bağlı",
+    "keyHint": "Anahtar bu sunucuda kalır ve bir daha gösterilmez.",
+    "pii": "Barındırılan hizmetlere giden istekler, varsayılan olarak açık olan LocalAI'nin PII filtresinden geçer.",
+    "test": "Bağlantıyı sına",
+    "testing": "Sınanıyor…",
+    "ok": "Bağlandı. {{count}} model bulundu.",
+    "ok_other": "Bağlandı. {{count}} model bulundu.",
+    "failTitle": "Bağlanılamadı.",
+    "fail": {
+      "invalid_url": "Bu adres geçerli değil. Kontrol edip yeniden dene.",
+      "unreachable": "Sunucuya ulaşılamadı. Adresi ve diğer sunucunun çalıştığını ve bu sunucudan erişilebilir olduğunu kontrol et.",
+      "auth": "Sağlayıcı anahtarı reddetti. Kontrol edip yeniden dene.",
+      "no_models": "Bağlantı çalışıyor, ancak eklenecek model listelemiyor.",
+      "other": "Sınama başarısız oldu.",
+      "authLocalai": "Diğer LocalAI sunucusu anahtarı reddetti. Modellerini listeleyebilen bir anahtar kullan veya sunucu anahtar gerektirmiyorsa anahtarı boş bırak.",
+      "unsupported": "Bu sunucu uzak sunuculara bağlanamaz."
+    }
+  },
+  "choose": {
+    "waiting": "Önce bağlantıyı sına. Modelleri burada görünür.",
+    "search": "Model ara",
+    "count": "{{selected}} / {{total}} seçildi",
+    "selectAll": "Tümünü seç",
+    "selectNone": "Hiçbirini seçme",
+    "listLabel": "Eklenecek modeller",
+    "noMatch": "Aramana uyan model yok.",
+    "name": "Ad",
+    "nameHint": "Uzak sunucular listesinde gösterilir.",
+    "submit": "Bağlan ve modelleri ekle",
+    "pick": "En az bir model seç.",
+    "error": {
+      "nameTaken": "Bu adda bir uzak sunucu zaten var. Başka bir ad seç.",
+      "invalid": "Sunucu bu bilgileri kabul etmedi: {{message}}",
+      "other": "Bir şeyler ters gitti: {{message}}",
+      "unsupported": "Bu sunucu uzak sunuculara bağlanamaz."
+    },
+    "tooMany": "Bir seferde en fazla {{max}} model seç. Kalanını sonra ekle."
+  },
+  "usecase": {
+    "chat": "Sohbet",
+    "transcript": "Transkripsiyon",
+    "tts": "Konuşma",
+    "embeddings": "Embedding'ler",
+    "image": "Görsel",
+    "video": "Video",
+    "rerank": "Yeniden sıralama",
+    "completion": "Tamamlama",
+    "edit": "Düzenleme",
+    "vision": "Görü",
+    "tokenize": "Tokenize",
+    "upscale": "Büyütme",
+    "3d": "3D",
+    "3d_animation": "3D animasyon",
+    "motion": "Hareket",
+    "sound_generation": "Ses üretimi",
+    "detection": "Algılama",
+    "depth": "Derinlik",
+    "forecast": "Tahmin",
+    "vad": "Ses etkinliği",
+    "audio_transform": "Ses dönüşümü",
+    "diarization": "Konuşmacı ayrıştırma",
+    "sound_classification": "Ses sınıflandırma",
+    "realtime_audio": "Gerçek zamanlı ses",
+    "face_recognition": "Yüz tanıma",
+    "speaker_recognition": "Konuşmacı tanıma"
+  },
+  "sheet": {
+    "open": "Uzak sunucuya bağlan"
+  },
+  "card": {
+    "justNow": "az önce",
+    "status": {
+      "ok": "Bağlı · yenilendi: {{when}}",
+      "never": "Henüz yenilenmedi",
+      "auth_failed": "Anahtar reddedildi",
+      "unreachable": "Ulaşılamıyor",
+      "noUsable": "Bağlı · kullanılabilir model yok"
+    },
+    "refresh": "Yenile",
+    "edit": "Düzenle",
+    "authTitle": "Uzak sunucu anahtarı reddetti.",
+    "authText": "Yeniden bağlanmak için anahtarı güncelle.",
+    "unreachableTitle": "Uzak sunucuya ulaşılamadı.",
+    "unreachableText": "Adresi ve diğer sunucunun çalıştığını kontrol et.",
+    "updateKey": "Anahtarı güncelle",
+    "editRemote": "Uzak sunucuyu düzenle",
+    "newTitle": "Bu uzak sunucuda {{count}} yeni model var",
+    "newTitle_other": "Bu uzak sunucuda {{count}} yeni model var",
+    "addSelected": "Seçilenleri ekle",
+    "notNow": "Şimdi değil",
+    "adopted": "{{name}} sunucusundan {{count}} model eklendi.",
+    "adopted_other": "{{name}} sunucusundan {{count}} model eklendi.",
+    "adoptFailed": "Modeller eklenemedi: {{message}}",
+    "refreshFailed": "{{name}} yenilenemedi: {{message}}",
+    "models": "Bu uzak sunucudan {{count}} model",
+    "models_other": "Bu uzak sunucudan {{count}} model",
+    "gone": "{{count}} model artık listelenmiyor",
+    "gone_other": "{{count}} model artık listelenmiyor",
+    "view": "Kurulular'da görüntüle",
+    "noUsableTitle": "Kullanılabilir model yok.",
+    "noUsableText": "Uzak sunucu yanıt verdi, ancak bu sunucunun kullanabileceği model listelemiyor.",
+    "refreshWarn": "{{name}} yenilendi, ancak kullanılabilir modeli yok.",
+    "authTextLocalai": "O sunucunun modellerini listeleyebilen bir anahtar kullan, sonra yeniden bağlan.",
+    "p2p": {
+      "badge": "P2P",
+      "path": {
+        "direct": "Doğrudan",
+        "hole_punched": "Hole punching ile",
+        "relayed": "Röle üzerinden"
+      },
+      "limited": "sınırlı",
+      "state": {
+        "off": "P2P kapalı",
+        "listening": "Henüz kullanılmadı",
+        "down": "Ulaşılamıyor",
+        "error": "Tünel çalışmıyor"
+      }
+    }
+  },
+  "empty": {
+    "title": "Bağlı uzak sunucu yok",
+    "body": "Başka bir LocalAI'ye, OpenAI uyumlu bir hizmete veya Anthropic'e bağlan. Seçtiğin her model burada bir model olur."
+  },
+  "load": {
+    "error": "Uzak sunucuların yüklenemedi."
+  },
+  "edit": {
+    "title": "Uzak sunucuyu düzenle",
+    "close": "Kapat",
+    "cancel": "İptal",
+    "save": "Kaydet",
+    "name": "Ad",
+    "key": "Yeni API anahtarı",
+    "keySet": "Bir anahtar ayarlı. Korumak için bunu boş bırak.",
+    "keyNotSet": "Ayarlı anahtar yok.",
+    "keyRestart": "Yeni bir anahtar, yüklü modelleri yeniden başlatır.",
+    "saved": "{{name}} kaydedildi.",
+    "savedKey": "{{name}} kaydedildi. Yüklü modelleri yeni anahtarla yeniden başlar.",
+    "savedWarn": "{{name}} kaydedildi, ancak hâlâ bir sorunu var. Görmek için uzak sunucuyu aç."
+  },
+  "remove": {
+    "button": "Uzak sunucuyu kaldır",
+    "title": "{{name}} kaldırılsın mı?",
+    "choiceLabel": "Modellere ne olacak",
+    "keep": "Modelleri koru",
+    "removeAll": "Modelleri de kaldır",
+    "keepExplain": "Yalnızca uzak sunucu kaldırılır. {{count}} modeli Kurulular'da kalır. Uzak sunucu anahtar istiyorsa model düzenleyicide ayarla.",
+    "keepExplain_other": "Yalnızca uzak sunucu kaldırılır. {{count}} modeli Kurulular'da kalır. Uzak sunucu anahtar istiyorsa model düzenleyicide ayarla.",
+    "removeExplain": "Uzak sunucu ve {{count}} modeli kaldırılır. Bu işlem geri alınamaz.",
+    "removeExplain_other": "Uzak sunucu ve {{count}} modeli kaldırılır. Bu işlem geri alınamaz.",
+    "confirm": "Uzak sunucuyu kaldır",
+    "doneKeep": "{{name}} kaldırıldı. Modelleri kalıyor.",
+    "doneAll": "{{name}} ve modelleri kaldırıldı."
+  },
+  "result": {
+    "added": "{{count}} model eklendi.",
+    "added_other": "{{count}} model eklendi.",
+    "partialTitle": "Uzak sunucu kaydedildi, ancak bazı modeller eklenmedi.",
+    "skippedTitle": "Bazı modeller eklenmedi.",
+    "adoptHint": "Eksik modelleri sahiplen. Bu, uzak sunucuyu yeniden oluşturmaz.",
+    "adopt": "Modelleri sahiplen",
+    "continue": "Devam"
+  },
+  "skipped": {
+    "summary": "{{count}} model eklenmedi",
+    "summary_other": "{{count}} model eklenmedi",
+    "reason": {
+      "listedTwice": "İki kez listelenmiş",
+      "alreadyAdopted": "Zaten eklenmiş",
+      "noFreeName": "Boş model adı yok",
+      "nameExists": "Bu adda bir model var",
+      "invalid": "Model adı veya ayarları geçerli değil",
+      "buildFailed": "Model hazırlanamadı",
+      "writeFailed": "Model kaydedilemedi"
+    }
+  },
+  "unsupported": {
+    "title": "Uzak sunucular kullanılamıyor",
+    "body": "Bu sunucu model galerisi olmadan çalışıyor, bu yüzden uzak sunuculara bağlanamaz."
+  }
+}

@@ -19,6 +19,7 @@ import fr from './i18n/pikvm.fr.json'
 import zh from './i18n/pikvm.zh-CN.json'
 import id from './i18n/pikvm.id.json'
 import ko from './i18n/pikvm.ko.json'
+import tr from './i18n/pikvm.tr.json'
 import pt from './i18n/pikvm.pt-BR.json'
 import SettingsEditor from './SettingsEditor'
 import ApprovalSettings from './ApprovalSettings'
@@ -29,7 +30,7 @@ import { finishTest, resultOf, startTest, subscribe } from './results'
 import './pikvm.css'
 
 // The words of the page, in every language of the web UI; a key a language lacks reads in English.
-registerLocales({ pikvm: { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
+registerLocales({ pikvm: { en, it, es, de, fr, 'zh-CN': zh, id, ko, tr, 'pt-BR': pt } })
 
 // The user and the password of the device. They are typed only to replace the
 // saved pair, and the pair is sealed as one credential.

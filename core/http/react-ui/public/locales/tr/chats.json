@@ -1,0 +1,2147 @@
+{
+  "title": "Sohbetler",
+  "list": {
+    "new": "Yeni sohbet",
+    "label": "Sohbetlerin",
+    "empty": "Henüz sohbet yok.",
+    "untitled": "Yeni sohbet",
+    "delete": "Sohbeti sil",
+    "deleteNamed": "Sohbeti sil: {{title}}",
+    "toggle": "Sohbetler",
+    "working": "Çalışıyor",
+    "agentPicker": "Ajan",
+    "noAgent": "Ajan yok",
+    "agents": "Ajanlar",
+    "triggers": "Tetikleyiciler",
+    "library": "Kitaplık",
+    "automation": "Otomasyon",
+    "files": "Dosyalar",
+    "inbox": "Gelen kutusu",
+    "automatic": "Bir tetikleyici başlattı",
+    "unread": "Okunmamış",
+    "connectors": "Bağlayıcılar"
+  },
+  "empty": {
+    "title": "Sohbet başlat",
+    "body": "Bir model seç ve istediğini sor. Model çalışırken yazmaya devam edebilirsin."
+  },
+  "model": "Model",
+  "transcript": "Konuşma",
+  "composer": {
+    "label": "Mesaj",
+    "placeholder": "Mesaj. Enter gönderir, Shift+Enter yeni satır ekler.",
+    "send": "Gönder",
+    "stop": "Durdur",
+    "sendNow": "Şimdi gönder"
+  },
+  "pending": {
+    "header_one": "1 mesaj bekliyor",
+    "header_other": "{{count}} mesaj bekliyor",
+    "note": "Mesajlar, modelin bir sonraki adımında birlikte ve sırayla ona ulaşır.",
+    "afterStop": "Turu durdurdun. Bu mesajlar senin için bekliyor.",
+    "afterFailure": "Tur erken sona erdi. Bu mesajlar senin için bekliyor.",
+    "edit": "Düzenle",
+    "cancel": "İptal",
+    "save": "Kaydet",
+    "discard": "Vazgeç"
+  },
+  "status": {
+    "working": "Çalışıyor…",
+    "stopped": "Durduruldu",
+    "failed": "Son tur başarısız oldu.",
+    "interrupted": "Son tur yarıda kesildi.",
+    "done": "Bitti"
+  },
+  "tool": {
+    "running": "Çalışıyor",
+    "failed": "Başarısız",
+    "applied": "{{addon}} değiştirildi: {{count}} uygulandı.",
+    "appliedNone": "{{addon}} değiştirildi.",
+    "notUndoable": "Bu işlem geri alınamaz.",
+    "notUndoableWhy": "Bu işlem geri alınamaz: {{reason}}.",
+    "undo": "Geri al",
+    "undoing": "Geri alınıyor.",
+    "undoDone": "Geri alındı.",
+    "undoAlready": "Zaten geri alındı.",
+    "undoStale": "Geri alınmadı. Bu değişiklikten sonra veri değişti, bu yüzden geri almak sonraki çalışmanın üzerine yazardı. {{detail}}",
+    "undoNotFound": "Geri alınmadı. Bu değişikliğin kaydı artık yok.",
+    "undoExpired": "Geri alınmadı. Bu değişiklik geri alınamayacak kadar eski.",
+    "undoCannot": "Geri alınmadı. {{detail}}",
+    "undoDenied": "Geri alınmadı. Bu veri üzerindeki rolün buna izin vermiyor.",
+    "undoUnknown": "Geri almanın tamamlanıp tamamlanmadığından emin değilim. Kontrol etmek için Geri al'a bas; iki kez çalışmaz.",
+    "undoUnavailable": "Geri alınmadı. Eklentiye ulaşılamadı.",
+    "waiting": "{{addon}} bu değişikliği beklemede bıraktı; uygulanmadı.",
+    "refused": {
+      "anAddon": "eklenti",
+      "not_permitted": "{{addon}} için gereken izne sahip değilsin. Hiçbir şey değişmedi. Bir yönetici bu izni verebilir.",
+      "resource_unreachable": "{{addon}} o kaynağı bulamadı ya da kaynağa erişimin yok. Hiçbir şey değişmedi.",
+      "not_running": "{{addon}} başlıyor ya da durmuş durumda, bu yüzden hiçbir şey gönderilmedi. Biraz sonra tekrar dene.",
+      "invalid_request": "{{addon}} isteği reddetti:",
+      "said": "Şunu söyledi: {{message}}"
+    }
+  },
+  "app": {
+    "title": "{{tool}} etkileşimli görünümü",
+    "loading": "Görünüm yükleniyor",
+    "unavailable": "Görünüm yüklenemedi ({{reason}}). Sonuç metin olarak aşağıda.",
+    "notRead": "sonuç şu anda okunamadı; tur bittiğinde sayfa yeniden denenecek",
+    "suggests": "Uygulama bu mesajı öneriyor",
+    "send": "Gönder",
+    "dismiss": "Kapat",
+    "wantsLink": "Uygulama şunu açmak istiyor: {{host}}",
+    "open": "Aç"
+  },
+  "reasoning": "Düşündü",
+  "notes": {
+    "compacted": "Yer açmak için konuşma sıkıştırıldı ({{before}} token'dan {{after}} token'a).",
+    "subAgentDone": "Alt ajan bitti: {{title}}"
+  },
+  "errors": {
+    "send": "Mesaj gönderilemedi.",
+    "delete": "Sohbet silinemedi.",
+    "dismiss": "Kapat"
+  },
+  "confirmDelete": {
+    "title": "{{name}} silinsin mi?",
+    "chat": "Sohbet ve mesajları kalıcı olarak silinir.",
+    "agent": "Bu ajanı kullanan sohbetler korunur. Onu kullanan tetikleyiciler çalışmayı bırakır.",
+    "trigger": "Tetikleyici durur ve çalışma geçmişi silinir.",
+    "skill": "Yetenek kalıcı olarak silinir.",
+    "confirm": "Sil",
+    "pending": "Siliniyor",
+    "mcp": "Bağlayıcı, kaydedilmiş token'ı, üstbilgileri ve ortamıyla birlikte silinir. Onu adıyla kullanan kayıtlı bir ajan artık onu kullanamaz.",
+    "task": "Görev silinir. İşleri, saklama süresi dolana kadar kalır.",
+    "connector": "Bağlayıcı durur ve ayarları silinir."
+  },
+  "memoryNotice": "Sohbetler yalnızca bellekte tutulur. Sunucu yeniden başladığında kaybolur.",
+  "attach": {
+    "button": "Dosya ekle",
+    "busy": "Dosyalar, bir tur başlatan mesajla birlikte gider. Bu turun bitmesini bekle ya da durdur.",
+    "list": "Ekli dosyalar",
+    "remove": "Kaldır: {{name}}",
+    "off": "Bu sunucuda dosyalar kapalı.",
+    "queued": "Şimdi gönderilen dosya, model onu bir sonraki adımında alana kadar mesajıyla birlikte bekler."
+  },
+  "skills": {
+    "summary": "Yetenekler ({{total}} yetenekten {{on}} tanesi açık)",
+    "none": "Henüz yetenek yok.",
+    "manage": "Yetenekleri yönet",
+    "off": "bu sohbet için kapalı"
+  },
+  "addons": {
+    "summary": "Eklentiler ({{total}} eklentiden {{on}} tanesi açık)",
+    "tools": "{{count}} araç"
+  },
+  "skillsPage": {
+    "title": "Yetenekler",
+    "intro": "Yetenek, modele belirli bir tür görevin nasıl yapılacağını anlatır. Sohbetler kullanabileceği yetenekleri listeler ve görev uyduğunda model birini okur. İki yeteneğin adı aynıysa en yakın olan geçerli olur.",
+    "new": "Yeni yetenek",
+    "edit": "Yeteneği düzenle",
+    "editButton": "Düzenle",
+    "delete": "Sil",
+    "save": "Kaydet",
+    "cancel": "İptal",
+    "layer": "Konum",
+    "name": "Ad",
+    "description": "Açıklama",
+    "body": "Talimatlar",
+    "groups": {
+      "personal": "Kişisel",
+      "folder": "Klasörlerinde",
+      "shared": "Paylaşılan",
+      "builtin": "Yerleşik"
+    },
+    "shadowed": "{{layer}} tarafından geçersiz kılındı",
+    "invalid": "Atlandı: {{reason}}",
+    "empty": "Henüz yeteneğin yok.",
+    "back": "Sohbetlere dön"
+  },
+  "agentsPage": {
+    "title": "Ajanlar",
+    "new": "Yeni ajan",
+    "edit": "Ajanı düzenle",
+    "intro": "Ajan, kaydedilmiş bir talimat ve araç kümesidir. Bir ajanla yapılan sohbet yalnızca listelerinde adı geçenleri ve yalnızca o anda kullanabileceklerini alır.",
+    "name": "Ad",
+    "description": "Açıklama",
+    "instructions": "Talimatlar",
+    "model": "Model",
+    "grants": "Bu ajanla yapılan sohbetin kullanabilecekleri. Boş liste hiçbir şey vermez.",
+    "addons": "Eklentiler",
+    "addonsHint": "Eklenti kimliği",
+    "mcp": "Modelin MCP sunucuları",
+    "mcpHint": "Modelin MCP yapılandırmasındaki sunucu adı",
+    "collections": "Koleksiyonlar",
+    "collectionsHint": "Koleksiyon adı",
+    "skills": "Yetenekler",
+    "skillsHint": "Yetenek adı",
+    "save": "Kaydet",
+    "cancel": "İptal",
+    "editButton": "Düzenle",
+    "delete": "Sil",
+    "chat": "Sohbet",
+    "empty": "Henüz ajan yok.",
+    "noGrants": "Araç vermez",
+    "fixModel": "Her zaman tek bir model kullan (aksi halde her sohbet için modeli sen seçersin)",
+    "mcpConnectors": "MCP bağlayıcıların",
+    "connectorOff": "kapatıldı",
+    "connectorGone": "{{id}} (silindi)",
+    "noConnectors": "Henüz MCP bağlayıcın yok.",
+    "manageConnectors": "Bağlayıcıları yönet"
+  },
+  "title_agent": "Ajan: {{name}}",
+  "triggersPage": {
+    "title": "Tetikleyiciler",
+    "new": "Yeni tetikleyici",
+    "edit": "Tetikleyiciyi düzenle",
+    "intro": "Tetikleyici, senin adına kendiliğinden bir sohbet başlatır: belirli bir zamanda ya da bir klasöre dosya geldiğinde. Her çalıştırma, açıp geri alabileceğin sıradan bir sohbettir.",
+    "name": "Ad",
+    "when": "Ne zaman",
+    "time": "Saat",
+    "dayOfMonth": "Ayın günü",
+    "date": "Tarih",
+    "minute": "Saatin kaçıncı dakikası",
+    "everyHours": "Her (saat)",
+    "everyMinutes": "Her (dakika)",
+    "cron": "Cron (beş alan)",
+    "zone": "Saat dilimi",
+    "days": "Günler",
+    "folder": "Dosyalarındaki klasör",
+    "quiet": "Sessiz süre (saniye)",
+    "prompt": "Ne yapılacak",
+    "agent": "Ajan",
+    "dailyCap": "Günlük en fazla çalıştırma",
+    "on": "Açık",
+    "onFor": "{{name}} açık",
+    "runNow": "Şimdi çalıştır",
+    "runs": "Çalıştırmalar",
+    "noRuns": "Henüz çalıştırma yok.",
+    "neverRan": "Hiç çalışmadı",
+    "openChat": "Sohbeti aç",
+    "next": "sonraki {{time}}",
+    "nextRuns": "Sonraki: {{times}}",
+    "empty": "Henüz tetikleyici yok.",
+    "noAgentNote": "Ajan yoksa çalıştırma, onu oluşturan sohbetin modelini ve anahtarlarını kullanır ve anında işlem yapan hiçbir araç kullanılamaz. Daha fazlasını vermek için bir ajan seç.",
+    "proposals": "Bir sohbetin önerdikleri",
+    "proposalsNote": "Bir öneri, sen onaylayana kadar hiçbir şey yapmaz.",
+    "confirm": "Onayla",
+    "dismiss": "Kapat",
+    "status": {
+      "queued": "Bekliyor",
+      "running": "Çalışıyor",
+      "done": "Bitti",
+      "failed": "Başarısız",
+      "skipped": "Atlandı"
+    },
+    "presets": {
+      "daily": "Her gün",
+      "weekdays": "Her hafta içi gün",
+      "weekly": "Haftanın belirli günleri",
+      "monthly": "Ayda bir",
+      "hourly": "Her saat",
+      "everyHours": "Birkaç saatte bir",
+      "everyMinutes": "Birkaç dakikada bir",
+      "once": "Bir kez",
+      "cron": "Gelişmiş (cron)",
+      "file": "Bir dosya geldiğinde",
+      "event": "Bir olay geldiğinde"
+    },
+    "day": {
+      "mon": "Pzt",
+      "tue": "Sal",
+      "wed": "Çar",
+      "thu": "Per",
+      "fri": "Cum",
+      "sat": "Cmt",
+      "sun": "Paz"
+    },
+    "runLimit": "Bir çalıştırmanın zaman sınırı"
+  },
+  "inbox": {
+    "unread": "{{count}} okunmamış",
+    "markAll": "Tümünü okundu işaretle",
+    "delete": "Sil",
+    "pushOn": "Tarayıcı bildirimlerini aç",
+    "pushOff": "Tarayıcı bildirimlerini kapat",
+    "pushDenied": "Tarayıcı bildirimleri bu site için engellenmiş.",
+    "pushUnavailable": "Bu sunucu push abonelikleri tutamıyor.",
+    "clearAll": "Tümünü temizle",
+    "clearRead": "Okunanları temizle",
+    "cancel": "İptal",
+    "markRead": "Okundu işaretle",
+    "cleared_one": "{{count}} bildirim kaldırıldı.",
+    "cleared_other": "{{count}} bildirim kaldırıldı.",
+    "confirmAll_one": "{{count}} bildirim kaldırılsın mı? Bu işlem geri alınamaz.",
+    "confirmAll_other": "Tüm {{count}} bildirim kaldırılsın mı? Bu işlem geri alınamaz.",
+    "confirmRead_one": "Okunmuş {{count}} bildirim kaldırılsın mı? Okunmamışlar kalır.",
+    "confirmRead_other": "Okunmuş {{count}} bildirim kaldırılsın mı? Okunmamışlar kalır.",
+    "onlyRead": "Yalnızca okunan {{count}}",
+    "showing": "{{total}} içinden {{shown}} gösteriliyor",
+    "showMore": "Daha fazla göster",
+    "title": "Bildirimler",
+    "buttonUnread_one": "Bildirimler, {{count}} okunmamış",
+    "buttonUnread_other": "Bildirimler, {{count}} okunmamış",
+    "filterLabel": "Bildirimleri göster",
+    "filterAll": "Tümü",
+    "filterUnread": "Okunmamış",
+    "filterFailed": "Başarısız",
+    "more": "Diğer işlemler",
+    "close": "Kapat",
+    "day": {
+      "today": "Bugün",
+      "yesterday": "Dün",
+      "earlier": "Daha önce"
+    },
+    "emptyTitle": "Henüz bildirim yok",
+    "emptyBody": "Tetikleyicilerinin ve bağlayıcılarının sonuçları burada görünür; sen yokken biten işler de dahil.",
+    "caughtUp": "Hepsini gördün.",
+    "caughtUpTitle": "Hepsini gördün",
+    "caughtUpBody": "Okunmamış bildirim yok.",
+    "noFailedTitle": "Başarısız olan yok",
+    "noFailedBody": "Başarısız olan çalıştırmalar ve bağlayıcılar burada görünür.",
+    "loadError": "Bildirimlerin yüklenemedi.",
+    "source": {
+      "trigger": "Tetikleyici",
+      "connector": "Bağlayıcı",
+      "system": "LocalAI"
+    },
+    "itemUnread": "{{title}}, okunmamış",
+    "arrived": "Yeni bildirim: {{title}}",
+    "arrivedMany_one": "{{count}} yeni bildirim",
+    "arrivedMany_other": "{{count}} yeni bildirim",
+    "proposalsWaiting_one": "{{count}} değişiklik seni bekliyor",
+    "proposalsWaiting_other": "{{count}} değişiklik seni bekliyor",
+    "proposalsBody": "Bir model değişiklik önerdi. Sen yanıtlayana kadar hiçbir şey kaydedilmez.",
+    "codes": {
+      "digest": {
+        "title_one": "{{count}} backend güncellemesi var",
+        "title_other": "{{count}} backend güncellemesi var",
+        "more": "{{items}} ve {{count}} tane daha"
+      },
+      "result": {
+        "family": {
+          "backends": "Backend'ler",
+          "addons": "Eklentiler"
+        },
+        "title": "{{family}}: {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}} otomatik güncellendi",
+        "updated_other": "{{count}} otomatik güncellendi",
+        "failed_one": "{{count}} başarısız oldu",
+        "failed_other": "{{count}} başarısız oldu",
+        "held_one": "{{count}} onay bekliyor",
+        "held_other": "{{count}} onay bekliyor",
+        "bodyUpdated": "Güncellendi: {{items}}.",
+        "bodyFailed": "Başarısız: {{items}}.",
+        "bodyHeld": "Onayını bekleyenler: {{items}}.",
+        "more": "{{items}} ve {{count}} tane daha"
+      },
+      "checkFailed": {
+        "title": "Güncelleme kontrolü başarısız oldu",
+        "body": "Kontrol edilemedi: {{sources}}. Son iki otomatik kontrol başarısız oldu, bu yüzden listede eksik güncellemeler olabilir.",
+        "source": {
+          "gallery": "backend galerisi",
+          "library": "backend kitaplığı",
+          "addons": "eklentiler"
+        }
+      },
+      "op": {
+        "kind": {
+          "model": "Model",
+          "backend": "Backend",
+          "addon": "Eklenti"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} kuruldu",
+          "delete": "{{kind}} {{name}} kaldırıldı",
+          "upgrade": "{{kind}} {{name}} yükseltildi"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: kurulum başarısız",
+          "delete": "{{kind}} {{name}}: kaldırma başarısız",
+          "upgrade": "{{kind}} {{name}}: yükseltme başarısız"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: kurulum iptal edildi",
+          "delete": "{{kind}} {{name}}: kaldırma iptal edildi",
+          "upgrade": "{{kind}} {{name}}: yükseltme iptal edildi"
+        },
+        "needsReview": {
+          "install": "{{name}} eklentisinin kurulması için incelemen gerekiyor"
+        }
+      },
+      "models": {
+        "available": {
+          "title_one": "{{count}} model güncellemesi var",
+          "title_other": "{{count}} model güncellemesi var"
+        },
+        "done": {
+          "title": "{{name}} modeli yükseltildi",
+          "body": "{{from}} sürümünden {{to}} sürümüne."
+        },
+        "failed": {
+          "title": "{{name}} modeli: yükseltme başarısız oldu",
+          "rolledBack": "Eski sürüm geri konuldu ve hizmet vermeye devam ediyor. Neden: {{error}}",
+          "rolledBackPlain": "Eski sürüm geri konuldu ve hizmet vermeye devam ediyor.",
+          "kept": "Eski sürüm hizmet vermeye devam ediyor. Neden: {{error}}",
+          "keptPlain": "Eski sürüm hizmet vermeye devam ediyor."
+        },
+        "removed": {
+          "title": "{{name}} modeli: eski sürüm kaldırıldı",
+          "body_one": "{{count}} eski dosya silindi.",
+          "body_other": "{{count}} eski dosya silindi."
+        }
+      },
+      "run": {
+        "title_one": "{{count}} öğe güncelleniyor",
+        "title_other": "{{count}} öğe güncelleniyor",
+        "titleAuto_one": "Otomatik güncelleme: {{count}} öğe",
+        "titleAuto_other": "Otomatik güncelleme: {{count}} öğe",
+        "updated_one": "{{count}} güncellendi",
+        "updated_other": "{{count}} güncellendi",
+        "running_one": "{{count}} çalışıyor",
+        "running_other": "{{count}} çalışıyor",
+        "waiting_one": "{{count}} bekliyor",
+        "waiting_other": "{{count}} bekliyor",
+        "done": "{{total}} içinden {{done}} bitti",
+        "end": {
+          "attention_one": "{{updated}} güncellendi, {{count}} tanesi ilgi bekliyor",
+          "attention_other": "{{updated}} güncellendi, {{count}} tanesi ilgi bekliyor",
+          "done_one": "{{count}} güncellendi",
+          "done_other": "{{count}} güncellendi",
+          "auto": "Otomatik: {{text}}",
+          "first": "{{name}} hâlâ {{version}} sürümünde.",
+          "firstWhy": "{{name}} hâlâ {{version}} sürümünde: {{reason}}.",
+          "cancelled_one": "Güncelleme çalıştırması iptal edildi: {{count}} güncellendi",
+          "cancelled_other": "Güncelleme çalıştırması iptal edildi: {{count}} güncellendi",
+          "cancelledAttention_one": "Güncelleme çalıştırması iptal edildi: {{updated}} güncellendi, {{count}} tanesi ilgi bekliyor",
+          "cancelledAttention_other": "Güncelleme çalıştırması iptal edildi: {{updated}} güncellendi, {{count}} tanesi ilgi bekliyor",
+          "firstStart": "{{name}} hâlâ {{version}} sürümünde: yeni sürüm başlamadı: {{reason}}."
+        }
+      },
+      "watch": {
+        "set": "\"{{title}}\" için hatırlatıcı ayarlandı: {{when}}.",
+        "changed": "\"{{title}}\" için hatırlatıcı değiştirildi: {{when}}.",
+        "cancelled": "\"{{title}}\" için hatırlatıcı iptal edildi.",
+        "snoozed": "\"{{title}}\" hatırlatıcısı ertelendi: {{when}}.",
+        "snoozeUndone": "\"{{title}}\" hatırlatıcısının ertelemesi geri alındı.",
+        "skipped": "\"{{title}}\" hatırlatıcısı atlandı.",
+        "skipUndone": "\"{{title}}\" hatırlatıcısının atlanması geri alındı.",
+        "taskChanged": "\"{{title}}\" hatırlatıcısının görevi değiştirildi.",
+        "restored": "\"{{title}}\" hatırlatıcısı geri konuldu: {{when}}.",
+        "next": "Sonraki \"{{title}}\" için hatırlatıcı ayarlandı: {{when}}.",
+        "moved": "\"{{title}}\" hatırlatıcısı şuraya taşındı: {{when}}.",
+        "movedStarted": "\"{{title}}\" taşındı; zaten başladığı için hatırlatıcı yok.",
+        "removed": "\"{{title}}\" hatırlatıcısı iptal edildi: öğe kaldırıldı.",
+        "woken": "\"{{title}}\" değişti. Hatırlatıcısı şimdi kontrol ediliyor.",
+        "movedBy": "\"{{title}}\" taşındı. Sana {{when}} zamanında hatırlatacağım.",
+        "movedByStarted": "\"{{title}}\" taşındı ve zaten başladı.",
+        "removedBy": "\"{{title}}\" kaldırıldığı için hatırlatıcısını iptal ettim.",
+        "wokenBy": "\"{{title}}\" değişti. Hatırlatıcısının hâlâ uygun olup olmadığını kontrol ediyorum.",
+        "missed": "Kaçırıldı: {{title}}. Hatırlatma zamanında sunucu kapalıydı.",
+        "onHold": "\"{{title}}\" hatırlatıcısı, bu izleme duraklatıldığı sürece beklemede.",
+        "dropped": "\"{{title}}\" hatırlatıcısı izlemesiyle birlikte kaldırıldı.",
+        "lastKnown": "Sonraki \"{{title}}\" için hatırlatıcı ayarlandı: {{when}}. Bilinen son zaman bu; öğede bir değişiklik olursa sonrakiler ayarlanır.",
+        "seriesEnded": "\"{{title}}\" için sonraki bir zaman bilinmiyor, bu yüzden şu an hatırlatıcı yok. Öğede bir değişiklik olursa sonraki ayarlanır."
+      }
+    },
+    "tabs": {
+      "label": "Bildirimler ve etkinlik",
+      "notifications": "Bildirimler",
+      "activity": "Etkinlik"
+    },
+    "ops": {
+      "needsAttention": "İlgi bekliyor",
+      "inProgress": "Devam ediyor",
+      "seeAll": "Tüm etkinliği gör",
+      "waiting": "Bekliyor",
+      "node": "Düğüm {{current}} / {{total}}",
+      "emptyTitle": "Çalışan bir şey yok",
+      "emptyBody": "Kurulumlar, güncellemeler ve kaldırmalar çalışırken ve sonrasında bir gün boyunca burada görünür.",
+      "title": {
+        "installing": "{{name}} kuruluyor",
+        "upgrading": "{{name}} güncelleniyor",
+        "removing": "{{name}} kaldırılıyor",
+        "staging": "{{name}} hazırlanıyor"
+      },
+      "failedTitle": {
+        "installing": "{{name}} kurulamadı",
+        "upgrading": "{{name}} güncellenemedi",
+        "removing": "{{name}} kaldırılamadı",
+        "staging": "{{name}} hazırlanamadı"
+      },
+      "recent": {
+        "title": "Son işlemler",
+        "installed": "{{name}} kuruldu",
+        "upgraded": "{{name}} güncellendi",
+        "removed": "{{name}} kaldırıldı",
+        "staged": "{{name}} hazırlandı"
+      }
+    },
+    "chatsOff": "Sohbetler kapalı",
+    "emptyBodyNoChats": "Güncellemeler ve biten işlemler burada görünür.",
+    "runProgress": "İlerleme: {{title}}",
+    "runStarted": "Başladı: {{when}}",
+    "viewProgress": "İlerlemeyi gör",
+    "seeRun": "Çalıştırmayı gör",
+    "openUpdates": "Güncellemeleri aç",
+    "updatesPending_one": "{{count}} güncelleme var",
+    "updatesPending_other": "{{count}} güncelleme var",
+    "updatesNone": "Her şey güncel"
+  },
+  "connectorsPage": {
+    "title": "Bağlantılar",
+    "empty": "Henüz bağlayıcı yok.",
+    "agentOf": "Ajan: {{name}}",
+    "accepts": "Kabul edilenler: {{who}}",
+    "modes": {
+      "anyone": "herkes",
+      "nobody": "henüz kimse",
+      "listed_one": "1 listelenmiş gönderen",
+      "listed_other": "{{count}} listelenmiş gönderen"
+    },
+    "on": "Açık",
+    "onFor": "{{name}} açık",
+    "intro": "Bağlayıcı, bir mesajlaşma platformunu sohbetlerine bağlar; böylece insanlar oradan ajanlarından biriyle konuşabilir. Her platform bir bağlayıcı eklentisinden gelir.",
+    "manage": "Bağlamaları ekle veya değiştir",
+    "noAddon": "Kurulu bir bağlayıcı eklentisi yok.",
+    "noAddonHint": "Bağlayıcı eklentisi, Telegram gibi bir platformun mesajlarını taşır. Bağlama eklemek için eklenti galerisinden birini kur.",
+    "gallery": "Eklenti galerisini aç",
+    "inactive": "Çalışmıyor: {{reason}}.",
+    "bindingsOf": "Bağlamalar: {{name}}",
+    "loadFailed": "Bağlayıcıların yüklenemedi.",
+    "waitingTitle": "Eklentileri bekliyor",
+    "waitingText": "Bu bağlamalar korunur, ancak eklentileri kurulup açılana kadar çalışmaz.",
+    "oauth": {
+      "connected": "Bağlandı",
+      "connectedAs": "Şu hesapla bağlandı: {{account}}",
+      "access": "Erişim: {{scopes}}",
+      "expires": "Sona erme: {{time}}",
+      "disconnect": "Bağlantıyı kes",
+      "disconnecting": "Bağlantı kesiliyor…",
+      "disconnectTitle": "{{name}} bağlantısı kesilsin mi?",
+      "disconnectText": "LocalAI, hizmetten bu girişi iptal etmesini ister ve ardından onu unutur. Bu bağlantıyı kullanan araçlar, yeniden bağlanana kadar çalışmaz.",
+      "disconnected": "{{name}} bağlantısı kesildi. Hizmet girişi iptal etti.",
+      "disconnectedNotTold": "{{name}} burada bağlantısı kesildi, ancak hizmet girişi iptal ettiğini doğrulamadı. Erişimi hizmetteki hesabından da kaldır.",
+      "notConnected": "Henüz bağlı değil.",
+      "connect": "Bağlan",
+      "alsoAllow": "Ayrıca şunlara izin ver:",
+      "reconnectTitle": "Yeniden bağlan.",
+      "reconnect": "Yeniden bağlan",
+      "reason": {
+        "revoked": "Hizmet girişi sonlandırdı ya da erişim iptal edildi.",
+        "client_rejected": "Hizmet artık bu sunucunun istemcisini kabul etmiyor. Bir yöneticinin onu güncellemesi gerekebilir.",
+        "refused": "Hizmet girişi yenilemeyi reddetti.",
+        "needs_approval": "Bu eklentinin girişi değişti ve yeniden onaylanmalı.",
+        "credential_rejected": "Hizmet, yenilemeden sonra bile erişimi reddetti.",
+        "expired": "Girişin süresi doldu ve yenilenemiyor.",
+        "write_failed": "Yenilenen giriş kaydedilemedi.",
+        "unreadable": "Kaydedilen giriş okunamadı.",
+        "unknown": "Giriş artık çalışmıyor.",
+        "scopes_missing": "Hizmet artık bu eklentinin ihtiyaç duyduğu tüm erişimi vermiyor. Yeniden bağlan ve izin ver.",
+        "endpoint_changed": "Eklenti artık girişleri hizmetin başka bir adresine gönderiyor, bu yüzden bu giriş onunla birlikte taşınamaz. Yeniden bağlan.",
+        "token_too_large": "Hizmet girişi, LocalAI'nin kullanabileceğinden (4096 bayt) büyük bir erişim token'ıyla yeniledi."
+      },
+      "approvalUser": "Bir yönetici önce bu eklentiyi onaylamalı.",
+      "approvalUserChanged": "Bu eklentinin girişi değişti. Bir yönetici onu yeniden onaylamalı.",
+      "approvalAdmin": "Bu eklentinin girişini sen onaylayana kadar kimse bağlanamaz.",
+      "approvalAdminChanged": "Bu eklentinin girişi onaylandıktan sonra değişti. Gözden geçirip yeniden onayla.",
+      "review": "İncele ve onayla",
+      "returned": {
+        "ok": "Bağlandı. Bağlantı artık çalışıyor.",
+        "denied": "Hizmette reddettin. Hiçbir şey değişmedi.",
+        "error": {
+          "invalid_state": "Giriş tamamlanamadı: süresi doldu ya da bu tarayıcıda başka bir giriş başladı. Yeniden bağlan.",
+          "provider_error": "Hizmet bir hata bildirdi. Daha sonra tekrar dene.",
+          "exchange_failed": "Hizmet girişi tamamlamadı. Yeniden bağlan.",
+          "scopes_missing": "Hizmet, bu eklentinin ihtiyaç duyduğu tüm erişimi vermedi. Yeniden bağlan ve izin ver.",
+          "unavailable": "Eklentiye ulaşılamadı. Daha sonra tekrar dene.",
+          "unknown": "Giriş tamamlanamadı. Yeniden bağlan.",
+          "token_too_large": "Hizmet, LocalAI'nin kullanabileceğinden (4096 bayt) büyük bir erişim token'ı verdi, bu yüzden giriş kaydedilmedi. Bir yöneticinin hizmetin bu istemci için token verme biçimini değiştirmesi gerekebilir."
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "Bu sunucu genel adresini bilmiyor, bu yüzden seni hizmete yönlendiremez. Bir yöneticiden sunucunun harici temel URL'sini ayarlamasını iste.",
+        "needsApproval": "Bir yönetici önce bu eklentiyi onaylamalı.",
+        "approvalStale": "Bu eklentinin girişi değişti. Sayfayı yeniden yükle.",
+        "unavailable": "Eklentiye ulaşılamadı. Daha sonra tekrar dene.",
+        "tooManyLogins": "Çok fazla giriş başlatıldı. Diğer sekmedeki girişi tamamla ya da birkaç dakika bekleyip tekrar dene."
+      },
+      "add": {
+        "open": "Yeni bağlantı",
+        "title": "Yeni {{name}} bağlantısı",
+        "name": "Ad",
+        "hint": "Tanıyacağın bir ad, örneğin İş veya Kişisel. Bağlantıyı ekledikten sonra hesabına giriş yapmak için Bağlan'ı seç.",
+        "cancel": "İptal",
+        "submit": "Ekle",
+        "failed": "Bağlantı eklenemedi. Tekrar dene.",
+        "added": "{{name}} eklendi. Hesabına giriş yapmak için Bağlan'ı seç.",
+        "empty": "Henüz bağlantı yok. Bir tane ekle, ardından hesabını bağla.",
+        "manage": "Bağlantıları düzenle"
+      },
+      "login": {
+        "hint": "Tanıyacağın bir ad, örneğin İş veya Kişisel. Ardından giriş yapmak için hizmete gideceksin."
+      }
+    },
+    "duplicate": {
+      "text": "Bu bot ayrıca {{name}} olarak da bağlı. İki bağlantı da aynı mesaja yanıt verecek.",
+      "turnOff": "Bunu kapat",
+      "open": "Aç: {{name}}"
+    },
+    "new": "Yeni bağlantı",
+    "newMenu": "Yeni bağlantının platformunu seç",
+    "state": {
+      "running": "Çalışıyor",
+      "off": "Kapalı",
+      "attention": "İlgi bekliyor"
+    },
+    "share": {
+      "label": "Paylaş",
+      "button": "Paylaş: {{name}}",
+      "intro": "Eklediğin kişiler bu bağlantıyı kendi sohbetlerinde ve ajanlarında kullanabilir. Adını ve durumunu görürler, token'ını veya ayarlarını asla görmezler. Bota gelen mesajlar yine de ajanına ulaşır.",
+      "roleUse": "Kullanabilir",
+      "roleUseHelp": "Kendi sohbetlerinde ve ajanlarında kullanabilir. Token'ı göremez, değiştiremez veya paylaşamaz."
+    },
+    "shared": {
+      "title": "Seninle paylaşılanlar",
+      "text": "Diğer kişiler bu bağlantıları sohbetlerinde ve ajanlarında kullanmana izin verdi. Onları yalnızca sahipleri değiştirebilir.",
+      "on": "Dinliyor",
+      "off": "Kapalı"
+    },
+    "introAccounts": "Sohbetlerin ve ajanların onları araç olarak kullanabilsin diye bir kez bağladığın hesaplar. Her hesap bir eklentiden gelir.",
+    "noAddonAccounts": "Kurulu bir hesap eklentisi yok.",
+    "noAddonAccountsHint": "Hesap eklentisi, bir hizmeti sohbetlerine ve ajanlarına bağlar. Bağlantı eklemek için eklenti galerisinden birini kur.",
+    "noAddonMessaging": "Kurulu bir mesajlaşma eklentisi yok.",
+    "noAddonMessagingHint": "Mesajlaşma eklentisi, bir sohbet platformunun mesajlarını taşır. Bağlama eklemek için eklenti galerisinden birini kur."
+  },
+  "conversionPage": {
+    "title": "Eski sohbetten dönüştürülenler",
+    "intro": "Eski sohbet, ajanlar, görevler ve yetenekler bu sunucu başladığında dönüştürüldü. Tetikleyiciler sen açana kadar kapalıdır. Bağlayıcılar dönüştürülmez: botu Bağlayıcılar sayfasından yeniden ekle. Bir sohbet söylenenleri korur, modelin hatırladıklarını değil.",
+    "notRun": "Bu sunucuda hiçbir dönüştürme çalışmadı.",
+    "nothing": "Sana ait hiçbir şeyin dönüştürülmesi gerekmedi.",
+    "allUsers": "Tüm kullanıcılar:",
+    "count": {
+      "converted": "{{count}} dönüştürüldü",
+      "skipped": "{{count}} atlandı",
+      "failed": "{{count}} başarısız oldu",
+      "dropped": "{{count}} bırakıldı"
+    },
+    "kind": {
+      "agent": "Ajan",
+      "trigger": "Tetikleyici",
+      "skill": "Yetenek",
+      "chat": "Sohbet",
+      "connector": "Bağlayıcı"
+    },
+    "status": {
+      "converted": "Dönüştürüldü",
+      "skipped": "Atlandı",
+      "failed": "Başarısız",
+      "dropped": "Bırakıldı"
+    },
+    "openTriggers": "Tetikleyiciler",
+    "openConnectors": "Bağlayıcılar"
+  },
+  "tools": {
+    "summary": "Araçlar ({{total}} araçtan {{on}} tanesi açık)",
+    "builtins": "Yerleşik araçlar",
+    "grants": "Diğer izinler",
+    "grantSensitive": "Hassas: bu, ajanın daha sonra neler yapabileceğini veya nelere erişebileceğini değiştirir.",
+    "builtin": {
+      "web": "İnternette bir şeylere bak",
+      "saved_agents": "Kayıtlı ajanlar",
+      "triggers": "Tetikleyici oluştur ve yönet",
+      "shell": "Komut çalıştır",
+      "files": "Dosyaların",
+      "media": "Görseller ve ses",
+      "collections": "Bilgi",
+      "subagents": "Alt ajanlar",
+      "changes": "Önerilen değişiklikler",
+      "memory": "Hafıza",
+      "history": "Geçmiş sohbetler",
+      "localai_client": "LocalAI istemcisi",
+      "localai_admin": "LocalAI yönetimi"
+    },
+    "builtinBy": "{{tools}} · yerleşik",
+    "onDemand": "İstek üzerine yüklenir",
+    "builtinByAddon": "{{tools}} · sunan: {{provider}}",
+    "servedBy": "Sunan eklenti: {{provider}}",
+    "servedByTool": "{{tool}}: {{provider}}",
+    "servedByBuiltin": "yerleşik",
+    "fallbackBuiltin": "{{addon}}, {{tool}} aracının yerini alır ancak şu an bu sohbete hizmet veremiyor (durdurulmuş, burada kapatılmış veya izni verilmemiş): yerleşik {{tool}} hizmet verir.",
+    "fallbackNone": "{{addon}}, {{tool}} aracının yerini alır ancak şu an bu sohbete hizmet veremiyor ve yerleşik {{tool}} kapalı: bu sohbette {{tool}} yok.",
+    "toolCap": {
+      "title": "Bazı eklenti araçları bu sohbette kullanılamıyor",
+      "reason": "{{total}} eklenti aracından {{offered}} tanesi kullanılabilir. Bir sohbet bunlardan yalnızca sınırlı sayıda kullanabilir.",
+      "who": "Yer açmak için bu sohbette kullanmadığın eklentileri kapat ya da bir yöneticiden sınırı yükseltmesini iste.",
+      "whoAdmin": "Yer açmak için bu sohbette kullanmadığın eklentileri kapat ya da sınırı Ayarlar'dan yükselt.",
+      "fix": "Ayarı aç",
+      "addon": "{{name}}: {{count}} kullanılamıyor",
+      "lost": "Araç kaybeden eklentiler"
+    },
+    "addons": "Eklentiler",
+    "servers": "Modelin MCP sunucuları",
+    "connectors": "Bağlayıcıların",
+    "manage": "Bağlayıcıları yönet",
+    "tools": "{{count}} araç",
+    "commands": {
+      "title": "Komutlar burada çalıştırılamaz",
+      "none": "Kod çalıştıran bir eklenti kurulu değil, bu yüzden asistan dosya yazabilir ancak betik veya komut çalıştıramaz.",
+      "askFix": "Düzeltmesi için bir yöneticiye başvur.",
+      "hide": "Gizle",
+      "hideLabel": "Bu bildirimi gizle",
+      "chipTitle": "Bu sohbet kod veya komut çalıştıramaz. Ayrıntılar için seç.",
+      "hostTitle": "Komutlar bu makinede çalışır",
+      "hostChipTitle": "Bu sohbetteki komutlar izole edilmeden bu makinede çalışır. Ayrıntılar için seç.",
+      "providerHost": "Komutlar sunucuda izolasyon olmadan çalışır.",
+      "unknown": "Çalıştırma hazırlığı veya izolasyon bilinmiyor.",
+      "unknownBy": {
+        "owner_unreachable": "Çalıştırma hazırlığı veya izolasyon bilinmiyor: eklentinin sahibine ulaşılamadı.",
+        "not_reported": "Çalıştırma hazırlığı veya izolasyon bilinmiyor: eklenti çalıştırma durumunu bildirmedi.",
+        "stale": "Çalıştırma hazırlığı veya izolasyon bilinmiyor: durum, eklentinin mevcut sürümüyle eşleşmedi.",
+        "invalid_status": "Çalıştırma hazırlığı veya izolasyon bilinmiyor: eklenti, ana sistemin kabul edemediği bir durum gönderdi.",
+        "not_selected": "Çalıştırma hazırlığı veya izolasyon bilinmiyor: bu sohbetin komutlarını çalıştıran eklenti bu değil.",
+        "no_answer": "Çalıştırma hazırlığı veya izolasyon bilinmiyor: eklenti zamanında yanıt vermedi.",
+        "reported_unknown": "Çalıştırma hazırlığı veya izolasyon bilinmiyor: eklenti bunu belirleyemediğini bildirdi."
+      },
+      "providerUnavailable": "Seçilen çalıştırma sağlayıcısı kullanılamıyor.",
+      "disabled": "Bu sohbet için komut çalıştırma kapalı.",
+      "hostOff": {
+        "reason": "Sunucunun yerleşik bash'i kapalı, bu yüzden asistan dosya yazabilir ancak betik veya komut çalıştıramaz.",
+        "whoAdmin": "Sen bir yöneticisin. Ayarlar > Araçlar bölümünde Komutlar (bash) satırını aç. Her seferinde sor seçeneği daha güvenlidir. Komutlar bu durumda sunucuda izolasyon olmadan çalışır ve sunucunun okuyabildiği her şeyi okuyabilir.",
+        "whoMember": "Bu sunucunun bir yöneticisinden bunu açmasını iste.",
+        "fix": "Ayarı aç",
+        "sandboxText": "İzole komutlar için bunun yerine komutları izole biçimde çalıştıran bir eklenti kur.",
+        "sandbox": "Eklentileri aç"
+      }
+    },
+    "consent": {
+      "title": "Bu komut bu makinede çalıştırılsın mı?",
+      "body": "Komutlar bu makinede izolasyon olmadan çalışır. LocalAI'nin okuyabildiği dosyaları okuyabilir, internete ve ağına erişebilir.",
+      "once": "Bir kez çalıştır",
+      "always": "Bu örnekte her zaman",
+      "deny": "Çalıştırma",
+      "alwaysHint": "Bu örnekte her zaman seçeneği, her kullanıcının sohbetlerinin burada sormadan komut çalıştırmasına izin verir (Ayarlar > Araçlar).",
+      "askAdmin": "Bu makinede komutlara yalnızca bir yönetici izin verebilir. Birine sor ya da komutu kendin çalıştır.",
+      "job": "Bu, bir arka plan işi başlatır. Bu çağrıdan sonra da çalışmaya devam eder ve ona izin vermek, modelin ona daha sonra yazacağı girdiye de tekrar sormadan izin vermek anlamına gelir.",
+      "expired": "Yanıtlanmadı: soran tur sona erdi, bu yüzden komut çalışmadı."
+    },
+    "provider": {
+      "addon": "Eklenti: {{name}}",
+      "host": "Bu makine, izole değil",
+      "hostOnce": "Bu makine, bir kez izin verildi",
+      "hostDenied": "Çalıştırılmadı: reddedildi",
+      "hostTimeout": "Çalıştırılmadı: yanıt yok",
+      "hostAdmin": "Çalıştırılmadı: yönetici gerekiyor"
+    },
+    "shell": {
+      "machine": "Bu makine",
+      "isolated": "Komutlar izole çalışır"
+    },
+    "describe": {
+      "shell": "Modelin kabuk komutları ve betikleri çalıştırmasına izin verir.",
+      "files": "Modelin dosyalarını listelemesine, okumasına, yazmasına ve aramasına izin verir.",
+      "web": "Modelin web'de arama yapmasına ve herkese açık sayfaları okumasına izin verir.",
+      "media": "Modelin dosyalarındaki görselleri betimlemesine ve kayıtları yazıya dökmesine izin verir.",
+      "collections": "Modelin koleksiyonlarında arama yapmasına izin verir.",
+      "subagents": "Modelin tek bir görev için alt ajan başlatmasına ve raporunu almasına izin verir.",
+      "saved_agents": "Modelin kayıtlı ajanlarından birini alt ajan olarak başlatmasına izin verir.",
+      "triggers": "Modelin tetikleyici önermesine, listelemesine, değiştirmesine ve silmesine izin verir. Her yeni tetikleyiciyi veya değişikliği sen onaylarsın.",
+      "changes": "Modelin notlarında, kurallarında, yeteneklerinde, sayfalarında ve panonda düzenleme önermesine izin verir. Her birini sen onaylarsın.",
+      "memory": "Model yanıt vermeden önce notlarını okuyabilir ve yenilerini kaydedebilir. Bunu özel bir sohbet yapmak için kapat: notlarından hiçbir şey okunmaz ve onlara hiçbir şey kaydedilmez. Diğer sohbetlerin etkilenmez.",
+      "history": "Modelin önceki sohbetlerinde arama yapmasına ve onları okumasına izin verir.",
+      "localai_client": "Modelin burada kurulu modellerle görsel, konuşma, ses ve video üretmesine; ayrıca yazıya dökmesine, embedding çıkarmasına, yeniden sıralamasına ve algılama yapmasına izin verir.",
+      "localai_admin": "Modelin bu sunucuyu yönetmesine izin verir: modeller, backend'ler, ayarlar ve durum. Yöneticiler içindir; bir şeyi değiştirmeden önce sana sorar."
+    },
+    "whenOff": {
+      "shell": "Model dosya yazabilir ama hiçbir şey çalıştıramaz.",
+      "files": "Model dosyalarını göremez veya değiştiremez.",
+      "web": "Model internette hiçbir şeye bakamaz.",
+      "media": "Model görselleri veya kayıtları kendisi okuyamaz.",
+      "collections": "Model koleksiyonlarını okuyamaz.",
+      "subagents": "Model tek başına çalışır.",
+      "saved_agents": "Model kayıtlı ajanlarını göremez veya başlatamaz.",
+      "triggers": "Model tetikleyici öneremez veya yönetemez.",
+      "changes": "Model notlarında, kurallarında, yeteneklerinde, sayfalarında veya panonda düzenleme öneremez.",
+      "memory": "Bu özel bir sohbet. Model notlarını ne okur ne de kaydeder.",
+      "history": "Model önceki sohbetlerini göremez.",
+      "localai_client": "Model bu modelleri kendisi çalıştıramaz.",
+      "localai_admin": "Model bu sunucuyu yönetemez."
+    },
+    "addonDescribe_one": "Modele bu eklentiden {{count}} araç verir.",
+    "addonDescribe_other": "Modele bu eklentiden {{count}} araç verir.",
+    "serverDescribe": "Modelin bir MCP sunucusu: araçları modele sunulur.",
+    "connectorDescribe": "MCP bağlayıcılarından biri: araçları modele sunulur.",
+    "gone": "Burada artık kullanılamıyor. Kaldırmak için kapat.",
+    "connection": {
+      "label": "Bağlantılar",
+      "help": "Bu sohbetin kullanabileceği bağlantıları seç. Asistan yalnızca işaretlediklerini kullanabilir.",
+      "helpMany": "Asistan her işlemde bağlantıyı adıyla belirtir ve yalnızca işaretli birini belirtebilir.",
+      "sole": "Tek bağlantın bu, bu yüzden o kullanılır.",
+      "choose": "Bu araçları kullanmak için en az bir bağlantı seç",
+      "none": "Henüz bağlantı yok",
+      "create": "Yeni bağlantı",
+      "byAgent": "Bu sohbetin ajanı bağlantıları belirler. Bunları ajanda değiştir.",
+      "agentLabel": "Bu ajanın sohbetleri için bağlantılar",
+      "agentHelp": "Bu ajanın sohbetleri yalnızca bu bağlantıları kullanabilir ve bunları değiştiremez.",
+      "perChatHelp": "Hiçbiri seçilmedi: her sohbet kendi bağlantısını seçer.",
+      "reconnectNeeded": "Yeniden bağlan: {{names}}",
+      "ownerReconnectNeeded": "Sahibi yeniden bağlanmalı: {{names}}",
+      "reconnect": "Yeniden bağlan"
+    },
+    "optionNeeds": "Bunu kullanmak için “{{name}}” seçeneğini aç.",
+    "connectionMissing": "{{name}} buna henüz izin vermiyor.",
+    "connectionOpen": "İzinlerini aç",
+    "section": {
+      "messaging": {
+        "title": "Mesajlaşma uygulamaları",
+        "intro": "Bunlar bir mesajlaşma uygulamasında başlayan sohbetler için geçerlidir. Bağlantı, kendi izin sayfasında aynı şeye izin vermelidir."
+      },
+      "unattended": {
+        "title": "Kimse izlemiyorken",
+        "intro": "Bunlar, bir tetikleyicinin veya mesajlaşma uygulamasının başlattığı ve hiç kimsenin bir adımı onaylayamadığı çalıştırmalar için geçerlidir."
+      }
+    },
+    "grant": {
+      "memory_write": {
+        "title": "Bir şeyleri hatırla",
+        "description": "Modelin hafızan veya ajanın kendi hafızası için bir not önermesine izin verir. Her notu sen onaylarsın."
+      },
+      "profile_write": {
+        "title": "Kendi kurallarını değiştir",
+        "description": "Modelin ajanın kalıcı kurallarında düzenleme önermesine izin verir. Her düzenlemeyi sen onaylarsın."
+      },
+      "skills_write": {
+        "title": "Yetenek yaz",
+        "description": "Modelin yeni veya değiştirilmiş bir yetenek önermesine izin verir. Her birini sen onaylarsın."
+      },
+      "pages_write": {
+        "title": "Sayfa oluştur",
+        "description": "Modelin, korumalı bir çerçevede açılan küçük bir uygulama önermesine izin verir. Bunu sen onaylarsın."
+      },
+      "dashboard_write": {
+        "title": "Panoyu değiştir",
+        "description": "Modelin Ana sayfa panon için yeni bir düzen önermesine izin verir. Her değişikliği sen onaylarsın."
+      },
+      "knowledge_write": {
+        "title": "Bilgiye ekle",
+        "description": "Modelin Bilgi koleksiyonlarından biri için bir metin önermesine izin verir. Her birini sen onaylarsın; hiçbiri hemen eklenmez."
+      },
+      "triggers_propose": {
+        "title": "Mesajlaşma uygulamalarından da öner",
+        "description": "Biri bir mesajlaşma uygulamasında istediğinde modelin bir tetikleyici önermesine izin verir. Bunu sen onaylarsın."
+      },
+      "triggers_run": {
+        "title": "Tetikleyiciler mesajlaşma uygulamalarından başlasın",
+        "description": "Bir mesajlaşma bağlantısına bağlı tetikleyicinin bir çalıştırma başlatmasına ve sonucunu oraya iletmesine izin verir."
+      },
+      "talkback_channels": {
+        "title": "Bilinen kanallarda yanıtla",
+        "description": "Modelin, zaten konuştuğu bir kanala mesaj göndermesine izin verir."
+      },
+      "talkback_new_channel": {
+        "title": "Yeni kanallar başlat",
+        "description": "Modelin, daha önce kullanmadığı bir kanalda konuşma başlatmasına izin verir."
+      },
+      "files_upload": {
+        "title": "Mesajlaşma uygulamalarından dosya al",
+        "description": "Gönderenlerin modelin okuması için dosya eklemesine izin verir. Dışarıya dosya gönderemez."
+      },
+      "act_files": {
+        "title": "Kendi başına dosya yaz",
+        "description": "Kimsenin izlemediği bir çalıştırmanın ajanın klasörlerine dosya yazmasına izin verir."
+      },
+      "act_addons": {
+        "title": "Eklenti eylemlerini kendi başına kullan",
+        "description": "Kimsenin izlemediği bir çalıştırmanın ajanın eklentilerinin eylemlerini çağırmasına izin verir."
+      },
+      "act_send": {
+        "title": "Kendi başına mesaj gönder",
+        "description": "Kimsenin izlemediği bir çalıştırmanın teslimat hedefinin dışına mesaj göndermesine izin verir."
+      },
+      "act_spend": {
+        "title": "Ücretli veya harici araçları kendi başına kullan",
+        "description": "Kimsenin izlemediği bir çalıştırmanın ücretli veya harici araçları ve ağı kullanmasına izin verir."
+      },
+      "history_read": {
+        "title": "Önceki sohbetlerini oku",
+        "description": "Modelin önceki sohbetlerinde arama yapmasına ve onları okumasına izin verir. Bir klasörde çalışan ajan yalnızca kendi sohbetlerini okur."
+      }
+    },
+    "fromProject": "Projeden",
+    "fromProjectTitle": "Proje bu aracı ekler, bu yüzden burada her zaman açıktır. Kapatmak için projede ayır."
+  },
+  "mcpPage": {
+    "title": "MCP bağlayıcıları",
+    "supporting": "Sohbetlerine ve ajanlarına arama veya kendi API'lerin gibi daha fazla araç vermek için MCP sunucularını bağla.",
+    "related": "İlgili",
+    "chats": "Sohbetler",
+    "add": "Yeni bağlayıcı",
+    "learn": "MCP nasıl çalışır",
+    "loading": "Bağlayıcıların yükleniyor",
+    "loadFailed": "Bağlayıcıların yüklenemedi.",
+    "forbidden": "MCP hesabın için kullanılamıyor.",
+    "empty": {
+      "title": "Henüz bağlayıcı yok",
+      "body": "Bağlayıcı, bir MCP sunucusunu LocalAI'ye bağlar. Sohbetlerin ve ajanların da araçlarını kullanabilir; örneğin belgelerinde arama yapmak veya bir takvimi okumak için.",
+      "fact1": "http veya https üzerinden herhangi bir MCP sunucusu",
+      "fact2": "Token'lar ve üstbilgiler şifrelenmiş olarak saklanır",
+      "fact3": "Sohbetler kullanmadan önce test et"
+    },
+    "toolbar": {
+      "search": "Bağlayıcılarda ara",
+      "testAll": "Tümünü test et",
+      "testingAll": "Test ediliyor",
+      "testedAll": "Açık olan bağlayıcılar test edildi."
+    },
+    "filter": {
+      "label": "Göster",
+      "all": "Tümü",
+      "on": "Açık",
+      "attention": "İlgi bekliyor",
+      "off": "Kapalı",
+      "showAll": "Tümünü göster",
+      "none": {
+        "all": "Bağlayıcı yok.",
+        "on": "Açık bağlayıcı yok.",
+        "attention": "İlgi bekleyen bir şey yok.",
+        "off": "Tüm bağlayıcılar açık."
+      }
+    },
+    "noMatch": {
+      "title": "“{{query}}” ile eşleşen bağlayıcı yok",
+      "body": "Ada veya adrese göre ara.",
+      "clear": "Aramayı temizle"
+    },
+    "state": {
+      "label": "Durum: {{state}}",
+      "ok": "Bağlandı",
+      "auth": "Giriş gerekiyor",
+      "error": "Bağlanılamıyor",
+      "unchecked": "Test edilmedi",
+      "off": "Kapalı"
+    },
+    "row": {
+      "open": "{{name}}, {{state}}. Ayrıntıları göster",
+      "toggle": "Sohbetlerde kullan: {{name}}",
+      "menu": "{{name}} için işlemler",
+      "offLine": "Kapalı. Sohbetler ve ajanlar onu kullanmaz.",
+      "notChecked": "Henüz test edilmedi. Araçlarını görmek için test et.",
+      "noTools": "Bağlandı, ancak sunucu hiç araç sunmuyor.",
+      "tools_one": "{{count}} araç",
+      "tools_other": "{{count}} araç",
+      "checked": "Test: {{when}}",
+      "tokenSaved": "Token kaydedildi",
+      "headersSaved": "Üstbilgiler kaydedildi",
+      "envSaved": "Değişkenler kaydedildi"
+    },
+    "actions": {
+      "details": "Ayrıntılar",
+      "test": "Bağlantıyı test et",
+      "testNamed": "{{name}} bağlantısını test et",
+      "testing": "Test ediliyor",
+      "edit": "Düzenle",
+      "reauth": "Token'ı değiştir",
+      "remove": "Kaldır"
+    },
+    "details": {
+      "use": "Sohbetlerde kullan",
+      "useHelp": "Ajansız sohbetler açık olan her bağlayıcıyı kullanır. Kayıtlı bir ajan yalnızca onun için seçtiklerini kullanır.",
+      "lastCheck": "Son test",
+      "never": "Bu tarayıcıda henüz test edilmedi.",
+      "okAt": "{{when}} zamanında bağlandı.",
+      "testedAt": "{{when}} zamanında test edildi.",
+      "errorTitle": "Son test bağlanamadı.",
+      "authTitle": "Sunucu girişi reddetti.",
+      "output": "Komutun son çıktısı",
+      "outputCopy": "Kopyala",
+      "outputCopied": "Kopyalandı",
+      "outputMore": "Tüm {{count}} satırı göster",
+      "outputLess": "Daha az göster",
+      "tools": "Araçlar",
+      "toolsUnknown": "Araçları görmek için bağlantıyı test et.",
+      "toolsNone": "Sunucu hiç araç sunmuyor.",
+      "toolsSearch": "Araçlarda ara",
+      "noToolMatch": "“{{query}}” ile eşleşen araç yok.",
+      "noDescription": "Açıklama yok.",
+      "connection": "Bağlantı",
+      "kind": "Tür",
+      "address": "Adres",
+      "command": "Komut",
+      "added": "Eklenme",
+      "queryHidden": "Adreste ? işaretinden sonraki kısım gizlidir, çünkü bir anahtar içerebilir.",
+      "signIn": "Giriş",
+      "token": "Bearer token",
+      "headers": "Üstbilgiler",
+      "env": "Değişkenler",
+      "saved": "Kaydedildi",
+      "none": "Yok",
+      "encrypted": "Sunucuda şifrelenmiş olarak saklanır. Bir daha gösterilmez."
+    },
+    "sheet": {
+      "addTitle": "Yeni bağlayıcı",
+      "editTitle": "{{name}} bağlayıcısını düzenle",
+      "addDesc": "Bir MCP sunucusu bağla. Sohbetler kullanmadan önce test edersin.",
+      "editDesc": "Kayıtlı gizli bilgiler, değiştirmediğin veya kaldırmadığın sürece kalır.",
+      "testDesc": "LocalAI kaydettiklerinle bağlanır ve araçları listeler.",
+      "close": "Kapat",
+      "kind": "Tür",
+      "remote": "Uzak sunucu",
+      "remoteHelp": "Bu makinenin http veya https üzerinden eriştiği bir MCP sunucusu.",
+      "local": "Yerel komut",
+      "localHelp": "LocalAI'nin bu makinede başlattığı bir program. Yalnızca yöneticiler için.",
+      "basics": "Bağlantı",
+      "name": "Ad",
+      "nameHelp": "Bir sohbetin Araçlar menüsünde gösterilir.",
+      "url": "Adres",
+      "urlHelp": "Özel ağdaki sunucular, bir yönetici izin vermedikçe reddedilir.",
+      "command": "Komut",
+      "commandHelp": "Başlatılacak program, kabuk olmadan.",
+      "args": "Argümanlar",
+      "argsHelp": "Satır başına bir argüman.",
+      "signIn": "Giriş",
+      "signInHelp": "Yalnızca sunucu bir anahtar istiyorsa.",
+      "envIntro": "Komutun alacağı değişkenler, örneğin bir API anahtarı.",
+      "token": "Bearer token",
+      "tokenHelp": "Authorization üstbilgisi olarak gönderilir.",
+      "tokenSaved": "Bir token kaydedildi. Değiştirmek için yenisini yaz.",
+      "tokenSavedShort": "Kaydedildi",
+      "clearToken": "Kayıtlı token'ı kaldır",
+      "headers": "Üstbilgiler",
+      "headersHelp": "Sunucunun ihtiyaç duyduğu diğer üstbilgiler, örneğin bir API anahtarı üstbilgisi.",
+      "headersSaved": "Üstbilgiler kaydedildi. Yeni satırlar hepsinin yerini alır.",
+      "clearHeaders": "Kayıtlı üstbilgileri kaldır",
+      "headerName": "Üstbilgi adı",
+      "headerValue": "Değer",
+      "addHeader": "Üstbilgi ekle",
+      "env": "Ortam değişkenleri",
+      "envSaved": "Değişkenler kaydedildi. Yeni satırlar hepsinin yerini alır.",
+      "clearEnv": "Kayıtlı değişkenleri kaldır",
+      "envName": "Değişken",
+      "addEnv": "Değişken ekle",
+      "removeRow": "{{n}}. satırı kaldır",
+      "showValue": "Değeri göster",
+      "hideValue": "Değeri gizle",
+      "encrypted": "Token'lar, üstbilgiler ve değişkenler sunucuda şifrelenmiş olarak saklanır ve bir daha gösterilmez.",
+      "cancel": "İptal",
+      "saving": "Kaydediliyor",
+      "saveAndTest": "Kaydet ve test et",
+      "savedOn": "Kaydedildi. Açık.",
+      "savedOff": "Kaydedildi. Sen açana kadar kapalı kalır.",
+      "testing": "{{name}} bağlantısı kuruluyor…",
+      "okTitle": "Bağlandı.",
+      "okBody_one": "{{name}}, {{count}} araç sunuyor.",
+      "okBody_other": "{{name}}, {{count}} araç sunuyor.",
+      "okNoTools": "Sunucu hiç araç sunmuyor.",
+      "failTitle": "Bağlanılamadı.",
+      "failHint": "Adresi kontrol et, sonra tekrar test et.",
+      "failAuth": "Token'ı veya üstbilgileri kontrol et.",
+      "back": "Ayrıntıları düzenle",
+      "retry": "Tekrar test et",
+      "done": "Bitti",
+      "keepOff": "Kapalı tut",
+      "turnOn": "Aç",
+      "discardTitle": "Değişiklikler atılsın mı?",
+      "discardBody": "Bu formda yazdıkların kaybolur.",
+      "discard": "At",
+      "keepEditing": "Düzenlemeye devam et"
+    },
+    "errors": {
+      "nameRequired": "Bir ad ver.",
+      "nameTaken": "Başka bir bağlayıcı bu adı kullanıyor.",
+      "urlRequired": "Sunucunun adresini gir.",
+      "urlInvalid": "Bu geçerli bir adres değil.",
+      "urlScheme": "Adres http:// veya https:// ile başlamalı.",
+      "urlCredentials": "Kimlik bilgilerini adrese değil, token'a veya bir üstbilgiye koy.",
+      "commandRequired": "Başlatılacak komutu gir."
+    },
+    "remove": {
+      "title": "{{name}} kaldırılsın mı?",
+      "body": "Bağlayıcı, kaydedilmiş token'ı, üstbilgileri ve değişkenleriyle birlikte silinir. Onu kullanan kayıtlı bir ajan artık araçlarını çağıramaz.",
+      "confirm": "Kaldır",
+      "pending": "Kaldırılıyor"
+    },
+    "toasts": {
+      "removed": "“{{name}}” kaldırıldı.",
+      "on": "“{{name}}” açık.",
+      "off": "“{{name}}” kapalı."
+    },
+    "import": {
+      "title": "Bu tarayıcıda tutulan sunucular",
+      "text": "Eski sohbet sayfası bu MCP sunucularını bu tarayıcıda tutuyordu. Her tarayıcının ve oturumun kullanabileceği sunucuda saklamak için içe aktar. Kapalı olarak oluşturulurlar. Token'ları ve üstbilgileri sunucuya gider, ardından bu tarayıcıdan kaldırılır.",
+      "button": "Bu tarayıcıdan {{count}} sunucuyu içe aktar",
+      "buttonOne": "Bu tarayıcıdan 1 sunucuyu içe aktar",
+      "busy": "İçe aktarılıyor",
+      "headersCount": "{{count}} üstbilgi",
+      "done": "{{count}} içe aktarıldı. Kapalılar: aşağıda test edip aç.",
+      "failed": "{{name}} içe aktarılmadı: {{error}}",
+      "left": "İçe aktarılmayan sunucular bu tarayıcıda kalır."
+    }
+  },
+  "proposal": {
+    "loading": "Önerilen tetikleyici okunuyor...",
+    "unread": "Önerilen tetikleyici okunamadı: {{message}}",
+    "removed": "Bu tetikleyici kaldırıldı.",
+    "retry": "Tekrar dene",
+    "inactive": "Önerilen tetikleyici. Sen oluşturana kadar hiçbir şey çalıştırmaz.",
+    "name": "Ad",
+    "schedule": "Ne zaman (örneğin her gün 08:00)",
+    "folder": "İzlenecek klasör",
+    "saveEdit": "Kaydet",
+    "cancelEdit": "İptal",
+    "edit": "Düzenle",
+    "receipt": {
+      "scheduled": "Zamanlandı:",
+      "watching": "İzleniyor:",
+      "next": "Sonraki çalıştırma: {{when}}",
+      "view": "Tetikleyiciyi gör",
+      "undo": "Geri al",
+      "undone": "Geri alındı:",
+      "again": "Yeniden zamanla",
+      "declined": "Reddedildi:",
+      "expired": "Süresi doldu:",
+      "restore": "Geri yükle",
+      "blocked": {
+        "ran": "Zaten bir kez çalıştı; Tetikleyiciler sayfasından kaldır.",
+        "edited": "Sonradan düzenledin; Tetikleyiciler sayfasında değiştir veya kaldır."
+      }
+    },
+    "announce": {
+      "accepted": "{{name}} zamanlandı.",
+      "undone": "{{name}} geri alındı. Zamanlanmadı.",
+      "declined": "{{name}} reddedildi.",
+      "reopened": "{{name}} yeniden yanıtını bekliyor."
+    },
+    "plan": {
+      "whenLabel": "Ne zaman",
+      "runsAsLabel": "Şu kimlikle çalışır",
+      "readsLabel": "Okur",
+      "writesLabel": "Yazar",
+      "costLabel": "Maliyet",
+      "deliveryLabel": "Sonuçlar şuraya gider",
+      "deliveryInbox": "Gelen kutun",
+      "deliveryChat": "Bu sohbet",
+      "deliveryThread": "Bu konu",
+      "deliveryChannel": "{{channel}}, kanalın en üstünde",
+      "deliveryChannelIn": "{{connection}} içindeki {{channel}}, kanalın en üstünde",
+      "deliveryModeOnChange": "Yalnızca yanıt önceki çalıştırmadan farklı olduğunda.",
+      "deliveryModeOnProblem": "Yalnızca bir çalıştırma başarısız olduğunda. Başarılı çalıştırma bir şey bildirmez.",
+      "stopLabel": "Durdurmak için",
+      "when": "{{schedule}}, {{zone}}. İlk çalıştırma: {{when}}.",
+      "whenNoFirst": "{{schedule}}, {{zone}}.",
+      "whenFile": "{{folder}} içine bir dosya geldiğinde.",
+      "runsAs": "Sen",
+      "runsAsModel": "Sen, {{model}} ile",
+      "writesWidget": ", Ana sayfadaki \"{{widget}}\" widget'ında gösterilir",
+      "costLocal_one": "Yerel modelde çalıştırma başına yaklaşık {{tokens}} token. Günde en fazla {{count}} çalıştırma.",
+      "costLocal_other": "Yerel modelde çalıştırma başına yaklaşık {{tokens}} token. Günde en fazla {{count}} çalıştırma.",
+      "costRemote_one": "Uzak bir hizmet olan {{model}} üzerinde çalıştırma başına yaklaşık {{tokens}} token. Günde en fazla {{count}} çalıştırma.",
+      "costRemote_other": "Uzak bir hizmet olan {{model}} üzerinde çalıştırma başına yaklaşık {{tokens}} token. Günde en fazla {{count}} çalıştırma.",
+      "costUnknown_one": "Bir çalıştırmanın token sayısı ilk çalıştırmadan sonra bilinir. Günde en fazla {{count}} çalıştırma.",
+      "costUnknown_other": "Bir çalıştırmanın token sayısı ilk çalıştırmadan sonra bilinir. Günde en fazla {{count}} çalıştırma.",
+      "remoteNote": "{{model}} uzak bir hizmettir: bir çalıştırmanın okudukları bu sunucudan dışarı çıkar.",
+      "stopWidget": "Widget'tan duraklat ya da Tetikleyiciler'den sil",
+      "stop": "Tetikleyiciler'den kapat ya da sil",
+      "actsLabel": "İzinler",
+      "limitLabel": "Zaman sınırı",
+      "limitClamped": "{{limit}}, yönetici tarafından {{ceiling}} değerine düşürüldü",
+      "doesLabel": "Yaptığı",
+      "tellsYouLabel": "Sana bildirir",
+      "doesWatch": "{{source}} için hatırlatıcıları tutar, varsayılan olarak {{offset}}.",
+      "tellsWatch": "Yalnızca bir şey eklediğinde: başka birinin yaptığı bir değişiklik, planlanmış bir özet veya bir çakışma.",
+      "tellsEvery": "Her çalıştırmadan sonra.",
+      "tellsOnChange": "Yanıt önceki çalıştırmadan farklı olduğunda.",
+      "tellsOnProblem": "Yalnızca bir çalıştırma başarısız olduğunda."
+    },
+    "approve": "Onayla",
+    "notNow": "Şimdi değil"
+  },
+  "subAgents": {
+    "label": "Alt ajanlar",
+    "title": "Bu sohbetin başlattığı alt ajanlar",
+    "heading": "{{running}} çalışıyor, arka planda en fazla {{limit}}",
+    "running": "Çalışıyor",
+    "untitled": "Alt ajan",
+    "show": "Göster",
+    "hide": "Gizle",
+    "stop": "Durdur",
+    "loading": "Okunuyor...",
+    "empty": "Henüz bir şey yok.",
+    "task": "Görev",
+    "answer": "Yanıt",
+    "waiting": "Bekleniyor: {{what}}",
+    "looping": "Döngüde"
+  },
+  "vision": {
+    "describedBy": "Bu model görsellere bakamaz. Başka bir model seç, yoksa görseli {{model}} betimler.",
+    "none": "Bu model görsellere bakamaz ve burada onları betimleyebilecek bir model yok. Görsellere bakabilen bir model seç."
+  },
+  "egress": {
+    "label": "Ağ",
+    "preset": {
+      "off": "Kapalı",
+      "registries": "Özel",
+      "all": "Tüm herkese açık siteler"
+    },
+    "presetHint": {
+      "off": "Komutlar hiçbir ağa erişmez.",
+      "registries": "Komutlar paket kayıt sistemlerine (PyPI, npm, Go, crates.io, RubyGems, Maven Central, GitHub sürümleri) ve yöneticinin eklediği alan adlarına erişir.",
+      "all": "Komutlar tüm herkese açık sitelere erişir."
+    },
+    "limited": "Yöneticin tarafından sınırlandı",
+    "limitedBy": "Yöneticin en fazla şuna izin veriyor: {{limit}}.",
+    "hostNetwork": "Komutlar bu makinede çalışır ve onun ağını kullanır. Ağ sınırları, komutları izole eden bir eklenti gerektirir.",
+    "panel": "Kurallar ve istekler ({{count}})",
+    "panelCustom": "Özel alan adları",
+    "rules": "Bu sohbetin kuralları",
+    "cards": "Bu sohbetin istekleri",
+    "ruleAllow": "Bu sohbet için izin verildi",
+    "ruleDeny": "Bu sohbet için reddedildi",
+    "aboveLimit": "sınırın üstünde, geçerli değil",
+    "remove": "Kaldır",
+    "removeLabel": "{{host}} kuralını kaldır",
+    "card": {
+      "pending": "Yanıt bekliyor",
+      "allowedOnce": "Bir kez izin verildi",
+      "allowedChat": "Bu sohbet için izin verildi",
+      "denied": "Reddedildi",
+      "expired": "Yanıtlanmadı",
+      "refused": "Reddedildi: sunucunun ağ sınırı buna izin vermiyor"
+    },
+    "consent": {
+      "title": "Ağ erişimi",
+      "body": "Bu sohbetteki bir komut şuraya erişmek istiyor",
+      "once": "Bir kez izin ver",
+      "chat": "Bu sohbet için izin ver",
+      "deny": "Reddet",
+      "preset": "Bu sohbet: {{preset}}. Yöneticinin belirlediği sınır: {{limit}}.",
+      "adminOnly": "Bu ana makine ağının içinde: yalnızca bir yönetici izin verebilir.",
+      "answered": "{{state}}, {{who}} tarafından, {{time}}",
+      "answeredNoWho": "{{state}}, {{time}}",
+      "you": "sen"
+    },
+    "blocked": {
+      "titleOff": "Ağ erişimi kapalı",
+      "titleCapped": "Ağ erişimi sınırlı",
+      "bodyOff": "Bu sunucudaki komutlar için ağ erişimi kapalı. Bir komut şuraya erişmek istedi",
+      "bodyCapped": "Bu sunucu, komutların ağı için yalnızca {{limit}} seviyesine izin veriyor. Bir komut şuraya erişmek istedi",
+      "adminOff": "Bir yönetici bunu {{name}} ayarlarından açabilir.",
+      "adminCapped": "Bir yönetici sınırı {{name}} ayarlarından yükseltebilir.",
+      "adminLink": "{{name}} ayarlarını aç",
+      "askAdmin": "Bunu değiştirmesi için bu sunucunun bir yöneticisine başvur.",
+      "rowOff": "Kapalı: yönetici ağ erişimine izin vermedi.",
+      "runner": "komutları çalıştıran eklenti"
+    },
+    "allowedHostsOff": "Ağ açıkken geçerlidir.",
+    "allowedHostsNote": "Yöneticinin eklediği özel alan adları: {{count}}.",
+    "customDomains": "Özel seçeneği, paket kayıt sistemlerine ve yöneticinin belirlediği şu alan adlarına erişir:",
+    "customEmpty": "Özel seçeneği yalnızca paket kayıt sistemlerine erişir. Yöneticin başka alan adı eklemedi.",
+    "customLabel": "Özel alan adları",
+    "customEdit": "Alan adlarını düzenle",
+    "customAdmin": "Bu listeyi bir yönetici yönetir.",
+    "limitNote": "Bu sohbetin ağı. Bir sohbetin erişebileceği en geniş kapsamı yönetici belirler.",
+    "draftNote": "Sohbet bu ayarla başlar. Bir sohbetin erişebileceği en geniş kapsamı yönetici belirler ve bu sınır geçerlidir.",
+    "asksAbove": "Bu sohbet {{choice}} istiyor; yönetici sınırı {{limit}}.",
+    "unverified": "Gerçek sağlayıcı için ağ politikasının uygulanması doğrulanmadı. Bu ayarlar şu anda komutları için geçerli değil.",
+    "configuredPolicy": "Yapılandırılmış ağ politikası: {{preset}} (uygulanmıyor)."
+  },
+  "change": {
+    "loading": "Tetikleyici değişikliği okunuyor...",
+    "unread": "Tetikleyici değişikliği okunamadı: {{message}}",
+    "removed": "Bu değişiklik artık tutulmuyor.",
+    "none": "yok",
+    "on": "Açık",
+    "off": "Kapalı (duraklatıldı)",
+    "becomes": "şuna dönüşür",
+    "neverRan": "Henüz çalışmadı",
+    "lastRun": "Son çalıştırma",
+    "lastRunValue": "{{status}}, {{when}}",
+    "runStatus": {
+      "queued": "Sırada",
+      "running": "Çalışıyor",
+      "done": "Bitti",
+      "failed": "Başarısız",
+      "skipped": "Atlandı"
+    },
+    "updateTitle": "{{name}} değiştirilsin mi",
+    "deleteTitle": "{{name}} silinsin mi?",
+    "updateHelp": "Önerilen değişiklik. Sen uygulayana kadar hiçbir şey değişmez.",
+    "deleteHelp": "Sil'e basana kadar hiçbir şey silinmez. Bir gün boyunca geri alabilirsin.",
+    "stale": "Tetikleyici, bu öneriden sonra değiştirildi veya kaldırıldı, bu yüzden uygulanamaz. Değişikliği yeniden iste.",
+    "apply": "Uygula",
+    "delete": "Sil",
+    "keep": "Koru",
+    "field": {
+      "name": "Ad",
+      "prompt": "Prompt",
+      "when": "Ne zaman",
+      "time_zone": "Saat dilimi",
+      "daily_cap": "Günlük sınır",
+      "enabled": "Durum",
+      "reads": "Okur",
+      "writes": "Yazar",
+      "widget": "Ana sayfa widget'ı",
+      "estimated_tokens": "Çalıştırma başına token",
+      "acts": "Bir çalıştırmanın yapabilecekleri",
+      "delivery": "Yanıtların gideceği yer",
+      "agent": "Ajan",
+      "model": "Model",
+      "run_limit": "Zaman sınırı"
+    },
+    "receipt": {
+      "update": "Değiştirildi:",
+      "pause": "Duraklatıldı:",
+      "resume": "Sürdürüldü:",
+      "delete": "Silindi:",
+      "fields": "Değişenler: {{fields}}",
+      "dismissed": "Değişiklik reddedildi:",
+      "kept": "Korundu:",
+      "undone": "Geri alındı:",
+      "restored": "Geri yüklendi:"
+    },
+    "blocked": {
+      "expired": "Geri alma süresi doldu; tetikleyiciyi Tetikleyiciler sayfasında değiştir.",
+      "edited": "Tetikleyici sonradan değiştirildi; Tetikleyiciler sayfasında değiştir.",
+      "removed": "Tetikleyici sonradan kaldırıldı.",
+      "full": "İzin verilen sayıda tetikleyiciye ulaştın; önce Tetikleyiciler sayfasından birini kaldır."
+    },
+    "announce": {
+      "applied": "{{name}} değiştirildi.",
+      "deleted": "{{name}} silindi.",
+      "dismissed": "{{name}} değişikliği reddedildi.",
+      "kept": "{{name}} korundu.",
+      "undone": "{{name}} değişikliği geri alındı.",
+      "restored": "{{name}} geri yüklendi."
+    }
+  },
+  "loops": {
+    "region": "Bu sohbetin döngüleri",
+    "unit": {
+      "seconds_one": "{{count}} saniye",
+      "seconds_other": "{{count}} saniye",
+      "minutes_one": "{{count}} dakika",
+      "minutes_other": "{{count}} dakika",
+      "hours_one": "{{count}} saat",
+      "hours_other": "{{count}} saat"
+    },
+    "unitShort": {
+      "seconds_one": "{{count}} sn",
+      "seconds_other": "{{count}} sn",
+      "minutes_one": "{{count}} dk",
+      "minutes_other": "{{count}} dk",
+      "hours_one": "{{count}} sa",
+      "hours_other": "{{count}} sa"
+    },
+    "confirm": {
+      "every": "Sen durdurana kadar bu her {{every}} çalıştırılsın mı?",
+      "selfPaced": "Sen durdurana kadar model her istediğinde bu yeniden çalıştırılsın mı?",
+      "start": "Başlat",
+      "cancel": "İptal"
+    },
+    "chip": {
+      "name": "Döngü",
+      "every": "her {{every}}",
+      "selfPaced": "kendi hızında",
+      "run_one": "{{count}}. çalıştırma",
+      "run_other": "{{count}}. çalıştırma",
+      "paused": "duraklatıldı",
+      "running": "şimdi çalışıyor",
+      "next": "sonraki: {{time}}",
+      "ended": "bitti",
+      "wait": "Bekleniyor: {{wait}}"
+    },
+    "report": {
+      "on_done": "Bittiğinde bildirir: {{channel}} · {{connection}}",
+      "on_problem": "Sorun olduğunda bildirir: {{channel}} · {{connection}}"
+    },
+    "actions": {
+      "pause": "Duraklat",
+      "resume": "Sürdür",
+      "stop": "Durdur",
+      "dismiss": "Kapat"
+    },
+    "state": {
+      "pending": "onayını bekliyor",
+      "active": "etkin",
+      "paused": "duraklatıldı",
+      "ended": "bitti"
+    },
+    "list": {
+      "title": "Bu sohbetin döngüleri",
+      "close": "Kapat",
+      "empty": "Bu sohbetin döngüsü yok.",
+      "hint": "Birini durdurmak için /loop stop yazıp ardından satırının başındaki kodu yaz."
+    },
+    "slash": {
+      "usage": "/loop yaz, istersen bir aralık ekle ve ardından neyin tekrarlanacağını yaz. Örneğin: /loop 5m derlemeyi kontrol et.",
+      "notFound": "Bu sohbetin hiçbir döngüsü {{id}} ile eşleşmiyor.",
+      "noChat": "Bir ilk mesaj gönder, ardından bu sohbette bir döngü başlat.",
+      "stopped_one": "{{count}} döngü durduruldu.",
+      "stopped_other": "{{count}} döngü durduruldu."
+    },
+    "wait": {
+      "name": "Bekleniyor",
+      "kind": "Bekleme",
+      "pending": "Onayını bekliyor",
+      "paused": "Bekleme duraklatıldı",
+      "stop": "Beklemeyi durdur",
+      "details": "Bekleme ayrıntıları",
+      "watching": "İzleniyor: {{source}}",
+      "until": "Şu olana kadar: {{condition}}",
+      "notChecked": "Henüz kontrol edilmedi",
+      "checked_one": "{{count}} kez kontrol edildi",
+      "checked_other": "{{count}} kez kontrol edildi",
+      "checkedAgo_one": "{{count}} kez kontrol edildi, sonuncusu {{ago}}",
+      "checkedAgo_other": "{{count}} kez kontrol edildi, sonuncusu {{ago}}",
+      "outcome": {
+        "unchanged": "değişiklik yok",
+        "changed": "değişti",
+        "error": "başarısız"
+      },
+      "ago": "{{span}} önce",
+      "justNow": "az önce",
+      "in": "{{span}} sonra",
+      "now": "şimdi",
+      "next": "Sonraki kontrol: {{when}}",
+      "deadline": "Vazgeçer: {{time}} ({{when}})",
+      "errorStreak": "Son kontrol başarısız oldu (üst üste {{count}} / {{max}})",
+      "errorStreakMsg": "Son kontrol başarısız oldu (üst üste {{count}} / {{max}}): {{message}}",
+      "lastError": "Son hata: {{message}}",
+      "sources": {
+        "tool": "{{name}} aracı",
+        "url": "{{name}}",
+        "script": "bir betik",
+        "job": "{{name}}",
+        "agent": "{{name}} alt ajanı"
+      },
+      "end": {
+        "met": "Bitti: koşul sağlandı",
+        "failing_one": "Durduruldu: kaynak üst üste {{count}} kez başarısız oldu",
+        "failing_other": "Durduruldu: kaynak üst üste {{count}} kez başarısız oldu",
+        "timedOut": "Zaman aşımına uğradı, koşul sağlanmadı",
+        "stopped": "Bekleme durduruldu",
+        "jobGone": "Durduruldu: iş, düğümüyle birlikte kayboldu"
+      },
+      "waking": {
+        "met": "Koşul sağlandı. Modele ne yapılacağı soruluyor.",
+        "failing": "Kaynak başarısız oldu. Modele ne yapılacağı soruluyor.",
+        "timedOut": "Zaman aşımına uğradı, koşul sağlanmadı. Modele ne yapılacağı soruluyor."
+      },
+      "phase": {
+        "waiting": "bekliyor",
+        "waking": "model uyandırılıyor",
+        "paused": "duraklatıldı",
+        "ended": "bitti",
+        "pending": "onayını bekliyor"
+      },
+      "endShort": {
+        "condition_met": "koşul sağlandı",
+        "source_failing": "kaynak başarısız oldu",
+        "timed_out": "zaman aşımı",
+        "stopped": "durduruldu"
+      },
+      "group": {
+        "collapse": "Beklemeleri gizle",
+        "deadline": "En yakın son tarih: {{time}} ({{when}})",
+        "expand": "Beklemeleri göster",
+        "lastCheck": "Son kontrol: {{ago}}",
+        "paused_one": "{{count}} duraklatıldı",
+        "paused_other": "{{count}} duraklatıldı",
+        "stopAll": "Tümünü durdur",
+        "title_one": "{{count}} bekliyor",
+        "title_other": "{{count}} bekliyor"
+      }
+    },
+    "job": {
+      "stop": "Durdur",
+      "details": "İş ayrıntıları",
+      "done_one": "{{count}} biten iş",
+      "done_other": "{{count}} biten iş",
+      "runTime": "{{span}} süredir çalışıyor",
+      "ranFor": "{{span}} çalıştı",
+      "lastOutput": "son çıktı {{ago}}",
+      "endedAgo": "{{ago}} bitti",
+      "byAgent": "bir alt ajan başlattı",
+      "where": {
+        "machine": "bu makinede",
+        "sandbox": "izole ortamda"
+      },
+      "status": {
+        "starting": "Başlıyor",
+        "running": "Çalışıyor",
+        "ending": "Durduruluyor",
+        "stalled": "Çalışıyor, {{span}} süredir çıktı yok",
+        "lost": "Kayıp: düğümü kayboldu",
+        "notStarted": "Başlatılamadı",
+        "killed": "Sonlandırıldı",
+        "stopped": "Senin tarafından durduruldu",
+        "ended": "Bitti",
+        "exitedOk": "Çıkış yaptı, durum 0",
+        "exitedCode": "{{code}} durumuyla çıkış yaptı",
+        "exitedUnknown": "Çıkış yaptı, durum bilinmiyor"
+      },
+      "end": {
+        "lifetime": "Bitti: zaman sınırına ulaştı",
+        "chat_deleted": "Bitti: sohbet silindi",
+        "shell_off": "Bitti: komutlar kapatıldı",
+        "group_off": "Bitti: komut araçları bu sohbet için kapatıldı",
+        "fenced": "Bitti: bu sohbet artık komut çalıştıramaz",
+        "sandbox_remade": "Bitti: ortamı yeniden oluşturuldu",
+        "agent_ended": "Bitti: alt ajanı tamamlandı",
+        "shutdown": "Bitti: sunucu durdu",
+        "start_failed": "Başlatılamadı"
+      }
+    }
+  },
+  "changes": {
+    "loading": "Önerilen değişiklik okunuyor...",
+    "unread": "Önerilen değişiklik okunamadı: {{message}}",
+    "removed": "Bu öneri artık yok.",
+    "kind": {
+      "memory": "Hafıza",
+      "profile": "Profil",
+      "skill": "Yetenek",
+      "page": "Sayfa",
+      "dashboard": "Pano",
+      "knowledge": "Bilgi",
+      "voice_profile": "Ses profili"
+    },
+    "scope": {
+      "user": "Tüm sohbetlerin",
+      "agent": "Ajan {{agent}}",
+      "agentAny": "Bir ajan",
+      "channel": "Bu konuşma",
+      "project": "Bu proje"
+    },
+    "help": "Sen onaylayana kadar hiçbir şey kaydedilmez.",
+    "row": {
+      "kind": "Tür",
+      "target": "Dosya",
+      "source": "Kaynak",
+      "expires": "Sona erme süresi",
+      "collection": "Koleksiyon",
+      "proposedBy": "Öneren",
+      "note": "Not"
+    },
+    "source": {
+      "chat": "Bir sohbet",
+      "connector": "Bağlayıcı {{name}}",
+      "connectorFrom": "Bağlayıcı {{name}}, gönderen: {{sender}}"
+    },
+    "expiresHours": "{{hours}} sa {{minutes}} dk",
+    "expiresMinutes": "{{minutes}} dk",
+    "diff": {
+      "label": "{{target}} üzerindeki değişiklikler",
+      "newFile": "Yeni dosya",
+      "added_one": "{{count}} satır eklendi",
+      "added_other": "{{count}} satır eklendi",
+      "removed_one": "{{count}} satır kaldırıldı",
+      "removed_other": "{{count}} satır kaldırıldı",
+      "same": "Geçerli metinden fark yok.",
+      "gap_one": "{{count}} değişmemiş satır",
+      "gap_other": "{{count}} değişmemiş satır",
+      "more_one": "{{count}} satır daha gösterilmiyor",
+      "more_other": "{{count}} satır daha gösterilmiyor",
+      "srAdded": "Eklendi:",
+      "srRemoved": "Kaldırıldı:"
+    },
+    "unreadFile": "Geçerli dosya okunamadı, bu yüzden metnin tamamı yeni sayılıyor.",
+    "confirm": "Onayla",
+    "edit": "Düzenle ve onayla",
+    "confirmEdited": "Benim metnimle onayla",
+    "editLabel": "{{target}} dosyasına kaydedilecek metin",
+    "failed": "Değişiklik kaydedilemedi: {{message}}. Hâlâ seni bekliyor.",
+    "receipt": {
+      "applied": "Uygulandı:",
+      "savedAuto": "Hafızaya kaydedildi:",
+      "reverted": "Geri alındı:",
+      "dismissed": "Reddedildi:",
+      "expired": "Süresi doldu:",
+      "stale": "Uygulanmadı:"
+    },
+    "why": {
+      "expired": "Bir günden fazla bekledi. Hiçbir şey kaydedilmedi.",
+      "stale": "Dosya bu önerildikten sonra değişti, bu yüzden hiçbir şey kaydedilmedi."
+    },
+    "askAgain": "Yeniden iste",
+    "askAgainText": "Lütfen bu değişikliği yeniden öner, dosya o zamandan beri değişti: {{summary}} ({{target}})",
+    "announce": {
+      "applied": "Değişiklik uygulandı.",
+      "dismissed": "Değişiklik reddedildi.",
+      "undone": "Değişiklik geri alındı.",
+      "asked": "Asistandan yeniden önermesi istendi."
+    },
+    "knowledge": {
+      "label": "{{collection}} koleksiyonuna eklenecek metin",
+      "size": "En fazla {{max}} içinden {{size}}",
+      "note": "Sen onaylayana kadar hiçbir şey eklenmez. Metin ardından pasajlara bölünüp dizinlenir ve bu koleksiyonda arama yapan her sohbet onu kullanabilir.",
+      "editLabel": "{{target}} hedefine eklenecek metin",
+      "embed_one": "1 pasaj {{model}} ile gömülecek.",
+      "embed_other": "Yaklaşık {{count}} pasaj {{model}} ile gömülecek.",
+      "serverModel": "sunucunun embedding modeli"
+    },
+    "warning": {
+      "title": "Onaylamadan önce bu metni kontrol et.",
+      "secret": "Anahtar, token veya şifre gibi bir gizli bilgi içeriyor gibi görünüyor. Eklendikten sonra bu koleksiyonda arama yapan her sohbet onu okuyabilir. Bir mesajlaşma sohbeti bunu onaylayamaz; yalnızca sen burada onaylayabilirsin.",
+      "other": "Sunucu bu metni riskli olarak işaretledi. Bir mesajlaşma sohbeti bunu onaylayamaz; yalnızca sen burada onaylayabilirsin."
+    },
+    "voice": {
+      "label": "Klonlanacak ses",
+      "name": "Ad",
+      "file": "Kayıt",
+      "clip": "Sabitlenmiş klip",
+      "language": "Dil",
+      "transcript": "Transkript",
+      "consentTitle": "Yalnızca konuşmacı kabul ettiyse onayla.",
+      "consent": "Kayıt, sohbetlerinin konuşabileceği bir ses profili olarak kaydedilir. Bunu Ses kitaplığından silebilirsin.",
+      "consentAdmin": "Sen bir yöneticisin, bu yüzden bu ses bu sunucunun tüm kullanıcılarına açılır.",
+      "confirm": "Konuşmacı kabul etti: sesi kaydet"
+    },
+    "fromOther": {
+      "title": "{{name}}, {{project}} için bir not önerdi",
+      "titleNoProject": "{{name}} bir not önerdi",
+      "help": "Sen onaylayana kadar hiçbir şey yazılmaz. {{name}} bunu, bu projeyi içeri alan bir sohbetten önerdi.",
+      "by": "{{name}}, kendi sohbetinden",
+      "voided": "{{name}} artık bu projeyi düzenleyemez.",
+      "noteFor": "{{project}} için bir not",
+      "thisProject": "bu proje",
+      "why": "Projeyi düzenleme erişimiyle yeniden paylaş, notu hâlâ istiyorsan yeniden iste.",
+      "nameHint": "Proje adı klasöründen alındı"
+    }
+  },
+  "proposalsPage": {
+    "title": "Öneriler",
+    "supporting": "Modellerin istediği ve yanıtını bekleyen değişiklikler.",
+    "emptyTitle": "Bekleyen bir şey yok",
+    "emptyBody": "Bir model notlarında, bir ajan profilinde, bir yetenekte, bir sayfada veya panoda değişiklik önerdiğinde, sen yanıtlayana kadar burada görünür.",
+    "loadError": "Öneriler yüklenemedi."
+  },
+  "memoryPage": {
+    "lede": "LocalAI'nin sohbetlerinin prompt'una koyduğu notlar. Bir model onları yalnızca bir öneriyi onayladıktan sonra değiştirir. Burada onları okuyabilir, düzenleyebilir ve silebilirsin.",
+    "limits": "Sınırlar: bir dizin en fazla {{lines}} satır ve {{index}}, bir profil {{profile}} olabilir ve bir tur en fazla {{turn}} not taşır.",
+    "proposalsLink": "Seni bekleyen değişiklikleri gör",
+    "emptyTitle": "Henüz not yok",
+    "emptyBody": "Bir asistandan bir şeyi hatırlamasını isteyip onayladığında, notlar burada görünür.",
+    "loadError": "Notların yüklenemedi.",
+    "use": "{{max}} içinden {{size}} · {{maxLines}} satırdan {{lines}}",
+    "useBytes": "{{max}} içinden {{size}}",
+    "useLabel": "Dizinin boyutu ve sınırı",
+    "over": "Sınırın üstünde: sonu modele gönderilmez.",
+    "index": "Dizin",
+    "group": {
+      "user": "Notların",
+      "agent": "{{key}} ajanının notları",
+      "channel": "{{key}} konuşmasının notları",
+      "profile": "{{key}} ajanının profili",
+      "agentNamed": "{{name}} ajanının notları",
+      "profileNamed": "{{name}} ajanının profili"
+    },
+    "edit": "Düzenle",
+    "save": "Kaydet",
+    "editLabel": "{{name}} metni",
+    "editSizeIndex": "{{max}} içinden {{size}} · {{maxLines}} satırdan {{lines}}",
+    "editSize": "{{max}} içinden {{size}}",
+    "tooBig": "Çok uzun: kaydetmek için kısalt.",
+    "saveFailed": "Kaydedilemedi: {{message}}",
+    "saved": "{{name}} kaydedildi.",
+    "emptyFile": "(boş)",
+    "delete": "Sil: {{name}}",
+    "deleteYes": "Sil",
+    "confirmDelete": "{{name}} silinsin mi?",
+    "deleted": "{{name}} Çöp Kutusu'na taşındı.",
+    "clear": "Her şeyi unut",
+    "clearAsk_one": "{{count}} dosya silinsin mi? Çöp Kutusu'na taşınır ve Dosyalar'dan geri yükleyebilirsin.",
+    "clearAsk_other": "{{count}} dosya silinsin mi? Çöp Kutusu'na taşınır ve Dosyalar'dan geri yükleyebilirsin.",
+    "clearYes_one": "{{count}} dosyayı sil",
+    "clearYes_other": "{{count}} dosyayı sil",
+    "cleared_one": "{{count}} dosya Çöp Kutusu'na taşındı.",
+    "cleared_other": "{{count}} dosya Çöp Kutusu'na taşındı.",
+    "tabs": {
+      "label": "Notların sahibi",
+      "mine": "Benim",
+      "deleted": "Silinen ajanlar",
+      "channels": "Konuşmalar",
+      "channelsNote": "Mesajlaşma uygulamalarındaki sohbetlerden kaydedilen notlar. Okumak için bir notu aç ya da sil. Seninle doğrulanmamış bir göndericinin notu her zaman onayını bekler.",
+      "export": "Bu notları dışa aktar",
+      "clearAgent": "Bu ajanın notlarını sil",
+      "clearDeleted": "Bu notları sil"
+    },
+    "deletedNote": "Bu ajanlar silindi. Notları, sen burada silene kadar kalır.",
+    "tabEmpty": "Burada not yok."
+  },
+  "triggerActs": {
+    "help": "Bir çalıştırma kendiliğinden başlar, bu yüzden bir adımı onaylayacak kimse yoktur. Okuyabilir ve rapor verebilir. Ayrıca yapabileceklerini işaretle. Ajanının sahip olduğundan fazlasını asla alamaz.",
+    "noAgent": "Ajan seçilmedi, bu yüzden onu yalnızca işaretlediklerin sınırlar.",
+    "readOnly": "Salt okunur",
+    "canAct": "Kendi başına işlem yapabilir",
+    "canActText_one": "Bir çalıştırma, sormadan {{count}} tür işlem kullanabilir.",
+    "canActText_other": "Bir çalıştırma, sormadan {{count}} tür işlem kullanabilir.",
+    "sensitive": "dikkat gerektirir",
+    "addonRow": "Bir çalıştırma, {{id}} eklentisinin eylemlerini kullanabilir.",
+    "blocked": "Ajanın buna sahip değil, bu yüzden işaretlenemez. Önce ajana ekle.",
+    "unused": "Ajanın buna sahip değil, bu yüzden bir çalıştırma bunu kullanmaz.",
+    "unusedList": "Listelendi ancak ajan buna sahip olmadığı için kullanılmıyor: {{names}}.",
+    "writesNote": "Planı {{file}} dosyasını belirtiyor, bu yüzden bir çalıştırma ayrıca dosya yazabilir.",
+    "listCan_one": "İşlem yapabilir ({{count}})",
+    "listCan_other": "İşlem yapabilir ({{count}})",
+    "why": {
+      "no_acts": "İşlem izni ayarlanmadı, bu yüzden çalıştırmaları yalnızca okur ve rapor verir.",
+      "agent": "Ajanı istediği izinlere sahip değil, bu yüzden çalıştırmaları yalnızca okur ve rapor verir.",
+      "declared": "Yalnızca okumak ve rapor vermek üzere kuruldu. Burada işaretlediğin hiçbir şey bunu değiştirmez.",
+      "binding": "Salt okunur kipteki bir bağlantı onu oluşturdu. Burada işaretlediğin hiçbir şey bunu değiştirmez."
+    }
+  },
+  "memorySettings": {
+    "titleOn": "Hafıza açık",
+    "titleOff": "Hafıza kapalı",
+    "ledeOn": "Sohbetlerin senin hakkında kısa notlar tutar ve yanıt vermeden önce onları okur. Her yerde okumayı ve kaydetmeyi durdurmak için kapat. Notların olduğu yerde kalır.",
+    "ledeOff": "Hiçbir sohbette veya ajanda notlarından bir şey okunmaz ve onlara bir şey kaydedilmez. Bir şeyi hatırlamasını istersen asistan hafızanın kapalı olduğunu söyler. Notların kalır ve onları yine okuyabilir, dışa aktarabilir ve silebilirsin.",
+    "on": "Açık",
+    "off": "Kapalı",
+    "unavailable": "Notlar dosyadır ve bu sunucuda dosyalar kapalı, bu yüzden hafıza burada çalışamaz.",
+    "saveTitle": "Not kaydetme",
+    "saveLede": "Asistan bir şeyi saklamak istediğinde ne olur. En katı kural her zaman geçerli olur.",
+    "save": {
+      "ask": {
+        "title": "Önce bana sor",
+        "body": "Sohbette bir kart bekler. Onaylar, düzenler veya kapatırsın."
+      },
+      "auto": {
+        "title": "Kaydet ve bana söyle",
+        "body": "Kendi sohbetlerinde not hemen kaydedilir. Sohbet, Geri al seçeneğiyle birlikte \"Hafızaya kaydedildi\" gösterir. Yanıt başına en fazla 5 not. Uzun bir not veya gizli bilgiye benzeyen bir not yine seni bekler."
+      },
+      "always": {
+        "title": "Her zaman onayla",
+        "body": "Önce bana sor gibi çalışır ve hiçbir şey onu gevşetemez. Geri alma ve unutma da seni bekler. Hiçbir ajan veya mesajlaşma ayarı bunu geçersiz kılamaz."
+      },
+      "never": {
+        "title": "Asla",
+        "body": "Asistan not kaydedemez. Kaydetmenin kapalı olduğunu sana söyler."
+      }
+    },
+    "default": "Varsayılan",
+    "saveNote": "Arka plan çalıştırmaları ve tetikleyiciler asla not kaydetmez. Kayıtlı bir ajan, burada seçtiğinden daha fazlasını isteyebilir, daha azını asla.",
+    "messaging": {
+      "title": "Mesajlaşma uygulamalarında",
+      "lede": "Gönderenin sen olmayabileceği bir mesajlaşma uygulamasındaki sohbette bir not önerildiğinde ne olur.",
+      "ask": {
+        "title": "Önce bana sor",
+        "body": "Bot sohbette sorar: \"Kaydetmek için evet yaz.\" Listelenmiş bir gönderen orada yanıtlayabilir. Diğerleri uygulamada seni bekler."
+      },
+      "paired_private": {
+        "title": "Özel sohbette doğrulanmış bir kişi için kaydet",
+        "body": "Yalnızca gönderen doğrulanmış bir kişiyse ve sohbet birebirse hemen kaydedilir. Not o konuşmaya gider ve Geri al seçeneği vardır. Gizli bilgiye benzeyen bir not yine bekler."
+      },
+      "never": {
+        "title": "Asla",
+        "body": "Mesajlaşma uygulamalarından hiçbir not kaydedilmez."
+      },
+      "limit": "Yukarıdaki ayardan asla daha gevşek değildir.",
+      "lockedAlways": "Yukarıdaki ayarın Her zaman onayla, bu yüzden bu satır bir notu hemen kaydedemez.",
+      "lockedNever": "Yukarıdaki ayarın Asla, bu yüzden mesajlaşma uygulamasından hiçbir not kaydedilmez."
+    },
+    "saveFailed": "Seçimin kaydedilemedi.",
+    "loadError": "Hafıza ayarların yüklenemedi.",
+    "notesTitle": "Notlarını yönet",
+    "notesLede": "Onları oku, düzenle, dışa aktar veya sil. Hafıza kapalıyken de çalışır.",
+    "export": "Dışa aktar"
+  },
+  "memoryOff": {
+    "title": "Hafıza burada kapalı.",
+    "line": {
+      "chat": "Bu özel bir sohbet: hiçbir şey okunmaz veya kaydedilmez. Notlarına dokunulmaz. Araçlar menüsünden aç.",
+      "user": "Hiçbir sohbet veya ajan not okumaz ya da kaydetmez ve notlarına dokunulmaz.",
+      "agent": "Bu sohbetin ajanının hafızası kapalı.",
+      "files": "Notlar dosyadır ve bu sunucuda dosyalar kapalı.",
+      "provider": "Hafızayı sunan eklenti kullanılamıyor, bu yüzden hiçbir şey okunmaz veya kaydedilmez. Ayarlar > Hafıza bölümünden bir sağlayıcı seç."
+    },
+    "chip": "Hafıza kapalı",
+    "chipPrivate": "Özel sohbet",
+    "fixUser": "Ayarlar, Hafıza",
+    "userRow": "Ayarlarında kapalı. Ayarlar > Hafıza bölümünden aç."
+  },
+  "agentMemory": {
+    "title": "Hafıza",
+    "lede": "Bu ajanın hangi notları okuyacağını ve yenilerini nereye kaydedeceğini seç.",
+    "offUser": "Hafıza ayarlarında kapalı, bu yüzden bunu açana kadar bu seçimin etkisi yok.",
+    "offUserFix": "Ayarlar, Hafıza",
+    "recommended": "Önerilen",
+    "mine_and_own": {
+      "title": "Benimkiler ve kendi notları",
+      "body": "Notlarını ve kendi notlarını okur. Yalnızca kendi notlarına kaydeder."
+    },
+    "own": {
+      "title": "Yalnızca kendi notları",
+      "body": "Yalnızca kendi notlarını okur ve kaydeder. Notlarına erişemez."
+    },
+    "mine": {
+      "title": "Benimkiler",
+      "body": "Notlarını okur ve kaydeder."
+    },
+    "none": {
+      "title": "Hiçbiri",
+      "body": "Hiçbir şey okumaz ve kaydetmez."
+    },
+    "mineWarn": "Bu ajan, her sohbet için hafızana not ekleyebilir. Her birini sen onaylarsın.",
+    "asBefore": {
+      "title": "Önceki gibi",
+      "body": "Bu ajan, bu seçenek var olmadan önce kaydedildi. Eklenti listesinde Hafıza adı geçtiğinde notlarını okur ve bir notun nereye kaydedileceğini model seçer. Bunu değiştirmek için aşağıdaki seçeneklerden birini seç."
+    },
+    "copyNote": "Bir ajanı dışa aktarmak veya yeni bir ajan olarak içe aktarmak bu seçimi korur ve notlarını asla kopyalamaz.",
+    "summary": {
+      "mine_and_own": "Benimkiler ve kendi notları",
+      "own": "Yalnızca kendi notları",
+      "mine": "Benimkiler",
+      "none": "Hiçbiri",
+      "asBefore": "Önceki gibi",
+      "withAuto": "{{choice}}, hemen kaydeder",
+      "level": {
+        "off": "Kapalı",
+        "reads": "Notları okur",
+        "saves": "Notları okur ve kaydeder"
+      },
+      "combined": "{{level}}, {{choice}}"
+    },
+    "delete": {
+      "title": "{{name}} silinsin mi?",
+      "ask": "Bu ajanın kendi notları var ({{count}}). Bunlara ne olsun?",
+      "legend": "Notlara ne yapılacağı",
+      "default": "varsayılan",
+      "confirm": "Ajanı sil",
+      "keep": {
+        "title": "Notları koru",
+        "body": "Sen silene kadar Hafıza sayfasında Silinen ajanlar altında kalırlar."
+      },
+      "export": {
+        "title": "Dışa aktar, sonra sil",
+        "body": "Notları zip dosyası olarak indir, ardından Çöp Kutusu'na taşı."
+      },
+      "delete": {
+        "title": "Notları da sil",
+        "body": "Çöp Kutusu'na taşınırlar ve Dosyalar'dan geri yükleyebilirsin."
+      }
+    },
+    "rule": {
+      "title": "Bir not kaydetmek istediğinde",
+      "use_mine": {
+        "title": "Benim ayarımı kullan",
+        "body": "Ayarın <b>{{level}}</b>. <settings>Ayarlar > Hafıza bölümünden değiştir.</settings>"
+      },
+      "auto": {
+        "title": "Kaydet ve bana söyle",
+        "body": "Ayarın Önce bana sor olsa bile her notu hemen kaydeder ve sohbette, Geri al seçeneğiyle sana bildirir. Uzun bir not veya gizli bilgiye benzeyen bir not yine bekler."
+      },
+      "always": {
+        "title": "Her zaman onayla",
+        "body": "Ayarımdan daha katı."
+      },
+      "never": {
+        "title": "Asla",
+        "body": "Okur, asla kaydetmez."
+      },
+      "hint": "Bir mesajlaşma sohbetinde not önce o konuşmaya gider ve bu ajanın kendi notlarına yalnızca doğrulanmış bir kişiden ulaşır. Mesajlaşma sohbetinde hemen kaydetme yalnızca birebir sohbetteki doğrulanmış bir kişi için geçerlidir.",
+      "offReason": "Hafıza kapalıyken kaydetme düzeyi geçerli değildir.",
+      "readsReason": "Kaydetme düzeyi geçerli değil: bu ajan notları okur ancak hiçbirini kaydedemez."
+    },
+    "level": {
+      "title": "Notlarla ne kadar işlem yapar",
+      "off": {
+        "title": "Kapalı",
+        "body": "Hiçbir not okumaz ve kaydetmez."
+      },
+      "reads": {
+        "title": "Notları okur",
+        "body": "Yanıt vermek için notlarını kullanır. Hiçbirini kaydetmez."
+      },
+      "saves": {
+        "title": "Notları okur ve kaydeder",
+        "body": "Notları kullanır ve kaydetme düzeyinin izin verdiği ölçüde yenilerini kaydeder."
+      }
+    },
+    "whose": "Kimin notları",
+    "whoseOff": "Bu ajan için hafıza kapalı, bu yüzden seçilecek not yok."
+  },
+  "providerPicker": {
+    "title": "Sağlayıcı",
+    "lede": "Aynı anda bir sağlayıcı hizmet verir. Değiştirdiğinde mevcut verilerin olduğu yerde kalır.",
+    "off": "Kapalı",
+    "unavailable": "Kullanılamıyor",
+    "loadError": "Sağlayıcılar yüklenemedi",
+    "saveFailed": "Sağlayıcı değiştirilemedi",
+    "failedTitle": "{{name}} kullanılamıyor",
+    "failedReason": "Sen bir sağlayıcı seçene kadar kapalı kalır. Hiçbir şey yerleşik sağlayıcıya taşınmadı, bu yüzden senin seçmediğin bir yere hiçbir şey kaydedilmez.",
+    "useBuiltin": "Yerleşik sağlayıcıyı kullan",
+    "facts": {
+      "local": "Yerel",
+      "remote": "Uzak",
+      "undoHost": "Burada geri al",
+      "undoProvider": "Hizmet tarafından geri al",
+      "undoNone": "Geri alınamaz"
+    },
+    "slots": {
+      "memory": {
+        "builtin": "Yerleşik",
+        "builtinBody": "Hafıza klasöründeki düz dosyalar. Hiçbir şey bu makineden çıkmaz.",
+        "offBody": "Hiçbir şey okunmaz, sunulmaz, kaydedilmez veya gönderilmez. Mevcut notlar korunur."
+      }
+    },
+    "healthTitle": "Sağlayıcı duraklatıldı",
+    "forget": {
+      "lede": "{{name}} sağlayıcısından senin için tuttuğu notları unutmasını iste. Hafıza klasöründeki dosyalarına dokunulmaz.",
+      "action": "Bu sağlayıcıdaki her şeyi unut",
+      "confirmTitle": "{{name}} sağlayıcısındaki her şey unutulsun mu?",
+      "confirmBody": "{{name}} sağlayıcısından senin için tuttuğu her notu unutması istenecek. Sen Eklentiler sayfasında onaylayana kadar değişikliği bekletebilir.",
+      "confirmBodyFinal": "{{name}} sağlayıcısından senin için tuttuğu her notu unutması istenecek. Bu işlem geri alınamaz.",
+      "confirm": "Her şeyi unut",
+      "pending": "Unutuluyor...",
+      "done": "{{name}} notlarını unuttu",
+      "waiting": "Değişiklik, Eklentiler sayfasındaki onayını bekliyor",
+      "failed": "Sağlayıcı unutamadı: {{message}}"
+    }
+  },
+  "connectionsTabs": {
+    "label": "Bağlantı bölümleri",
+    "accounts": "Hesaplar",
+    "messaging": "Mesajlaşma",
+    "mcp": "MCP sunucuları"
+  },
+  "sandboxProfile": {
+    "label": "Sandbox profili",
+    "tools": "Programlar: {{tools}}",
+    "notAllowed": "Yöneticin sana bu profili vermedi",
+    "absent": "Bu sürümde bunun için bir imaj yok",
+    "unavailable": "{{title}} kullanılamıyor: {{reason}}.",
+    "draft": "Yeni sohbet {{title}} ile başlar. Profili burada seç ya da sohbette sonradan değiştir.",
+    "source": {
+      "chat": "Bu sohbet {{title}} içinde çalışır, senin seçimin.",
+      "agent": "Bu sohbet {{title}} içinde çalışır, ajanı tarafından belirlendi.",
+      "default": "Bu sohbet {{title}} içinde çalışır, varsayılan."
+    },
+    "switchWarning": "Geçiş yapmak sandbox'ı yeniden başlatır. Dosyaların kalır. Çalışan işlemler ve kurulu paketler kaybolur.",
+    "switchTo": "{{title}} profiline geç",
+    "cancel": "İptal",
+    "preparing": "{{title}} imajı hazırlanıyor, %{{percent}}",
+    "failed": "{{title}} imajı hazırlanamadı: {{error}}",
+    "fallback": "{{title}} kullanılamadı, bu yüzden komutlar {{base}} içinde çalışıyor.",
+    "newerImage": "Daha yeni bir imaj var. Sandbox yeniden başladığında uygulanır.",
+    "notAllowedError": "Bu profili kullanamazsın.",
+    "unknownError": "Bu profil mevcut değil.",
+    "saveError": "Profil değiştirilemedi.",
+    "admin": {
+      "title": "Sandbox profilleri",
+      "intro": "Profil, kendi programlarına sahip bir ortamdır. Birini sınırlayana kadar herkes her profili kullanabilir.",
+      "default": "Varsayılan profil",
+      "defaultBase": "Temel",
+      "profiles": "Profiller",
+      "limits": "{{cpus}} CPU, {{memory}} MiB bellek, {{disk}} MiB disk",
+      "baseAlways": "Her kullanıcı Temel profili kullanabilir. Diğeri çalışamadığında çalışan profil budur.",
+      "who": "Kimler kullanabilir",
+      "everyone": "Herkes",
+      "restricted": "Yalnızca aşağıdaki roller ve kullanıcılar",
+      "role": {
+        "admin": "Yöneticiler",
+        "user": "Normal kullanıcılar"
+      },
+      "users": "Adı geçen kullanıcılar",
+      "usersPlaceholder": "Virgülle ayrılmış adlar",
+      "pin": "Önceki imaja sabitle",
+      "noPrevious": "Henüz önceki imaj yok",
+      "memory": "Bir sandbox'ın bellek sınırı, MiB cinsinden",
+      "disk": "Bir sandbox'ın disk sınırı, MiB cinsinden",
+      "noLimit": "Sınır yok",
+      "quotaHelp": "Bir sınır, profilin limitini düşürür ve asla yükseltmez. Sınır istemiyorsan alanı boş bırak.",
+      "badQuota": "MiB cinsinden tam sayı kullan ya da alanı boş bırak.",
+      "reload": "Yeniden yükle",
+      "ownerError": "Sahip ayarları kullanılamıyor veya değişti: {{message}}",
+      "save": "Kaydet",
+      "loadError": "Sandbox profilleri okunamadı."
+    }
+  },
+  "harness": {
+    "title": "Bu modelin bağlam penceresi sohbet için çok küçük",
+    "admin": {
+      "reason": "{{window}} token ve sohbetin en az {{minimum}} token'a ihtiyacı var; {{recommended}} daha iyidir.",
+      "checking": "{{target}} token'ın bu makinenin belleğine sığıp sığmadığı kontrol ediliyor…",
+      "fits": "{{target}} token bu makinenin belleğine sığıyor (yaklaşık {{need}}).",
+      "fitsLess": "{{recommended}} token bu makinenin belleğine sığmıyor. {{target}} sığıyor (yaklaşık {{need}}).",
+      "unknown": "Bunun için gereken bellek tahmin edilemedi.",
+      "none": "{{minimum}} token bile bu makinenin belleğine sığmıyor. Daha küçük bir model seç.",
+      "fix": "Pencereyi {{target}} olarak ayarla"
+    },
+    "user": {
+      "reason": "{{window}} token ve sohbetin en az {{minimum}} token'a ihtiyacı var.",
+      "switch": "Bu sohbeti daha büyük pencereli, kurulu bir modele geçir.",
+      "askAdmin": "Kullanabileceğin kurulu modellerin hiçbirinin penceresi yeterince büyük değil. Bir yöneticiden onu yükseltmesini ya da başka bir model kurmasını iste.",
+      "use": "{{model}} kullan ({{window}} token)"
+    },
+    "chat": {
+      "title": "Bu sohbetin bağlam boyutu çok küçük",
+      "reason": "Bu sohbetin ayarı {{window}} token ve sohbetin en az {{minimum}} token'a ihtiyacı var.",
+      "fix": "Modelin penceresini kullan"
+    }
+  },
+  "event": {
+    "listening": "Dinliyor:",
+    "announceAccepted": "{{name}} oluşturuldu. Gizli anahtarını şimdi kopyala: bir kez gösterilir.",
+    "sentence": {
+      "typed": "{{source}}, {{type}} gönderdiğinde",
+      "any": "{{source}} herhangi bir olay gönderdiğinde",
+      "where": " şu koşulla: {{matches}}",
+      "and": " ve "
+    },
+    "hook": {
+      "title": "Hook adresi ve gizli anahtar",
+      "urlLabel": "Hook URL'si",
+      "secretLabel": "Gizli anahtar (bir kez gösterilir)",
+      "curlLabel": "Örnek çağrı",
+      "copy": "Kopyala",
+      "copied": "Kopyalandı",
+      "copyUrl": "Hook URL'sini kopyala",
+      "copySecret": "Gizli anahtarı kopyala",
+      "copyCurl": "Örnek çağrıyı kopyala",
+      "paste": "URL'yi ve gizli anahtarı gönderenin webhook ayarlarına yapıştır. Gizli anahtar bir daha gösterilmez.",
+      "noSecret": "Gizli anahtar bir daha gösterilmez. Yenisini almak için döndür.",
+      "rotate": "Gizli anahtarı döndür",
+      "rotateTitle": "{{name}} gizli anahtarı döndürülsün mü?",
+      "rotateBody": "Eski gizli anahtar hemen çalışmaz hale gelir. Yenisini, gönderenin bir sonraki olayından önce ona gir.",
+      "rotateConfirm": "Döndür",
+      "rotated": "Yeni gizli anahtar oluşturuldu.",
+      "rotateFailed": "Gizli anahtar döndürülemedi: {{message}}"
+    },
+    "form": {
+      "source": "Gönderen",
+      "sourceHint": "Gönderenin adı, örneğin github.",
+      "sourceEmpty": "Olayların göndereninin adını yaz.",
+      "type": "Olay türü",
+      "typeHint": "Her türden olayı almak için boş bırak.",
+      "matches": "Yalnızca şu durumda (satır başına bir alan=değer)",
+      "matchesHint": "En fazla 8 satır, örneğin action=opened.",
+      "createdTitle": "{{name}} hazır",
+      "done": "Bitti"
+    }
+  },
+  "watch": {
+    "section": "İzle",
+    "new": "Yeni izleme",
+    "titleNew": "Yeni izleme",
+    "titleEdit": "{{name}} izlemesini düzenle",
+    "source": "İzle",
+    "sourceHelp": "Yalnızca değişikliklerini bildiren eklentiler listelenir.",
+    "sourcePick": "Bir eklenti seç",
+    "types": "Alınacak değişiklikler",
+    "typesHelp": "Her değişikliği almak için hepsinin işaretini kaldır.",
+    "offset": "Bana hatırlat",
+    "none": "Varsayılan hatırlatıcı yok",
+    "atTime": "Tam zamanında",
+    "minutesBefore_one": "{{count}} dk önce",
+    "minutesBefore_other": "{{count}} dk önce",
+    "hoursBefore_one": "{{count}} saat önce",
+    "hoursBefore_other": "{{count}} saat önce",
+    "daysBefore_one": "{{count}} gün önce",
+    "daysBefore_other": "{{count}} gün önce",
+    "minutesAfter_one": "{{count}} dk sonra",
+    "minutesAfter_other": "{{count}} dk sonra",
+    "hoursAfter_one": "{{count}} saat sonra",
+    "hoursAfter_other": "{{count}} saat sonra",
+    "daysAfter_one": "{{count}} gün sonra",
+    "daysAfter_other": "{{count}} gün sonra",
+    "allDay": "Gün boyu süren şeyler",
+    "allDayMorning": "Sabah, 08:00'de",
+    "allDayNone": "Hatırlatıcı yok",
+    "quiet": "Sessiz saatler",
+    "quietFrom": "Başlangıç",
+    "quietTo": "Bitiş",
+    "quietHelp": "Bu saatlere denk gelen bir hatırlatıcı bir önceki akşam gelir.",
+    "tasks": "Görev varsayılanları",
+    "tasksHelp": "Kendi sözlerinle, örneğin: başkalarıyla yapılan görüşmeler için 30 dk önceden bir özet hazırla.",
+    "problemSource": "Neyin izleneceğini seç.",
+    "problemQuiet": "Sessiz saatler için bir başlangıç ve bir bitiş gerekir.",
+    "emptyTitle": "Henüz izlenecek bir şey yok",
+    "emptyBody": "Değişikliklerini bildiren kurulu eklenti yok. Etkinliklerin için hatırlatıcı almak üzere Takvim eklentisini kur.",
+    "summary": "{{source}}, {{offset}}",
+    "watches": "İzlemeler",
+    "state": "Durum",
+    "on": "Açık",
+    "paused": "Duraklatıldı",
+    "permissions": "İzinleri düzenle",
+    "reminders": "Yaklaşan hatırlatıcılar",
+    "remindersEmpty": "Henüz hatırlatıcı yok. İzleme, bir şey eklendiğinde birini ayarlar.",
+    "dueLine": "{{when}}, {{offset}}",
+    "adjQuiet": "bir önceki akşam, sessiz saatlerinin dışında",
+    "adjAllDay": "günün sabahı",
+    "skipped": "Atlandı",
+    "snoozed": "Ertelendi",
+    "started": "Zaten başladı",
+    "open": "Aç",
+    "snooze": "Ertele",
+    "skip": "Atla",
+    "changeTime": "Zamanı değiştir…",
+    "newTime": "Yeni zaman",
+    "saveTime": "Kaydet",
+    "save": "İzlemeyi kaydet",
+    "cancel": "İptal",
+    "undo": "Geri al",
+    "doneSnooze": "{{when}} zamanına ertelendi.",
+    "doneSkip": "Atlandı. Öğe taşınırsa geri gelir.",
+    "doneRetime": "{{when}} zamanına taşındı.",
+    "doneUndo": "Geri alındı.",
+    "loadFailed": "Hatırlatıcılar okunamadı: {{message}}",
+    "sourcesFailed": "Değişikliklerini bildiren eklentiler okunamadı: {{message}}",
+    "viewWatch": "İzlemeyi gör",
+    "saved": "İzleme kaydedildi.",
+    "nameRequired": "Bir izlemenin adı olmalı.",
+    "promptRequired": "İzlemenin ne yapacağını yaz.",
+    "promptHint": "Bu metin izlemenin her çalıştırmasını başlatır.",
+    "enabledHint": "Kapalı bir izleme hatırlatıcılarını korur; yeniden açılana kadar beklerler.",
+    "change": {
+      "title": {
+        "create": "{{title}} için hatırlatıcı ayarla",
+        "update": "{{title}} için hatırlatıcıyı değiştir",
+        "delete": "{{title}} için hatırlatıcıyı iptal et"
+      },
+      "help": "Sen onaylayana kadar hiçbir şey değişmez.",
+      "stale": "Hatırlatıcı, bu istendikten sonra değişti. Yeniden iste.",
+      "watch": "İzleme",
+      "when": "Ne zaman",
+      "task": "Görev",
+      "none": "yok",
+      "receipt": {
+        "create": "Hatırlatıcı ayarlandı:",
+        "update": "Hatırlatıcı değiştirildi:",
+        "delete": "Hatırlatıcı iptal edildi:",
+        "dismissed": "Değiştirilmedi:",
+        "undone": "Geri alındı:"
+      },
+      "blocked": {
+        "expired": "Geri alma süresi doldu; hatırlatıcıyı izlemenin sayfasında değiştir.",
+        "edited": "Hatırlatıcı sonradan değişti; izlemenin sayfasında değiştir.",
+        "removed": "Hatırlatıcı veya izlemesi sonradan kaldırıldı."
+      },
+      "announce": {
+        "applied": "{{title}} hatırlatıcı değişikliği onaylandı.",
+        "dismissed": "{{title}} hatırlatıcısı olduğu gibi bırakıldı.",
+        "undone": "{{title}} hatırlatıcı değişikliği geri alındı."
+      }
+    }
+  },
+  "incognito": {
+    "label": "Gizli mod",
+    "stateOff": "Gizli mod: kapalı",
+    "stateOn": "Gizli mod: {{level}}",
+    "about": "Özel bir sohbet: listelenmez ve sen ayrılınca sona erer.",
+    "aboutLocked": "Bu sohbet gizli modda. Sohbeti sonlandırmak için kapat; düzeyi değiştirilemez.",
+    "levelLabel": "Gizli mod düzeyi",
+    "levels": {
+      "memory-off": "Hafıza kapalı",
+      "zero-retention": "Sıfır saklama"
+    },
+    "describe": {
+      "memory-off": "Bu sohbet hafızayı ne okur ne de kaydeder. Listelenmez ve sen ayrılınca sona erer. Günlükler ve izler her zamanki gibi tutulur.",
+      "zero-retention": "Bu sohbetten sunucuda hiçbir şey saklanmaz, yalnızca kullanım sayıları tutulur. Hafıza okumaz ve kaydetmez, ek kabul etmez ve sen ayrılınca sona erer."
+    },
+    "blocked": "Gizli modlu sohbette kullanılamaz",
+    "noProject": "Gizli modlu bir sohbet hiçbir projeye ait değildir.",
+    "discardTitle": "Gizli modlu sohbet sonlandırılsın mı?",
+    "discardMessage": "Sohbet silinir ve bir daha açılamaz.",
+    "discardConfirm": "Sohbeti sonlandır"
+  }
+}

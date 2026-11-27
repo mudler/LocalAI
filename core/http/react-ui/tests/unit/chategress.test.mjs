@@ -150,7 +150,7 @@ test('chat egress: the settings address of an add-on can name the network sectio
 test('chat egress: the middle preset is called Custom in every locale, and the id stays registries', () => {
   const dir = new URL('../../public/locales/', import.meta.url)
   const names = {}
-  for (const l of ['en', 'de', 'es', 'fr', 'id', 'it', 'ko', 'pt-BR', 'zh-CN']) {
+  for (const l of ['en', 'de', 'es', 'fr', 'id', 'it', 'ko', 'pt-BR', 'tr', 'zh-CN']) {
     const chats = JSON.parse(readFileSync(new URL(`${l}/chats.json`, dir), 'utf8')).egress
     const agents = JSON.parse(readFileSync(new URL(`${l}/agents.json`, dir), 'utf8')).create.networkPresets
     assert.equal(chats.preset.registries, agents.registries, l)
