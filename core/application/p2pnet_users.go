@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -162,7 +163,7 @@ func (s p2pService) MyPairing(ctx context.Context, user string) (p2papi.MyPairin
 		return p2papi.MyPairing{}, err
 	}
 	for _, d := range devs {
-		if d.RevokedAt == nil {
+		if d.SignIn && d.RevokedAt == nil {
 			out.Devices++
 		}
 	}
@@ -172,7 +173,7 @@ func (s p2pService) MyPairing(ctx context.Context, user string) (p2papi.MyPairin
 	}
 	now := time.Now()
 	for _, i := range invs {
-		if i.Status(now) == p2ppair.InvitePending {
+		if i.SignIn && i.Status(now) == p2ppair.InvitePending {
 			out.PendingInvites++
 		}
 	}
@@ -293,7 +294,7 @@ func (s p2pService) ListMyInvites(ctx context.Context, user string) ([]p2papi.In
 		return nil, err
 	}
 	now := time.Now()
-	return rt.inviteViews(invs, func(i p2ppair.Invite) bool { return i.Status(now) == p2ppair.InvitePending }), nil
+	return rt.inviteViews(invs, func(i p2ppair.Invite) bool { return i.SignIn && i.Status(now) == p2ppair.InvitePending }), nil
 }
 
 func (s p2pService) CancelMyInvite(ctx context.Context, user, id string) error {
@@ -302,9 +303,10 @@ func (s p2pService) CancelMyInvite(ctx context.Context, user, id string) error {
 		return err
 	}
 	inv, err := rt.pair.GetInvite(ctx, id)
-	if err != nil || inv.OwnerID != u.ID {
+	if err != nil || inv.OwnerID != u.ID || !inv.SignIn {
 		// The same answer as an unknown ID: a user learns nothing about the
-		// invites of others.
+		// invites of others, nor about the instance invites they minted as
+		// an administrator.
 		return p2papi.ErrNotFound
 	}
 	if _, err := rt.pair.Cancel(ctx, id, u.ID); err != nil {
@@ -314,10 +316,13 @@ func (s p2pService) CancelMyInvite(ctx context.Context, user, id string) error {
 	return nil
 }
 
-// ownDevice returns a device of the user, or ErrNotFound for any other ID.
+// ownDevice returns a sign-in device of the user, or ErrNotFound for any other
+// ID. A device without sign-in (a worker, a remote, a laptop) belongs to the
+// instance even when the user minted it as an administrator, so a user route
+// never sees it: a demoted administrator must not keep control of it.
 func ownDevice(ctx context.Context, rt *p2pRuntime, user, id string) (p2ppair.Device, error) {
 	d, err := rt.pair.GetDevice(ctx, id)
-	if err != nil || d.OwnerID != user {
+	if err != nil || d.OwnerID != user || !d.SignIn {
 		return p2ppair.Device{}, p2papi.ErrNotFound
 	}
 	return d, nil
@@ -332,6 +337,7 @@ func (s p2pService) ListMyDevices(ctx context.Context, user string) ([]p2papi.De
 	if err != nil {
 		return nil, err
 	}
+	devs = slices.DeleteFunc(devs, func(d p2ppair.Device) bool { return !d.SignIn })
 	return rt.deviceViews(ctx, devs), nil
 }
 

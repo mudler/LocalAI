@@ -219,6 +219,38 @@ var _ = Describe("P2P pairing by users", func() {
 		Expect(devs[0].Status).To(Equal("revoked"))
 	})
 
+	It("acts only on sign-in rows, not on the instance devices a user minted as an admin", func() {
+		signInUser(a, "carol", auth.RoleAdmin, true)
+		// carol mints a worker-like device and a pending invite without
+		// sign-in as an admin, and is later demoted.
+		pairPlain(server, "carol")
+		plain, err := server.pair.Mint(ctx, p2ppair.MintRequest{OwnerID: "carol", CreatedBy: "carol", Kind: p2ppair.KindDevice, Relays: p2ppair.RelayNone})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(a.AuthDB().Model(&auth.User{}).Where("id = ?", "carol").Update("role", auth.RoleUser).Error).To(Succeed())
+		devs, err := server.pair.ListDevicesByOwner(ctx, "carol")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(devs).To(HaveLen(1))
+		devID := devs[0].ID
+
+		mine, err := svc.ListMyDevices(ctx, "carol")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(mine).To(BeEmpty())
+		invs, err := svc.ListMyInvites(ctx, "carol")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(invs).To(BeEmpty())
+		Expect(svc.RenameMyDevice(ctx, "carol", devID, "mine")).To(MatchError(p2papi.ErrNotFound))
+		Expect(svc.RevokeMyDevice(ctx, "carol", devID)).To(MatchError(p2papi.ErrNotFound))
+		Expect(svc.CancelMyInvite(ctx, "carol", plain.Invite.ID)).To(MatchError(p2papi.ErrNotFound))
+		st, err := svc.MyPairing(ctx, "carol")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(st.Devices).To(BeZero())
+		Expect(st.PendingInvites).To(BeZero())
+
+		d, err := server.pair.GetDevice(ctx, devID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(d.Status()).To(Equal(p2ppair.DeviceActive), "the instance device stays")
+	})
+
 	It("shows the owner of each device to the admin and filters by owner", func() {
 		m, err := svc.MintMyInvite(ctx, "alice", p2papi.MyMintRequest{})
 		Expect(err).ToNot(HaveOccurred())

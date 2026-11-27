@@ -228,7 +228,10 @@ The user mints the invite with `POST /api/p2p/me/invites`. The body takes a
 `label` and `ttl_seconds` only. The server fixes the rest: the kind is `device`
 with sign-in, the invite grants no models, and the relays, open relays and local
 addresses come from the setting `p2p_user_pairing`. A user sees and changes only
-their own invites and devices; any other ID gets `404`. A client key cannot use
+their own sign-in invites and devices; any other ID gets `404`. This includes
+the invites and devices without sign-in that the user minted as an
+administrator (workers, remotes, laptops): they belong to the instance, so a
+demoted administrator cannot list, rename or revoke them through these routes. A client key cannot use
 these routes, and neither can the API key of `LOCALAI_API_KEY`, which has no
 account (`409`, error type `needs_account`).
 
