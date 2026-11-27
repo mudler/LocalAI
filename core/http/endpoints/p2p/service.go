@@ -349,6 +349,13 @@ type RedeemResult struct {
 	Server ServerInfo `json:"server"`
 	// ClientKey is the API key of a remote invite; it is shown once.
 	ClientKey *ClientKey `json:"client_key,omitempty"`
+	// DeviceCredential lets the device of a sign-in invite sign in as its
+	// owner over P2P; it is shown once. Absent for other invites.
+	DeviceCredential string `json:"device_credential,omitempty"`
+	// SignIn is true when the device got a credential.
+	SignIn bool `json:"sign_in,omitempty"`
+	// OwnerName names the account the device signs in as, when known.
+	OwnerName string `json:"owner_name,omitempty"`
 }
 
 // ServerInfo names the server that answered a redeem.

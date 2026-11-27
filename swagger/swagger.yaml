@@ -5468,15 +5468,26 @@ definitions:
         allOf:
         - $ref: '#/definitions/p2p.ClientKey'
         description: ClientKey is the API key of a remote invite; it is shown once.
+      device_credential:
+        description: |-
+          DeviceCredential lets the device of a sign-in invite sign in as its
+          owner over P2P; it is shown once. Absent for other invites.
+        type: string
       device_id:
         type: string
       kind:
+        type: string
+      owner_name:
+        description: OwnerName names the account the device signs in as, when known.
         type: string
       phrase:
         description: Phrase is shown on both sides; the person compares them.
         type: string
       server:
         $ref: '#/definitions/p2p.ServerInfo'
+      sign_in:
+        description: SignIn is true when the device got a credential.
+        type: boolean
     type: object
   p2p.RegenerateIdentityRequest:
     properties:

@@ -29830,10 +29830,18 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "device_credential": {
+                    "description": "DeviceCredential lets the device of a sign-in invite sign in as its\nowner over P2P; it is shown once. Absent for other invites.",
+                    "type": "string"
+                },
                 "device_id": {
                     "type": "string"
                 },
                 "kind": {
+                    "type": "string"
+                },
+                "owner_name": {
+                    "description": "OwnerName names the account the device signs in as, when known.",
                     "type": "string"
                 },
                 "phrase": {
@@ -29842,6 +29850,10 @@ const docTemplate = `{
                 },
                 "server": {
                     "$ref": "#/definitions/p2p.ServerInfo"
+                },
+                "sign_in": {
+                    "description": "SignIn is true when the device got a credential.",
+                    "type": "boolean"
                 }
             }
         },

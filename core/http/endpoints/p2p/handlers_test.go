@@ -274,6 +274,24 @@ var _ = Describe("P2P handlers", func() {
 			rec := call(RedeemEndpoint(svc), http.MethodPost, `not json`, overP2P)
 			Expect(rec.Code).To(Equal(http.StatusBadRequest))
 		})
+
+		It("adds the sign-in fields to the answer only for a sign-in invite", func() {
+			rec := call(RedeemEndpoint(svc), http.MethodPost, `{"v":1,"code":"ABC"}`, overP2P)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			var plain map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &plain)).To(Succeed())
+			Expect(plain).NotTo(HaveKey("device_credential"))
+			Expect(plain).NotTo(HaveKey("sign_in"))
+			Expect(plain).NotTo(HaveKey("owner_name"))
+
+			b, err := json.Marshal(RedeemResult{DeviceID: "dev", DeviceCredential: "cred", SignIn: true, OwnerName: "Alice"})
+			Expect(err).NotTo(HaveOccurred())
+			var signIn map[string]any
+			Expect(json.Unmarshal(b, &signIn)).To(Succeed())
+			Expect(signIn).To(HaveKeyWithValue("device_credential", "cred"))
+			Expect(signIn).To(HaveKeyWithValue("sign_in", true))
+			Expect(signIn).To(HaveKeyWithValue("owner_name", "Alice"))
+		})
 	})
 
 	Describe("routes", func() {

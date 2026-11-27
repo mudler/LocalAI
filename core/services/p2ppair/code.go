@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -86,4 +87,37 @@ func hashCode(code, hmacSecret string) string {
 
 func constantTimeEq(a, b string) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
+}
+
+const (
+	// credentialLen is the number of random bytes of a device credential.
+	credentialLen = 32
+
+	credentialHashDomain = "p2p-device-credential:"
+)
+
+// newCredential returns a random device credential, base64url encoded
+// without padding.
+func newCredential() (string, error) {
+	b := make([]byte, credentialLen)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("p2ppair: generate credential: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+// hashCredential returns the keyed hash that stores keep for a device
+// credential: HMAC-SHA256 under the secret that hashes the codes, with its own
+// domain prefix, hex encoded. Unlike hashCode it does not normalize the input,
+// because a credential is case sensitive. An empty secret gives a plain
+// SHA-256.
+func hashCredential(credential, hmacSecret string) string {
+	plain := credentialHashDomain + credential
+	if hmacSecret == "" {
+		h := sha256.Sum256([]byte(plain))
+		return hex.EncodeToString(h[:])
+	}
+	mac := hmac.New(sha256.New, []byte(hmacSecret))
+	mac.Write([]byte(plain))
+	return hex.EncodeToString(mac.Sum(nil))
 }

@@ -352,6 +352,9 @@ func (rt *p2pRuntime) startShare() error {
 		Hints:      rt.relayHints,
 		Relays:     rt,
 		Limiter:    rt.limit,
+		// The credentials of sign-in devices are hashed with the key of the
+		// codes; see p2pPairStore.
+		HMACSecret: app.ApplicationConfig().Auth.APIKeyHMACSecret,
 	}
 	if db := app.AuthDB(); db != nil {
 		pcfg.Issuer = &clientKeyIssuer{app: app}

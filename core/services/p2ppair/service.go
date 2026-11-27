@@ -87,6 +87,16 @@ type Config struct {
 	Limiter Limiter
 	// Now returns the current time. Nil means time.Now.
 	Now func() time.Time
+	// HMACSecret keys the hash of the device credentials. Give it the secret
+	// that the store hashes the codes with.
+	HMACSecret string
+	// OwnerName returns the display name of the owner of a sign-in invite,
+	// for the redeem result. May be nil: the name is empty.
+	OwnerName func(ctx context.Context, ownerID string) string
+	// DeviceLimit returns how many active sign-in devices one owner may
+	// have; zero or less means no limit. It is read at each redeem of a
+	// sign-in invite. May be nil: no limit.
+	DeviceLimit func(ctx context.Context) int
 }
 
 // Service is the pairing service.
@@ -138,6 +148,9 @@ type MintRequest struct {
 	// address; leaving them out gives a shorter link and QR code. RelayNone
 	// keeps them, because a hint carries no data.
 	OmitRelayHints bool
+	// SignIn gives the device a credential at redeem time, to sign in as the
+	// owner. Only the device kind takes it.
+	SignIn bool
 }
 
 // PassInfo says what happened to the relay pass of a mint.
@@ -173,6 +186,9 @@ func (s *Service) Mint(ctx context.Context, req MintRequest) (*Minted, error) {
 	if req.Kind == KindRemote && s.cfg.Issuer == nil {
 		return nil, ErrNoKeyIssuer
 	}
+	if req.SignIn && req.Kind != KindDevice {
+		return nil, fmt.Errorf("%w: sign_in needs the device kind", ErrMalformed)
+	}
 	if !validLabel(req.Label) {
 		return nil, fmt.Errorf("%w: label", ErrMalformed)
 	}
@@ -195,7 +211,7 @@ func (s *Service) Mint(ctx context.Context, req MintRequest) (*Minted, error) {
 	inv := Invite{
 		ID: uuid.NewString(), OwnerID: req.OwnerID, Kind: req.Kind, Label: req.Label,
 		Scope: req.Scope, ExpiresAt: now.Add(ttl).Truncate(time.Second), CreatedBy: req.CreatedBy, CreatedAt: now,
-		OmitLANAddrs: req.OmitLANAddrs,
+		OmitLANAddrs: req.OmitLANAddrs, SignIn: req.SignIn,
 	}
 	for _, r := range relays {
 		inv.RelayIDs = append(inv.RelayIDs, r.ID)
@@ -449,6 +465,13 @@ type RedeemResult struct {
 	Phrase string `json:"phrase"`
 	// ClientKey is set for the remote kind only.
 	ClientKey *IssuedKey `json:"client_key,omitempty"`
+	// DeviceCredential is the sign-in credential of the device, for a
+	// sign-in invite only. It is returned once: the store keeps its hash.
+	DeviceCredential string `json:"device_credential,omitempty"`
+	// SignIn is true when the device got a credential.
+	SignIn bool `json:"sign_in,omitempty"`
+	// OwnerName names the owner the device signs in as, when known.
+	OwnerName string `json:"owner_name,omitempty"`
 }
 
 // Redeem redeems an invite code for the peer that sent it. A wrong, used,
@@ -468,8 +491,20 @@ func (s *Service) Redeem(ctx context.Context, from peer.ID, req RedeemRequest) (
 		return nil, ErrInviteInvalid
 	}
 	var key *IssuedKey
+	// The credential is made before the store knows whether the invite is a
+	// sign-in one: the store keeps its hash only for such an invite, and the
+	// result returns it only then.
+	credential, err := newCredential()
+	if err != nil {
+		refund()
+		return nil, err
+	}
 	params := RedeemParams{
 		Code: req.Code, Peer: from, Label: req.Name, Now: s.cfg.Now(), DeviceID: uuid.NewString(),
+		CredentialHash: hashCredential(credential, s.cfg.HMACSecret),
+	}
+	if s.cfg.DeviceLimit != nil {
+		params.MaxDevicesForOwner = max(s.cfg.DeviceLimit(ctx), 0)
 	}
 	// The key issuer is called for remote invites only; the store calls it
 	// after it claimed the code, so a wrong code never reaches it.
@@ -496,10 +531,42 @@ func (s *Service) Redeem(ctx context.Context, from peer.ID, req RedeemRequest) (
 		return nil, err
 	}
 	refund()
-	return &RedeemResult{
+	res := &RedeemResult{
 		Device: dev, Kind: dev.Kind, ClientKey: key,
 		Phrase: Phrase(s.cfg.ServerPeer, from, inv.ID),
-	}, nil
+	}
+	if dev.SignIn {
+		res.DeviceCredential, res.SignIn = credential, true
+		if s.cfg.OwnerName != nil {
+			res.OwnerName = s.cfg.OwnerName(ctx, dev.OwnerID)
+		}
+	}
+	return res, nil
+}
+
+// VerifyDeviceCredential returns the active sign-in device of peer p when
+// credential is its credential. The hashes are compared in constant time.
+// Every failure returns ErrCredentialInvalid: no device for the peer, a
+// revoked device, a device without sign-in and a wrong credential alike.
+func (s *Service) VerifyDeviceCredential(ctx context.Context, p peer.ID, credential string) (Device, error) {
+	if p == "" || credential == "" || len(credential) > 128 {
+		return Device{}, ErrCredentialInvalid
+	}
+	devs, err := s.st.ListDevices(ctx)
+	if err != nil {
+		return Device{}, err
+	}
+	want := hashCredential(credential, s.cfg.HMACSecret)
+	for _, d := range devs {
+		if d.PeerID != p.String() || d.RevokedAt != nil {
+			continue
+		}
+		if !d.SignIn || d.CredentialHash == "" || !codeMatches(d.CredentialHash, want) {
+			return Device{}, ErrCredentialInvalid
+		}
+		return d, nil
+	}
+	return Device{}, ErrCredentialInvalid
 }
 
 // Revoke revokes a device and, for a remote device, its client key. The

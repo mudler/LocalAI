@@ -27,6 +27,16 @@
 // NewJSONStore keeps them in one file under the data path for deployments with
 // no database. Codes are stored only as keyed hashes.
 //
+// # Sign-in devices
+//
+// A device invite with SignIn gives its device a credential when it is
+// redeemed (RedeemResult.DeviceCredential). The credential is returned once;
+// the store keeps only its keyed hash, and revoking the device clears it.
+// Service.VerifyDeviceCredential checks a credential against the device of
+// the peer that sends it, so a credential works only from its own peer. The
+// link kind stays "device", so that an app that does not know the flag pairs
+// the device for admission only.
+//
 // # Confirmation phrase word list
 //
 // The word list in words.go was written for this project (1024 short English

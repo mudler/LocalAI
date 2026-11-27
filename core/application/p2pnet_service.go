@@ -113,6 +113,8 @@ func pairErr(err error) error {
 		return fmt.Errorf("%w: this device is already paired", p2papi.ErrConflict)
 	case errors.Is(err, p2ppair.ErrNoKeyIssuer):
 		return fmt.Errorf("%w: remote invites need authentication", p2papi.ErrConflict)
+	case errors.Is(err, p2ppair.ErrDeviceLimit):
+		return fmt.Errorf("%w: the owner has reached the device limit", p2papi.ErrConflict)
 	}
 	return err
 }
@@ -465,7 +467,8 @@ func (s p2pService) Redeem(ctx context.Context, from string, req p2papi.RedeemRe
 	}
 	out := p2papi.RedeemResult{
 		DeviceID: res.Device.ID, Kind: string(res.Kind), Phrase: res.Phrase,
-		Server: p2papi.ServerInfo{PeerID: rt.host.ID().String(), Name: name, Version: internal.Version},
+		Server:           p2papi.ServerInfo{PeerID: rt.host.ID().String(), Name: name, Version: internal.Version},
+		DeviceCredential: res.DeviceCredential, SignIn: res.SignIn, OwnerName: res.OwnerName,
 	}
 	if res.ClientKey != nil {
 		out.ClientKey = &p2papi.ClientKey{ID: res.ClientKey.ID, Secret: res.ClientKey.Secret}
