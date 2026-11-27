@@ -1,5 +1,3 @@
-//go:build kubernetes_e2e
-
 // SPDX-License-Identifier: MIT
 
 // Package e2e runs the tools of the Kubernetes add-on against a real API
@@ -11,7 +9,9 @@
 //
 //	go run sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.22 use 1.37.0 --bin-dir <dir> -p path
 //
-// and run with the build tag kubernetes_e2e.
+// and run with the build tag kubernetes_e2e. This file has no tag, so that a
+// run without it, such as the recursive coverage run, finds a suite with no
+// specs instead of a package whose files are all excluded.
 package e2e_test
 
 import (
