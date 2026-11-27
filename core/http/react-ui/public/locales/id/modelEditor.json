@@ -148,7 +148,9 @@
             "options_spec_ngram_map_k4v_size_m": "Panjang usulan ngram-map-k4v",
             "options_spec_ngram_map_k4v_min_hits": "Kecocokan minimum ngram-map-k4v",
             "options_spec_lookup_cache_static": "File cache n-gram statis",
-            "options_spec_lookup_cache_dynamic": "File cache n-gram dinamis"
+            "options_spec_lookup_cache_dynamic": "File cache n-gram dinamis",
+            "draft_model": "Berkas model draf",
+            "options_spec_max_streams": "Jeda draf di atas N aliran"
         },
         "choices": {
             "load_mode": {
@@ -325,6 +327,114 @@
                 "on": "Sampling token di GPU. Lebih cepat dengan banyak permintaan paralel. Dimatikan otomatis untuk permintaan yang memakai grammar, anggaran penalaran, atau logprobs."
             }
         },
-        "groupCount": "{{count}} pengaturan"
+        "groupCount": "{{count}} pengaturan",
+        "drafting": {
+            "title": "Draf (decoding spekulatif)",
+            "lead": "Penebak cepat mengusulkan token berikutnya dan model memeriksa semuanya dalam satu langkah. Jika tebakannya benar, jawaban datang lebih cepat; keluarannya tetap sama.",
+            "mode": "Mode",
+            "more": "Opsi draf lainnya",
+            "auto": "{{mode}} aktif secara bawaan: model ini punya kepala MTP, jadi LocalAI membuat draf dengannya kecuali Anda memilih Mati.",
+            "custom": {
+                "title": "Pengaturan draf khusus",
+                "body": "Model ini memakai spec_type {{kinds}}, yang tidak dicakup mode mana pun. Pengaturan ini tetap sampai Anda memilih mode."
+            },
+            "modes": {
+                "off": {
+                    "label": "Mati",
+                    "doc": "Tanpa draf. Setiap token hanya berasal dari model."
+                },
+                "ngram": {
+                    "label": "N-gram",
+                    "doc": "Mengusulkan token yang sebelumnya mengikuti kata-kata yang sama dalam percakapan. Tanpa model tambahan dan tanpa memori tambahan.",
+                    "note": "Paling cocok untuk keluaran yang mengulang masukannya, seperti suntingan kode atau kutipan panjang. Pada obrolan biasa hasilnya kecil dan bisa lebih lambat beberapa persen."
+                },
+                "model": {
+                    "label": "Model draf",
+                    "doc": "Model kecil dengan kosakata yang sama mengusulkan token, lalu model memeriksanya dalam satu langkah.",
+                    "note": "Model draf dimuat di samping model dan memakai memorinya sendiri."
+                },
+                "mtp": {
+                    "label": "MTP",
+                    "doc": "Kepala prediksi multi-token milik model sendiri mengusulkan token berikutnya. Tidak ada model kedua yang perlu dimuat."
+                }
+            },
+            "fields": {
+                "ngram": {
+                    "options_spec_ngram_mod_n_min": {
+                        "label": "Token draf, minimal",
+                        "hint": "Jumlah token paling sedikit yang harus diusulkan sebuah kecocokan sebelum dipakai."
+                    },
+                    "options_spec_ngram_mod_n_max": {
+                        "label": "Token draf, maksimal",
+                        "hint": "Jumlah token paling banyak yang diusulkan setelah sebuah kecocokan."
+                    },
+                    "options_spec_ngram_mod_n_match": {
+                        "label": "Panjang kecocokan",
+                        "hint": "Token yang harus cocok dengan bagian sebelumnya sebelum bagian itu disalin."
+                    }
+                },
+                "model": {
+                    "options_spec_n_min": {
+                        "label": "Token draf, minimal",
+                        "hint": "Jumlah token draf paling sedikit yang layak diperiksa. 0 memeriksa draf apa pun."
+                    },
+                    "options_spec_n_max": {
+                        "label": "Token draf, maksimal",
+                        "hint": "Jumlah token paling banyak yang diusulkan model draf per langkah. Lebih banyak hanya membantu jika tebakannya bagus."
+                    },
+                    "options_spec_p_min": {
+                        "label": "Ambang penerimaan",
+                        "hint": "Model draf menghentikan draf jika keyakinannya lebih rendah dari nilai ini, dari 0 sampai 1."
+                    }
+                },
+                "mtp": {
+                    "options_spec_n_max": {
+                        "label": "Token draf, maksimal",
+                        "hint": "Jumlah token paling banyak yang diusulkan kepala MTP per langkah."
+                    },
+                    "options_spec_p_min": {
+                        "label": "Ambang penerimaan",
+                        "hint": "Kepala menghentikan draf jika keyakinannya lebih rendah dari nilai ini, dari 0 sampai 1."
+                    }
+                }
+            },
+            "streams": {
+                "label": "Jeda draf di atas N aliran",
+                "hint": "Draf dijeda selama lebih banyak permintaan dari nilai ini menghasilkan teks bersamaan, dan berlanjut saat beban turun. 0 tidak pernah menjeda. Build tanpa paged serving mengabaikannya."
+            },
+            "picker": {
+                "label": "Model draf",
+                "placeholder": "Pilih model terpasang",
+                "hint": "Model yang lebih kecil dari keluarga yang sama, misalnya model 0.6B atau 1B untuk model besar dari seri yang sama.",
+                "filter": "Saring model",
+                "loading": "Memuat model terpasang...",
+                "empty": "Tidak ada model lain yang dijalankan {{engine}} yang terpasang. Pasang dulu model kecil dari keluarga yang sama.",
+                "same": "Keluarga yang sama dengan model ini",
+                "other": "Model terpasang lainnya",
+                "file": "Diatur di berkas",
+                "fileRow": "Bukan model terpasang",
+                "noFile": "{{name}} tidak punya berkas model untuk dipakai sebagai draf.",
+                "failed": "Model terpasang tidak dapat ditampilkan."
+            },
+            "fit": {
+                "title": "Kecocokan",
+                "ok": "Kompatibel",
+                "okText": "Kosakata sama: {{tokens}} token.",
+                "mismatch": "Tidak akan dimuat",
+                "mismatchText": "Kosakatanya berbeda ({{main}} dan {{draft}} token). llama.cpp menolak pasangan ini, jadi model gagal dimuat.",
+                "family": "Keluarga sama",
+                "familyText": "Keduanya model {{family}}. Kosakata tidak dapat dibaca untuk memastikannya.",
+                "unknown": "Belum diperiksa",
+                "unknownText": "Kosakata tidak dapat dibandingkan. Draf harus memakai tokenizer yang sama dengan model.",
+                "unmatched": "Berkas ini bukan model terpasang, jadi tidak dapat diperiksa."
+            },
+            "memory": {
+                "title": "Memori",
+                "total": "≈ {{size}} lebih banyak",
+                "split": "({{weights}} bobot dan {{kv}} cache KV pada {{context}} token).",
+                "none": "Tidak ada perkiraan untuk model ini.",
+                "unmatched": "Tidak ada perkiraan: perkirakan sekitar ukuran berkas ditambah cache KV sebesar konteks model."
+            }
+        }
     }
 }

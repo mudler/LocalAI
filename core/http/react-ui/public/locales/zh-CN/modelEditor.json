@@ -112,7 +112,9 @@
             "options_spec_ngram_map_k4v_size_m": "ngram-map-k4v 建议长度",
             "options_spec_ngram_map_k4v_min_hits": "ngram-map-k4v 最少命中",
             "options_spec_lookup_cache_static": "静态 n-gram 缓存文件",
-            "options_spec_lookup_cache_dynamic": "动态 n-gram 缓存文件"
+            "options_spec_lookup_cache_dynamic": "动态 n-gram 缓存文件",
+            "draft_model": "草稿模型文件",
+            "options_spec_max_streams": "超过 N 个流时暂停草稿"
         },
         "choices": {
             "load_mode": {
@@ -289,6 +291,114 @@
                 "on": "在 GPU 上采样 token。并行请求多时更快。对使用语法约束、推理预算或 logprobs 的请求会自动关闭。"
             }
         },
-        "groupCount": "{{count}} 项设置"
+        "groupCount": "{{count}} 项设置",
+        "drafting": {
+            "title": "草稿（推测解码）",
+            "lead": "一个快速的猜测器提出接下来的 token，模型一步检查全部。猜对时回答更快，输出保持不变。",
+            "mode": "模式",
+            "more": "更多草稿选项",
+            "auto": "{{mode}} 默认开启：此模型带有 MTP 头，除非你选择关闭，LocalAI 会用它生成草稿。",
+            "custom": {
+                "title": "自定义草稿设置",
+                "body": "此模型使用 spec_type {{kinds}}，没有模式涵盖它。在你选择模式之前保持不变。"
+            },
+            "modes": {
+                "off": {
+                    "label": "关闭",
+                    "doc": "不生成草稿。每个 token 都只由模型生成。"
+                },
+                "ngram": {
+                    "label": "N-gram",
+                    "doc": "提出在对话前面同样的词之后出现过的 token。无需额外模型，也无需额外内存。",
+                    "note": "最适合重复输入内容的输出，例如代码修改或长引用。普通聊天收益很小，可能慢几个百分点。"
+                },
+                "model": {
+                    "label": "草稿模型",
+                    "doc": "一个词表相同的小模型提出 token，模型一步检查。",
+                    "note": "草稿模型与模型一起加载，并占用自己的内存。"
+                },
+                "mtp": {
+                    "label": "MTP",
+                    "doc": "模型自带的多 token 预测头提出接下来的 token。无需加载第二个模型。"
+                }
+            },
+            "fields": {
+                "ngram": {
+                    "options_spec_ngram_mod_n_min": {
+                        "label": "草稿 token，最少",
+                        "hint": "一次匹配在被使用前至少要提出的 token 数。"
+                    },
+                    "options_spec_ngram_mod_n_max": {
+                        "label": "草稿 token，最多",
+                        "hint": "一次匹配之后最多提出的 token 数。"
+                    },
+                    "options_spec_ngram_mod_n_match": {
+                        "label": "匹配长度",
+                        "hint": "复制前面的段落之前，必须与之匹配的 token 数。"
+                    }
+                },
+                "model": {
+                    "options_spec_n_min": {
+                        "label": "草稿 token，最少",
+                        "hint": "值得检查的最少草稿 token 数。0 表示检查任何草稿。"
+                    },
+                    "options_spec_n_max": {
+                        "label": "草稿 token，最多",
+                        "hint": "草稿模型每步最多提出的 token 数。只有猜得准时，调大才有帮助。"
+                    },
+                    "options_spec_p_min": {
+                        "label": "接受阈值",
+                        "hint": "草稿模型的把握低于此值时停止草稿，取值 0 到 1。"
+                    }
+                },
+                "mtp": {
+                    "options_spec_n_max": {
+                        "label": "草稿 token，最多",
+                        "hint": "MTP 头每步最多提出的 token 数。"
+                    },
+                    "options_spec_p_min": {
+                        "label": "接受阈值",
+                        "hint": "预测头的把握低于此值时停止草稿，取值 0 到 1。"
+                    }
+                }
+            },
+            "streams": {
+                "label": "超过 N 个流时暂停草稿",
+                "hint": "同时生成的请求多于此值时暂停草稿，负载下降后恢复。0 表示从不暂停。不带分页服务的构建会忽略此项。"
+            },
+            "picker": {
+                "label": "草稿模型",
+                "placeholder": "选择已安装的模型",
+                "hint": "同一系列中更小的模型，例如为同系列的大模型选择 0.6B 或 1B 模型。",
+                "filter": "筛选模型",
+                "loading": "正在加载已安装的模型...",
+                "empty": "没有安装其他由 {{engine}} 运行的模型。请先安装一个同系列的小模型。",
+                "same": "与此模型同系列",
+                "other": "其他已安装的模型",
+                "file": "在文件中设置",
+                "fileRow": "不是已安装的模型",
+                "noFile": "{{name}} 没有可用作草稿的模型文件。",
+                "failed": "无法列出已安装的模型。"
+            },
+            "fit": {
+                "title": "匹配度",
+                "ok": "兼容",
+                "okText": "词表相同：{{tokens}} 个 token。",
+                "mismatch": "无法加载",
+                "mismatchText": "词表不同（{{main}} 与 {{draft}} 个 token）。llama.cpp 会拒绝这一组合，模型将无法加载。",
+                "family": "同系列",
+                "familyText": "两者都是 {{family}} 模型。无法读取词表加以确认。",
+                "unknown": "未检查",
+                "unknownText": "无法比较词表。草稿必须使用与模型相同的分词器。",
+                "unmatched": "该文件不是已安装的模型，因此无法检查。"
+            },
+            "memory": {
+                "title": "内存",
+                "total": "≈ 多 {{size}}",
+                "split": "（{{weights}} 权重，以及 {{context}} 个 token 时的 {{kv}} KV 缓存）。",
+                "none": "此模型没有估算。",
+                "unmatched": "没有估算：大约为文件大小加上与模型上下文一样大的 KV 缓存。"
+            }
+        }
     }
 }

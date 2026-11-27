@@ -65,7 +65,9 @@ test('engine settings: blocks follow the schema groups; composite settings are l
   const blocks = groupItems(schema)
   assert.deepEqual(blocks.map(g => g.id), ['memory', 'speed', 'serving', 'placement', 'sampling', 'template', 'speculative', 'engine_advanced'])
   // The rarely used and risky settings are drawn closed.
-  assert.deepEqual(blocks.filter(g => g.collapsed).map(g => g.id), ['speculative', 'engine_advanced'])
+  assert.deepEqual(blocks.filter(g => g.collapsed).map(g => g.id), ['engine_advanced'])
+  // The speculative group is the Drafting section, drawn open.
+  assert.equal(blocks.find(g => g.id === 'speculative').drafting, true)
   const advanced = blocks.find(g => g.id === 'engine_advanced').items.map(i => i.id)
   for (const id of ['options.context_shift', 'options.kv_unified', 'options.cont_batching', 'options.backend_sampling_min_slots']) assert.ok(advanced.includes(id), id)
   assert.equal(blocks[3].placement, true)

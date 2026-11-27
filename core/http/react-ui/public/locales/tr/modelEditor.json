@@ -74,7 +74,9 @@
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Jinja sohbet şablonu",
             "load_mode": "Yükleme modu",
-            "options_ubatch": "Mikro batch boyutu"
+            "options_ubatch": "Mikro batch boyutu",
+            "draft_model": "Taslak model dosyası",
+            "options_spec_max_streams": "N akışın üstünde taslağı duraklat"
         },
         "choices": {
             "load_mode": {
@@ -207,6 +209,114 @@
         "readOnly": {
             "title": "Salt okunur.",
             "body": "Bu ayarları yalnızca bir yönetici değiştirebilir."
+        },
+        "drafting": {
+            "title": "Taslak (spekülatif çözümleme)",
+            "lead": "Hızlı bir tahminci sonraki tokenları önerir ve model hepsini tek adımda denetler. Tahminler doğruysa yanıtlar daha hızlı gelir; çıktı aynı kalır.",
+            "mode": "Mod",
+            "more": "Diğer taslak seçenekleri",
+            "auto": "{{mode}} varsayılan olarak açık: bu modelde bir MTP başlığı var, bu yüzden siz Kapalı seçmedikçe LocalAI onunla taslak üretir.",
+            "custom": {
+                "title": "Özel taslak ayarı",
+                "body": "Bu model, hiçbir modun kapsamadığı spec_type {{kinds}} kullanıyor. Bir mod seçene kadar olduğu gibi kalır."
+            },
+            "modes": {
+                "off": {
+                    "label": "Kapalı",
+                    "doc": "Taslak yok. Her token yalnızca modelden gelir."
+                },
+                "ngram": {
+                    "label": "N-gram",
+                    "doc": "Konuşmanın önceki kısmında aynı kelimelerin ardından gelen tokenları önerir. Ek model ve ek bellek gerekmez.",
+                    "note": "Girdisini tekrar eden çıktılar için en iyisi, örneğin kod düzenlemeleri veya uzun alıntılar. Normal sohbette az kazandırır ve yüzde birkaç yavaşlatabilir."
+                },
+                "model": {
+                    "label": "Taslak model",
+                    "doc": "Aynı kelime dağarcığına sahip küçük bir model token önerir ve model bunları tek adımda denetler.",
+                    "note": "Taslak model, modelin yanında yüklenir ve kendi belleğini kullanır."
+                },
+                "mtp": {
+                    "label": "MTP",
+                    "doc": "Modelin kendi çoklu token tahmin başlığı sonraki tokenları önerir. Yüklenecek ikinci bir model yok."
+                }
+            },
+            "fields": {
+                "ngram": {
+                    "options_spec_ngram_mod_n_min": {
+                        "label": "Taslak token, en az",
+                        "hint": "Bir eşleşmenin kullanılmadan önce önermesi gereken en az token sayısı."
+                    },
+                    "options_spec_ngram_mod_n_max": {
+                        "label": "Taslak token, en çok",
+                        "hint": "Bir eşleşmeden sonra önerilen en çok token sayısı."
+                    },
+                    "options_spec_ngram_mod_n_match": {
+                        "label": "Eşleşme uzunluğu",
+                        "hint": "Önceki bir bölüm kopyalanmadan önce onunla eşleşmesi gereken token sayısı."
+                    }
+                },
+                "model": {
+                    "options_spec_n_min": {
+                        "label": "Taslak token, en az",
+                        "hint": "Denetlenmeye değer en az taslak token sayısı. 0 her taslağı denetler."
+                    },
+                    "options_spec_n_max": {
+                        "label": "Taslak token, en çok",
+                        "hint": "Taslak modelin adım başına önerdiği en çok token sayısı. Fazlası yalnızca iyi tahmin ediyorsa işe yarar."
+                    },
+                    "options_spec_p_min": {
+                        "label": "Kabul eşiği",
+                        "hint": "Taslak model bu değerden daha az eminse taslağı keser, 0 ile 1 arası."
+                    }
+                },
+                "mtp": {
+                    "options_spec_n_max": {
+                        "label": "Taslak token, en çok",
+                        "hint": "MTP başlığının adım başına önerdiği en çok token sayısı."
+                    },
+                    "options_spec_p_min": {
+                        "label": "Kabul eşiği",
+                        "hint": "Başlık bu değerden daha az eminse taslağı keser, 0 ile 1 arası."
+                    }
+                }
+            },
+            "streams": {
+                "label": "N akışın üstünde taslağı duraklat",
+                "hint": "Aynı anda bu sayıdan fazla istek üretim yaparken taslak duraklar, yük düşünce devam eder. 0 hiç duraklatmaz. Sayfalı sunum içermeyen derlemeler bunu yok sayar."
+            },
+            "picker": {
+                "label": "Taslak model",
+                "placeholder": "Kurulu bir model seçin",
+                "hint": "Aynı aileden daha küçük bir model, örneğin aynı serinin büyük bir modeli için 0.6B veya 1B bir model.",
+                "filter": "Modelleri süz",
+                "loading": "Kurulu modeller yükleniyor...",
+                "empty": "{{engine}} ile çalışan başka bir model kurulu değil. Önce aynı aileden küçük bir model kurun.",
+                "same": "Bu modelle aynı aile",
+                "other": "Diğer kurulu modeller",
+                "file": "Dosyada ayarlı",
+                "fileRow": "Kurulu bir model değil",
+                "noFile": "{{name}} taslak olarak kullanılacak bir model dosyasına sahip değil.",
+                "failed": "Kurulu modeller listelenemedi."
+            },
+            "fit": {
+                "title": "Uyum",
+                "ok": "Uyumlu",
+                "okText": "Aynı kelime dağarcığı: {{tokens}} token.",
+                "mismatch": "Yüklenmeyecek",
+                "mismatchText": "Kelime dağarcıkları farklı ({{main}} ve {{draft}} token). llama.cpp bu çifti reddeder, bu yüzden model yüklenmez.",
+                "family": "Aynı aile",
+                "familyText": "İkisi de {{family}} modeli. Doğrulamak için kelime dağarcığı okunamadı.",
+                "unknown": "Denetlenmedi",
+                "unknownText": "Kelime dağarcıkları karşılaştırılamadı. Taslak, modelle aynı tokenizer'ı kullanmalıdır.",
+                "unmatched": "Dosya kurulu bir model değil, bu yüzden denetlenemez."
+            },
+            "memory": {
+                "title": "Bellek",
+                "total": "≈ {{size}} daha fazla",
+                "split": "({{context}} tokenda {{weights}} ağırlık ve {{kv}} KV önbelleği).",
+                "none": "Bu model için tahmin yok.",
+                "unmatched": "Tahmin yok: yaklaşık dosya boyutu artı modelin bağlamı kadar büyük bir KV önbelleği bekleyin."
+            }
         }
     }
 }

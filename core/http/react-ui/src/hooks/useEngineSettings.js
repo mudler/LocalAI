@@ -22,6 +22,11 @@ function loadEngine(backend) {
     .then(data => (Array.isArray(data?.engines) && data.engines.length ? data.engines[0] : null)))
 }
 
+/** The engine summary that serves a backend (null for none), from the shared cache. */
+export function engineForBackend(backend) {
+  return loadEngine(backend === undefined || backend === null ? '' : String(backend).trim())
+}
+
 function loadSchema(engine) {
   return cached(schemaByEngine, engine, () => engineSettingsApi.settingsSchema(engine).then(normalizeSchema))
 }

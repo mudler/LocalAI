@@ -20,6 +20,7 @@ const FALSE_WORDS = new Set(['false', '0', 'no', 'off', 'disabled'])
 
 export const CAPABILITY_COMMAND_LINE = 'command-line'
 export const CAPABILITY_TENSOR_PLACEMENT = 'tensor-placement'
+export const CAPABILITY_DRAFTING = 'drafting'
 
 // The model file key of every LocalAI model config. A pasted command names a
 // file by its own path, so it is offered, not written.
@@ -206,6 +207,8 @@ export function normalizeSchema(raw) {
     profile: Boolean(p.profile),
   }))
 
+  const drafting = capabilities.includes(CAPABILITY_DRAFTING) ? normalizeDrafting(raw?.drafting, byName, aliases, items) : null
+
   const groups = Array.isArray(raw?.groups) ? raw.groups.map(groupId).filter(Boolean) : []
   for (const g of [...items.map(i => i.group), ...combined.map(c => c.group)]) if (!groups.includes(g)) groups.push(g)
 
@@ -226,7 +229,64 @@ export function normalizeSchema(raw) {
     estimate: Object.fromEntries(Object.entries(raw?.estimate || {}).filter(([, k]) => idOf(k)).map(([f, k]) => [f, idOf(k)])),
     reserved: new Set(Array.isArray(raw?.reserved_options) ? raw.reserved_options.map(String) : []),
     placement,
+    drafting,
     aliases,
+  }
+}
+
+// The drafting capability as the Drafting section reads it:
+//   { group, typeItem, modelItem, offType, streams, modes }
+// streams is { option, names, default, doc, item } where item is the setting
+// of the table when the engine lists one (the backend reads the option either
+// way). Each mode is { id, label, doc, note, types, model, needs, auto, set,
+// fields }, with set and fields as setting ids. The kind, the model and the
+// streams settings are marked `drafting`, so no other part draws them. Null
+// when the description names a setting the table lacks.
+function normalizeDrafting(raw, byName, aliases, items) {
+  const typeItem = byName.get(raw?.type_key)
+  const modelItem = byName.get(raw?.model_key)
+  if (!typeItem || !modelItem || !Array.isArray(raw?.modes) || raw.modes.length === 0) return null
+  const idOf = (name) => byName.get(name)?.id
+  let streams = null
+  if (raw.streams?.option) {
+    const option = String(raw.streams.option)
+    let item = items.find(i => i.option === option)
+    if (!item) {
+      // A plain option the table does not list: a setting of its own, so it
+      // reads, writes, validates and lists its changes like any other.
+      item = {
+        name: option, option, names: [option], type: 'int', min: 0, group: typeItem.group,
+        default: raw.streams.default, doc: String(raw.streams.doc ?? ''), cli: [], localAIOnly: true,
+      }
+      item.id = itemId(item)
+      items.push(item)
+      byName.set(option, item)
+    }
+    for (const n of item.names) aliases.set(n, item.names)
+    item.drafting = true
+    streams = { option, names: item.names, default: String(raw.streams.default ?? ''), doc: String(raw.streams.doc ?? ''), item }
+  }
+  typeItem.drafting = true
+  modelItem.drafting = true
+  const modes = raw.modes.filter(m => m?.id).map(m => ({
+    id: String(m.id),
+    label: m.label ? String(m.label) : String(m.id),
+    doc: m.doc ? String(m.doc) : '',
+    note: m.note ? String(m.note) : '',
+    types: Array.isArray(m.types) ? m.types.map(String) : [],
+    model: Boolean(m.model),
+    needs: m.needs ? String(m.needs) : '',
+    auto: Boolean(m.auto),
+    set: Object.fromEntries(Object.entries(m.set || {}).filter(([k]) => idOf(k)).map(([k, v]) => [idOf(k), v])),
+    fields: (Array.isArray(m.fields) ? m.fields : []).map(idOf).filter(Boolean),
+  }))
+  return {
+    group: groupId(raw.group) || typeItem.group,
+    typeItem,
+    modelItem,
+    offType: raw.off_type ? String(raw.off_type) : '',
+    streams,
+    modes,
   }
 }
 
@@ -241,10 +301,22 @@ export function isComposite(item) {
 }
 
 /**
+ * The settings of the drafting group that no mode draws: the "more options"
+ * under the modes (draft threads, devices, other n-gram kinds...).
+ */
+export function draftingMoreItems(schema) {
+  const d = schema.drafting
+  if (!d) return []
+  const drawn = new Set(d.modes.flatMap(m => m.fields))
+  return schema.items.filter(i => i.group === d.group && !isComposite(i) && !i.drafting && !drawn.has(i.id))
+}
+
+/**
  * The blocks of the section, in the schema's group order:
- *   { id, items, combined, placement, collapsed }
+ *   { id, items, combined, placement, collapsed, drafting }
  * A group is drawn when it has a setting of its own or a combined control;
- * the placement group is drawn only for an engine with that capability.
+ * the placement group is drawn only for an engine with that capability. The
+ * drafting group is the Drafting section, with its other settings as items.
  */
 export function groupItems(schema) {
   const out = []
@@ -253,7 +325,11 @@ export function groupItems(schema) {
       out.push({ id: g, items: [], combined: [], placement: true })
       continue
     }
-    const items = schema.items.filter(i => i.group === g && !isComposite(i))
+    if (schema.drafting && g === schema.drafting.group) {
+      out.push({ id: g, items: draftingMoreItems(schema), combined: [], placement: false, drafting: true })
+      continue
+    }
+    const items = schema.items.filter(i => i.group === g && !isComposite(i) && !i.drafting)
     const combined = schema.combined.filter(c => c.group === g)
     if (items.length || combined.length) out.push({ id: g, items, combined, placement: false, collapsed: Boolean(schema.collapsed?.has(g)) })
   }
@@ -463,6 +539,7 @@ export function ownedOptionNames(schema) {
   const out = new Set(schema.reserved)
   for (const item of schema.items) if (item.option) for (const n of namesOf(item)) out.add(n)
   if (schema.placement) for (const n of schema.placement.names) out.add(n)
+  if (schema.drafting?.streams) for (const n of schema.drafting.streams.names) out.add(n)
   return out
 }
 

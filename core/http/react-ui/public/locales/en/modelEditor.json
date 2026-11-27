@@ -148,7 +148,9 @@
             "options_spec_ngram_map_k4v_size_m": "ngram-map-k4v proposal size",
             "options_spec_ngram_map_k4v_min_hits": "ngram-map-k4v minimum hits",
             "options_spec_lookup_cache_static": "Static n-gram cache file",
-            "options_spec_lookup_cache_dynamic": "Dynamic n-gram cache file"
+            "options_spec_lookup_cache_dynamic": "Dynamic n-gram cache file",
+            "draft_model": "Draft model file",
+            "options_spec_max_streams": "Pause drafting above N streams"
         },
         "choices": {
             "load_mode": {
@@ -325,6 +327,114 @@
                 "on": "Sample tokens on the GPU. Faster with many parallel requests. Turned off automatically for requests that use a grammar, a reasoning budget or logprobs."
             }
         },
-        "groupCount": "{{count}} settings"
+        "groupCount": "{{count}} settings",
+        "drafting": {
+            "title": "Drafting (speculative decoding)",
+            "lead": "A fast guesser proposes the next tokens and the model checks them all in one step. When the guesses are right, answers come faster; the output stays the same.",
+            "mode": "Mode",
+            "more": "More drafting options",
+            "auto": "{{mode}} is on by default: this model has an MTP head, so LocalAI drafts with it unless you choose Off.",
+            "custom": {
+                "title": "Custom drafting setup",
+                "body": "This model uses spec_type {{kinds}}, which none of the modes covers. It stays as it is until you pick a mode."
+            },
+            "modes": {
+                "off": {
+                    "label": "Off",
+                    "doc": "No drafting. Every token comes from the model alone."
+                },
+                "ngram": {
+                    "label": "N-gram",
+                    "doc": "Proposes the tokens that followed the same words earlier in the conversation. No extra model and no extra memory.",
+                    "note": "Best for output that repeats its input, such as code edits or long quotes. On normal chat it gains little and can cost a few percent."
+                },
+                "model": {
+                    "label": "Draft model",
+                    "doc": "A small model with the same vocabulary proposes tokens, and the model checks them in one step.",
+                    "note": "The draft model is loaded beside the model and uses its own memory."
+                },
+                "mtp": {
+                    "label": "MTP",
+                    "doc": "The model's own multi-token prediction head proposes the next tokens. No second model to load."
+                }
+            },
+            "fields": {
+                "ngram": {
+                    "options_spec_ngram_mod_n_min": {
+                        "label": "Draft tokens, at least",
+                        "hint": "Fewest tokens a match must propose before it is used."
+                    },
+                    "options_spec_ngram_mod_n_max": {
+                        "label": "Draft tokens, at most",
+                        "hint": "Most tokens proposed after a match."
+                    },
+                    "options_spec_ngram_mod_n_match": {
+                        "label": "Match length",
+                        "hint": "Tokens that must match an earlier passage before it is copied."
+                    }
+                },
+                "model": {
+                    "options_spec_n_min": {
+                        "label": "Draft tokens, at least",
+                        "hint": "Fewest drafted tokens worth checking. 0 checks any draft."
+                    },
+                    "options_spec_n_max": {
+                        "label": "Draft tokens, at most",
+                        "hint": "Most tokens the draft model proposes per step. More helps only when it guesses well."
+                    },
+                    "options_spec_p_min": {
+                        "label": "Acceptance threshold",
+                        "hint": "The draft model stops a draft when it is less sure than this, from 0 to 1."
+                    }
+                },
+                "mtp": {
+                    "options_spec_n_max": {
+                        "label": "Draft tokens, at most",
+                        "hint": "Most tokens the MTP head proposes per step."
+                    },
+                    "options_spec_p_min": {
+                        "label": "Acceptance threshold",
+                        "hint": "The head stops a draft when it is less sure than this, from 0 to 1."
+                    }
+                }
+            },
+            "streams": {
+                "label": "Pause drafting above N streams",
+                "hint": "Drafting pauses while more requests than this generate at once, and resumes when the load drops. 0 never pauses. Builds without paged serving ignore it."
+            },
+            "picker": {
+                "label": "Draft model",
+                "placeholder": "Pick an installed model",
+                "hint": "A smaller model of the same family, for example a 0.6B or 1B model for a large model of the same series.",
+                "filter": "Filter models",
+                "loading": "Loading installed models...",
+                "empty": "No other model that {{engine}} runs is installed. Install a small model of the same family first.",
+                "same": "Same family as this model",
+                "other": "Other installed models",
+                "file": "Set in the file",
+                "fileRow": "Not an installed model",
+                "noFile": "{{name}} has no model file to use as a draft.",
+                "failed": "The installed models could not be listed."
+            },
+            "fit": {
+                "title": "Compatibility",
+                "ok": "Compatible",
+                "okText": "Same vocabulary: {{tokens}} tokens.",
+                "mismatch": "Will not load",
+                "mismatchText": "The vocabularies differ ({{main}} and {{draft}} tokens). llama.cpp refuses this pair, so the model fails to load.",
+                "family": "Same family",
+                "familyText": "Both are {{family}} models. The vocabulary could not be read to confirm it.",
+                "unknown": "Not checked",
+                "unknownText": "The vocabularies could not be compared. The draft must use the same tokenizer as the model.",
+                "unmatched": "The file is not an installed model, so it cannot be checked."
+            },
+            "memory": {
+                "title": "Memory",
+                "total": "≈ {{size}} more",
+                "split": "({{weights}} weights and {{kv}} KV cache at {{context}} tokens).",
+                "none": "No estimate for this model.",
+                "unmatched": "No estimate: expect about the file's size plus a KV cache as large as the model's context."
+            }
+        }
     }
 }

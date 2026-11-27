@@ -179,7 +179,7 @@ test.describe('Runtime tuning: quick setup', () => {
     await expect(save(page)).toBeDisabled()
   })
 
-  test('the advanced and speculative groups start closed and hold every other backend option', async ({ page }) => {
+  test('the advanced group starts closed and holds every other backend option', async ({ page }) => {
     const configs = {
       ...CONFIGS,
       'alias-lab': 'name: alias-lab\nbackend: llama-cpp\nparameters:\n  model: a.gguf\noptions:\n  - unified_kv:false\n  - paged_serving:true\n  - max_prefill_tokens:auto\n  - draft_max:8\n',
@@ -187,7 +187,9 @@ test.describe('Runtime tuning: quick setup', () => {
     const state = await open(page, { name: 'alias-lab', configs })
     const advanced = page.getByTestId('rt-group-engine_advanced')
     await expect(advanced).not.toHaveAttribute('open', '')
-    await expect(page.getByTestId('rt-group-speculative')).not.toHaveAttribute('open', '')
+    // Speculative decoding is the Drafting section: a draft window with no
+    // kind and no draft model drafts nothing, so it reads as Off.
+    await expect(page.getByTestId('rt-draft-mode-off')).toHaveAttribute('aria-checked', 'true')
     await expect(field(page, 'options-kv_unified-field')).toBeHidden()
     await expect(page.getByTestId('rt-group-engine_advanced-toggle')).toContainText('Advanced llama.cpp options')
     await page.getByTestId('rt-group-engine_advanced-toggle').click()
@@ -195,8 +197,6 @@ test.describe('Runtime tuning: quick setup', () => {
     await expect(field(page, 'options-kv_unified-false')).toHaveAttribute('aria-checked', 'true')
     await expect(field(page, 'options-context_shift-field')).toBeVisible()
     await expect(field(page, 'options-backend_sampling_min_slots')).toHaveAttribute('placeholder', 'Default (4)')
-    await page.getByTestId('rt-group-speculative-toggle').click()
-    await expect(field(page, 'options-spec_n_max')).toHaveValue('8')
     // Paged serving and its new fields.
     await expect(field(page, 'options-paged_kv-true')).toHaveAttribute('aria-checked', 'true')
     await expect(field(page, 'options-prefill_budget')).toHaveValue('auto')
