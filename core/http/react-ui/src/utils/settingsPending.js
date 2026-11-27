@@ -173,6 +173,32 @@ export function hasBlockingCheck(checks) {
 // POST /api/settings merges the keys it receives over the saved settings, so
 // the page sends only the fields that changed.
 
+// The memory settings: in distributed mode one document for every frontend
+// (MemorySettingKeys in core/config/memory_settings.go).
+export const MEMORY_SETTING_KEYS = new Set([
+  'watchdog_enabled', 'watchdog_idle_enabled', 'watchdog_busy_enabled',
+  'watchdog_idle_timeout', 'watchdog_busy_timeout', 'watchdog_interval',
+  'max_active_backends', 'single_backend',
+  'memory_reclaimer_enabled', 'memory_reclaimer_threshold',
+  'force_eviction_when_busy', 'size_aware_eviction',
+  'lru_eviction_max_retries', 'lru_eviction_retry_interval',
+  'model_swap', 'vram_budget',
+])
+
+// isMemoryConflict reports whether a failed save was refused because the
+// cluster memory settings changed since the page read them (409 with the
+// current memory_revision).
+export function isMemoryConflict(err) {
+  return !!err && err.status === 409 && typeof err.body?.memory_revision === 'number'
+}
+
+// withMemoryRevision returns values with the memory revision of a save
+// reply, when the reply carries one.
+export function withMemoryRevision(values, reply) {
+  if (!values || typeof reply?.memory_revision !== 'number') return values
+  return { ...values, memory_revision: reply.memory_revision }
+}
+
 export function payloadFor(changes, source) {
   const body = {}
   for (const { field } of changes) {
@@ -209,6 +235,12 @@ export function payloadFor(changes, source) {
       default:
         body[field.key] = getValue(field, source)
     }
+  }
+  // In distributed mode the save of a memory setting names the revision the
+  // page read, so a change made meanwhile on another frontend is not
+  // overwritten: the server answers 409 instead.
+  if (typeof source?.memory_revision === 'number' && Object.keys(body).some(k => MEMORY_SETTING_KEYS.has(k))) {
+    body.memory_revision = source.memory_revision
   }
   return body
 }

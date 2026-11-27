@@ -8,6 +8,7 @@
     "subtitle": "Konfigurasi pengaturan runtime LocalAI",
     "saved": "Pengaturan berhasil disimpan",
     "saveFailed": "Gagal menyimpan: {{message}}",
+    "memoryConflict": "Pengaturan memori telah diubah di tempat lain sejak halaman ini memuatnya. Halaman ini sekarang menampilkan nilai yang berlaku. Terapkan perubahan Anda lagi.",
     "loadFailed": "Gagal memuat pengaturan: {{message}}",
     "sections": {
       "branding": "Branding",

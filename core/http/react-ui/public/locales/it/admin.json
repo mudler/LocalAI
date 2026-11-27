@@ -8,6 +8,7 @@
     "subtitle": "Configura le impostazioni runtime di LocalAI",
     "saved": "Impostazioni salvate con successo",
     "saveFailed": "Salvataggio fallito: {{message}}",
+    "memoryConflict": "Le impostazioni di memoria sono state cambiate altrove dopo il caricamento di questa pagina. La pagina mostra ora i valori in vigore. Applica di nuovo la modifica.",
     "loadFailed": "Caricamento impostazioni fallito: {{message}}",
     "sections": {
       "branding": "Branding",

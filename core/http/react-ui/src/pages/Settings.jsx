@@ -31,7 +31,7 @@ import {
 } from '../utils/settingsSchema'
 import {
   pendingChanges, visibleChanges, runChecks, payloadFor, historyEntries,
-  loadHistory, appendHistory, clearHistory,
+  loadHistory, appendHistory, clearHistory, isMemoryConflict, withMemoryRevision,
 } from '../utils/settingsPending'
 import './settings.css'
 
@@ -244,19 +244,33 @@ export default function Settings() {
     setSaving(true)
     try {
       const body = payloadFor(changes, settings)
-      await settingsApi.save(body)
+      const reply = await settingsApi.save(body)
       const before = initial
-      setInitial(structuredClone(settings))
+      // The next save of a memory setting names the revision this one made.
+      const saved = withMemoryRevision(settings, reply)
+      setSettings(saved)
+      setInitial(structuredClone(saved))
       setHistory(appendHistory(historyEntries(changes)))
       // Name and tagline reach the sidebar, footer and tab title without a reload.
       branding.refresh()
       // The undo toast is the confirmation: a second toast would sit on it.
       setUndo({ changes, before, id: Date.now() })
     } catch (err) {
-      addToast(t('settings.saveFailed', { message: err.message }), 'error')
+      failedSave(err)
     } finally {
       setSaving(false)
     }
+  }
+
+  // A save from a stale read of the cluster memory settings is refused: show
+  // the values in force now and ask to apply again.
+  const failedSave = (err) => {
+    if (isMemoryConflict(err)) {
+      addToast(t('settings.memoryConflict'), 'warning')
+      loadSettings()
+      return
+    }
+    addToast(t('settings.saveFailed', { message: err.message }), 'error')
   }
 
   // Undo is a second save of the values the server held before. It is not a
@@ -275,15 +289,15 @@ export default function Settings() {
     }
     const restoredInitial = restore(initial)
     try {
-      await settingsApi.save(payloadFor(entry.changes, restoredInitial))
-      setInitial(restoredInitial)
-      setSettings(restore)
+      const reply = await settingsApi.save(payloadFor(entry.changes, restoredInitial))
+      setInitial(withMemoryRevision(restoredInitial, reply))
+      setSettings(prev => withMemoryRevision(restore(prev), reply))
       const reverted = entry.changes.map(c => ({ ...c, from: c.to, to: c.from }))
       setHistory(appendHistory(historyEntries(reverted)))
       branding.refresh()
       addToast('Previous values saved again', 'success')
     } catch (err) {
-      addToast(t('settings.saveFailed', { message: err.message }), 'error')
+      failedSave(err)
     }
   }
 

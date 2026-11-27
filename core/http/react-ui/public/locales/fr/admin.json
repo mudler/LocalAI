@@ -8,6 +8,7 @@
     "subtitle": "Configurer les paramètres d'exécution de LocalAI",
     "saved": "Paramètres enregistrés",
     "saveFailed": "Échec de l'enregistrement : {{message}}",
+    "memoryConflict": "Les réglages de mémoire ont été modifiés ailleurs depuis le chargement de cette page. La page affiche maintenant les valeurs en vigueur. Appliquez à nouveau votre modification.",
     "loadFailed": "Échec du chargement des paramètres : {{message}}",
     "sections": {
       "branding": "Image de marque",

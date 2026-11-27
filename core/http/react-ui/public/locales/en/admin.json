@@ -8,6 +8,7 @@
     "subtitle": "Configure LocalAI runtime settings",
     "saved": "Settings saved successfully",
     "saveFailed": "Save failed: {{message}}",
+    "memoryConflict": "The memory settings were changed elsewhere since this page loaded them. The page now shows the values in force. Apply your change again.",
     "loadFailed": "Failed to load settings: {{message}}",
     "autoUpgradeAddons": "Update add-ons automatically",
     "sections": {

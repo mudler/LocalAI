@@ -8,6 +8,7 @@
     "subtitle": "Configura los ajustes de tiempo de ejecución de LocalAI",
     "saved": "Configuración guardada con éxito",
     "saveFailed": "Error al guardar: {{message}}",
+    "memoryConflict": "Los ajustes de memoria se cambiaron en otro lugar después de que esta página los cargara. La página muestra ahora los valores vigentes. Vuelve a aplicar tu cambio.",
     "loadFailed": "Error al cargar configuración: {{message}}",
     "sections": {
       "branding": "Branding",

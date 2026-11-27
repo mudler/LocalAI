@@ -8,6 +8,7 @@
     "subtitle": "Konfigurieren Sie die Laufzeiteinstellungen von LocalAI",
     "saved": "Einstellungen erfolgreich gespeichert",
     "saveFailed": "Speichern fehlgeschlagen: {{message}}",
+    "memoryConflict": "Die Speichereinstellungen wurden an anderer Stelle geändert, seit diese Seite sie geladen hat. Die Seite zeigt jetzt die geltenden Werte. Übernehmen Sie Ihre Änderung erneut.",
     "loadFailed": "Laden der Einstellungen fehlgeschlagen: {{message}}",
     "sections": {
       "branding": "Branding",

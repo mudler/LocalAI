@@ -8,6 +8,7 @@
     "subtitle": "配置 LocalAI 运行时设置",
     "saved": "设置保存成功",
     "saveFailed": "保存失败：{{message}}",
+    "memoryConflict": "自本页面加载以来，内存设置已在其他地方被更改。页面现在显示当前生效的值。请重新应用您的更改。",
     "loadFailed": "加载设置失败：{{message}}",
     "sections": {
       "branding": "品牌",

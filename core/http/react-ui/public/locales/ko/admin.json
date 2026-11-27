@@ -8,6 +8,7 @@
     "subtitle": "LocalAI 런타임 설정을 구성합니다",
     "saved": "설정이 저장되었습니다",
     "saveFailed": "저장 실패: {{message}}",
+    "memoryConflict": "이 페이지를 불러온 후 다른 곳에서 메모리 설정이 변경되었습니다. 이제 페이지에 현재 적용 중인 값이 표시됩니다. 변경 사항을 다시 적용하세요.",
     "loadFailed": "설정을 불러오지 못했습니다: {{message}}",
     "sections": {
       "branding": "브랜딩",
