@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { LoadingSpinner, Tag } from '../ui'
-import { contributions, shortSha, skippedKey } from './pluginState'
+import { contributions, hookHandlerText, mcpServerText, shortSha, skippedKey } from './pluginState'
 
 // The parts the Plugins tab, its review dialogs and its details pane share.
 
@@ -56,8 +56,8 @@ export function ComponentList({ model, testId = 'plugin-components' }) {
     { key: 'skills', icon: 'book', rows: (model.skills || []).map((s) => ({ id: s.name, label: `${name}:${s.name}`, desc: s.description, hint: s.userInvocable && s.argumentHint ? s.argumentHint : '' })) },
     { key: 'commands', icon: 'terminal', rows: (model.commands || []).map((c) => ({ id: c.name, label: `/${name}:${c.name}`, desc: c.description, hint: c.argumentHint })) },
     { key: 'agents', icon: 'robot', rows: (model.agents || []).map((a) => ({ id: a.name, label: `${name}:${a.name}`, desc: a.description, hint: a.model ? t('plugins.components.tier', { tier: a.model }) : '' })) },
-    { key: 'mcpServers', icon: 'plug', rows: (model.mcpServers || []).map((s) => ({ id: s.name, label: s.name, desc: s.url || [s.command, ...(s.args || [])].filter(Boolean).join(' '), hint: s.type })) },
-    { key: 'hooks', icon: 'bolt', rows: (model.hooks || []).map((h, i) => ({ id: `${h.event}-${i}`, label: h.event, desc: (h.handlers || []).map((x) => x.command).filter(Boolean).join(' · '), hint: h.matcher || '' })) },
+    { key: 'mcpServers', icon: 'plug', rows: (model.mcpServers || []).map((s) => ({ id: s.name, label: s.name, desc: mcpServerText(s), hint: s.type })) },
+    { key: 'hooks', icon: 'bolt', rows: (model.hooks || []).map((h, i) => ({ id: `${h.event}-${i}`, label: h.event, desc: (h.handlers || []).map(hookHandlerText).filter(Boolean).join(' · '), hint: h.matcher || '' })) },
   ].filter((g) => g.rows.length > 0)
   if (groups.length === 0) return <p className="pl-quiet">{t('plugins.components.none')}</p>
   return (

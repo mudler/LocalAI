@@ -636,12 +636,18 @@ skill or a command has a shell injection (`HasShellInjections()`):
 | `lsp` | An LSP server (not supported; it still counts). |
 | `monitor` | A monitor (not supported; it still counts). |
 | `shell-injection` | ``!`cmd` `` or a ` ```! ` block in a skill or command body. |
+| `hook-http` | A hook with an `http` handler. LocalAI adds it: the handler sends the hook payloads, tool inputs included, to any URL. Its host shows as "Connects to `<host>`". |
+| `mcp-headers-helper` | An MCP server with a `headersHelper`. LocalAI adds it: Claude Code runs the helper as a shell command. |
+
+LocalAI also counts `bin` when `bin/` holds only dotfiles, which nib skips,
+because the format puts `bin/` on `PATH`. The review shows the command and
+arguments of each hook and the URL of each http hook.
 
 Not code:
 
 - scripts inside a skill folder (`skills/x/scripts/run.sh`). The model runs them
   by choice with `bash`, as for imported skills ("Scripts are stored, not run").
-- an `http`, `sse` or `ws` MCP server. It connects to a remote service, and
+- an `http`, `sse` or `ws` MCP server without a `headersHelper`. It connects to a remote service, and
   users can already add HTTP MCP connectors themselves. The plugin card shows
   "Connects to `<host>`" for each one.
 

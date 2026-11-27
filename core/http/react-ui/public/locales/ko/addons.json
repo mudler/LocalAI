@@ -1247,7 +1247,9 @@
       "bin": "bin/ 파일",
       "lsp": "LSP 서버",
       "monitor": "모니터",
-      "shell-injection": "스킬 또는 명령 안의 셸 명령"
+      "shell-injection": "스킬 또는 명령 안의 셸 명령",
+      "hook-http": "HTTP 훅",
+      "mcp-headers-helper": "MCP 서버의 헤더 명령"
     },
     "installed": {
       "loading": "설치된 플러그인 불러오는 중",

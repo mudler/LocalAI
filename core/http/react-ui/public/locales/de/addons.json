@@ -1247,7 +1247,9 @@
       "bin": "bin/-Dateien",
       "lsp": "LSP-Server",
       "monitor": "Monitor",
-      "shell-injection": "Shell-Befehl in einem Skill oder Befehl"
+      "shell-injection": "Shell-Befehl in einem Skill oder Befehl",
+      "hook-http": "HTTP-Hook",
+      "mcp-headers-helper": "Header-Befehl eines MCP-Servers"
     },
     "installed": {
       "loading": "Installierte Plugins werden geladen",

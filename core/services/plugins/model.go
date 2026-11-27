@@ -76,6 +76,9 @@ type MCPRef struct {
 	Command string            `json:"command,omitempty"`
 	Args    []string          `json:"args,omitempty"`
 	Env     map[string]string `json:"env,omitempty"`
+	// HeadersHelper is a shell command that Claude Code runs for the
+	// headers. LocalAI does not run it; it makes the plugin code.
+	HeadersHelper string `json:"headersHelper,omitempty"`
 }
 
 // HookRef is one matcher group of one hook event.
@@ -90,7 +93,9 @@ type HookHandlerRef struct {
 	Type    string   `json:"type"`
 	Command string   `json:"command,omitempty"`
 	Args    []string `json:"args,omitempty"`
-	Timeout int      `json:"timeout,omitempty"`
+	// URL is where an http hook sends the hook payloads.
+	URL     string `json:"url,omitempty"`
+	Timeout int    `json:"timeout,omitempty"`
 }
 
 // OptionRef is one userConfig option.
@@ -153,13 +158,14 @@ func ModelOf(p *claudeplugin.Plugin) Model {
 	for name, s := range p.MCPServers {
 		m.MCPServers = append(m.MCPServers, MCPRef{
 			Name: name, Type: s.Type, URL: s.URL, Headers: s.Headers, Command: s.Command, Args: s.Args, Env: s.Env,
+			HeadersHelper: s.HeadersHelper,
 		})
 	}
 	sort.Slice(m.MCPServers, func(i, j int) bool { return m.MCPServers[i].Name < m.MCPServers[j].Name })
 	for _, g := range p.Hooks {
 		h := HookRef{Event: g.Event, Matcher: g.Matcher}
 		for _, hd := range g.Handlers {
-			h.Handlers = append(h.Handlers, HookHandlerRef{Type: hd.Type, Command: hd.Command, Args: hd.Args, Timeout: hd.Timeout})
+			h.Handlers = append(h.Handlers, HookHandlerRef{Type: hd.Type, Command: hd.Command, Args: hd.Args, URL: hd.URL, Timeout: hd.Timeout})
 		}
 		m.Hooks = append(m.Hooks, h)
 	}
@@ -192,19 +198,29 @@ func injects(in []claudeplugin.Injection) bool {
 	return false
 }
 
-// Hosts returns the hosts that the remote MCP servers of the model connect
-// to, for the "Connects to <host>" chips.
+// Hosts returns the hosts that the remote MCP servers and the http hooks of
+// the model connect to, for the "Connects to <host>" chips.
 func (m Model) Hosts() []string {
 	seen := map[string]bool{}
 	var out []string
+	add := func(raw string) {
+		h := hostOf(raw)
+		if h != "" && !seen[h] {
+			seen[h] = true
+			out = append(out, h)
+		}
+	}
 	for _, s := range m.MCPServers {
 		if s.Type == "stdio" || s.URL == "" {
 			continue
 		}
-		h := hostOf(s.URL)
-		if h != "" && !seen[h] {
-			seen[h] = true
-			out = append(out, h)
+		add(s.URL)
+	}
+	for _, h := range m.Hooks {
+		for _, hd := range h.Handlers {
+			if hd.Type == claudeplugin.HookTypeHTTP {
+				add(hd.URL)
+			}
 		}
 	}
 	sort.Strings(out)

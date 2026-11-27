@@ -32663,6 +32663,10 @@ const docTemplate = `{
                 },
                 "type": {
                     "type": "string"
+                },
+                "url": {
+                    "description": "URL is where an http hook sends the hook payloads.",
+                    "type": "string"
                 }
             }
         },
@@ -32937,6 +32941,10 @@ const docTemplate = `{
                     "additionalProperties": {
                         "type": "string"
                     }
+                },
+                "headersHelper": {
+                    "description": "HeadersHelper is a shell command that Claude Code runs for the\nheaders. LocalAI does not run it; it makes the plugin code.",
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"

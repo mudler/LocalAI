@@ -1247,7 +1247,9 @@
       "bin": "bin/ 文件",
       "lsp": "LSP 服务器",
       "monitor": "监视器",
-      "shell-injection": "技能或命令中的 shell 命令"
+      "shell-injection": "技能或命令中的 shell 命令",
+      "hook-http": "HTTP 钩子",
+      "mcp-headers-helper": "MCP 服务器的请求头命令"
     },
     "installed": {
       "loading": "正在加载已安装的插件",

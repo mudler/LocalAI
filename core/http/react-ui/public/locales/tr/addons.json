@@ -1247,7 +1247,9 @@
       "bin": "bin/ dosyaları",
       "lsp": "LSP sunucusu",
       "monitor": "izleyici",
-      "shell-injection": "bir yetenekte veya komutta kabuk komutu"
+      "shell-injection": "bir yetenekte veya komutta kabuk komutu",
+      "hook-http": "HTTP hook'u",
+      "mcp-headers-helper": "MCP sunucusunun başlık komutu"
     },
     "installed": {
       "loading": "Kurulu plugin'ler yükleniyor",

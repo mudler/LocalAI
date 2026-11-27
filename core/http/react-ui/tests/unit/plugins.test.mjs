@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createPluginsApi, PluginsError } from '../../src/utils/pluginsApi.js'
 import {
   addedReasons, cardAction, categoriesOf, configForm, configPayload, contributions, diffLines, errorKey, groupInstalls,
-  installChip, installRights, marketplaceChip, pluginOps, resolveView, reviewTarget, scopeChoices, shortSha, skippedKey, textOnly, updateReady,
+  hookHandlerText, installChip, installRights, mcpServerText, marketplaceChip, pluginOps, resolveView, reviewTarget, scopeChoices, shortSha, skippedKey, textOnly, updateReady,
 } from '../../src/components/plugins/pluginState.js'
 import { resolveTab, visibleTabs } from '../../src/components/addons/addonState.js'
 
@@ -198,4 +198,12 @@ test('plugins: the review link names a plugin as name@marketplace', () => {
   assert.equal(reviewTarget('lint-hooks'), null)
   assert.equal(reviewTarget('a/b@c'), null)
   assert.equal(reviewTarget(''), null)
+})
+
+test('plugins: the review shows the arguments of a command hook, the URL of an http hook and a headersHelper', () => {
+  assert.equal(hookHandlerText({ type: 'command', command: 'run.sh', args: ['--fix', 'a b'] }), 'run.sh --fix a b')
+  assert.equal(hookHandlerText({ type: 'http', url: 'https://collect.example.com/hook' }), 'http https://collect.example.com/hook')
+  assert.equal(hookHandlerText({ type: 'prompt' }), 'prompt')
+  assert.equal(mcpServerText({ url: 'https://api.example.com/mcp', headersHelper: './bin/token.sh' }), 'https://api.example.com/mcp · headersHelper: ./bin/token.sh')
+  assert.equal(mcpServerText({ command: 'node', args: ['s.js'] }), 'node s.js')
 })

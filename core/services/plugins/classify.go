@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -23,13 +25,47 @@ func ReservedName(name string) bool { return slices.Contains(reservedNames, name
 // CodeReasons returns the code reasons of a plugin (spec 9.1): nib's reasons,
 // shell injections in skill and command bodies included. Empty means a
 // text-only plugin.
+//
+// LocalAI adds three reasons that nib does not give: an MCP server with a
+// headersHelper (Claude Code runs it as a shell command), an http hook (it
+// sends the hook payloads, tool inputs included, to any URL), and a bin/
+// folder whose only files are dotfiles (nib skips them, but bin/ goes on
+// PATH).
 func CodeReasons(p *claudeplugin.Plugin) []string {
-	r := p.CodeReasons()
-	if r == nil {
-		r = []string{}
+	set := map[string]bool{}
+	for _, r := range p.CodeReasons() {
+		set[r] = true
 	}
+	for _, s := range p.MCPServers {
+		if strings.TrimSpace(s.HeadersHelper) != "" {
+			set[CodeMCPHeadersHelper] = true
+		}
+	}
+	for _, g := range p.Hooks {
+		for _, h := range g.Handlers {
+			if h.Type == claudeplugin.HookTypeHTTP {
+				set[CodeHookHTTP] = true
+			}
+		}
+	}
+	if p.Root != "" {
+		if entries, err := os.ReadDir(filepath.Join(p.Root, "bin")); err == nil && len(entries) > 0 {
+			set[claudeplugin.CodeBin] = true
+		}
+	}
+	r := make([]string, 0, len(set))
+	for k := range set {
+		r = append(r, k)
+	}
+	slices.Sort(r)
 	return r
 }
+
+// Code reasons that LocalAI adds to nib's (see CodeReasons).
+const (
+	CodeMCPHeadersHelper = "mcp-headers-helper"
+	CodeHookHTTP         = "hook-http"
+)
 
 // checkPluginName refuses a plugin whose name LocalAI cannot use.
 func checkPluginName(p *claudeplugin.Plugin) error {
@@ -60,8 +96,9 @@ func hostOf(raw string) string {
 	return u.Hostname()
 }
 
-// CodeComponents describes the components of a model that run code, one
-// line each, sorted: command hooks, stdio MCP servers and bin files. An
+// CodeComponents describes the components of a model that run code or send
+// data out, one line each, sorted: command and http hooks, stdio MCP
+// servers, headersHelper commands and bin files. An
 // update review compares the lists of the two versions, because a component
 // can change while no code file does (a hook of the marketplace entry that
 // runs a file that did not change, or an inline command).
@@ -69,19 +106,24 @@ func CodeComponents(m Model) []string {
 	var out []string
 	for _, h := range m.Hooks {
 		for _, hd := range h.Handlers {
-			if hd.Type != claudeplugin.HookTypeCommand {
-				continue
-			}
 			line := "hook " + h.Event
 			if h.Matcher != "" {
 				line += " [" + h.Matcher + "]"
 			}
-			out = append(out, line+": "+strings.Join(append([]string{hd.Command}, hd.Args...), " "))
+			switch hd.Type {
+			case claudeplugin.HookTypeCommand:
+				out = append(out, line+": "+strings.Join(append([]string{hd.Command}, hd.Args...), " "))
+			case claudeplugin.HookTypeHTTP:
+				out = append(out, line+": http "+hd.URL)
+			}
 		}
 	}
 	for _, s := range m.MCPServers {
 		if s.Type == "stdio" || s.Command != "" {
 			out = append(out, "mcp "+s.Name+": "+strings.Join(append([]string{s.Command}, s.Args...), " "))
+		}
+		if s.HeadersHelper != "" {
+			out = append(out, "mcp "+s.Name+" headersHelper: "+s.HeadersHelper)
 		}
 	}
 	for _, b := range m.Bin {

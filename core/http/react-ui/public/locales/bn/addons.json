@@ -1247,7 +1247,9 @@
       "bin": "bin/ ফাইল",
       "lsp": "LSP সার্ভার",
       "monitor": "মনিটর",
-      "shell-injection": "একটি স্কিল বা কমান্ডের মধ্যে শেল কমান্ড"
+      "shell-injection": "একটি স্কিল বা কমান্ডের মধ্যে শেল কমান্ড",
+      "hook-http": "HTTP হুক",
+      "mcp-headers-helper": "MCP সার্ভারের হেডার কমান্ড"
     },
     "installed": {
       "loading": "ইনস্টল করা প্লাগইন লোড হচ্ছে",

@@ -1247,7 +1247,9 @@
       "bin": "berkas bin/",
       "lsp": "server LSP",
       "monitor": "monitor",
-      "shell-injection": "perintah shell dalam skill atau perintah"
+      "shell-injection": "perintah shell dalam skill atau perintah",
+      "hook-http": "hook HTTP",
+      "mcp-headers-helper": "perintah header server MCP"
     },
     "installed": {
       "loading": "Memuat plugin yang terpasang",

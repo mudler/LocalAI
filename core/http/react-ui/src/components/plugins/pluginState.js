@@ -215,3 +215,20 @@ export function configPayload(options, form) {
   }
   return out
 }
+
+// What one hook handler runs or calls, for the review: the command with its
+// arguments, or the URL an http hook sends the payloads to. The other kinds
+// show their type.
+export function hookHandlerText(h) {
+  if (!h) return ''
+  if (h.type === 'http') return `http ${h.url || ''}`.trim()
+  if (h.command) return [h.command, ...(h.args || [])].join(' ')
+  return h.type || ''
+}
+
+// What an MCP server connects to or starts, with its headersHelper command.
+export function mcpServerText(s) {
+  if (!s) return ''
+  const base = s.url || [s.command, ...(s.args || [])].filter(Boolean).join(' ')
+  return s.headersHelper ? `${base} · headersHelper: ${s.headersHelper}` : base
+}

@@ -74,7 +74,7 @@ CI checks the schema, the pins and the license file at the SHA. It then fetches 
 
 An install is pinned to a full commit SHA, and its files are stored once under their content digest. Before an install, the server fetches the plugin into a scratch folder, checks every file (no path that leaves the folder, no device or link out of the tree, size and count limits), computes the digest, and reads the plugin. The person who installs reviews the commit, the digest and what the plugin contributes. The digest covers the files and what the plugin contributes once its marketplace entry is merged in, so two marketplace entries that point at the same files but add different components are two packages. The install fetches the plugin again at the same commit and refuses it when the files or the marketplace entry differ from the reviewed ones.
 
-A plugin runs code when it has a command hook, a stdio MCP server, files in `bin/`, an LSP server, a monitor, or a shell injection in a skill or a command. Who can install:
+A plugin runs code when it has a command hook, an http hook (it sends the hook data, tool inputs included, to a URL), a stdio MCP server, an MCP server with a `headersHelper` command, any file in `bin/` (dotfiles too), an LSP server, a monitor, or a shell injection in a skill or a command. The review shows the command and arguments of each hook and the URL of each http hook, and lists the host of an http hook with **Connects to `<host>`**. Who can install:
 
 | Action | User | Administrator |
 |---|---|---|
@@ -96,7 +96,7 @@ The **Plugins** tab of the Add-ons page shows to everyone who has the `plugins` 
 
 **Install** opens a review. LocalAI fetches the plugin and checks it, then shows "Community plugin, not signed", the commit, the digest, what it adds and, for a plugin that runs code, the full text of each code file. Such a plugin needs a tick that you read the code and accept that it runs in the Sandbox, and it is installed for everyone. An administrator chooses **Everyone** or **Only me** for a plugin that runs no code. The install runs in the background and shows on the operations list.
 
-**Update** opens the update review: the commits, the files that change with their line counts, and the diff of each code file. When the code of an install for everyone changed, each changed code file needs its own tick before **Update**. The code changed when a code file, a code reason or a code component (a command hook, a local MCP server, a `bin/` file) changed. The review also shows, in full, each file that did not change but runs now (for example a script that a new hook of the marketplace entry calls), and lists the hooks, servers and programs that the new version adds; these need a tick too.
+**Update** opens the update review: the commits, the files that change with their line counts, and the diff of each code file. When the code of an install for everyone changed, each changed code file needs its own tick before **Update**. The code changed when a code file, a code reason or a code component (a command or http hook, a local MCP server, a `headersHelper` command, a `bin/` file) changed. The review also shows, in full, each file that did not change but runs now (for example a script that a new hook of the marketplace entry calls), and lists the hooks, servers and programs that the new version adds; these need a tick too.
 
 The review link that `local-ai plugins install` and the LocalAI Assistant give for a plugin that runs code, `/app/addons?tab=plugins&plugin=<name@marketplace>`, opens the review of that plugin.
 
