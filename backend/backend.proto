@@ -406,6 +406,14 @@ message PredictOptions {
   // or refuse the request; it must never persist silently.
   bool NoPromptCache = 55;
 
+  // Priority is the request priority class: -1 batch, 0 default,
+  // 1 interactive. When requests wait for a slot, a higher class is served
+  // first; within one class the order is arrival order. A backend without a
+  // queue ignores it. The values match the priority field of the llama.cpp
+  // server. The frontend sets it from trusted state only (the API caller's
+  // role, LocalAI's own callers), never from request Metadata.
+  int32 Priority = 56;
+
   // 24 was never assigned; reserve it so it is not silently reused.
   reserved 24;
 }
