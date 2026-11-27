@@ -3,6 +3,7 @@ package plugins_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -83,6 +84,17 @@ var _ = Describe("the MCP servers of a plugin", func() {
 				Expect(v).NotTo(ContainSubstring("from-the-server"), "the server's environment reached a plugin")
 			}
 		}
+	})
+
+	It("gives connectors to at most MaxPluginConnectors servers of one plugin", func() {
+		m := plugins.Model{Name: "many"}
+		for i := 0; i < plugins.MaxPluginConnectors+2; i++ {
+			m.MCPServers = append(m.MCPServers, plugins.MCPRef{Name: fmt.Sprintf("s%d", i), Type: "http", URL: "https://mcp.example/"})
+		}
+		servers, skipped := plugins.RemoteServers(m, digest)
+		Expect(servers).To(HaveLen(plugins.MaxPluginConnectors))
+		Expect(skipped).To(HaveLen(2))
+		Expect(skipped[0].Reason).To(Equal(plugins.ServerOverLimit))
 	})
 
 	Describe("the connectors of each user", func() {

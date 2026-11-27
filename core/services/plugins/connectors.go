@@ -28,7 +28,15 @@ const (
 	// ServerLocal: a stdio server, which runs in the Sandbox in a later
 	// version.
 	ServerLocal = "runs a local command (later version)"
+	// ServerOverLimit: the plugin has more remote servers than one plugin
+	// may turn into connectors.
+	ServerOverLimit = "over the limit of connectors of one plugin"
 )
+
+// MaxPluginConnectors is the most connectors one plugin makes for a user.
+// The connectors of plugins do not count against the limit of a user's own
+// connectors, so without a cap of their own 50 installs could make hundreds.
+const MaxPluginConnectors = 5
 
 // RemoteServer is an http or sse MCP server of a plugin with its templates
 // expanded: what its connector uses.
@@ -72,6 +80,10 @@ func RemoteServers(m Model, digest string) (servers []RemoteServer, skipped []Sk
 		srv, missing := claudeplugin.MCPServer{Name: ref.Name, Type: ref.Type, URL: ref.URL, Headers: ref.Headers}.Expand(vars)
 		if len(missing) > 0 || usesUserConfig(srv) {
 			skipped = append(skipped, SkippedServer{ref.Name, ServerNeedsSettings})
+			continue
+		}
+		if len(servers) >= MaxPluginConnectors {
+			skipped = append(skipped, SkippedServer{ref.Name, ServerOverLimit})
 			continue
 		}
 		servers = append(servers, RemoteServer{Name: ref.Name, URL: srv.URL, Headers: srv.Headers})
