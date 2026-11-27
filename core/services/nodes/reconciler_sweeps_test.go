@@ -100,6 +100,82 @@ var _ = Describe("Reconciler memory sweeps", func() {
 		})
 	})
 
+	Describe("a replica that takes a request during a sweep", func() {
+		BeforeEach(func() {
+			policy.IdleEnabled = true
+			policy.IdleTimeout = 10 * time.Minute
+		})
+
+		// takeRequestsOnFirstUnload makes every other replica of model busy
+		// (one request in flight) when the sweep unloads its first replica:
+		// a request that arrived after the sweep read its candidates.
+		takeRequestsOnFirstUnload := func(model string) {
+			fired := false
+			unloader.unloadHook = func(_, name string) {
+				if fired || name != model {
+					return
+				}
+				fired = true
+				Expect(db.Model(&NodeModel{}).Where("model_name = ?", model).
+					Updates(map[string]any{"in_flight": 1, "last_used": time.Now()}).Error).To(Succeed())
+			}
+		}
+
+		It("is not unloaded by the idle sweep", func() {
+			for _, name := range []string{"node-a", "node-b", "node-c"} {
+				loaded(register(name, 0, 0), "shared", 0, time.Hour)
+			}
+			takeRequestsOnFirstUnload("shared")
+
+			rc.sweepIdle(ctx)
+
+			Expect(count("shared")).To(BeNumerically("==", 2), "the busy replicas stay")
+			Expect(unloader.unloadCalls).To(HaveLen(1))
+		})
+
+		It("is not unloaded by the memory reclaimer", func() {
+			policy.ReclaimerEnabled = true
+			policy.ReclaimerThreshold = 0.8
+			hot := register("node-hot", 48*gib, 4*gib)
+			loaded(hot, "victim", 0, time.Hour)
+			cands, err := rc.sweepCandidates(ctx, hot.ID, time.Time{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cands).To(HaveLen(1))
+			Expect(registry.IncrementInFlight(ctx, hot.ID, "victim", 0)).To(Succeed())
+
+			Expect(rc.unloadForSweep(ctx, cands[0], "memory threshold")).To(BeFalse())
+
+			Expect(count("victim")).To(BeNumerically("==", 1))
+			Expect(unloader.unloadCalls).To(BeEmpty())
+		})
+
+		It("is not unloaded when it served a request and went idle again", func() {
+			n := register("node-a", 0, 0)
+			loaded(n, "recent", 0, time.Hour)
+			cands, err := rc.sweepCandidates(ctx, n.ID, time.Now().Add(-policy.IdleTimeout))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cands).To(HaveLen(1))
+			Expect(db.Model(&NodeModel{}).Where("model_name = ?", "recent").Update("last_used", time.Now()).Error).To(Succeed())
+
+			Expect(rc.unloadForSweep(ctx, cands[0], "idle timeout")).To(BeFalse())
+
+			Expect(count("recent")).To(BeNumerically("==", 1))
+		})
+
+		It("is not removed by the idle scale-down of a rule", func() {
+			cfg := ModelSchedulingConfig{ModelName: "scaled", MinReplicas: 1, MaxReplicas: 4}
+			Expect(registry.SetModelScheduling(ctx, &cfg)).To(Succeed())
+			for _, name := range []string{"node-a", "node-b", "node-c"} {
+				loaded(register(name, 0, 0), "scaled", 0, time.Hour)
+			}
+			takeRequestsOnFirstUnload("scaled")
+
+			rc.scaleDownIdle(ctx, cfg, 3, 1)
+
+			Expect(count("scaled")).To(BeNumerically("==", 2), "only the first replica was idle when removed")
+		})
+	})
+
 	Describe("memory reclaimer", func() {
 		It("unloads one idle replica on a node above its threshold", func() {
 			policy.ReclaimerEnabled = true

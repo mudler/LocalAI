@@ -2107,6 +2107,25 @@ func (r *NodeRegistry) RemoveNodeModel(ctx context.Context, nodeID, modelName st
 	return nil
 }
 
+// RemoveIdleNodeModel removes the replica row nm only while it is still the
+// idle replica that a sweep read: loaded, no request in flight, and not used
+// since nm.LastUsed. It reports whether it removed the row. A sweep unloads
+// a replica only after this succeeds, so a request that took the replica
+// after the sweep read it keeps its backend.
+func (r *NodeRegistry) RemoveIdleNodeModel(ctx context.Context, nm NodeModel) (bool, error) {
+	res := r.db.WithContext(ctx).
+		Where("id = ? AND state = ? AND in_flight = 0 AND last_used <= ?", nm.ID, "loaded", nm.LastUsed).
+		Delete(&NodeModel{})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return false, nil
+	}
+	r.fireReplicaRemoved(nm.ModelName, nm.NodeID, nm.ReplicaIndex)
+	return true, nil
+}
+
 // RemoveAllNodeModelReplicas removes every replica of modelName on nodeID.
 // Used by callers (e.g. node deregistration, full backend stop) that genuinely
 // want to clear all replicas, not just one.

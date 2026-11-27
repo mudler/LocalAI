@@ -1373,9 +1373,15 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 			break
 		}
 		// Remove this specific replica row from registry (sibling replicas of
-		// the same model on the same node, if any, are unaffected).
-		if err := rc.registry.RemoveNodeModel(ctx, nm.NodeID, nm.ModelName, nm.ReplicaIndex); err != nil {
+		// the same model on the same node, if any, are unaffected), and only
+		// while it is still idle: a request may have taken it since the read.
+		gone, err := rc.registry.RemoveIdleNodeModel(ctx, nm)
+		if err != nil {
 			xlog.Warn("Reconciler: failed to remove model record", "node", nm.NodeID, "model", nm.ModelName, "replica", nm.ReplicaIndex, "error", err)
+			continue
+		}
+		if !gone {
+			idleLoaded--
 			continue
 		}
 		// Unload from worker

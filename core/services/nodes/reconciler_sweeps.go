@@ -40,10 +40,17 @@ func (rc *ReplicaReconciler) sweepCandidates(ctx context.Context, nodeID string,
 	return out, err
 }
 
-// unloadForSweep removes one replica row and unloads it from its worker.
+// unloadForSweep removes one replica row and unloads it from its worker. It
+// does nothing when the replica took a request since the sweep read it (see
+// RemoveIdleNodeModel).
 func (rc *ReplicaReconciler) unloadForSweep(ctx context.Context, nm NodeModel, why string) bool {
-	if err := rc.registry.RemoveNodeModel(ctx, nm.NodeID, nm.ModelName, nm.ReplicaIndex); err != nil {
+	removed, err := rc.registry.RemoveIdleNodeModel(ctx, nm)
+	if err != nil {
 		xlog.Warn("Reconciler: failed to remove model record", "node", nm.NodeID, "model", nm.ModelName, "error", err)
+		return false
+	}
+	if !removed {
+		xlog.Debug("Reconciler: replica is no longer idle, not unloading it", "reason", why, "model", nm.ModelName, "node", nm.NodeID, "replica", nm.ReplicaIndex)
 		return false
 	}
 	if err := rc.unloader.UnloadReplica(nm.NodeID, nm); err != nil {

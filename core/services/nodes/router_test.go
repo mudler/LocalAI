@@ -623,6 +623,9 @@ type fakeUnloader struct {
 	// node that is reachable but answering badly.
 	pingErr   error
 	unloadErr error
+	// unloadHook, if non-nil, runs at the start of UnloadModelOnNode, so a
+	// spec can change the registry between two unloads of one pass.
+	unloadHook func(nodeID, modelName string)
 }
 
 // installCall captures the args we care about when asserting that the
@@ -705,6 +708,9 @@ func (f *fakeUnloader) StopBackend(nodeID, backend string) error {
 }
 
 func (f *fakeUnloader) UnloadModelOnNode(nodeID, modelName string) error {
+	if f.unloadHook != nil {
+		f.unloadHook(nodeID, modelName)
+	}
 	f.unloadCalls = append(f.unloadCalls, nodeID+":"+modelName)
 	return f.unloadErr
 }
