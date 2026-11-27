@@ -1,9 +1,13 @@
 package middleware
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"net"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -62,16 +66,10 @@ func UsageMiddleware(recorder *billing.Recorder, fallbackUser *auth.User) echo.M
 			startTime := time.Now()
 
 			// Wrap response writer to capture body for the fallback parser.
-			// When the handler stamps the context we never read this buffer,
-			// so the cost is the per-chunk Write going through one extra
-			// indirection — accepted overhead in exchange for one billing
-			// path that works for both stamping and body-parse callers.
-			resBody := new(bytes.Buffer)
+			// When the handler stamps the context we never read it. A stream
+			// keeps only its last data line, which is all the parser reads.
 			origWriter := c.Response().Writer
-			mw := &bodyWriter{
-				ResponseWriter: origWriter,
-				body:           resBody,
-			}
+			mw := &usageBodyWriter{ResponseWriter: origWriter}
 			c.Response().Writer = mw
 
 			handlerErr := next(c)
@@ -95,7 +93,7 @@ func UsageMiddleware(recorder *billing.Recorder, fallbackUser *auth.User) echo.M
 
 			model, prompt, completion, total, ok := tokensFromContext(c)
 			if !ok {
-				model, prompt, completion, total, ok = tokensFromBody(resBody.Bytes(), c.Response().Header().Get("Content-Type"))
+				model, prompt, completion, total, ok = mw.tokens(c.Response().Header().Get("Content-Type"))
 			}
 			if !ok {
 				billing.CountUnrecorded(context.Background(), endpoint, "no_usage")
@@ -212,7 +210,12 @@ func tokensFromBody(responseBytes []byte, contentType string) (model string, pro
 		}
 		payload = last
 	}
+	return tokensFromPayload(payload)
+}
 
+// tokensFromPayload reads the usage block of one OpenAI- or Anthropic-shaped
+// JSON document.
+func tokensFromPayload(payload []byte) (model string, prompt, completion, total int64, ok bool) {
 	// Try OpenAI shape first (handles /v1/chat/completions, /v1/completions,
 	// /v1/embeddings, /v1/edits, and any proxy that translates to OpenAI).
 	// A usage block whose token fields all decoded to zero is ambiguous —
@@ -300,4 +303,97 @@ func lastSSEData(b []byte) ([]byte, bool) {
 		}
 	}
 	return last, last != nil
+}
+
+// usageBodyWriter keeps what tokensFromBody needs of a response: the whole
+// body of a JSON response, and only the last data line of an event stream. A
+// stream sends a chunk per token, and keeping all of it cost a copy of the
+// whole stream for every request.
+type usageBodyWriter struct {
+	http.ResponseWriter
+
+	started bool
+	sse     bool
+	body    bytes.Buffer // a non-stream body, or the open line of a stream
+	last    []byte       // payload of the last data line of a stream
+	hasLast bool
+}
+
+func (w *usageBodyWriter) Write(b []byte) (int, error) {
+	if !w.started {
+		w.started = true
+		w.sse = isEventStream(w.Header().Get("Content-Type"))
+	}
+	if !w.sse {
+		w.body.Write(b)
+		return w.ResponseWriter.Write(b)
+	}
+	rest := b
+	for {
+		i := bytes.IndexByte(rest, '\n')
+		if i < 0 {
+			w.body.Write(rest)
+			break
+		}
+		if w.body.Len() == 0 {
+			w.sseLine(rest[:i])
+		} else {
+			w.body.Write(rest[:i])
+			w.sseLine(w.body.Bytes())
+			w.body.Reset()
+		}
+		rest = rest[i+1:]
+	}
+	return w.ResponseWriter.Write(b)
+}
+
+// sseLine applies the line rule of lastSSEData to one line.
+func (w *usageBodyWriter) sseLine(line []byte) {
+	line = bytes.TrimRight(line, "\r")
+	payload, found := bytes.CutPrefix(line, sseDataPrefix)
+	if !found || bytes.Equal(payload, sseDone) {
+		return
+	}
+	w.last = append(w.last[:0], payload...)
+	w.hasLast = true
+}
+
+// tokens returns the usage of the response, as tokensFromBody does for the
+// whole body. A stream is judged by the content type it was sent with.
+func (w *usageBodyWriter) tokens(contentType string) (model string, prompt, completion, total int64, ok bool) {
+	if !w.started || !w.sse {
+		return tokensFromBody(w.body.Bytes(), contentType)
+	}
+	if w.body.Len() > 0 {
+		// The text after the last newline is a line too.
+		w.sseLine(w.body.Bytes())
+		w.body.Reset()
+	}
+	if !w.hasLast {
+		return
+	}
+	return tokensFromPayload(w.last)
+}
+
+func (w *usageBodyWriter) Flush() {
+	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+// Hijack lets WebSocket upgraders reach the underlying connection.
+func (w *usageBodyWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hj, ok := w.ResponseWriter.(http.Hijacker); ok {
+		return hj.Hijack()
+	}
+	return nil, nil, http.ErrNotSupported
+}
+
+var (
+	sseDataPrefix = []byte("data: ")
+	sseDone       = []byte("[DONE]")
+)
+
+func isEventStream(contentType string) bool {
+	return strings.HasPrefix(contentType, "text/event-stream")
 }
