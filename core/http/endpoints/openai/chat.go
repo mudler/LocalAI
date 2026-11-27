@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/priority"
 	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/cloudproxy"
@@ -1344,6 +1345,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					Choices: result,
 					Object:  "chat.completion",
 					Usage:   &usage,
+					// The tier that applied, as OpenAI echoes it.
+					ServiceTier: priority.Of(input.Context).ServiceTier(),
 				}
 				respData, _ := json.Marshal(resp)
 				xlog.Debug("Response", "response", privacy.Redact(c.Request().Context(), string(respData)))

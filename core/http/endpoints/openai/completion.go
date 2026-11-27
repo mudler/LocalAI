@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/priority"
 	"github.com/mudler/LocalAI/core/privacy"
 
 	"github.com/google/uuid"
@@ -298,6 +299,8 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 			Choices: result,
 			Object:  "text_completion",
 			Usage:   &usage,
+			// The tier that applied, as OpenAI echoes it.
+			ServiceTier: priority.Of(input.Context).ServiceTier(),
 		}
 
 		jsonResult, _ := json.Marshal(resp)

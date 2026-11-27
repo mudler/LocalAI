@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/priority"
 	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/failover"
@@ -372,6 +373,18 @@ func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) (err error) {
 	// The model call runs on a context of its own: keep the incognito level.
 	ctxWithCorrelationID = privacy.WithLevel(ctxWithCorrelationID, privacy.FromContext(reqCtx))
 	ctxWithCorrelationID = diagnostics.Inherit(ctxWithCorrelationID, reqCtx)
+
+	cls, err := requestPriority(c, reqCtx, re.applicationConfig, input.ServiceTier)
+	if err != nil {
+		cancel()
+		return err
+	}
+	ctxWithCorrelationID = priority.WithClass(ctxWithCorrelationID, cls)
+	// Keep the tier that applied, so a proxied request forwards the clamped
+	// value and not the one the caller asked for.
+	if input.ServiceTier != "" {
+		input.ServiceTier = cls.ServiceTier()
+	}
 
 	input.Context = ctxWithCorrelationID
 	input.Cancel = cancel
@@ -889,6 +902,15 @@ func (re *RequestExtractor) SetOpenResponsesRequest(c echo.Context) (err error) 
 	// The model call runs on a context of its own: keep the incognito level.
 	ctxWithCorrelationID = privacy.WithLevel(ctxWithCorrelationID, privacy.FromContext(reqCtx))
 	ctxWithCorrelationID = diagnostics.Inherit(ctxWithCorrelationID, reqCtx)
+
+	cls, err := requestPriority(c, reqCtx, re.applicationConfig, input.ServiceTier)
+	if err != nil {
+		cancel()
+		return err
+	}
+	ctxWithCorrelationID = priority.WithClass(ctxWithCorrelationID, cls)
+	// The response echoes the tier that applied.
+	input.ServiceTier = cls.ServiceTier()
 
 	input.Context = ctxWithCorrelationID
 	input.Cancel = cancel

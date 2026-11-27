@@ -100,6 +100,10 @@ type OpenAIResponse struct {
 	// (continuedev/continue, Kilo Code, Roo Code, etc.).
 	Usage    *OpenAIUsage    `json:"usage,omitempty"`
 	Metadata json.RawMessage `json:"metadata,omitempty" swaggertype:"object"`
+
+	// ServiceTier is the service tier the request was served with, set on
+	// the chat and text completion responses.
+	ServiceTier string `json:"service_tier,omitempty"`
 }
 
 // StreamOptions mirrors OpenAI's `stream_options` request field. The only
@@ -239,6 +243,13 @@ type OpenAIRequest struct {
 
 	// StreamOptions opts into OpenAI streaming extensions, e.g. include_usage.
 	StreamOptions *StreamOptions `json:"stream_options,omitempty" yaml:"stream_options,omitempty"`
+
+	// ServiceTier is the OpenAI service tier of the request: auto, default,
+	// flex or priority. It sets the priority class the backend serves the
+	// request with (core/priority); a caller who is not an administrator
+	// cannot raise it above default. After the request is read it holds the
+	// tier that applied.
+	ServiceTier string `json:"service_tier,omitempty"`
 
 	// Image (not supported by OpenAI)
 	Quality string `json:"quality,omitempty"`
