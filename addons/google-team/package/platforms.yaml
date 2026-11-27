@@ -1,0 +1,11 @@
+schema: 1
+addon: google-team
+executable: google-team
+manifest: addons/google-team/manifest.json
+ui: addons/google-team/ui/dist
+skills: addons/google-team/skills
+platforms:
+  - platform: linux/amd64
+    enabled: true
+    runner: ubuntu-24.04
+    native_check: executable-start

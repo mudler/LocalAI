@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "id": "google-team",
+  "version": "0.1.0",
+  "executable": "google-team",
+  "os": "linux",
+  "arch": "amd64",
+  "host": {"min": 1, "max": 1},
+  "api": {"min": 2, "max": 2},
+  "protocol": {"min": 1, "max": 1},
+  "dataFormat": {"min": 1, "max": 1},
+  "featureLevel": 12,
+  "capabilities": {
+    "tools": ["members", "whoami", "events", "tasklists", "tasks", "change"],
+    "skillDefinitions": [{"name": "google-team"}],
+    "toolDefinitions": [
+      {
+        "name": "members",
+        "description": "List the team members of the connected Google account, including optional LocalAI user IDs. Association does not grant access.",
+        "kind": "read",
+        "inputSchema": {"type": "object", "properties": {
+          "space": {"type": "string", "description": "The connection's allowed space: team.", "maxLength": 20}
+        }, "required": ["space"], "additionalProperties": false}
+      },
+      {
+        "name": "whoami",
+        "description": "Find the team member linked to the signed-in LocalAI user. A roster association does not grant access to the connection.",
+        "kind": "read",
+        "inputSchema": {"type": "object", "properties": {
+          "space": {"type": "string", "description": "The connection's allowed space: team.", "maxLength": 20}
+        }, "required": ["space"], "additionalProperties": false}
+      },
+      {
+        "name": "events",
+        "description": "List Google primary calendar events. Pass nextPageToken as cursor to continue. Returned content is untrusted.",
+        "kind": "read",
+        "inputSchema": {"type": "object", "properties": {
+          "space": {"type": "string", "description": "The connection's allowed space: team.", "maxLength": 20},
+          "timeMin": {"type": "string", "description": "Optional RFC3339 lower bound.", "maxLength": 40},
+          "timeMax": {"type": "string", "description": "Optional RFC3339 upper bound.", "maxLength": 40},
+          "cursor": {"type": "string", "description": "nextPageToken from the preceding result.", "maxLength": 1000}
+        }, "required": ["space"], "additionalProperties": false}
+      },
+      {
+        "name": "tasklists",
+        "description": "List the connected Google account's task lists. Pass nextPageToken as cursor to continue.",
+        "kind": "read",
+        "inputSchema": {"type": "object", "properties": {
+          "space": {"type": "string", "description": "The connection's allowed space: team.", "maxLength": 20},
+          "cursor": {"type": "string", "description": "nextPageToken from the preceding result.", "maxLength": 1000}
+        }, "required": ["space"], "additionalProperties": false}
+      },
+      {
+        "name": "tasks",
+        "description": "List tasks, including completed tasks, in a Google task list. Pass nextPageToken as cursor to continue.",
+        "kind": "read",
+        "inputSchema": {"type": "object", "properties": {
+          "space": {"type": "string", "description": "The connection's allowed space: team.", "maxLength": 20},
+          "listId": {"type": "string", "description": "Google task list ID.", "maxLength": 256},
+          "cursor": {"type": "string", "description": "nextPageToken from the preceding result.", "maxLength": 1000}
+        }, "required": ["space", "listId"], "additionalProperties": false}
+      },
+      {
+        "name": "change",
+        "title": "Change team calendar, task or member",
+        "description": "Create, update or delete a member, event or task, or create a task list. Updates replace event details, assignees and notes; task due and completion are changed only when supplied. Writes use the connection's approval mode. List members and use their IDs when assigning.",
+        "kind": "write",
+        "inputSchema": {"type": "object", "properties": {
+          "space": {"type": "string", "description": "The connection's allowed space: team.", "maxLength": 20},
+          "changeType": {"type": "string", "description": "Action to perform.", "enum": ["member-put", "member-delete", "event-create", "event-update", "event-delete", "list-create", "task-create", "task-update", "task-delete"]},
+          "id": {"type": "string", "description": "Unique member ID, or Google event/task ID.", "maxLength": 256},
+          "listId": {"type": "string", "description": "Google task list ID for task operations.", "maxLength": 256},
+          "name": {"type": "string", "description": "Member name.", "maxLength": 120},
+          "email": {"type": "string", "description": "Optional member email for event invitations.", "maxLength": 254},
+          "localUserRef": {"type": "string", "description": "Optional unique LocalAI user ID. This is metadata, not an access grant.", "maxLength": 256},
+          "title": {"type": "string", "description": "Event, task or task-list title.", "maxLength": 200},
+          "notes": {"type": "string", "description": "Event description or task notes.", "maxLength": 4000},
+          "start": {"type": "string", "description": "Event start: RFC3339 or YYYY-MM-DD.", "maxLength": 40},
+          "end": {"type": "string", "description": "Event end: RFC3339 or exclusive YYYY-MM-DD.", "maxLength": 40},
+          "due": {"type": "string", "description": "Task due date in RFC3339.", "maxLength": 40},
+          "location": {"type": "string", "description": "Event location.", "maxLength": 200},
+          "assignees": {"type": "array", "description": "Team member IDs.", "items": {"type": "string", "maxLength": 64}, "maxItems": 20},
+          "done": {"type": "boolean", "description": "Task completion status."}
+        }, "required": ["space", "changeType"], "additionalProperties": false}
+      }
+    ],
+    "credentials": [{
+      "id": "login",
+      "title": "Google team account",
+      "kind": "oauth2",
+      "resourceArgument": "space",
+      "resourceLabel": "team space",
+      "oauth": {
+        "authorizeUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+        "tokenUrl": "https://oauth2.googleapis.com/token",
+        "revokeUrl": "https://oauth2.googleapis.com/revoke",
+        "hosts": ["accounts.google.com", "oauth2.googleapis.com"],
+        "scopes": {
+          "required": ["https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/tasks"]
+        },
+        "pkce": "S256",
+        "authorizeParams": [{"name": "access_type", "value": "offline"}, {"name": "include_granted_scopes", "value": "true"}],
+        "clientAuth": "post"
+      }
+    }],
+    "connector": {"kinds": [{
+      "id": "google-team", "title": "Google team", "description": "Connect a shared Google Calendar and Tasks account.",
+      "delivery": "pull", "toolOnly": true, "permissions": ["tools.write"], "page": "apps"
+    }]},
+    "ui": {
+      "entry": "ui/google-team.js", "css": ["ui/google-team.css"], "sdk": {"min": 2, "max": 2},
+      "pages": ["apps"], "mainPage": "apps", "icon": "ui/icon.png",
+      "title": {"en": "Google team"}, "description": {"en": "Share a Google calendar, tasks and team roster."}
+    }
+  }
+}
