@@ -176,6 +176,12 @@ export function fakeP2P(libraryVersion?: string): FakeP2P {
       if (f.libraryVersion === undefined) return unavailable()
       return f.pairAnswers.length > 1 ? f.pairAnswers.shift()! : (f.pairAnswers[0] ?? { ok: false, detail: 'no answer scripted' })
     },
+    async forgetCredential(o) {
+      calls.push({ name: 'forgetCredential', args: [o] })
+    },
+    async retainCredentials(o) {
+      calls.push({ name: 'retainCredentials', args: [o] })
+    },
     async freePort(o) {
       calls.push({ name: 'freePort', args: [o] })
       return { port: f.ports.shift() ?? 41000 }

@@ -133,6 +133,8 @@ export function androidP2PTunnels(o: AndroidTunnelsOptions): AndroidTunnels {
   // Routes a start asked for that are not saved: those of an invite of a
   // saved server, dialled until the server gives its own (see the core).
   const trials = new Map<string, P2PTarget>()
+  /** The peer ID of each started server, to delete its credential once the server is removed. */
+  const peers = new Map<string, string>()
   /** Hosts handed out by allocate whose server is not saved yet. */
   const reserved = new Set<string>()
   const waiters = new Set<() => void>()
@@ -211,6 +213,23 @@ export function androidP2PTunnels(o: AndroidTunnelsOptions): AndroidTunnels {
     }
   }
 
+  /** The saved servers over P2P, by peer ID. */
+  const savedPeers = (): string[] => remotes(o.store()).flatMap((r) => (r.p2p ? [r.p2p.peer] : []))
+
+  /**
+   * A stopped server that is no longer saved was removed: its device
+   * credential (of a sign-in invite) is deleted too. Another saved server
+   * with the same peer keeps it.
+   */
+  const forgetIfRemoved = (id: string) => {
+    const peer = peers.get(id)
+    peers.delete(id)
+    if (!peer) return
+    const c = remotes(o.store())
+    if (c.some((r) => r.id === id) || c.some((r) => r.p2p?.peer === peer)) return
+    plugin.forgetCredential({ peer }).catch((e: unknown) => log(`servers: could not delete the sign-in of a removed server: ${message(e)}`, 'warn'))
+  }
+
   const status = (id: string): TunnelStatusView | undefined => (active.has(id) ? states.get(id) : undefined)
 
   const allocate = async (): Promise<{ port: number; host: string }> => {
@@ -264,6 +283,8 @@ export function androidP2PTunnels(o: AndroidTunnelsOptions): AndroidTunnels {
     start(id, _name, target) {
       active.add(id)
       const saved = remotes(o.store()).find((r) => r.id === id)?.p2p
+      const peer = saved?.peer ?? target?.peer
+      if (peer) peers.set(id, peer)
       if (target && saved && !sameRouteLists(target, saved)) trials.set(id, target)
       else trials.delete(id)
       const cur = states.get(id)
@@ -273,6 +294,7 @@ export function androidP2PTunnels(o: AndroidTunnelsOptions): AndroidTunnels {
 
     stop(id) {
       trials.delete(id)
+      forgetIfRemoved(id)
       if (!active.delete(id)) return
       states.delete(id)
       sync()
@@ -325,6 +347,12 @@ export function androidP2PTunnels(o: AndroidTunnelsOptions): AndroidTunnels {
         log(`servers: could not listen to the P2P plugin: ${message(e)}`, 'warn')
       }
       await readNative()
+      // Credentials of servers removed while the app could not tell the plugin.
+      try {
+        await plugin.retainCredentials({ peers: savedPeers() })
+      } catch (e) {
+        log(`servers: could not clean up the stored sign-ins: ${message(e)}`, 'warn')
+      }
     },
 
     async refresh() {

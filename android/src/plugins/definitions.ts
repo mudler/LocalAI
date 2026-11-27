@@ -62,7 +62,16 @@ export interface P2PPlugin {
   version(): Promise<{ version: string }>
   deviceName(): Promise<{ name: string }>
   peerId(): Promise<{ peerId?: string }>
+  /**
+   * `json` is the result object of the library. A server that gave a device
+   * credential (a sign-in invite) also sends `sign_in` and `owner_name`; the
+   * credential itself stays in Kotlin and never reaches this side.
+   */
   pair(o: { link: string; name: string; allowOpenRelay: boolean }): Promise<{ ok: true; json: string } | P2PPairFailure>
+  /** Deletes the stored device credential of a server (by its peer ID): the server was removed. */
+  forgetCredential(o: { peer: string }): Promise<void>
+  /** Deletes every stored device credential whose server is not in `peers` (the saved servers). */
+  retainCredentials(o: { peers: string[] }): Promise<void>
   freePort(o: { host: string }): Promise<{ port: number }>
   setForwards(o: { forwards: P2PForwardInput[] }): Promise<void>
   statuses(): Promise<{ states: { id: string; line: string }[] }>

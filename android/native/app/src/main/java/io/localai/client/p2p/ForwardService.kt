@@ -44,6 +44,11 @@ internal object P2PRuntime {
     lateinit var identityPath: String
         private set
 
+    /** The device credentials of sign-in invites, by server peer ID; null before [init]. */
+    @Volatile
+    var credentials: DeviceCredentials? = null
+        private set
+
     // Read by the plugin's threads too.
     @Volatile
     var forwards: List<Forward> = emptyList()
@@ -70,7 +75,10 @@ internal object P2PRuntime {
     fun init(context: Context) {
         if (::app.isInitialized) return
         app = context.applicationContext
-        identityPath = identityFile(app).path
+        val identity = identityFile(app)
+        identityPath = identity.path
+        // Next to the identity (noBackupFilesDir/p2p, mode 700): a credential is bound to it.
+        credentials = DeviceCredentials(File(identity.parentFile, "credentials"), KeystoreCipher())
         keep = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_KEEP, false)
         (app as Application).registerActivityLifecycleCallbacks(visibility)
     }

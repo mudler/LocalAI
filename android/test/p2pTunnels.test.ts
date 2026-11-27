@@ -127,6 +127,49 @@ describe('P2P in the client core', () => {
     expect(core.servers.serversView().rows.map((r) => r.id)).toEqual([b.id])
   })
 
+  it('removing a server deletes its stored sign-in, and only its own', async () => {
+    const p = withP2P()
+    const { core } = await start(p)
+    const { a } = await pairTwo(p, core)
+    expect(called(p, 'forgetCredential')).toEqual([])
+    await core.servers.removeServer(a.id)
+    await flush()
+    expect(called(p, 'forgetCredential').map((c) => c.args[0])).toEqual([{ peer: PEER }])
+  })
+
+  it('a new invite of a saved server keeps its sign-in', async () => {
+    const p = withP2P()
+    const { core } = await start(p)
+    await pairTwo(p, core)
+    const r = await core.servers.addServerByInvite({ link: `${invite(PEER)}&r=/ip4/192.0.2.9/tcp/4001/p2p/12D3KooWRelay` })
+    await flush()
+    expect(r.ok).toBe(true)
+    expect(called(p, 'forgetCredential')).toEqual([])
+  })
+
+  it('keeps only the sign-ins of saved servers when it starts', async () => {
+    const p = withP2P()
+    const first = await start(p)
+    await pairTwo(p, first.core)
+    await first.core.shutdown()
+    open = open.filter((c) => c !== first.core)
+    expect(called(p, 'forgetCredential')).toEqual([])
+    p.p2p.calls.length = 0
+    await start(p)
+    const retained = called(p, 'retainCredentials').map((c) => (c.args[0] as { peers: string[] }).peers)
+    expect(retained).toHaveLength(1)
+    expect([...retained[0]].sort()).toEqual([PEER, PEER2].sort())
+  })
+
+  it('passes the sign-in fields of a pairing through and still pairs', async () => {
+    const p = withP2P()
+    const { core } = await start(p)
+    const json = JSON.stringify({ ...JSON.parse(pairJson(PEER)), sign_in: true, owner_name: 'Ada' })
+    p.p2p.pairAnswers = [{ ok: true, json }]
+    const r = await core.servers.addServerByInvite({ link: invite(PEER) })
+    expect(r.ok).toBe(true)
+  })
+
   it('maps the state lines onto the row and publishes a fresh view for each', async () => {
     const p = withP2P()
     const { core, events } = await start(p)
