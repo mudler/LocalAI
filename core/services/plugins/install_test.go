@@ -6,6 +6,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -641,6 +642,26 @@ var _ = Describe("Installs", func() {
 			view, err = svc.TurnView(ctx, bob.ID, plugins.ChatRef{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(view).To(BeEmpty())
+		})
+
+		It("keeps the other plugins of a turn when one package has an empty model", func() {
+			_, err := install(user, store.ScopeUser)
+			Expect(err).NotTo(HaveOccurred())
+			d := "sha256:" + strings.Repeat("e", 64)
+			Expect(st.InstallTx(ctx, func(tx store.Tx) error {
+				if err := tx.PutPackage(store.Package{Digest: d, Name: "bare"}); err != nil {
+					return err
+				}
+				if err := tx.CreateInstall(store.Install{ID: "bare-1", PluginID: "bare@team", Scope: store.ScopeUser, Owner: user.ID,
+					Digest: d, State: store.StateInstalled}); err != nil {
+					return err
+				}
+				return tx.SaveUserState(store.UserState{Principal: user.ID, InstallID: "bare-1", Enabled: true})
+			})).To(Succeed())
+			view, err := svc.TurnView(ctx, user.ID, plugins.ChatRef{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(view).To(HaveLen(2))
+			Expect(view).To(ContainElement(SatisfyAll(HaveField("PluginID", "bare@team"), HaveField("Name", "bare"))))
 		})
 
 		It("gives nothing to a user whose plugins feature is off, their own installs included", func() {

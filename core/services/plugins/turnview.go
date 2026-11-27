@@ -2,7 +2,6 @@ package plugins
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"slices"
 
@@ -78,12 +77,18 @@ func (s *Service) TurnView(ctx context.Context, principal string, chat ChatRef) 
 		if err != nil {
 			return nil, fmt.Errorf("plugins: package of install %s: %w", in.ID, err)
 		}
-		var m Model
-		if err := json.Unmarshal(pkg.Model, &m); err != nil {
-			return nil, fmt.Errorf("plugins: model of %s: %w", in.Digest, err)
+		// An empty model (a package row written without one) is an empty
+		// plugin, not a broken turn.
+		m, err := modelOf(pkg)
+		if err != nil {
+			return nil, err
+		}
+		name := m.Name
+		if name == "" {
+			name = pkg.Name
 		}
 		out = append(out, ActivePlugin{
-			InstallID: in.ID, PluginID: in.PluginID, Name: m.Name, Digest: in.Digest,
+			InstallID: in.ID, PluginID: in.PluginID, Name: name, Digest: in.Digest,
 			SourceSHA: in.SourceSHA, Scope: in.Scope, RunsCode: in.RunsCode, Model: m,
 		})
 	}
