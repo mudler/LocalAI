@@ -213,6 +213,25 @@ static void test_preemption_cap() {
     EXPECT(pick_victim(c) == 0, "capped resumable before non-resumable");
 }
 
+static void test_victim_cells() {
+    // the fewest cells go first: they are the cheapest to recompute
+    std::vector<victim_candidate> c = {{0, 1, true, 0, 300}, {1, 2, true, 0, 900}, {2, 3, true, 0, 500}};
+    EXPECT(pick_victim(c) == 0, "fewest cells, even when older");
+    c = {{0, 1, true, 0, 400}, {1, 5, true, 0, 400}, {2, 3, true, 0, 400}};
+    EXPECT(pick_victim(c) == 1, "equal cells: the youngest");
+    c = {{0, 1, true, paged_max_preemptions, 10}, {1, 2, true, 0, 900}};
+    EXPECT(pick_victim(c) == 1, "the cap still comes before the cell count");
+    c = {{0, 1, false, 0, 10}, {1, 2, true, 0, 900}};
+    EXPECT(pick_victim(c) == 1, "resumable before non-resumable, whatever the cells");
+}
+
+static void test_resume_need() {
+    EXPECT(resume_need(700, 64) == 700 + 256, "small reserve: at least 256 extra");
+    EXPECT(resume_need(700, 256) == 700 + 512, "twice the reserve");
+    EXPECT(resume_need(700, 0) == 700 + 256, "no reserve: still 256");
+    EXPECT(resume_need(700, 64) > slot_claim(700, 64, 0), "more room than a first admission");
+}
+
 static void test_readmission() {
     // A preempted request (old task id) waits: newer requests stay behind it.
     pool_view v;
@@ -223,7 +242,7 @@ static void test_readmission() {
     EXPECT(admit(v, 10) == admit_result::WAIT, "new arrivals wait behind a preempted request");
     // The preempted request itself: it already generated past its reserve, so it
     // needs only the cells of its tokens.
-    EXPECT(slot_claim(700, 256, 300) == 700, "a resumed request needs no reserve it has used up");
+    EXPECT(slot_claim(700, 256, 300) == 700, "a running request claims no reserve it has used up");
     EXPECT(slot_claim(700, 256, 100) == 856, "and the rest of its reserve otherwise");
 }
 
@@ -310,6 +329,8 @@ int main() {
     test_unique_cells();
     test_preemption_cap();
     test_readmission();
+    test_victim_cells();
+    test_resume_need();
     test_attach();
     test_spec_pause();
     test_order();

@@ -119,6 +119,13 @@ inline int64_t slot_claim(int64_t n_prompt_left, int64_t n_reserve, int64_t n_ge
     return std::max((int64_t) 0, n_prompt_left) + std::max((int64_t) 0, n_reserve - n_generated);
 }
 
+// Cells a preempted request needs to be admitted again: its tokens plus a
+// reserve of at least twice kv_output_reserve and at least 256 cells. The
+// extra room keeps a resumed stream from being preempted again right away.
+inline int64_t resume_need(int64_t n_tokens, int64_t reserve) {
+    return n_tokens + std::max<int64_t>(2 * std::max<int64_t>(reserve, 0), 256);
+}
+
 // Cells one slot needs in the next step.
 // generating: one cell for the sampled token plus one per draft token.
 // prefilling: the rest of its prompt (or of its resume buffer).
@@ -144,15 +151,18 @@ struct victim_candidate {
     int64_t age         = 0;     // larger is younger (the task id, given on arrival)
     bool    resumable   = false; // can be rebuilt by recomputing its tokens
     int     n_preempted = 0;     // times this request was preempted already
+    int64_t n_cells     = 0;     // cells the slot holds: what a recompute costs
 };
 
 // Picks the slot to preempt when the pool is short.
 //
 // Returns an index into c, or -1 when nothing may be preempted. In order:
-//   1. the youngest resumable slot preempted fewer than paged_max_preemptions times,
-//   2. the youngest resumable slot (the cap gives way only to avoid failing a request),
-//   3. the youngest slot that cannot be resumed (speculative decoding, a multimodal
-//      prompt, a score fork, recurrent or hybrid memory): it fails with a retryable error.
+//   1. a resumable slot preempted fewer than paged_max_preemptions times,
+//   2. a resumable slot (the cap gives way only to avoid failing a request),
+//   3. a slot that cannot be resumed (a draft model, a multimodal prompt, a score
+//      fork, recurrent or hybrid memory): it fails with a retryable error.
+// Within a group, the slot holding the fewest cells goes, as it costs the
+// least to recompute; the youngest breaks a tie.
 // The only running slot is never preempted, so one request always makes progress.
 inline int pick_victim(const std::vector<victim_candidate> & c) {
     if (c.size() < 2) {
@@ -164,7 +174,8 @@ inline int pick_victim(const std::vector<victim_candidate> & c) {
             const bool ok = pass == 0 ? c[i].resumable && c[i].n_preempted < paged_max_preemptions
                           : pass == 1 ? c[i].resumable
                                       : !c[i].resumable;
-            if (ok && (best < 0 || c[i].age > c[best].age)) {
+            if (ok && (best < 0 || c[i].n_cells < c[best].n_cells ||
+                       (c[i].n_cells == c[best].n_cells && c[i].age > c[best].age))) {
                 best = i;
             }
         }

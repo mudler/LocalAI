@@ -84,7 +84,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
          other.init_sampler();
      }
  };
-@@ -1941,6 +1967,242 @@ private:
+@@ -1941,6 +1967,243 @@ private:
          return res;
      }
  
@@ -220,8 +220,9 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +                    v.older_waiting = true;
 +                }
 +            }
-+            // a resumed request needs only the part of its reserve it has not generated yet
-+            const int64_t n_need = serving_policy::slot_claim(n_tokens, paged_reserve(slot), slot.stats.n_gen);
++            // a preempted request waits for extra room, so it is not preempted again right away
++            const int64_t n_need = slot.paged_n_preempted > 0 ? serving_policy::resume_need(n_tokens, paged_reserve(slot))
++                                                              : serving_policy::slot_claim(n_tokens, paged_reserve(slot), slot.stats.n_gen);
 +            const auto res = serving_policy::admit(v, n_need);
 +            if (res == serving_policy::admit_result::ADMIT) {
 +                if (slot.paged_t_preempted > 0) {
@@ -266,7 +267,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +                n_demand += serving_policy::slot_demand(gen, gen && slot.can_speculate() && !spec_paused_now ? std::min(slot.get_n_draft_max(), 64) : 0, paged_prompt_left(slot));
 +                const auto type = slot.task->type;
 +                if (type != SERVER_TASK_TYPE_TTS && type != SERVER_TASK_TYPE_REALTIME && type != SERVER_TASK_TYPE_TRANSCRIBE_RT) {
-+                    cands.push_back({ slot.id, slot.task->id, paged_resumable(slot), slot.paged_n_preempted });
++                    cands.push_back({ slot.id, slot.task->id, paged_resumable(slot), slot.paged_n_preempted, paged_n_cells(slot) });
 +                }
 +            }
 +            if (!serving_policy::pool_short(llama_n_ctx(ctx_tgt), n_used, n_demand)) {
@@ -327,7 +328,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
      std::vector<common_adapter_lora_info> construct_lora_list(const std::map<int, float> & config) const {
          std::vector<common_adapter_lora_info> output = params_base.lora_adapters; // copy
          for (size_t i = 0; i < output.size(); ++i) {
-@@ -3299,7 +3561,15 @@ private:
+@@ -3299,7 +3562,15 @@ private:
  
                      // the task is not deferred past this point
                      if (plan.update_cache && prompt_cache) {
@@ -344,7 +345,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      }
  
                      if (task.is_parent()) {
-@@ -4071,6 +4341,24 @@ private:
+@@ -4071,6 +4342,24 @@ private:
          // start populating the batch for this iteration
          batch.clear();
  
@@ -369,7 +370,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
          // track if given slot can be batched with slots already in the batch
          auto & slot_batched = batch.slot_batched;
  
-@@ -4102,7 +4390,7 @@ private:
+@@ -4102,7 +4391,7 @@ private:
                  const bool use_ckpt_tgt = ctx_tgt_seq_rm_type == COMMON_CONTEXT_SEQ_RM_TYPE_FULL;
                  const bool use_ckpt_dft = ctx_dft_seq_rm_type == COMMON_CONTEXT_SEQ_RM_TYPE_FULL;
  
@@ -378,7 +379,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
  
                  if (n_draft_max > 0) {
                      GGML_ASSERT(slot.can_speculate());
-@@ -4216,12 +4504,17 @@ private:
+@@ -4216,12 +4505,17 @@ private:
          auto & alora_scale       = batch.alora_scale;
          auto & alora_disabled_id = batch.alora_disabled_id;
  
@@ -397,7 +398,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      return; // batch is full, skip remaining slots
                  }
  
-@@ -4248,6 +4541,19 @@ private:
+@@ -4248,6 +4542,19 @@ private:
  
                  // this slot still has a prompt to be processed
                  if (slot.state == SLOT_STATE_PROCESSING_PROMPT || slot.state == SLOT_STATE_STARTED) {
@@ -417,7 +418,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      const auto & input_tokens = slot.task->tokens;
  
                      // used to determine the number of tokens added to the batch for the current slot
-@@ -4436,6 +4742,12 @@ private:
+@@ -4436,6 +4743,12 @@ private:
                                  n_past = 0;
                              }
  
@@ -430,7 +431,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                              llama_pos pos_next = slot.prompt.tokens.pos_next(n_past);
  
                              // number of cached tokens shared with the new prompt, before any checkpoint is restored
-@@ -4694,7 +5006,8 @@ private:
+@@ -4694,7 +5007,8 @@ private:
                      const int32_t n_decision_first = slot.task->type == SERVER_TASK_TYPE_DECISION ? slot.task->decision.pos_first() : -1;
  
                      // add prompt tokens for processing in the current batch
