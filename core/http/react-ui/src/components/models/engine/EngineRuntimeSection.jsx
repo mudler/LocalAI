@@ -15,6 +15,8 @@ import {
 import EngineField from './EngineField'
 import { choiceWords, fieldLabel } from './labels'
 // eslint-disable-next-line no-unused-vars
+import MoreText from './MoreText'
+// eslint-disable-next-line no-unused-vars
 import TensorPlacement from './TensorPlacement'
 // eslint-disable-next-line no-unused-vars
 import RawOptions from './RawOptions'
@@ -231,13 +233,14 @@ export default function EngineRuntimeSection({ engine, model, values, onChange, 
                 {c.choices.map(ch => <option key={ch.value} value={ch.value}>{choiceLabel(t, c, ch.value)}</option>)}
               </select>
             </span>
-            <p className="dk-hint rt-field__hint" id={`${id}-hint`}>
+            <div className="dk-hint rt-field__hint" id={`${id}-hint`}>
               {c.flag && <code className="rt-flag rt-flag--hint">{c.flag}</code>}
-              <span>{t(`engineSettings.hints.${c.id}`, { defaultValue: c.doc })}</span>
+              <MoreText text={t(`engineSettings.hints.${c.id}`, { defaultValue: c.doc })} />
               {chosenDoc && (
-                <span data-testid={`${id}-choice-hint`}>{t(`engineSettings.choiceHints.${c.id}.${chosen}`, { defaultValue: chosenDoc })}</span>
+                <MoreText className="rt-field__choice-hint" testId={`${id}-choice-hint`}
+                  text={t(`engineSettings.choiceHints.${c.id}.${chosen}`, { defaultValue: chosenDoc })} />
               )}
-            </p>
+            </div>
           </div>
         )
       })}

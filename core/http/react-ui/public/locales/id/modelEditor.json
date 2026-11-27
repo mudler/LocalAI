@@ -454,7 +454,7 @@
             "picker": {
                 "label": "Model draf",
                 "placeholder": "Pilih model terpasang",
-                "hint": "Model yang lebih kecil dari keluarga yang sama, misalnya model 0.6B atau 1B untuk model besar dari seri yang sama.",
+                "hint": "Model kecil dari keluarga yang sama, misalnya model 0.6B atau 1B.",
                 "filter": "Saring model",
                 "loading": "Memuat model terpasang...",
                 "empty": "Tidak ada model lain yang dijalankan {{engine}} yang terpasang. Pasang dulu model kecil dari keluarga yang sama.",
@@ -514,6 +514,7 @@
         },
         "flags": {
             "show": "Tampilkan flag {{engine}}"
-        }
+        },
+        "more": "Selengkapnya"
     }
 }

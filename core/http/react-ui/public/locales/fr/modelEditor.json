@@ -418,7 +418,7 @@
             "picker": {
                 "label": "Modèle brouillon",
                 "placeholder": "Choisir un modèle installé",
-                "hint": "Un modèle plus petit de la même famille, par exemple un modèle 0.6B ou 1B pour un grand modèle de la même série.",
+                "hint": "Un petit modèle de la même famille, par exemple un modèle 0.6B ou 1B.",
                 "filter": "Filtrer les modèles",
                 "loading": "Chargement des modèles installés...",
                 "empty": "Aucun autre modèle exécuté par {{engine}} n'est installé. Installez d'abord un petit modèle de la même famille.",
@@ -478,6 +478,7 @@
         },
         "flags": {
             "show": "Afficher les options {{engine}}"
-        }
+        },
+        "more": "Plus"
     }
 }

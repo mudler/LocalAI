@@ -418,7 +418,7 @@
             "picker": {
                 "label": "Modello bozza",
                 "placeholder": "Scegli un modello installato",
-                "hint": "Un modello più piccolo della stessa famiglia, per esempio uno da 0.6B o 1B per un modello grande della stessa serie.",
+                "hint": "Un modello piccolo della stessa famiglia, ad esempio da 0.6B o 1B.",
                 "filter": "Filtra i modelli",
                 "loading": "Caricamento dei modelli installati...",
                 "empty": "Nessun altro modello eseguito da {{engine}} è installato. Installa prima un modello piccolo della stessa famiglia.",
@@ -478,6 +478,7 @@
         },
         "flags": {
             "show": "Mostra i flag di {{engine}}"
-        }
+        },
+        "more": "Altro"
     }
 }

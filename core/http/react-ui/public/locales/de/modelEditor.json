@@ -418,7 +418,7 @@
             "picker": {
                 "label": "Entwurfsmodell",
                 "placeholder": "Installiertes Modell wählen",
-                "hint": "Ein kleineres Modell derselben Familie, etwa ein 0.6B- oder 1B-Modell für ein großes Modell derselben Reihe.",
+                "hint": "Ein kleines Modell derselben Familie, etwa ein 0.6B- oder 1B-Modell.",
                 "filter": "Modelle filtern",
                 "loading": "Installierte Modelle werden geladen...",
                 "empty": "Kein anderes Modell, das {{engine}} ausführt, ist installiert. Installiere zuerst ein kleines Modell derselben Familie.",
@@ -478,6 +478,7 @@
         },
         "flags": {
             "show": "{{engine}}-Flags anzeigen"
-        }
+        },
+        "more": "Mehr"
     }
 }

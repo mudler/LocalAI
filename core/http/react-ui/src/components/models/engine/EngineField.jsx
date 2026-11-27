@@ -5,6 +5,8 @@ import { Segmented, Slider } from '../../ui'
 import Icon from '../../Icon'
 import { readItem, validate } from '../../../utils/engineSettings'
 import { choiceWords, fieldLabel } from './labels'
+// eslint-disable-next-line no-unused-vars
+import MoreText from './MoreText'
 
 const shown = (v) => (v === undefined || v === null ? '' : String(v))
 
@@ -62,10 +64,10 @@ export default function RuntimeField({ item, values, onWrite, onValidity, readOn
   const hintId = `${id}-hint`
   const errorId = `${id}-error`
   const hint = (
-    <p className="dk-hint rt-field__hint" id={hintId}>
+    <div className="dk-hint rt-field__hint" id={hintId}>
       {item.flag && <code className="rt-flag rt-flag--hint" data-testid={`${id}-flag`}>{item.flag}</code>}
-      {item.doc && <span>{item.doc}</span>}
-    </p>
+      {item.doc && <MoreText text={item.doc} />}
+    </div>
   )
   const describedBy = error ? `${hintId} ${errorId}` : hintId
 

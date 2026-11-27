@@ -428,3 +428,14 @@ test('engine settings: a second engine works from its schema alone', () => {
   const changes = describeChanges(TOY, values, draft)
   assert.deepEqual(changes.map(c => c.id), ['options.enforce_eager'])
 })
+
+test('a hint shows its first sentence and keeps the rest for More', async () => {
+  const { firstSentence } = await import('../../src/components/models/engine/labels.js')
+  assert.deepEqual(firstSentence('Fewest drafted tokens worth checking. 0 checks any draft.'), ['Fewest drafted tokens worth checking.', '0 checks any draft.'])
+  // A decimal or an abbreviation does not end a sentence; a lowercase start does not stop one.
+  assert.deepEqual(firstSentence('A 0.6B model, e.g. a small one. Next.'), ['A 0.6B model, e.g. a small one.', 'Next.'])
+  assert.deepEqual(firstSentence('Vocabularies differ (1 and 2 tokens). llama.cpp refuses it.'), ['Vocabularies differ (1 and 2 tokens).', 'llama.cpp refuses it.'])
+  assert.deepEqual(firstSentence('One sentence only.'), ['One sentence only.', ''])
+  assert.deepEqual(firstSentence('负载下降后恢复。0 表示从不暂停。'), ['负载下降后恢复。', '0 表示从不暂停。'])
+  assert.deepEqual(firstSentence(undefined), ['', ''])
+})

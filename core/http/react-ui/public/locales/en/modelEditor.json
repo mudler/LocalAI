@@ -454,7 +454,7 @@
             "picker": {
                 "label": "Draft model",
                 "placeholder": "Pick an installed model",
-                "hint": "A smaller model of the same family, for example a 0.6B or 1B model for a large model of the same series.",
+                "hint": "A small model of the same family, such as a 0.6B or 1B model.",
                 "filter": "Filter models",
                 "loading": "Loading installed models...",
                 "empty": "No other model that {{engine}} runs is installed. Install a small model of the same family first.",
@@ -514,6 +514,7 @@
         },
         "flags": {
             "show": "Show {{engine}} flags"
-        }
+        },
+        "more": "More"
     }
 }

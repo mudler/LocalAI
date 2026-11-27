@@ -454,7 +454,7 @@
       "picker": {
         "label": "Modelo rascunho",
         "placeholder": "Escolha um modelo instalado",
-        "hint": "Um modelo menor da mesma família, por exemplo um de 0.6B ou 1B para um modelo grande da mesma série.",
+        "hint": "Um modelo pequeno da mesma família, como um de 0.6B ou 1B.",
         "filter": "Filtrar modelos",
         "loading": "Carregando modelos instalados...",
         "empty": "Nenhum outro modelo que o {{engine}} executa está instalado. Instale primeiro um modelo pequeno da mesma família.",
@@ -514,6 +514,7 @@
     },
     "flags": {
       "show": "Mostrar flags do {{engine}}"
-    }
+    },
+    "more": "Mais"
   }
 }

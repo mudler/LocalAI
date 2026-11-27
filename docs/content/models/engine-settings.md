@@ -276,8 +276,8 @@ the **Interactive** tab has a **Runtime tuning** section with the badge
   edit writes the main name in its place. A test reads the option names that
   `backend/cpp/llama-cpp/grpc-server.cpp` parses and fails when one has no
   field, so a new option is not missed. The full list with defaults is in
-  [Model configuration]({{%relref "/models/model-configuration" %}}). Each field shows the server's
-  description. Turn on **Show llama.cpp flags** in the section head to see the
+  [Model configuration]({{%relref "/models/model-configuration" %}}). Each field shows the first
+  sentence of the server's description; **More** shows the rest. Turn on **Show llama.cpp flags** in the section head to see the
   `llama-server` flag of each field; the browser keeps the choice. An empty field, or **Default**, keeps the
   setting out of the file. A value that does not fit the type or the range is
   marked, and **Save** stays off until you correct it.

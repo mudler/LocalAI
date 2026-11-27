@@ -367,7 +367,7 @@
             "picker": {
                 "label": "Taslak model",
                 "placeholder": "Kurulu bir model seçin",
-                "hint": "Aynı aileden daha küçük bir model, örneğin aynı serinin büyük bir modeli için 0.6B veya 1B bir model.",
+                "hint": "Aynı aileden küçük bir model, örneğin 0.6B veya 1B model.",
                 "filter": "Modelleri süz",
                 "loading": "Kurulu modeller yükleniyor...",
                 "empty": "{{engine}} ile çalışan başka bir model kurulu değil. Önce aynı aileden küçük bir model kurun.",
@@ -514,6 +514,7 @@
         },
         "flags": {
             "show": "{{engine}} bayraklarını göster"
-        }
+        },
+        "more": "Daha fazla"
     }
 }

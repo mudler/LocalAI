@@ -10,6 +10,8 @@ import {
 } from '../../../utils/drafting'
 // eslint-disable-next-line no-unused-vars
 import EngineField from './EngineField'
+// eslint-disable-next-line no-unused-vars
+import MoreText from './MoreText'
 
 // The picker row of a draft file that is not an installed model.
 const FILE_ROW = '__file'
@@ -236,10 +238,10 @@ function DraftPicker({ t, engine, read, current, candidates, onPick, error, read
           describedBy="rt-draft-model-hint"
           testId="rt-draft-model"
         />
-        <p className="dk-hint rt-field__hint" id="rt-draft-model-hint">
+        <div className="dk-hint rt-field__hint" id="rt-draft-model-hint">
           <code className="rt-flag rt-flag--hint">draft_model</code>
-          <span>{t('engineSettings.drafting.picker.hint')}</span>
-        </p>
+          <MoreText text={t('engineSettings.drafting.picker.hint')} />
+        </div>
       </div>
 
       {candidates.status === 'error' && (
@@ -257,28 +259,32 @@ function DraftPicker({ t, engine, read, current, candidates, onPick, error, read
       {(current || unmatched) && (
         <dl className="rt-draft__facts" data-testid="rt-draft-facts">
           <div className="rt-draft__fact">
-            <dt className="dk-eyebrow">{t('engineSettings.drafting.fit.title')}</dt>
+            <dt>{t('engineSettings.drafting.fit.title')}</dt>
             <dd data-testid="rt-draft-fit">
-              {unmatched && <span className="text-note">{t('engineSettings.drafting.fit.unmatched')}</span>}
+              {unmatched && <MoreText text={t('engineSettings.drafting.fit.unmatched')} />}
               {estimating && !fit && <span className="text-note">{t('engineSettings.quick.estimating')}</span>}
               {fit && <FitWords t={t} fit={fit} />}
             </dd>
           </div>
           <div className="rt-draft__fact">
-            <dt className="dk-eyebrow">{t('engineSettings.drafting.memory.title')}</dt>
+            <dt>{t('engineSettings.drafting.memory.title')}</dt>
             <dd data-testid="rt-draft-memory">
-              {unmatched && <span className="text-note">{t('engineSettings.drafting.memory.unmatched')}</span>}
+              {unmatched && <MoreText text={t('engineSettings.drafting.memory.unmatched')} />}
               {estimating && !mem && <span className="text-note">{t('engineSettings.quick.estimating')}</span>}
               {mem && (
-                <span>
-                  <strong className="rt-draft__size">{t('engineSettings.drafting.memory.total', { size: mem.total })}</strong>
-                  {' '}
-                  {mem.weights && mem.kv && mem.context
-                    ? t('engineSettings.drafting.memory.split', { weights: mem.weights, kv: mem.kv, context: mem.context.toLocaleString() })
-                    : null}
-                  {' '}
-                  <span className="text-note">{mem.approximate ? t('engineSettings.quick.approximate') : t('engineSettings.quick.estimate')}</span>
-                </span>
+                <details className="rt-more rt-more--fold">
+                  <summary className="rt-more__summary">
+                    <strong className="rt-draft__size">{t('engineSettings.drafting.memory.total', { size: mem.total })}</strong>
+                    <span className="rt-more__mark">{t('engineSettings.more')}</span>
+                  </summary>
+                  <span className="rt-more__rest">
+                    {mem.weights && mem.kv && mem.context
+                      ? t('engineSettings.drafting.memory.split', { weights: mem.weights, kv: mem.kv, context: mem.context.toLocaleString() })
+                      : null}
+                    {' '}
+                    {mem.approximate ? t('engineSettings.quick.approximate') : t('engineSettings.quick.estimate')}
+                  </span>
+                </details>
               )}
               {current && !estimating && !mem && <span className="text-note">{t('engineSettings.drafting.memory.none')}</span>}
             </dd>
@@ -295,7 +301,7 @@ function FitWords({ t, fit }) {
     return (
       <span className="rt-draft__fit">
         <StatusChip tone="ok" testId="rt-draft-fit-chip">{t('engineSettings.drafting.fit.ok')}</StatusChip>
-        <span>{t('engineSettings.drafting.fit.okText', { tokens: fit.vocab.toLocaleString() })}</span>
+        <MoreText text={t('engineSettings.drafting.fit.okText', { tokens: fit.vocab.toLocaleString() })} />
       </span>
     )
   }
@@ -303,7 +309,7 @@ function FitWords({ t, fit }) {
     return (
       <span className="rt-draft__fit">
         <StatusChip tone="error" testId="rt-draft-fit-chip">{t('engineSettings.drafting.fit.mismatch')}</StatusChip>
-        <span>{t('engineSettings.drafting.fit.mismatchText', { main: fit.main.toLocaleString(), draft: fit.draft.toLocaleString() })}</span>
+        <MoreText text={t('engineSettings.drafting.fit.mismatchText', { main: fit.main.toLocaleString(), draft: fit.draft.toLocaleString() })} />
       </span>
     )
   }
@@ -311,7 +317,7 @@ function FitWords({ t, fit }) {
     return (
       <span className="rt-draft__fit">
         <StatusChip tone="idle" testId="rt-draft-fit-chip">{t('engineSettings.drafting.fit.family')}</StatusChip>
-        <span>{t('engineSettings.drafting.fit.familyText', { family: fit.architecture })}</span>
+        <MoreText text={t('engineSettings.drafting.fit.familyText', { family: fit.architecture })} />
       </span>
     )
   }
