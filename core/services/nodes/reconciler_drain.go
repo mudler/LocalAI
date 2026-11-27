@@ -16,7 +16,7 @@ import (
 // For each loaded replica on a draining node:
 //
 //   - past the node's drain deadline, it is removed whatever its state;
-//   - when the model has as many replicas on other nodes as it needs, it is
+//   - when the model has as many replicas on healthy nodes as it needs, it is
 //     removed once no request runs on it;
 //   - otherwise it stays and serves. A model without a rule (or with a floor
 //     of zero) that is still in use (pinned, a request in flight, or used
@@ -66,7 +66,9 @@ func (rc *ReplicaReconciler) drainReplica(ctx context.Context, node BackendNode,
 	if rule != nil {
 		selector = parseSelector(rule.NodeSelector)
 	}
-	staying, err := rc.registry.CountStayingReplicas(ctx, nm.ModelName, selector)
+	// Only replicas on healthy nodes take requests, so only they let this one
+	// leave.
+	staying, err := rc.registry.CountHealthyReplicas(ctx, nm.ModelName, selector)
 	if err != nil {
 		xlog.Warn("Reconciler: failed to count replicas of a draining model", "model", nm.ModelName, "error", err)
 		return
@@ -76,7 +78,7 @@ func (rc *ReplicaReconciler) drainReplica(ctx context.Context, node BackendNode,
 			// Requests still run on it. Remove it on a later pass.
 			return
 		}
-		removed, err := rc.registry.RemoveIdleNodeModel(ctx, nm)
+		removed, err := rc.registry.RemoveDrainedReplica(ctx, nm)
 		if err != nil {
 			xlog.Warn("Reconciler: failed to remove a drained replica", "node", node.Name, "model", nm.ModelName, "error", err)
 			return

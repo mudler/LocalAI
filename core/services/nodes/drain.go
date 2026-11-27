@@ -221,3 +221,37 @@ func (r *NodeRegistry) CountStayingReplicas(ctx context.Context, modelName strin
 		Count(&count).Error
 	return count, err
 }
+
+// CountHealthyReplicas counts the loaded replicas of modelName on healthy
+// nodes that match selector. A draining replica may leave only when this
+// count is high enough: a replica on an unhealthy node does not take
+// requests, so counting it could leave the model with nothing routable.
+// reconcileModel keeps counting with CountStayingReplicas, so a short health
+// blip does not place extra replicas.
+func (r *NodeRegistry) CountHealthyReplicas(ctx context.Context, modelName string, selector map[string]string) (int64, error) {
+	var count int64
+	err := currentModelRevision(r.db.WithContext(ctx).Model(&NodeModel{})).
+		Scopes(onNodesMatching(selector)).
+		Where("node_models.node_id IN (SELECT id FROM backend_nodes WHERE status = ?)", StatusHealthy).
+		Where("node_models.model_name = ? AND node_models.state = ?", modelName, "loaded").
+		Count(&count).Error
+	return count, err
+}
+
+// RemoveDrainedReplica removes the replica row nm of a draining node, like
+// RemoveIdleNodeModel, and only while the node still drains: a node resumed
+// after the pass read it keeps its replica.
+func (r *NodeRegistry) RemoveDrainedReplica(ctx context.Context, nm NodeModel) (bool, error) {
+	res := r.db.WithContext(ctx).
+		Where("id = ? AND state = ? AND in_flight = 0 AND last_used <= ?", nm.ID, "loaded", nm.LastUsed).
+		Where("node_id IN (SELECT id FROM backend_nodes WHERE status = ?)", StatusDraining).
+		Delete(&NodeModel{})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return false, nil
+	}
+	r.fireReplicaRemoved(nm.ModelName, nm.NodeID, nm.ReplicaIndex)
+	return true, nil
+}

@@ -113,6 +113,36 @@ var _ = Describe("ReplicaReconciler drain", func() {
 		Expect(replicas("floor2")).To(Equal(map[string]bool{n2.ID: true, n3.ID: true}))
 	})
 
+	It("keeps the draining replica while the other replica is on an unhealthy node", func() {
+		Expect(registry.SetModelScheduling(ctx, &ModelSchedulingConfig{ModelName: "sick", MinReplicas: 1})).To(Succeed())
+		scheduler.scheduleErr = ErrNoAvailableNodes
+		loaded(n1, "sick")
+		loaded(n2, "sick")
+		Expect(registry.MarkUnhealthy(ctx, n2.ID)).To(Succeed())
+		drain(n1, time.Hour)
+
+		rc.reconcile(ctx)
+		Expect(replicas("sick")).To(HaveKey(n1.ID), "the replica on n2 is not routable, so n1 is the only one that serves")
+
+		// n2 comes back: the replica on n1 may leave.
+		Expect(db.Model(&BackendNode{}).Where("id = ?", n2.ID).Update("status", StatusHealthy).Error).To(Succeed())
+		rc.reconcile(ctx)
+		Expect(replicas("sick")).To(Equal(map[string]bool{n2.ID: true}))
+	})
+
+	It("does not remove a replica of a node that resumed during the pass", func() {
+		loaded(n1, "resumed-mid-pass")
+		drain(n1, time.Hour)
+		var nm NodeModel
+		Expect(db.Where("node_id = ? AND model_name = ?", n1.ID, "resumed-mid-pass").First(&nm).Error).To(Succeed())
+		Expect(registry.ResumeNode(ctx, n1.ID)).To(Succeed())
+
+		removed, err := registry.RemoveDrainedReplica(ctx, nm)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(removed).To(BeFalse())
+		Expect(replicas("resumed-mid-pass")).To(HaveKey(n1.ID))
+	})
+
 	It("waits for the requests that run on the draining replica", func() {
 		Expect(registry.SetModelScheduling(ctx, &ModelSchedulingConfig{ModelName: "busy", MinReplicas: 1})).To(Succeed())
 		loaded(n1, "busy")
