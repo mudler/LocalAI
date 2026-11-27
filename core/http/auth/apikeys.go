@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mudler/LocalAI/core/promptcache"
 	"gorm.io/gorm"
 )
 
@@ -148,9 +149,14 @@ func CountAPIKeysByUser(db *gorm.DB) (map[string]int64, error) {
 
 // RevokeAPIKey deletes an API key. Only the owner can revoke their own key.
 func RevokeAPIKey(db *gorm.DB, keyID, userID string) error {
+	var kind string
+	db.Model(&UserAPIKey{}).Where("id = ? AND user_id = ?", keyID, userID).Pluck("kind", &kind)
 	result := db.Where("id = ? AND user_id = ?", keyID, userID).Delete(&UserAPIKey{})
 	if result.RowsAffected == 0 {
 		return fmt.Errorf("API key not found or not owned by user")
+	}
+	if result.Error == nil && kind == KeyKindClient {
+		principalRemoved(promptcache.ClientNamespace(keyID))
 	}
 	return result.Error
 }

@@ -7,6 +7,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -124,6 +125,9 @@ type ModelLoader struct {
 	// blockedLoads are the models whose loads are refused while their files
 	// change (a model upgrade). Guarded by mu.
 	blockedLoads map[string]bool
+	// backendEnv gives environment entries that the node sets on every
+	// backend process it starts (see SetBackendEnv). Guarded by mu.
+	backendEnv func() map[string]string
 
 	// hiddenOutput hides the backend output of zero-retention requests
 	// (see HideBackendOutput).
@@ -423,6 +427,54 @@ func (ml *ModelLoader) GetWatchDog() *WatchDog {
 
 func (ml *ModelLoader) BackendLogs() *BackendLogStore {
 	return ml.backendLogs
+}
+
+// SetBackendEnv sets a function that gives environment entries for every
+// backend process this loader starts, read at each start so a runtime setting
+// applies to the next start. A key with an empty value is removed from the
+// environment the process inherits, so the node decides it alone. The entries
+// win over the environment of the model configuration.
+func (ml *ModelLoader) SetBackendEnv(fn func() map[string]string) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	ml.backendEnv = fn
+}
+
+func (ml *ModelLoader) nodeBackendEnv() map[string]string {
+	ml.mu.Lock()
+	fn := ml.backendEnv
+	ml.mu.Unlock()
+	if fn == nil {
+		return nil
+	}
+	return fn()
+}
+
+// withNodeEnv applies the node entries to env: every inherited or earlier
+// entry of a node key is dropped, and the keys with a value are appended.
+func withNodeEnv(env []string, node map[string]string) []string {
+	if len(node) == 0 {
+		return env
+	}
+	out := make([]string, 0, len(env)+len(node))
+	for _, entry := range env {
+		key, _, _ := strings.Cut(entry, "=")
+		if _, ok := node[key]; ok {
+			continue
+		}
+		out = append(out, entry)
+	}
+	keys := make([]string, 0, len(node))
+	for k := range node {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		if v := node[k]; v != "" {
+			out = append(out, k+"="+v)
+		}
+	}
+	return out
 }
 
 func (ml *ModelLoader) SetBackendLoggingEnabled(enabled bool) {

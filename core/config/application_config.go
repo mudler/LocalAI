@@ -277,6 +277,13 @@ type ApplicationConfig struct {
 	AutoUpgradeAddons                           bool
 	PreferDevelopmentBackends                   bool
 
+	// PromptCache is the disk tier of the llama.cpp prompt cache.
+	PromptCache PromptCacheConfig
+	// PromptCacheAutoQuota returns the automatic per-user quota of the disk
+	// tier in bytes (0 = none), so a backend enforces it on each write and
+	// not only at the next janitor sweep. Set when the tier starts.
+	PromptCacheAutoQuota func() int64
+
 	// UpgradeRunKeep is the most finished upgrade runs kept. Zero means 200
 	// (upgraderun.DefaultRetention), a negative value keeps any number.
 	UpgradeRunKeep int
@@ -674,6 +681,7 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		// loadRuntimeSettingsFromFile).
 		EnableBackendLogging:        true,
 		VRAMPersistentCache:         true,
+		PromptCache:                 DefaultPromptCacheConfig(),
 		ArtifactDownloadConcurrency: modelartifacts.DefaultDownloadConcurrency,
 
 		MaxConcurrentBackendOperations: 2,

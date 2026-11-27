@@ -232,6 +232,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 		opts := gRPCPredictOpts(*c, loader.ModelPath)
 		withRequestPrivacy(ctx, opts)
 		withRequestPriority(ctx, opts)
+		withPromptCacheSalt(ctx, opts, *c, o)
 		// Merge request-level metadata (overrides config defaults)
 		for k, v := range metadata {
 			opts.Metadata[k] = v

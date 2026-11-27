@@ -442,6 +442,82 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.VRAMPersistentCache },
 		func(o *ApplicationConfig) bool { return o.VRAMPersistentCache },
 		func(o *ApplicationConfig, v bool) { o.VRAMPersistentCache = v }),
+	// Disk tier of the llama.cpp prompt cache. No restart: the janitor reads
+	// the values at each sweep, a backend gets them at its next start, and
+	// the namespace is decided per request.
+	field("prompt_cache_disk",
+		func(s *RuntimeSettings) **bool { return &s.PromptCacheDisk },
+		func(o *ApplicationConfig) bool { return !o.PromptCache.DiskDisabled },
+		func(o *ApplicationConfig, v bool) { o.PromptCache.DiskDisabled = !v }),
+	withApply(field("prompt_cache_disk_max_size_mib",
+		func(s *RuntimeSettings) **int { return &s.PromptCacheDiskMaxSizeMiB },
+		func(o *ApplicationConfig) int { return o.PromptCache.MaxSizeMiB },
+		func(o *ApplicationConfig, v int) { o.PromptCache.MaxSizeMiB = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.PromptCacheDiskMaxSizeMiB; v >= 0 {
+				o.PromptCache.MaxSizeMiB = v
+				return true
+			}
+			xlog.Warn("invalid prompt_cache_disk_max_size_mib in runtime settings", "value", *s.PromptCacheDiskMaxSizeMiB)
+			return false
+		}),
+	withApply(durationField("prompt_cache_disk_ttl",
+		func(s *RuntimeSettings) **string { return &s.PromptCacheDiskTTL },
+		func(o *ApplicationConfig) *time.Duration { return &o.PromptCache.TTL },
+		DefaultPromptCacheTTL.String()),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			d, err := time.ParseDuration(*s.PromptCacheDiskTTL)
+			if err != nil || d <= 0 {
+				xlog.Warn("invalid prompt_cache_disk_ttl in runtime settings", "value", *s.PromptCacheDiskTTL)
+				return false
+			}
+			o.PromptCache.TTL = d
+			return true
+		}),
+	field("prompt_cache_disk_user_quota_mib",
+		func(s *RuntimeSettings) **int { return &s.PromptCacheDiskUserQuotaMiB },
+		func(o *ApplicationConfig) int { return o.PromptCache.UserQuotaMiB },
+		func(o *ApplicationConfig, v int) { o.PromptCache.UserQuotaMiB = v }),
+	withApply(field("prompt_cache_disk_min_tokens",
+		func(s *RuntimeSettings) **int { return &s.PromptCacheDiskMinTokens },
+		func(o *ApplicationConfig) int { return o.PromptCache.MinTokens },
+		func(o *ApplicationConfig, v int) { o.PromptCache.MinTokens = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.PromptCacheDiskMinTokens; v > 0 {
+				o.PromptCache.MinTokens = v
+				return true
+			}
+			xlog.Warn("invalid prompt_cache_disk_min_tokens in runtime settings", "value", *s.PromptCacheDiskMinTokens)
+			return false
+		}),
+	field("prompt_cache_disk_shared",
+		func(s *RuntimeSettings) **bool { return &s.PromptCacheDiskShared },
+		func(o *ApplicationConfig) bool { return o.PromptCache.Shared },
+		func(o *ApplicationConfig, v bool) { o.PromptCache.Shared = v }),
+	withApply(field("prompt_cache_disk_low_free_mib",
+		func(s *RuntimeSettings) **int { return &s.PromptCacheDiskLowFreeMiB },
+		func(o *ApplicationConfig) int { return o.PromptCache.LowFreeMiB },
+		func(o *ApplicationConfig, v int) { o.PromptCache.LowFreeMiB = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.PromptCacheDiskLowFreeMiB; v >= 0 {
+				o.PromptCache.LowFreeMiB = v
+				return true
+			}
+			xlog.Warn("invalid prompt_cache_disk_low_free_mib in runtime settings", "value", *s.PromptCacheDiskLowFreeMiB)
+			return false
+		}),
+	withApply(field("prompt_cache_disk_critical_free_mib",
+		func(s *RuntimeSettings) **int { return &s.PromptCacheDiskCriticalFreeMiB },
+		func(o *ApplicationConfig) int { return o.PromptCache.CriticalFreeMiB },
+		func(o *ApplicationConfig, v int) { o.PromptCache.CriticalFreeMiB = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.PromptCacheDiskCriticalFreeMiB; v >= 0 {
+				o.PromptCache.CriticalFreeMiB = v
+				return true
+			}
+			xlog.Warn("invalid prompt_cache_disk_critical_free_mib in runtime settings", "value", *s.PromptCacheDiskCriticalFreeMiB)
+			return false
+		}),
 
 	// API keys: echoed for the UI, but the apply loops never touch them.
 	// The settings endpoint and the file watcher own the env+runtime merge

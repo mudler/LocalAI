@@ -22,6 +22,8 @@ import (
 //
 // Returns gorm.ErrRecordNotFound when the user does not exist.
 func DeleteUserCascade(db *gorm.DB, userID string) error {
+	// Read before the delete: the client keys go with the user.
+	namespaces := UserPromptCacheNamespaces(db, userID)
 	err := db.Transaction(func(tx *gorm.DB) error {
 		// Drop invites authored by this user; the admin who issued them is gone.
 		if err := tx.Where("created_by = ?", userID).Delete(&InviteCode{}).Error; err != nil {
@@ -66,5 +68,6 @@ func DeleteUserCascade(db *gorm.DB, userID string) error {
 
 	quotaCache.invalidateUser(userID)
 	ForgetLastActive(userID)
+	principalRemoved(namespaces...)
 	return nil
 }

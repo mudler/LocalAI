@@ -21,6 +21,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/promptcachesvc"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -127,6 +128,16 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// other background goroutines.
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	defer shutdownCancel()
+
+	// The disk tier of the prompt cache: the files stay on this worker's
+	// disk and its own janitor keeps them in bounds. The settings are the
+	// defaults plus the switch of this worker.
+	promptCacheDefaults := config.DefaultPromptCacheConfig()
+	promptCacheDefaults.DiskDisabled = !cfg.PromptCacheDisk
+	promptCacheNode := promptcachesvc.NewNode(cfg.promptCacheRoot(), cfg.ModelsPath,
+		func() config.PromptCacheConfig { return promptCacheDefaults })
+	ml.SetBackendEnv(promptCacheNode.BackendEnv)
+	promptCacheNode.Start(shutdownCtx)
 
 	// Backends of a worker on NATS listen on every interface, and the frontends
 	// dial the address it registered. Such a worker can be dialled whether or not

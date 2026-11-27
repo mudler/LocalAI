@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/xlog"
 )
 
@@ -40,6 +41,10 @@ type Config struct {
 	// so a worker with heavy start/stop churn needs headroom above its true
 	// concurrency. 0 = up to 65535.
 	GRPCMaxPort int `env:"LOCALAI_GRPC_MAX_PORT" default:"0" help:"Highest port the worker may assign to a backend gRPC process. The range is [base port, this]; its width caps concurrent backends on this worker. 0 uses up to 65535." group:"server"`
+
+	// PromptCacheDisk turns the disk tier of the llama.cpp prompt cache of
+	// this worker on or off. Its files live under <data dir>/prompt-cache.
+	PromptCacheDisk bool `env:"LOCALAI_PROMPT_CACHE_DISK" default:"true" help:"Keep the prompt cache of long llama.cpp prompts on the local disk of this worker, so it survives a model reload" group:"server"`
 
 	PreferDevelopmentBackends bool   `env:"LOCALAI_PREFER_DEV_BACKENDS,PREFER_DEV_BACKENDS" default:"false" help:"Prefer compatible installed development aliases and development downloads (worker-local; restart to apply)" group:"server"`
 	BackendsPath              string `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends" group:"server"`
@@ -143,6 +148,11 @@ type Config struct {
 // dataDir is the state directory of the worker. It holds its own credential, the
 // process ledger and the P2P identity.
 func (c Config) dataDir() string { return filepath.Join(c.ModelsPath, "..", "data") }
+
+// promptCacheRoot is the root of the disk prompt cache of the worker.
+func (c Config) promptCacheRoot() string {
+	return filepath.Join(c.dataDir(), config.PromptCacheDirName)
+}
 
 // nodeName is the name that the worker registers under.
 func (c Config) nodeName() string {

@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/promptcache"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -623,6 +624,7 @@ func RevokeClientKey(db *gorm.DB, id, ownerID string) error {
 	if res.RowsAffected == 0 {
 		return gorm.ErrRecordNotFound
 	}
+	principalRemoved(promptcache.ClientNamespace(id))
 	return nil
 }
 

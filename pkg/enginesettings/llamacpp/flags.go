@@ -236,6 +236,49 @@ var flags = []es.Flag{
 		Default: "8192", Group: GroupMemory,
 		Doc: "System memory in MiB for the prompt cache that keeps the KV cache of earlier prompts. 0 turns it off, -1 sets no limit.",
 	},
+	// The disk tier of the prompt cache. LocalAI fills the values of the
+	// server settings (prompt_cache_disk* in the runtime settings) when a
+	// model sets none, so a model needs these only to differ.
+	{
+		Key: "prompt_cache_disk", Target: es.TargetOption, Path: "options", Option: "prompt_cache_disk",
+		Type: es.TypeBool, Default: "the server setting (on)", Group: GroupMemory, LocalAIOnly: true,
+		Doc: "Keep the prompt cache of long prompts on disk, so it survives a model reload. Off keeps it in RAM only.",
+	},
+	{
+		Key: "prompt_cache_disk_ttl_hours", Target: es.TargetOption, Path: "options", Option: "prompt_cache_disk_ttl_hours",
+		Type: es.TypeInt, Min: es.F64(1), Default: "the server setting (168)", Group: GroupMemory, LocalAIOnly: true,
+		Doc: "Hours a disk prompt cache entry is kept after its last use.",
+	},
+	{
+		Key: "prompt_cache_disk_min_tokens", Target: es.TargetOption, Path: "options", Option: "prompt_cache_disk_min_tokens",
+		Type: es.TypeInt, Min: es.F64(1), Default: "the server setting (1024)", Group: GroupMemory, LocalAIOnly: true,
+		Doc: "Shortest prompt, in tokens, that is written to disk.",
+	},
+	{
+		Key: "prompt_cache_disk_quota_mib", Target: es.TargetOption, Path: "options", Option: "prompt_cache_disk_quota_mib",
+		Type: es.TypeInt, Min: es.F64(0), Default: "0", Group: GroupMemory, LocalAIOnly: true,
+		Doc: "Most MiB one user may keep on disk for this model. 0: no limit for the model; the server quota still applies.",
+	},
+	{
+		Key: "prompt_cache_disk_max_size_mib", Target: es.TargetOption, Path: "options", Option: "prompt_cache_disk_max_size_mib",
+		Type: es.TypeInt, Min: es.F64(0), Default: "0", Group: GroupMemory, LocalAIOnly: true,
+		Doc: "Most MiB this model may keep on disk. 0: no limit for the model; the server cap still applies.",
+	},
+	{
+		Key: "prompt_cache_disk_shared", Target: es.TargetOption, Path: "options", Option: "prompt_cache_disk_shared",
+		Type: es.TypeBool, Default: "the server setting (off)", Group: GroupMemory, LocalAIOnly: true,
+		Doc: "Let all users share the disk prompt cache of this model. Turn on only when every user may see the prompts of the others.",
+	},
+	{
+		Key: "prompt_cache_disk_low_free_mib", Target: es.TargetOption, Path: "options", Option: "prompt_cache_disk_low_free_mib",
+		Type: es.TypeInt, Min: es.F64(0), Default: "the server setting (0)", Group: GroupMemory, LocalAIOnly: true,
+		Doc: "Free disk, in MiB, under which the disk prompt cache stops writing and shrinks. 0: the larger of 15% of the disk and 10 GiB.",
+	},
+	{
+		Key: "prompt_cache_disk_critical_free_mib", Target: es.TargetOption, Path: "options", Option: "prompt_cache_disk_critical_free_mib",
+		Type: es.TypeInt, Min: es.F64(0), Default: "the server setting (0)", Group: GroupMemory, LocalAIOnly: true,
+		Doc: "Free disk, in MiB, under which the disk prompt cache turns off until the free space is back above the low mark. 0: 5% of the disk.",
+	},
 	{
 		Key: "mmproj_use_gpu", Target: es.TargetOption, Path: "options", Option: "mmproj_use_gpu",
 		CLI: []string{"--mmproj-offload"}, CLINegated: []string{"--no-mmproj-offload"}, Type: es.TypeBool,

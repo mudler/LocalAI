@@ -114,6 +114,16 @@ type RunCMD struct {
 	Threads     int  `env:"LOCALAI_THREADS,THREADS" short:"t" help:"Number of threads used for parallel computation. Usage of the number of physical cores in the system is suggested" group:"performance"`
 	ContextSize int  `env:"LOCALAI_CONTEXT_SIZE,CONTEXT_SIZE" help:"Default context size for models" group:"performance"`
 
+	// Disk tier of the llama.cpp prompt cache.
+	PromptCacheDisk                bool          `env:"LOCALAI_PROMPT_CACHE_DISK" group:"models" default:"true" help:"Keep the prompt cache of long llama.cpp prompts on disk under <data-path>/prompt-cache, so it survives a model reload. Each user has a separate namespace. Can also be changed at runtime via the prompt_cache_disk setting"`
+	PromptCacheDiskMaxSizeMiB      int           `env:"LOCALAI_PROMPT_CACHE_DISK_MAX_SIZE_MIB" group:"models" default:"0" help:"Most MiB the disk prompt cache of this node may use. 0 is automatic: the smaller of 20 GiB and a tenth of the free disk at start"`
+	PromptCacheDiskTTL             time.Duration `env:"LOCALAI_PROMPT_CACHE_DISK_TTL" group:"models" default:"168h" help:"How long a disk prompt cache entry is kept after its last use"`
+	PromptCacheDiskUserQuotaMiB    int           `env:"LOCALAI_PROMPT_CACHE_DISK_USER_QUOTA_MIB" group:"models" default:"0" help:"Most MiB of the disk prompt cache one user may use. 0 is automatic: an equal share of the cap when there is more than one user. -1 is no quota"`
+	PromptCacheDiskMinTokens       int           `env:"LOCALAI_PROMPT_CACHE_DISK_MIN_TOKENS" group:"models" default:"1024" help:"Shortest prompt, in tokens, that the disk prompt cache keeps"`
+	PromptCacheDiskShared          bool          `env:"LOCALAI_PROMPT_CACHE_DISK_SHARED" group:"models" default:"false" help:"Use one disk prompt cache namespace for every user, so users reuse each other's entries. Turn on only when every user may see the prompts of every other user"`
+	PromptCacheDiskLowFreeMiB      int           `env:"LOCALAI_PROMPT_CACHE_DISK_LOW_FREE_MIB" group:"models" default:"0" help:"Free disk space, in MiB, under which the disk prompt cache stops writing and shrinks. 0 is automatic: the larger of 15% of the disk and 10 GiB"`
+	PromptCacheDiskCriticalFreeMiB int           `env:"LOCALAI_PROMPT_CACHE_DISK_CRITICAL_FREE_MIB" group:"models" default:"0" help:"Free disk space, in MiB, under which the disk prompt cache is disabled until the free space is above the low mark again. 0 is automatic: 5% of the disk"`
+
 	Address                            string        `env:"LOCALAI_ADDRESS,ADDRESS" default:":8080" help:"Bind address for the API server" group:"api"`
 	ShutdownTimeout                    time.Duration `name:"shutdown-timeout" env:"LOCALAI_SHUTDOWN_TIMEOUT" default:"20s" help:"On SIGTERM or SIGINT, stop accepting requests and wait this long for in-flight requests to finish, then close the chats and exit. The whole stop takes up to this plus 21s, so keep the sum below the termination grace period of the platform (the default 20s needs a grace period of at least 41s). 0 exits without waiting" group:"api"`
 	CORS                               bool          `env:"LOCALAI_CORS,CORS" help:"" group:"api"`
@@ -484,6 +494,14 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		// after the two options above.
 		libraryOptionFor(r),
 		config.WithVRAMPersistentCache(r.VRAMPersistentCache),
+		config.WithPromptCacheDisk(r.PromptCacheDisk),
+		config.WithPromptCacheDiskMaxSizeMiB(r.PromptCacheDiskMaxSizeMiB),
+		config.WithPromptCacheDiskTTL(r.PromptCacheDiskTTL),
+		config.WithPromptCacheDiskUserQuotaMiB(r.PromptCacheDiskUserQuotaMiB),
+		config.WithPromptCacheDiskMinTokens(r.PromptCacheDiskMinTokens),
+		config.WithPromptCacheDiskShared(r.PromptCacheDiskShared),
+		config.WithPromptCacheDiskLowFreeMiB(r.PromptCacheDiskLowFreeMiB),
+		config.WithPromptCacheDiskCriticalFreeMiB(r.PromptCacheDiskCriticalFreeMiB),
 		config.WithCors(r.CORS),
 		config.WithCorsAllowOrigins(r.CORSAllowOrigins),
 		config.WithDisableCSRF(r.DisableCSRF),

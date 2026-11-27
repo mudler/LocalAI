@@ -325,6 +325,8 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		}
 	}
 
+	env = withNodeEnv(env, ml.nodeBackendEnv())
+
 	env = vulkanICDEnv(workDir, env)
 	// Platform hook: on Windows this puts the backend's lib directory on PATH.
 	env = prepareBackendEnv(workDir, env)

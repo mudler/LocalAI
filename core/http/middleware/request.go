@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/priority"
 	"github.com/mudler/LocalAI/core/privacy"
+	"github.com/mudler/LocalAI/core/promptcache"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
@@ -380,6 +381,7 @@ func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) (err error) {
 		return err
 	}
 	ctxWithCorrelationID = priority.WithClass(ctxWithCorrelationID, cls)
+	ctxWithCorrelationID = promptcache.WithNamespace(ctxWithCorrelationID, PromptCacheNamespace(c))
 	// Keep the tier that applied, so a proxied request forwards the clamped
 	// value and not the one the caller asked for.
 	if input.ServiceTier != "" {
@@ -408,6 +410,21 @@ func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) (err error) {
 	c.Set(CONTEXT_LOCALS_KEY_MODEL_CONFIG, cfg)
 
 	return nil
+}
+
+// PromptCacheNamespace is the disk prompt cache namespace of the request,
+// from the authenticated principal only: a paired client key has its own
+// namespace, a user (session, user API key, legacy API key) has one, and a
+// request with no principal (auth off) is local. Request Metadata never takes
+// part: it is the caller's to write.
+func PromptCacheNamespace(c echo.Context) string {
+	if key := auth.GetAPIKey(c); key != nil && key.IsClientKey() && key.ID != "" {
+		return promptcache.ClientNamespace(key.ID)
+	}
+	if u := auth.GetUser(c); u != nil && u.ID != "" {
+		return promptcache.UserNamespace(u.ID)
+	}
+	return promptcache.Local
 }
 
 // extractToolChoiceFunctionName parses a tool_choice map and returns the
@@ -909,6 +926,7 @@ func (re *RequestExtractor) SetOpenResponsesRequest(c echo.Context) (err error) 
 		return err
 	}
 	ctxWithCorrelationID = priority.WithClass(ctxWithCorrelationID, cls)
+	ctxWithCorrelationID = promptcache.WithNamespace(ctxWithCorrelationID, PromptCacheNamespace(c))
 	// The response echoes the tier that applied.
 	input.ServiceTier = cls.ServiceTier()
 

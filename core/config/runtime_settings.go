@@ -73,6 +73,16 @@ type RuntimeSettings struct {
 	AutoloadBackendGalleries *bool      `json:"autoload_backend_galleries,omitempty"`
 	VRAMPersistentCache      *bool      `json:"vram_persistent_cache,omitempty"`
 
+	// Disk tier of the llama.cpp prompt cache (see PromptCacheConfig).
+	PromptCacheDisk                *bool   `json:"prompt_cache_disk,omitempty"`                   // keep long prompt caches on disk (default: true)
+	PromptCacheDiskMaxSizeMiB      *int    `json:"prompt_cache_disk_max_size_mib,omitempty"`      // cap of the disk tier, 0 = automatic (default: 0)
+	PromptCacheDiskTTL             *string `json:"prompt_cache_disk_ttl,omitempty"`               // time to live after the last use (default: 168h)
+	PromptCacheDiskUserQuotaMiB    *int    `json:"prompt_cache_disk_user_quota_mib,omitempty"`    // quota of one user, 0 = automatic, -1 = none (default: 0)
+	PromptCacheDiskMinTokens       *int    `json:"prompt_cache_disk_min_tokens,omitempty"`        // shortest prompt written to disk (default: 1024)
+	PromptCacheDiskShared          *bool   `json:"prompt_cache_disk_shared,omitempty"`            // one namespace for every user (default: false)
+	PromptCacheDiskLowFreeMiB      *int    `json:"prompt_cache_disk_low_free_mib,omitempty"`      // pause under this free space, 0 = max(15%, 10 GiB) (default: 0)
+	PromptCacheDiskCriticalFreeMiB *int    `json:"prompt_cache_disk_critical_free_mib,omitempty"` // disable under this free space, 0 = 5% (default: 0)
+
 	// API keys - No omitempty as we need to save empty arrays to clear keys
 	ApiKeys *[]string `json:"api_keys"`
 

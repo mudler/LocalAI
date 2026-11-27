@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/priority"
 	"github.com/mudler/LocalAI/core/privacy"
+	"github.com/mudler/LocalAI/core/promptcache"
 	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -227,6 +228,15 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 	c.Threads = &threads
 
 	grpcOpts := grpcModelOpts(c, so.SystemState.Model.ModelsPath)
+	// The disk prompt cache settings are global and change at runtime: they
+	// reach the backend at load, and an option of the model wins.
+	pcCfg := so.PromptCache
+	if pcCfg.UserQuotaMiB == 0 && so.PromptCacheAutoQuota != nil {
+		if q := so.PromptCacheAutoQuota(); q > 0 {
+			pcCfg.UserQuotaMiB = int(max(q>>20, 1))
+		}
+	}
+	grpcOpts.Options = config.WithPromptCacheDiskOptions(grpcOpts.Options, c.Backend, pcCfg)
 	defOpts = append(defOpts, model.WithLoadGRPCLoadModelOpts(grpcOpts))
 	if c.IsRemoteProxy() && c.Proxy.Remote != "" {
 		// The model loader runs this finalizer only for a load in this
@@ -684,6 +694,20 @@ func withRequestPrivacy(ctx context.Context, opts *pb.PredictOptions) {
 // decide the class.
 func withRequestPriority(ctx context.Context, opts *pb.PredictOptions) {
 	opts.Priority = int32(priority.Of(ctx))
+}
+
+// withPromptCacheSalt sets the salt of the disk prompt cache namespace of the
+// request (see core/promptcache). The namespace comes from the context only,
+// which the request middleware fills from the authenticated principal:
+// request Metadata is merged later and is the caller's to write, so it must
+// never decide whose cache a request reads. A request that may not keep
+// content still carries the salt: the backend keeps it in RAM only.
+func withPromptCacheSalt(ctx context.Context, opts *pb.PredictOptions, c config.ModelConfig, o *config.ApplicationConfig) {
+	ns := promptcache.NamespaceFrom(ctx)
+	if o != nil && config.PromptCacheShared(c.Options, o.PromptCache) {
+		ns = promptcache.Shared
+	}
+	opts.PromptCacheSalt = promptcache.Salt(ns)
 }
 
 func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions {

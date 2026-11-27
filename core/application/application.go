@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/mudler/LocalAI/core/services/collections"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/promptcachesvc"
 	"github.com/mudler/LocalAI/core/services/remotes"
 	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"io"
@@ -106,6 +107,13 @@ const faceEmbeddingDim = 0
 const voiceEmbeddingDim = 0
 
 type Application struct {
+	// promptCache is the disk tier of the prompt cache of this node and
+	// promptCacheNodes the seam purges and usage go through (see
+	// prompt_cache.go). Guarded by promptCacheMu.
+	promptCacheMu    sync.RWMutex
+	promptCache      *promptcachesvc.Node
+	promptCacheNodes promptcachesvc.Nodes
+
 	// shareKinds are the services whose resource kinds are shared through
 	// the policy; shareKindsPolicy is the policy they were registered with
 	// once the owner opened it. See RegisterShareKinds.
@@ -1060,6 +1068,8 @@ func (a *Application) start() (startErr error) {
 	assistantClient.PIIRedactor = a.piiRedactor
 	assistantClient.PIIEvents = a.piiEvents
 	assistantClient.RouterDecisions = a.routerDecisions
+	// The prompt cache goes through the same seam as the REST routes.
+	assistantClient.PromptCache = a
 	// Router corpus tools — same factories the RouteModel middleware
 	// uses, so the assistant and the request path agree on store
 	// namespaces and model resolution.

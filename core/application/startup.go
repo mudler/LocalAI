@@ -631,6 +631,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	startMITMIfConfigured(application, options)
 
 	application.ModelLoader().SetBackendLoggingEnabled(options.EnableBackendLogging)
+	application.startPromptCache(options)
 
 	// Safety-net cleanup if the application context is cancelled without
 	// the caller invoking Shutdown directly. This is fire-and-forget — it
