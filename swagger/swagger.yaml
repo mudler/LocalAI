@@ -1721,6 +1721,25 @@ definitions:
       min:
         type: integer
     type: object
+  enginesettings.Advice:
+    properties:
+      avoid:
+        items:
+          type: string
+        type: array
+      control:
+        description: Control is a Combined id or a flag key.
+        type: string
+      doc:
+        type: string
+      id:
+        type: string
+      kind:
+        $ref: '#/definitions/enginesettings.MemoryKind'
+      value:
+        description: Value is the recommended choice (Combined) or value (flag).
+        type: string
+    type: object
   enginesettings.BackendMatch:
     properties:
       empty:
@@ -1760,10 +1779,12 @@ definitions:
     enum:
     - command-line
     - tensor-placement
+    - drafting
     type: string
     x-enum-varnames:
     - CapabilityCommandLine
     - CapabilityTensorPlacement
+    - CapabilityDrafting
   enginesettings.Choice:
     properties:
       doc:
@@ -1813,6 +1834,88 @@ definitions:
     type: object
   enginesettings.Config:
     additionalProperties: {}
+    type: object
+  enginesettings.DraftMode:
+    properties:
+      auto:
+        description: |-
+          Auto: the backend turns the mode on by itself for a model that has
+          what Needs names when the file sets no kind.
+        type: boolean
+      doc:
+        type: string
+      fields:
+        description: Fields are the flag keys drawn under the mode, in order.
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      label:
+        type: string
+      model:
+        description: 'Model: the mode needs a draft model file (ModelKey).'
+        type: boolean
+      needs:
+        description: |-
+          Needs names what the model must have, such as NeedsMTPHead. A client
+          offers the mode only when the model has it, or when the file already
+          uses the mode.
+        type: string
+      note:
+        description: Note is the trade-off of the mode, said plainly. Optional.
+        type: string
+      set:
+        additionalProperties: {}
+        description: |-
+          Set lists flag values written when the mode is picked and the flag
+          is unset, such as the window LocalAI uses for MTP.
+        type: object
+      types:
+        description: |-
+          Types are the kinds read back as this mode. The first is written
+          when the mode is picked. Empty for Off and for a draft model.
+        items:
+          type: string
+        type: array
+    type: object
+  enginesettings.DraftStreams:
+    properties:
+      default:
+        type: string
+      doc:
+        type: string
+      option:
+        type: string
+    type: object
+  enginesettings.Drafting:
+    properties:
+      group:
+        description: |-
+          Group is the editor section the modes are drawn in. A client draws
+          its other flags under the modes as "more options".
+        type: string
+      model_key:
+        description: ModelKey is the flag key of the draft model file.
+        type: string
+      modes:
+        description: Modes are the choices, the first one being Off (no kind, no model).
+        items:
+          $ref: '#/definitions/enginesettings.DraftMode'
+        type: array
+      off_type:
+        description: |-
+          OffType is the kind Off writes when the model would draft without
+          one (a mode with Auto). Empty: Off always writes no kind.
+        type: string
+      streams:
+        allOf:
+        - $ref: '#/definitions/enginesettings.DraftStreams'
+        description: Streams is the load limit of drafting. Optional.
+      type_key:
+        description: TypeKey is the flag key of the drafting kind (a comma-separated
+          list).
+        type: string
     type: object
   enginesettings.Flag:
     properties:
@@ -1900,6 +2003,50 @@ definitions:
         type: integer
       to:
         type: integer
+    type: object
+  enginesettings.Memory:
+    properties:
+      advice:
+        description: Advice lists the recommended value of a control per kind.
+        items:
+          $ref: '#/definitions/enginesettings.Advice'
+        type: array
+      fallback:
+        allOf:
+        - $ref: '#/definitions/enginesettings.MemoryKind'
+        description: |-
+          Fallback is the kind a client assumes when the host is unknown. The
+          discrete rules are the cautious ones.
+      fit_fraction:
+        description: |-
+          FitFraction is the share of the device memory a profile's estimate may
+          take and still count as fitting. The rest is for the system, other
+          models and estimate error.
+        type: number
+      kinds:
+        description: Kinds says, for each kind, what it is and what the rules do there.
+        items:
+          $ref: '#/definitions/enginesettings.MemoryKindInfo'
+        type: array
+    type: object
+  enginesettings.MemoryKind:
+    enum:
+    - discrete
+    - unified
+    - system
+    type: string
+    x-enum-varnames:
+    - MemoryDiscrete
+    - MemoryUnified
+    - MemorySystem
+  enginesettings.MemoryKindInfo:
+    properties:
+      doc:
+        type: string
+      kind:
+        $ref: '#/definitions/enginesettings.MemoryKind'
+      label:
+        type: string
     type: object
   enginesettings.ParseResult:
     properties:
@@ -1991,10 +2138,20 @@ definitions:
     type: object
   enginesettings.Preset:
     properties:
+      best_for:
+        description: BestFor says in one line which use the profile fits. Optional.
+        type: string
       description:
         type: string
       id:
         type: string
+      memory:
+        additionalProperties:
+          $ref: '#/definitions/enginesettings.PresetMemory'
+        description: |-
+          Memory holds the values that depend on the memory kind of the host.
+          A kind it does not list uses Settings alone. Profiles only.
+        type: object
       name:
         type: string
       placement:
@@ -2013,10 +2170,49 @@ definitions:
           current one sets and the new one does not list, so a value is removed
           only when it came from a profile. A profile has no placement.
         type: boolean
+      set:
+        description: |-
+          Set groups the profiles into independent choices. Empty is the default
+          set; ProfileSetConcurrency is the slot count. A switch within a set
+          only unsets the keys of that set's profiles. Profiles only.
+        type: string
       settings:
         additionalProperties: {}
         description: Settings maps flag keys to values. A nil value unsets the key.
         type: object
+      streams:
+        description: |-
+          Streams is the number of requests a concurrency profile serves at
+          once. Profiles only.
+        type: integer
+    type: object
+  enginesettings.PresetMemory:
+    properties:
+      min_memory:
+        description: |-
+          MinMemory is the smallest device memory, in bytes, the profile is
+          offered for. 0: any.
+        type: integer
+      note:
+        description: Note is the trade-off of the profile on this kind. Optional.
+        type: string
+      settings:
+        additionalProperties: {}
+        description: |-
+          Settings are merged over the profile's own settings for this kind. A
+          nil value unsets the key.
+        type: object
+      tight:
+        additionalProperties: {}
+        description: |-
+          Tight is merged over the result when the memory estimate of the
+          profile does not fit the device (Memory.FitFraction of it), for example
+          an 8-bit KV cache when the f16 one would not fit. Optional.
+        type: object
+      unsupported:
+        description: 'Unsupported: the profile is not offered for this kind; Note
+          says why.'
+        type: boolean
     type: object
   enginesettings.Schema:
     properties:
@@ -2037,6 +2233,10 @@ definitions:
         items:
           $ref: '#/definitions/enginesettings.Combined'
         type: array
+      drafting:
+        allOf:
+        - $ref: '#/definitions/enginesettings.Drafting'
+        description: Drafting describes the drafting capability. Absent without it.
       estimate:
         additionalProperties:
           type: string
@@ -2055,6 +2255,11 @@ definitions:
         type: array
       id:
         type: string
+      memory:
+        allOf:
+        - $ref: '#/definitions/enginesettings.Memory'
+        description: Memory describes the memory kinds of the profiles. Absent without
+          it.
       name:
         type: string
       placement:
@@ -3665,6 +3870,27 @@ definitions:
         example: 4f1c
         type: string
     type: object
+  github_com_mudler_LocalAI_core_http_endpoints_plugins.AddMarketplaceRequest:
+    properties:
+      id:
+        description: ID names the marketplace; the default comes from marketplace.json.
+        type: string
+      ref:
+        description: Ref is the branch or tag to follow; empty is the default branch.
+        type: string
+      source:
+        description: |-
+          Source is owner/repo, an https git URL, or an https URL of a
+          marketplace.json file.
+        type: string
+    type: object
+  github_com_mudler_LocalAI_core_http_endpoints_plugins.UpdateMarketplaceRequest:
+    properties:
+      enabled:
+        type: boolean
+      ref:
+        type: string
+    type: object
   hostops.RequestSummary:
     properties:
       deniedOptional:
@@ -4672,6 +4898,14 @@ definitions:
     type: object
   modeladmin.VRAMResponse:
     properties:
+      architecture:
+        description: |-
+          Architecture is general.architecture of a local GGUF model file, and
+          MTPLayers the layers of its embedded multi-token prediction head (absent
+          without one). VocabSize is the number of tokens of its vocabulary. The
+          model editor reads them to offer MTP and to say whether a draft model
+          fits. Absent when unknown.
+        type: string
       block_count:
         description: |-
           BlockCount is the number of layers of the model, read from the GGUF
@@ -4688,6 +4922,8 @@ definitions:
         type: integer
       model_max_context:
         type: integer
+      mtp_layers:
+        type: integer
       runtime:
         allOf:
         - $ref: '#/definitions/vram.RuntimeBreakdown'
@@ -4699,6 +4935,8 @@ definitions:
         type: integer
       size_display:
         type: string
+      vocab_size:
+        type: integer
       vram_bytes:
         type: integer
       vram_display:
@@ -6003,6 +6241,656 @@ definitions:
         type: boolean
       relays:
         description: Relays is auto or none.
+        type: string
+    type: object
+  plugins.AgentRef:
+    properties:
+      description:
+        type: string
+      disallowedTools:
+        items:
+          type: string
+        type: array
+      maxTurns:
+        type: integer
+      model:
+        type: string
+      name:
+        type: string
+      path:
+        type: string
+      skills:
+        items:
+          type: string
+        type: array
+      tools:
+        items:
+          type: string
+        type: array
+    type: object
+  plugins.CatalogItem:
+    properties:
+      author:
+        type: string
+      category:
+        type: string
+      description:
+        type: string
+      homepage:
+        type: string
+      installs:
+        description: Installs are the installs of the plugin that the caller can see.
+        items:
+          $ref: '#/definitions/plugins.InstallRef'
+        type: array
+      marketplace:
+        type: string
+      name:
+        type: string
+      plugin:
+        description: PluginID is name@marketplace, the ID that inspect takes.
+        type: string
+      reason:
+        description: Reason says why an entry is not supported.
+        type: string
+      runsCode:
+        description: |-
+          RunsCode is what the last installed version of the plugin says; nil
+          until a version was installed. Inspect tells for sure.
+        type: boolean
+      source:
+        type: object
+      strict:
+        type: boolean
+      supported:
+        type: boolean
+      tags:
+        items:
+          type: string
+        type: array
+      version:
+        type: string
+    type: object
+  plugins.CatalogPage:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/plugins.CatalogItem'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
+  plugins.ChatPluginsRequest:
+    properties:
+      "off":
+        items:
+          type: string
+        type: array
+    type: object
+  plugins.ChatPluginsResponse:
+    properties:
+      "off":
+        items:
+          type: string
+        type: array
+    type: object
+  plugins.CommandRef:
+    properties:
+      allowedTools:
+        items:
+          type: string
+        type: array
+      argumentHint:
+        type: string
+      arguments:
+        items:
+          type: string
+        type: array
+      description:
+        type: string
+      disableModelInvocation:
+        type: boolean
+      model:
+        type: string
+      name:
+        type: string
+      path:
+        type: string
+      shellInjection:
+        type: boolean
+    type: object
+  plugins.FileChange:
+    properties:
+      code:
+        type: boolean
+      newLines:
+        type: integer
+      oldLines:
+        description: |-
+          OldLines and NewLines count the lines of each side; 0 for a missing
+          side.
+        type: integer
+      path:
+        type: string
+    type: object
+  plugins.FileDiff:
+    properties:
+      diff:
+        type: string
+      path:
+        type: string
+    type: object
+  plugins.HookHandlerRef:
+    properties:
+      args:
+        items:
+          type: string
+        type: array
+      command:
+        type: string
+      timeout:
+        type: integer
+      type:
+        type: string
+    type: object
+  plugins.HookRef:
+    properties:
+      event:
+        type: string
+      handlers:
+        items:
+          $ref: '#/definitions/plugins.HookHandlerRef'
+        type: array
+      matcher:
+        type: string
+    type: object
+  plugins.InspectRequest:
+    properties:
+      plugin:
+        description: Plugin is name@marketplace.
+        type: string
+    type: object
+  plugins.InstallDetail:
+    properties:
+      approvedAt:
+        type: string
+      approvedBy:
+        type: string
+      codeFiles:
+        items:
+          type: string
+        type: array
+      codeReasons:
+        items:
+          type: string
+        type: array
+      createdAt:
+        type: string
+      description:
+        type: string
+      digest:
+        type: string
+      enabled:
+        description: Enabled and NeedsReenable are the caller's own state.
+        type: boolean
+      files:
+        items:
+          $ref: '#/definitions/store.File'
+        type: array
+      hosts:
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      installedBy:
+        type: string
+      model:
+        $ref: '#/definitions/plugins.Model'
+      name:
+        type: string
+      needsReenable:
+        type: boolean
+      owner:
+        type: string
+      plugin:
+        type: string
+      previousDigest:
+        type: string
+      runsCode:
+        type: boolean
+      scope:
+        type: string
+      sha:
+        type: string
+      sizeBytes:
+        type: integer
+      skipped:
+        items:
+          $ref: '#/definitions/store.Skipped'
+        type: array
+      state:
+        type: string
+      updateDigest:
+        type: string
+      updateSha:
+        type: string
+      updatedAt:
+        type: string
+      version:
+        type: string
+    type: object
+  plugins.InstallList:
+    properties:
+      installs:
+        items:
+          $ref: '#/definitions/plugins.InstallView'
+        type: array
+    type: object
+  plugins.InstallRef:
+    properties:
+      id:
+        type: string
+      scope:
+        type: string
+      state:
+        type: string
+    type: object
+  plugins.InstallRequest:
+    properties:
+      scope:
+        description: Scope is "user" (the default) or "instance".
+        type: string
+      token:
+        type: string
+    type: object
+  plugins.InstallView:
+    properties:
+      approvedAt:
+        type: string
+      approvedBy:
+        type: string
+      createdAt:
+        type: string
+      description:
+        type: string
+      digest:
+        type: string
+      enabled:
+        description: Enabled and NeedsReenable are the caller's own state.
+        type: boolean
+      id:
+        type: string
+      installedBy:
+        type: string
+      name:
+        type: string
+      needsReenable:
+        type: boolean
+      owner:
+        type: string
+      plugin:
+        type: string
+      previousDigest:
+        type: string
+      runsCode:
+        type: boolean
+      scope:
+        type: string
+      sha:
+        type: string
+      state:
+        type: string
+      updateDigest:
+        type: string
+      updateSha:
+        type: string
+      updatedAt:
+        type: string
+      version:
+        type: string
+    type: object
+  plugins.JobAccepted:
+    properties:
+      jobID:
+        type: string
+      plugin:
+        type: string
+    type: object
+  plugins.MCPRef:
+    properties:
+      args:
+        items:
+          type: string
+        type: array
+      command:
+        type: string
+      env:
+        additionalProperties:
+          type: string
+        type: object
+      headers:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      type:
+        type: string
+      url:
+        type: string
+    type: object
+  plugins.Marketplace:
+    properties:
+      active:
+        description: 'Active is enabled and not suspended: browse and install read
+          it.'
+        type: boolean
+      createdAt:
+        type: string
+      createdBy:
+        type: string
+      default:
+        description: Default marks a marketplace that LocalAI ships (the curated one).
+        type: boolean
+      enabled:
+        type: boolean
+      headSha:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+      lastError:
+        description: LastError is a short code of the last failed refresh.
+        type: string
+      location:
+        type: string
+      name:
+        type: string
+      ref:
+        type: string
+      refreshedAt:
+        type: string
+      suspended:
+        description: |-
+          Suspended is set for a default marketplace while the "official
+          libraries" switch is off.
+        type: boolean
+      updatedAt:
+        type: string
+    type: object
+  plugins.MarketplaceList:
+    properties:
+      marketplaces:
+        items:
+          $ref: '#/definitions/plugins.Marketplace'
+        type: array
+    type: object
+  plugins.Model:
+    properties:
+      agents:
+        items:
+          $ref: '#/definitions/plugins.AgentRef'
+        type: array
+      bin:
+        items:
+          type: string
+        type: array
+      commands:
+        items:
+          $ref: '#/definitions/plugins.CommandRef'
+        type: array
+      description:
+        type: string
+      hooks:
+        items:
+          $ref: '#/definitions/plugins.HookRef'
+        type: array
+      mcpServers:
+        items:
+          $ref: '#/definitions/plugins.MCPRef'
+        type: array
+      name:
+        type: string
+      skills:
+        items:
+          $ref: '#/definitions/plugins.SkillRef'
+        type: array
+      skipped:
+        items:
+          $ref: '#/definitions/plugins.SkippedRef'
+        type: array
+      userConfig:
+        items:
+          $ref: '#/definitions/plugins.OptionRef'
+        type: array
+      version:
+        type: string
+    type: object
+  plugins.MyState:
+    properties:
+      config:
+        type: object
+      enabled:
+        type: boolean
+      install:
+        type: string
+      needsReenable:
+        type: boolean
+      secretsSet:
+        description: |-
+          SecretsSet names the sensitive options that have a value. Empty until
+          sealed secrets exist (spec 12.4).
+        items:
+          type: string
+        type: array
+    type: object
+  plugins.MyStateRequest:
+    properties:
+      config:
+        description: Config replaces the non-sensitive settings of the plugin.
+        type: object
+      enabled:
+        type: boolean
+      reenable:
+        description: |-
+          Reenable confirms turning on an install that runs code since the
+          caller last turned it on.
+        type: boolean
+      secrets:
+        additionalProperties:
+          type: string
+        description: Secrets sets sensitive settings. Not supported yet (422).
+        type: object
+    type: object
+  plugins.OptionRef:
+    properties:
+      default: {}
+      description:
+        type: string
+      key:
+        type: string
+      max:
+        type: number
+      min:
+        type: number
+      multiple:
+        type: boolean
+      options:
+        items:
+          type: string
+        type: array
+      required:
+        type: boolean
+      sensitive:
+        type: boolean
+      title:
+        type: string
+      type:
+        type: string
+    type: object
+  plugins.Preview:
+    properties:
+      codeFiles:
+        items:
+          type: string
+        type: array
+      codeReasons:
+        items:
+          type: string
+        type: array
+      description:
+        type: string
+      digest:
+        type: string
+      entry:
+        type: string
+      expiresAt:
+        type: string
+      fileCount:
+        type: integer
+      files:
+        items:
+          $ref: '#/definitions/store.File'
+        type: array
+      hosts:
+        description: Hosts are the hosts that the remote MCP servers connect to.
+        items:
+          type: string
+        type: array
+      marketplace:
+        type: string
+      model:
+        $ref: '#/definitions/plugins.Model'
+      name:
+        type: string
+      plugin:
+        type: string
+      runsCode:
+        type: boolean
+      sha:
+        description: SHA is the full commit the files come from; Digest names the
+          files.
+        type: string
+      sizeBytes:
+        type: integer
+      token:
+        description: Token confirms this preview once, before ExpiresAt.
+        type: string
+      version:
+        type: string
+    type: object
+  plugins.SkillRef:
+    properties:
+      allowedTools:
+        items:
+          type: string
+        type: array
+      argumentHint:
+        type: string
+      arguments:
+        items:
+          type: string
+        type: array
+      description:
+        type: string
+      dir:
+        type: string
+      disableModelInvocation:
+        type: boolean
+      model:
+        type: string
+      name:
+        type: string
+      path:
+        type: string
+      shellInjection:
+        type: boolean
+      userInvocable:
+        type: boolean
+    type: object
+  plugins.SkippedRef:
+    properties:
+      component:
+        type: string
+      name:
+        type: string
+      reasonCode:
+        type: string
+    type: object
+  plugins.UpdatePreview:
+    properties:
+      added:
+        items:
+          $ref: '#/definitions/plugins.FileChange'
+        type: array
+      changed:
+        items:
+          $ref: '#/definitions/plugins.FileChange'
+        type: array
+      codeFiles:
+        items:
+          type: string
+        type: array
+      diffs:
+        description: |-
+          Diffs are the unified diffs of the changed code files, up to
+          MaxDiffBytes in all; Truncated says that some were left out.
+        items:
+          $ref: '#/definitions/plugins.FileDiff'
+        type: array
+      expiresAt:
+        type: string
+      fromDigest:
+        type: string
+      fromSha:
+        type: string
+      install:
+        type: string
+      needsCodeReview:
+        description: |-
+          NeedsCodeReview is set for an instance install whose code changed:
+          the approval needs the administrator's browser session and a tick for
+          each file of CodeFiles.
+        type: boolean
+      newCodeReasons:
+        items:
+          type: string
+        type: array
+      oldCodeReasons:
+        items:
+          type: string
+        type: array
+      plugin:
+        type: string
+      removed:
+        items:
+          $ref: '#/definitions/plugins.FileChange'
+        type: array
+      toDigest:
+        type: string
+      toSha:
+        type: string
+      token:
+        type: string
+      truncated:
+        type: boolean
+    type: object
+  plugins.UpdateRequest:
+    properties:
+      approved_files:
+        description: |-
+          ApprovedFiles names each changed code file when the preview has
+          needsCodeReview.
+        items:
+          type: string
+        type: array
+      token:
         type: string
     type: object
   proposals.Event:
@@ -7346,6 +8234,13 @@ definitions:
           unattended runs: off (the default), registries or all, capped by the
           administrator's ceiling.
         type: string
+      plugins:
+        description: |-
+          Plugins are the install IDs of the plugins the agent may use (exact
+          grant: empty grants none).
+        items:
+          type: string
+        type: array
       project_id:
         description: |-
           ProjectID is the project the agent belongs to, absent for an agent of no
@@ -7970,6 +8865,11 @@ definitions:
         type: string
       network:
         type: string
+      plugins:
+        description: Plugins are the install IDs of the plugins the agent may use.
+        items:
+          type: string
+        type: array
       project_id:
         description: |-
           ProjectID makes the agent a project agent. It is read on create only: it
@@ -9661,6 +10561,11 @@ definitions:
         description: |-
           Place is set on a chat that a messaging connection started, when the
           connection kept where it lives.
+      plugins_off:
+        description: PluginsOff are the plugin install IDs switched off in the chat.
+        items:
+          type: string
+        type: array
       project_id:
         description: |-
           ProjectID is the project the chat belongs to; PulledProjects are the
@@ -9780,6 +10685,11 @@ definitions:
         description: |-
           Place is set on a chat that a messaging connection started, when the
           connection kept where it lives.
+      plugins_off:
+        description: PluginsOff are the plugin install IDs switched off in the chat.
+        items:
+          type: string
+        type: array
       project_id:
         description: |-
           ProjectID is the project the chat belongs to; PulledProjects are the
@@ -10938,6 +11848,14 @@ definitions:
         type: string
       name:
         type: string
+      plugin_install:
+        description: |-
+          PluginInstall and PluginServer name the plugin install and the MCP
+          server of a connector that a plugin owns. Such a connector is read
+          only: a change answers 403. Absent for a connector you made.
+        type: string
+      plugin_server:
+        type: string
       transport:
         description: http or stdio
         type: string
@@ -10961,6 +11879,9 @@ definitions:
         type: string
       "off":
         type: boolean
+      plugin_install:
+        description: PluginInstall is the plugin install that owns the connector.
+        type: string
       reason:
         type: string
       usable:
@@ -12378,6 +13299,8 @@ definitions:
         type: string
       agent_name:
         type: string
+      argument_hint:
+        type: string
       description:
         type: string
       editable:
@@ -12416,8 +13339,26 @@ definitions:
           New is true for a personal skill that was imported and that no chat has
           used yet. The first use clears it.
         type: boolean
+      no_menu:
+        type: boolean
+      no_model:
+        description: |-
+          NoModel is set for a plugin skill that only a person may call; NoMenu
+          for one that stays out of the / menu. ArgumentHint is the hint of its
+          arguments in that menu.
+        type: boolean
       path:
         description: Path is the path of its SKILL.md as the model sees it.
+        type: string
+      plugin:
+        description: |-
+          Plugin, PluginTitle and PluginInstall name the plugin of a skill of the
+          plugin layer: its plugin ID (name@marketplace), its name, and the
+          install that provides it.
+        type: string
+      plugin_install:
+        type: string
+      plugin_title:
         type: string
       project:
         description: |-
@@ -12650,6 +13591,13 @@ definitions:
           Each must be one of your own for that add-on. A single string is read as
           a set of one.
       mcp_off:
+        items:
+          type: string
+        type: array
+      plugins_off:
+        description: |-
+          PluginsOff are the plugin install IDs the chat starts with off, in the
+          form PUT /api/chats/{id}/plugins takes. At most 200.
         items:
           type: string
         type: array
@@ -17578,6 +18526,27 @@ definitions:
           Revision is the newest revision of the changes; it is also the event id,
           which a client sends back (Last-Event-ID or ?after=) to resume.
         type: integer
+    type: object
+  store.File:
+    properties:
+      mode:
+        description: '"0644" or "0755"'
+        type: string
+      path:
+        type: string
+      sha256:
+        type: string
+      size:
+        type: integer
+    type: object
+  store.Skipped:
+    properties:
+      component:
+        type: string
+      name:
+        type: string
+      reason:
+        type: string
     type: object
   studio.ContextFile:
     properties:
@@ -23085,6 +24054,47 @@ paths:
       summary: Edit a message that waits for the model.
       tags:
       - chats
+  /api/chats/{id}/plugins:
+    put:
+      consumes:
+      - application/json
+      description: Sets the installs switched off in one chat, replacing the list.
+        A chat keeps what is off, so a plugin turned on later is on in existing chats.
+        At most 200 install IDs. Needs the chats and the plugins features.
+      parameters:
+      - description: Chat ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Install IDs switched off
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/plugins.ChatPluginsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The list as stored
+          schema:
+            $ref: '#/definitions/plugins.ChatPluginsResponse'
+        "400":
+          description: Invalid list
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such chat
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "501":
+          description: The chats of this server cannot keep plugin switches
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Switch plugins off in a chat
+      tags:
+      - Plugins
   /api/chats/{id}/project:
     put:
       description: 'project_id is the project''s id; an empty one takes the chat out
@@ -32613,6 +33623,675 @@ paths:
       summary: Redact PII in a string by applying the configured policy.
       tags:
       - pii
+  /api/plugins/catalog:
+    get:
+      description: Lists the entries of the active marketplaces from their last good
+        list; nothing is fetched. runs_code keeps the entries known to run code (true)
+        or known to run none (false); an entry is known once a version of it was installed,
+        and inspect tells for sure. Needs the plugins feature.
+      parameters:
+      - description: Text in the name, description, category or tags
+        in: query
+        name: q
+        type: string
+      - description: Marketplace ID
+        in: query
+        name: marketplace
+        type: string
+      - description: Category
+        in: query
+        name: category
+        type: string
+      - description: Known to run code, or known to run none
+        in: query
+        name: runs_code
+        type: boolean
+      - description: First entry
+        in: query
+        name: offset
+        type: integer
+      - description: Entries per page (default 50, at most 200)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: One page
+          schema:
+            $ref: '#/definitions/plugins.CatalogPage'
+        "400":
+          description: Invalid query
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Browse the plugins
+      tags:
+      - Plugins
+  /api/plugins/catalog/{marketplace}/{name}:
+    get:
+      description: Returns one entry of an active marketplace, with the installs of
+        it that the caller can see. Needs the plugins feature.
+      parameters:
+      - description: Marketplace ID
+        in: path
+        name: marketplace
+        required: true
+        type: string
+      - description: Plugin name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The entry
+          schema:
+            $ref: '#/definitions/plugins.CatalogItem'
+        "404":
+          description: No such entry or marketplace
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: One plugin of a marketplace
+      tags:
+      - Plugins
+  /api/plugins/inspect:
+    post:
+      consumes:
+      - application/json
+      description: Fetches the plugin at the commit its marketplace entry points at,
+        checks every file, computes the content digest, reads what it contributes
+        and whether it runs code, and returns a preview token. The token works once,
+        for 15 minutes, for the caller only. Any user with the plugins feature may
+        inspect.
+      parameters:
+      - description: Plugin ID (name@marketplace)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/plugins.InspectRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The preview and its token
+          schema:
+            $ref: '#/definitions/plugins.Preview'
+        "400":
+          description: Not name@marketplace, or an invalid plugin
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such entry, or its marketplace is off
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "422":
+          description: A source type LocalAI does not fetch (unsupported), or files
+            the checks refuse (content_refused)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "502":
+          description: The plugin could not be fetched
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Inspect a plugin before an install
+      tags:
+      - Plugins
+  /api/plugins/inspect/{token}/files/{path}:
+    get:
+      description: Returns one file of the package that a preview token (of an inspect
+        or of an update preview) names, as plain text. It does not use the token up.
+        Only the caller who made the preview can read it.
+      parameters:
+      - description: Preview token
+        in: path
+        name: token
+        required: true
+        type: string
+      - description: File path inside the plugin
+        in: path
+        name: path
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: The file
+          schema:
+            type: string
+        "400":
+          description: Invalid or expired token, or an invalid path
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such file
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: One file of a preview, for review
+      tags:
+      - Plugins
+  /api/plugins/installs:
+    get:
+      description: Lists the installs for everyone and the caller's own, with the
+        caller's switch. An administrator adds all=true to list the personal installs
+        of every user. Needs the plugins feature.
+      parameters:
+      - description: Every install (administrators only)
+        in: query
+        name: all
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Installs
+          schema:
+            $ref: '#/definitions/plugins.InstallList'
+        "403":
+          description: all=true for a user
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the plugin installs
+      tags:
+      - Plugins
+    post:
+      consumes:
+      - application/json
+      description: 'Confirms a preview token and queues the install; the job fetches
+        the plugin again at the same commit and refuses files that differ from the
+        reviewed ones. scope is user (default: for the caller only, a plugin that
+        runs no code, while plugins_user_installs is on) or instance (for everyone,
+        administrators only). A plugin that runs code is installed for everyone only,
+        by an administrator from the browser: the request needs the administrator''s
+        own browser session and the header X-LocalAI-Confirm set to the plugin ID;
+        an API key or an MCP call gets 403 not_human_surface. The progress is in GET
+        /api/operations (isPlugin).'
+      parameters:
+      - description: Token and scope
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/plugins.InstallRequest'
+      - description: The plugin ID, for a plugin that runs code
+        in: header
+        name: X-LocalAI-Confirm
+        type: string
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Queued
+          schema:
+            $ref: '#/definitions/plugins.JobAccepted'
+        "400":
+          description: Invalid or used token (invalid_token), or an invalid scope
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: needs_admin, code_for_everyone, forbidden or not_human_surface
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Installed already (conflict), or installed for everyone (instance_installed,
+            param names the install)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "422":
+          description: Too many installs (limit_reached)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Install a plugin
+      tags:
+      - Plugins
+  /api/plugins/installs/{id}:
+    delete:
+      description: Removes an install and the switches of its users. The owner removes
+        a personal install; an administrator removes any install.
+      parameters:
+      - description: Install ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Removed
+        "403":
+          description: forbidden
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such install
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Remove a plugin
+      tags:
+      - Plugins
+    get:
+      description: Returns an install with what its package contributes, the components
+        left out with their reasons, the code files and the hosts its remote MCP servers
+        connect to. A personal install of another user is not found, except for an
+        administrator.
+      parameters:
+      - description: Install ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The install
+          schema:
+            $ref: '#/definitions/plugins.InstallDetail'
+        "404":
+          description: No such install
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: One plugin install
+      tags:
+      - Plugins
+  /api/plugins/installs/{id}/files/{path}:
+    get:
+      description: Returns one file of the installed package as plain text.
+      parameters:
+      - description: Install ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: File path inside the plugin
+        in: path
+        name: path
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: The file
+          schema:
+            type: string
+        "400":
+          description: Invalid path
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such install or file
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: One file of an installed plugin
+      tags:
+      - Plugins
+  /api/plugins/installs/{id}/me:
+    get:
+      description: Returns whether the caller has the install on, whether it waits
+        for a new confirmation because it now runs code, the caller's settings, and
+        which secret settings are set.
+      parameters:
+      - description: Install ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The state
+          schema:
+            $ref: '#/definitions/plugins.MyState'
+        "403":
+          description: A personal install of another user
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such install
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: My state of a plugin
+      tags:
+      - Plugins
+    put:
+      consumes:
+      - application/json
+      description: Turns an install on or off for the caller and sets their settings.
+        Turning off keeps the settings. An install that runs code since the caller
+        turned it on answers 409 needs_reenable until the request also sends reenable
+        true. Secret settings are not supported yet (422).
+      parameters:
+      - description: Install ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Changes
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/plugins.MyStateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The state
+          schema:
+            $ref: '#/definitions/plugins.MyState'
+        "400":
+          description: A setting the plugin does not have
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: A personal install of another user
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such install
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: needs_reenable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "422":
+          description: Secret settings (unsupported)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Turn a plugin on or off for me
+      tags:
+      - Plugins
+  /api/plugins/installs/{id}/rollback:
+    post:
+      description: Sets the previous version of an install again, with the rights
+        of an update; the version rolled back from becomes the available update. For
+        an install for everyone that runs code, in either version, the request needs
+        the administrator's own browser session with X-LocalAI-Confirm set to the
+        install ID.
+      parameters:
+      - description: Install ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: The install ID, when code is involved
+        in: header
+        name: X-LocalAI-Confirm
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The install after the rollback
+          schema:
+            $ref: '#/definitions/plugins.InstallDetail'
+        "400":
+          description: No previous version
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: blocked, forbidden or not_human_surface
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such install, or the previous version is gone
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: The install changed meanwhile
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Roll a plugin back
+      tags:
+      - Plugins
+  /api/plugins/installs/{id}/update:
+    post:
+      consumes:
+      - application/json
+      description: Confirms an update preview and queues the update. When the preview
+        has needsCodeReview, the request needs the administrator's own browser session
+        with the header X-LocalAI-Confirm set to the install ID (else 403 not_human_surface),
+        and approved_files must name every changed code file. The progress is in GET
+        /api/operations (isPlugin).
+      parameters:
+      - description: Install ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Token and approved code files
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/plugins.UpdateRequest'
+      - description: The install ID, for an update whose code changed
+        in: header
+        name: X-LocalAI-Confirm
+        type: string
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Queued
+          schema:
+            $ref: '#/definitions/plugins.JobAccepted'
+        "400":
+          description: Invalid token, or a changed code file not approved
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: blocked, forbidden or not_human_surface
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such install
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Update a plugin
+      tags:
+      - Plugins
+  /api/plugins/installs/{id}/update/preview:
+    post:
+      description: Fetches the newer version and returns the files added, removed
+        and changed, the unified diffs of the changed code files (256 KiB in all),
+        the old and new code reasons and a preview token. The owner of a personal
+        install or an administrator may ask. A personal install whose new version
+        runs code is blocked and keeps its version (403 blocked).
+      parameters:
+      - description: Install ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The diff and its token
+          schema:
+            $ref: '#/definitions/plugins.UpdatePreview'
+        "403":
+          description: blocked or forbidden
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such install
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: No update available (no_update)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Preview the update of a plugin
+      tags:
+      - Plugins
+  /api/plugins/marketplaces:
+    get:
+      description: Lists the marketplaces of plugins compatible with the Claude Code
+        plugin format, with their state and the short code of the last failed refresh.
+        Needs the plugins feature.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Marketplaces
+          schema:
+            $ref: '#/definitions/plugins.MarketplaceList'
+        "401":
+          description: Authentication required
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: The plugins feature is off for the caller
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Plugins are not set up on this server (plugins_unavailable)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the plugin marketplaces
+      tags:
+      - Plugins
+    post:
+      consumes:
+      - application/json
+      description: Adds a marketplace (owner/repo, an https git URL or an https URL
+        of a marketplace.json file) and reads it at once. Nothing is kept when the
+        first read fails. Administrators only.
+      parameters:
+      - description: Source
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_mudler_LocalAI_core_http_endpoints_plugins.AddMarketplaceRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: The new marketplace
+          schema:
+            $ref: '#/definitions/plugins.Marketplace'
+        "400":
+          description: Invalid source, ref or ID, or the marketplace could not be
+            read
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: The ID is taken
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "422":
+          description: Too many marketplaces (limit_reached)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Add a plugin marketplace
+      tags:
+      - Plugins
+  /api/plugins/marketplaces/{id}:
+    delete:
+      description: Removes a marketplace and its list. A default marketplace stays
+        removed and is not added again at start. The installs from it stay. Administrators
+        only.
+      parameters:
+      - description: Marketplace ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Removed
+        "403":
+          description: Not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such marketplace
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Remove a plugin marketplace
+      tags:
+      - Plugins
+    put:
+      consumes:
+      - application/json
+      description: Changes the ref (read at the next refresh) or the enabled switch
+        of a marketplace. Administrators only.
+      parameters:
+      - description: Marketplace ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Changes
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_mudler_LocalAI_core_http_endpoints_plugins.UpdateMarketplaceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The marketplace
+          schema:
+            $ref: '#/definitions/plugins.Marketplace'
+        "400":
+          description: Invalid ref
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such marketplace
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Change a plugin marketplace
+      tags:
+      - Plugins
+  /api/plugins/marketplaces/{id}/refresh:
+    post:
+      description: Reads the marketplace now. A failure keeps the last good list and
+        records a short code in lastError; the answer is the marketplace in either
+        case. A refresh never installs anything. Administrators only.
+      parameters:
+      - description: Marketplace ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The marketplace after the refresh
+          schema:
+            $ref: '#/definitions/plugins.Marketplace'
+        "403":
+          description: Not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such marketplace
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Refresh a plugin marketplace
+      tags:
+      - Plugins
   /api/quantization/status:
     get:
       description: Returns model_exports=false when this instance does not share the

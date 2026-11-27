@@ -13859,6 +13859,65 @@
                 }
             }
         },
+        "/api/chats/{id}/plugins": {
+            "put": {
+                "description": "Sets the installs switched off in one chat, replacing the list. A chat keeps what is off, so a plugin turned on later is on in existing chats. At most 200 install IDs. Needs the chats and the plugins features.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "Switch plugins off in a chat",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chat ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Install IDs switched off",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/plugins.ChatPluginsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The list as stored",
+                        "schema": {
+                            "$ref": "#/definitions/plugins.ChatPluginsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid list",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "The chats of this server cannot keep plugin switches",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/project": {
             "put": {
                 "description": "project_id is the project's id; an empty one takes the chat out of its project. The chat must be idle (409 otherwise). The tool switches of the chat stay as they are: the defaults of a project apply to new chats only. An archived project takes no chats (400).",
@@ -19084,6 +19143,938 @@
                         "description": "Redacted text + entities",
                         "schema": {
                             "$ref": "#/definitions/schema.PIIRedactResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/plugins/catalog": {
+            "get": {
+                "description": "Lists the entries of the active marketplaces from their last good list; nothing is fetched. runs_code keeps the entries known to run code (true) or known to run none (false); an entry is known once a version of it was installed, and inspect tells for sure. Needs the plugins feature.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "Browse the plugins",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Text in the name, description, category or tags",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Marketplace ID",
+                        "name": "marketplace",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Category",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Known to run code, or known to run none",
+                        "name": "runs_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "First entry",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Entries per page (default 50, at most 200)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "One page",
+                        "schema": {
+                            "$ref": "#/definitions/plugins.CatalogPage"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid query",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/plugins/catalog/{marketplace}/{name}": {
+            "get": {
+                "description": "Returns one entry of an active marketplace, with the installs of it that the caller can see. Needs the plugins feature.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "One plugin of a marketplace",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Marketplace ID",
+                        "name": "marketplace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Plugin name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The entry",
+                        "schema": {
+                            "$ref": "#/definitions/plugins.CatalogItem"
+                        }
+                    },
+                    "404": {
+                        "description": "No such entry or marketplace",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/plugins/inspect": {
+            "post": {
+                "description": "Fetches the plugin at the commit its marketplace entry points at, checks every file, computes the content digest, reads what it contributes and whether it runs code, and returns a preview token. The token works once, for 15 minutes, for the caller only. Any user with the plugins feature may inspect.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "Inspect a plugin before an install",
+                "parameters": [
+                    {
+                        "description": "Plugin ID (name@marketplace)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/plugins.InspectRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The preview and its token",
+                        "schema": {
+                            "$ref": "#/definitions/plugins.Preview"
+                        }
+                    },
+                    "400": {
+                        "description": "Not name@marketplace, or an invalid plugin",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such entry, or its marketplace is off",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "A source type LocalAI does not fetch (unsupported), or files the checks refuse (content_refused)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "The plugin could not be fetched",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/plugins/inspect/{token}/files/{path}": {
+            "get": {
+                "description": "Returns one file of the package that a preview token (of an inspect or of an update preview) names, as plain text. It does not use the token up. Only the caller who made the preview can read it.",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "One file of a preview, for review",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Preview token",
+                        "name": "token",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "File path inside the plugin",
+                        "name": "path",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid or expired token, or an invalid path",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such file",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/plugins/installs": {
+            "get": {
+                "description": "Lists the installs for everyone and the caller's own, with the caller's switch. An administrator adds all=true to list the personal installs of every user. Needs the plugins feature.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "List the plugin installs",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "Every install (administrators only)",
+                        "name": "all",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Installs",
+                        "schema": {
+                            "$ref": "#/definitions/plugins.InstallList"
+                        }
+                    },
+                    "403": {
+                        "description": "all=true for a user",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Confirms a preview token and queues the install; the job fetches the plugin again at the same commit and refuses files that differ from the reviewed ones. scope is user (default: for the caller only, a plugin that runs no code, while plugins_user_installs is on) or instance (for everyone, administrators only). A plugin that runs code is installed for everyone only, by an administrator from the browser: the request needs the administrator's own browser session and the header X-LocalAI-Confirm set to the plugin ID; an API key or an MCP call gets 403 not_human_surface. The progress is in GET /api/operations (isPlugin).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "Install a plugin",
+                "parameters": [
+                    {
+                        "description": "Token and scope",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/plugins.InstallRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The plugin ID, for a plugin that runs code",
+                        "name": "X-LocalAI-Confirm",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Queued",
+                        "schema": {
+                            "$ref": "#/definitions/plugins.JobAccepted"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid or used token (invalid_token), or an invalid scope",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "needs_admin, code_for_everyone, forbidden or not_human_surface",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Installed already (conflict), or installed for everyone (instance_installed, param names the install)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Too many installs (limit_reached)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/plugins/installs/{id}": {
+            "get": {
+                "description": "Returns an install with what its package contributes, the components left out with their reasons, the code files and the hosts its remote MCP servers connect to. A personal install of another user is not found, except for an administrator.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "One plugin install",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Install ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The install",
+                        "schema": {
+                            "$ref": "#/definitions/plugins.InstallDetail"
+                        }
+                    },
+                    "404": {
+                        "description": "No such install",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Removes an install and the switches of its users. The owner removes a personal install; an administrator removes any install.",
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "Remove a plugin",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Install ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Removed"
+                    },
+                    "403": {
+                        "description": "forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such install",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/plugins/installs/{id}/files/{path}": {
+            "get": {
+                "description": "Returns one file of the installed package as plain text.",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "One file of an installed plugin",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Install ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "File path inside the plugin",
+                        "name": "path",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid path",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such install or file",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/plugins/installs/{id}/me": {
+            "get": {
+                "description": "Returns whether the caller has the install on, whether it waits for a new confirmation because it now runs code, the caller's settings, and which secret settings are set.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "My state of a plugin",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Install ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The state",
+                        "schema": {
+                            "$ref": "#/definitions/plugins.MyState"
+                        }
+                    },
+                    "403": {
+                        "description": "A personal install of another user",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such install",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Turns an install on or off for the caller and sets their settings. Turning off keeps the settings. An install that runs code since the caller turned it on answers 409 needs_reenable until the request also sends reenable true. Secret settings are not supported yet (422).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "Turn a plugin on or off for me",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Install ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changes",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/plugins.MyStateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The state",
+                        "schema": {
+                            "$ref": "#/definitions/plugins.MyState"
+                        }
+                    },
+                    "400": {
+                        "description": "A setting the plugin does not have",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "A personal install of another user",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such install",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "needs_reenable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Secret settings (unsupported)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/plugins/installs/{id}/rollback": {
+            "post": {
+                "description": "Sets the previous version of an install again, with the rights of an update; the version rolled back from becomes the available update. For an install for everyone that runs code, in either version, the request needs the administrator's own browser session with X-LocalAI-Confirm set to the install ID.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "Roll a plugin back",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Install ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The install ID, when code is involved",
+                        "name": "X-LocalAI-Confirm",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The install after the rollback",
+                        "schema": {
+                            "$ref": "#/definitions/plugins.InstallDetail"
+                        }
+                    },
+                    "400": {
+                        "description": "No previous version",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "blocked, forbidden or not_human_surface",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such install, or the previous version is gone",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The install changed meanwhile",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/plugins/installs/{id}/update": {
+            "post": {
+                "description": "Confirms an update preview and queues the update. When the preview has needsCodeReview, the request needs the administrator's own browser session with the header X-LocalAI-Confirm set to the install ID (else 403 not_human_surface), and approved_files must name every changed code file. The progress is in GET /api/operations (isPlugin).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "Update a plugin",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Install ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Token and approved code files",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/plugins.UpdateRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The install ID, for an update whose code changed",
+                        "name": "X-LocalAI-Confirm",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Queued",
+                        "schema": {
+                            "$ref": "#/definitions/plugins.JobAccepted"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid token, or a changed code file not approved",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "blocked, forbidden or not_human_surface",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such install",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/plugins/installs/{id}/update/preview": {
+            "post": {
+                "description": "Fetches the newer version and returns the files added, removed and changed, the unified diffs of the changed code files (256 KiB in all), the old and new code reasons and a preview token. The owner of a personal install or an administrator may ask. A personal install whose new version runs code is blocked and keeps its version (403 blocked).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "Preview the update of a plugin",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Install ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The diff and its token",
+                        "schema": {
+                            "$ref": "#/definitions/plugins.UpdatePreview"
+                        }
+                    },
+                    "403": {
+                        "description": "blocked or forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such install",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "No update available (no_update)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/plugins/marketplaces": {
+            "get": {
+                "description": "Lists the marketplaces of plugins compatible with the Claude Code plugin format, with their state and the short code of the last failed refresh. Needs the plugins feature.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "List the plugin marketplaces",
+                "responses": {
+                    "200": {
+                        "description": "Marketplaces",
+                        "schema": {
+                            "$ref": "#/definitions/plugins.MarketplaceList"
+                        }
+                    },
+                    "401": {
+                        "description": "Authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "The plugins feature is off for the caller",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Plugins are not set up on this server (plugins_unavailable)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Adds a marketplace (owner/repo, an https git URL or an https URL of a marketplace.json file) and reads it at once. Nothing is kept when the first read fails. Administrators only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "Add a plugin marketplace",
+                "parameters": [
+                    {
+                        "description": "Source",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_mudler_LocalAI_core_http_endpoints_plugins.AddMarketplaceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The new marketplace",
+                        "schema": {
+                            "$ref": "#/definitions/plugins.Marketplace"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid source, ref or ID, or the marketplace could not be read",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The ID is taken",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Too many marketplaces (limit_reached)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/plugins/marketplaces/{id}": {
+            "put": {
+                "description": "Changes the ref (read at the next refresh) or the enabled switch of a marketplace. Administrators only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "Change a plugin marketplace",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Marketplace ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changes",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_mudler_LocalAI_core_http_endpoints_plugins.UpdateMarketplaceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The marketplace",
+                        "schema": {
+                            "$ref": "#/definitions/plugins.Marketplace"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid ref",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such marketplace",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Removes a marketplace and its list. A default marketplace stays removed and is not added again at start. The installs from it stay. Administrators only.",
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "Remove a plugin marketplace",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Marketplace ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Removed"
+                    },
+                    "403": {
+                        "description": "Not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such marketplace",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/plugins/marketplaces/{id}/refresh": {
+            "post": {
+                "description": "Reads the marketplace now. A failure keeps the last good list and records a short code in lastError; the answer is the marketplace in either case. A refresh never installs anything. Administrators only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Plugins"
+                ],
+                "summary": "Refresh a plugin marketplace",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Marketplace ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The marketplace after the refresh",
+                        "schema": {
+                            "$ref": "#/definitions/plugins.Marketplace"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such marketplace",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -25535,6 +26526,34 @@
                 }
             }
         },
+        "enginesettings.Advice": {
+            "type": "object",
+            "properties": {
+                "avoid": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "control": {
+                    "description": "Control is a Combined id or a flag key.",
+                    "type": "string"
+                },
+                "doc": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/enginesettings.MemoryKind"
+                },
+                "value": {
+                    "description": "Value is the recommended choice (Combined) or value (flag).",
+                    "type": "string"
+                }
+            }
+        },
         "enginesettings.BackendMatch": {
             "type": "object",
             "properties": {
@@ -25583,11 +26602,13 @@
             "type": "string",
             "enum": [
                 "command-line",
-                "tensor-placement"
+                "tensor-placement",
+                "drafting"
             ],
             "x-enum-varnames": [
                 "CapabilityCommandLine",
-                "CapabilityTensorPlacement"
+                "CapabilityTensorPlacement",
+                "CapabilityDrafting"
             ]
         },
         "enginesettings.Choice": {
@@ -25649,6 +26670,105 @@
         "enginesettings.Config": {
             "type": "object",
             "additionalProperties": {}
+        },
+        "enginesettings.DraftMode": {
+            "type": "object",
+            "properties": {
+                "auto": {
+                    "description": "Auto: the backend turns the mode on by itself for a model that has\nwhat Needs names when the file sets no kind.",
+                    "type": "boolean"
+                },
+                "doc": {
+                    "type": "string"
+                },
+                "fields": {
+                    "description": "Fields are the flag keys drawn under the mode, in order.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "model": {
+                    "description": "Model: the mode needs a draft model file (ModelKey).",
+                    "type": "boolean"
+                },
+                "needs": {
+                    "description": "Needs names what the model must have, such as NeedsMTPHead. A client\noffers the mode only when the model has it, or when the file already\nuses the mode.",
+                    "type": "string"
+                },
+                "note": {
+                    "description": "Note is the trade-off of the mode, said plainly. Optional.",
+                    "type": "string"
+                },
+                "set": {
+                    "description": "Set lists flag values written when the mode is picked and the flag\nis unset, such as the window LocalAI uses for MTP.",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "types": {
+                    "description": "Types are the kinds read back as this mode. The first is written\nwhen the mode is picked. Empty for Off and for a draft model.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "enginesettings.DraftStreams": {
+            "type": "object",
+            "properties": {
+                "default": {
+                    "type": "string"
+                },
+                "doc": {
+                    "type": "string"
+                },
+                "option": {
+                    "type": "string"
+                }
+            }
+        },
+        "enginesettings.Drafting": {
+            "type": "object",
+            "properties": {
+                "group": {
+                    "description": "Group is the editor section the modes are drawn in. A client draws\nits other flags under the modes as \"more options\".",
+                    "type": "string"
+                },
+                "model_key": {
+                    "description": "ModelKey is the flag key of the draft model file.",
+                    "type": "string"
+                },
+                "modes": {
+                    "description": "Modes are the choices, the first one being Off (no kind, no model).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/enginesettings.DraftMode"
+                    }
+                },
+                "off_type": {
+                    "description": "OffType is the kind Off writes when the model would draft without\none (a mode with Auto). Empty: Off always writes no kind.",
+                    "type": "string"
+                },
+                "streams": {
+                    "description": "Streams is the load limit of drafting. Optional.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/enginesettings.DraftStreams"
+                        }
+                    ]
+                },
+                "type_key": {
+                    "description": "TypeKey is the flag key of the drafting kind (a comma-separated list).",
+                    "type": "string"
+                }
+            }
         },
         "enginesettings.Flag": {
             "type": "object",
@@ -25760,6 +26880,64 @@
                 },
                 "to": {
                     "type": "integer"
+                }
+            }
+        },
+        "enginesettings.Memory": {
+            "type": "object",
+            "properties": {
+                "advice": {
+                    "description": "Advice lists the recommended value of a control per kind.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/enginesettings.Advice"
+                    }
+                },
+                "fallback": {
+                    "description": "Fallback is the kind a client assumes when the host is unknown. The\ndiscrete rules are the cautious ones.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/enginesettings.MemoryKind"
+                        }
+                    ]
+                },
+                "fit_fraction": {
+                    "description": "FitFraction is the share of the device memory a profile's estimate may\ntake and still count as fitting. The rest is for the system, other\nmodels and estimate error.",
+                    "type": "number"
+                },
+                "kinds": {
+                    "description": "Kinds says, for each kind, what it is and what the rules do there.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/enginesettings.MemoryKindInfo"
+                    }
+                }
+            }
+        },
+        "enginesettings.MemoryKind": {
+            "type": "string",
+            "enum": [
+                "discrete",
+                "unified",
+                "system"
+            ],
+            "x-enum-varnames": [
+                "MemoryDiscrete",
+                "MemoryUnified",
+                "MemorySystem"
+            ]
+        },
+        "enginesettings.MemoryKindInfo": {
+            "type": "object",
+            "properties": {
+                "doc": {
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/enginesettings.MemoryKind"
+                },
+                "label": {
+                    "type": "string"
                 }
             }
         },
@@ -25877,11 +27055,22 @@
         "enginesettings.Preset": {
             "type": "object",
             "properties": {
+                "best_for": {
+                    "description": "BestFor says in one line which use the profile fits. Optional.",
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
+                },
+                "memory": {
+                    "description": "Memory holds the values that depend on the memory kind of the host.\nA kind it does not list uses Settings alone. Profiles only.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/enginesettings.PresetMemory"
+                    }
                 },
                 "name": {
                     "type": "string"
@@ -25898,10 +27087,45 @@
                     "description": "Profile marks one of a set of exclusive setups, such as a balanced,\na long prompt and a many users setup. A client shows the profiles as\none choice and reads the current one back: a profile is current when\nevery key it lists has its value (unset for nil). A client that\nswitches from the current profile to another also unsets the keys the\ncurrent one sets and the new one does not list, so a value is removed\nonly when it came from a profile. A profile has no placement.",
                     "type": "boolean"
                 },
+                "set": {
+                    "description": "Set groups the profiles into independent choices. Empty is the default\nset; ProfileSetConcurrency is the slot count. A switch within a set\nonly unsets the keys of that set's profiles. Profiles only.",
+                    "type": "string"
+                },
                 "settings": {
                     "description": "Settings maps flag keys to values. A nil value unsets the key.",
                     "type": "object",
                     "additionalProperties": {}
+                },
+                "streams": {
+                    "description": "Streams is the number of requests a concurrency profile serves at\nonce. Profiles only.",
+                    "type": "integer"
+                }
+            }
+        },
+        "enginesettings.PresetMemory": {
+            "type": "object",
+            "properties": {
+                "min_memory": {
+                    "description": "MinMemory is the smallest device memory, in bytes, the profile is\noffered for. 0: any.",
+                    "type": "integer"
+                },
+                "note": {
+                    "description": "Note is the trade-off of the profile on this kind. Optional.",
+                    "type": "string"
+                },
+                "settings": {
+                    "description": "Settings are merged over the profile's own settings for this kind. A\nnil value unsets the key.",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "tight": {
+                    "description": "Tight is merged over the result when the memory estimate of the\nprofile does not fit the device (Memory.FitFraction of it), for example\nan 8-bit KV cache when the f16 one would not fit. Optional.",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "unsupported": {
+                    "description": "Unsupported: the profile is not offered for this kind; Note says why.",
+                    "type": "boolean"
                 }
             }
         },
@@ -25933,6 +27157,14 @@
                         "$ref": "#/definitions/enginesettings.Combined"
                     }
                 },
+                "drafting": {
+                    "description": "Drafting describes the drafting capability. Absent without it.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/enginesettings.Drafting"
+                        }
+                    ]
+                },
                 "estimate": {
                     "description": "Estimate maps VRAM estimate request fields to flag keys.",
                     "type": "object",
@@ -25958,6 +27190,14 @@
                 },
                 "id": {
                     "type": "string"
+                },
+                "memory": {
+                    "description": "Memory describes the memory kinds of the profiles. Absent without it.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/enginesettings.Memory"
+                        }
+                    ]
                 },
                 "name": {
                     "type": "string"
@@ -28081,6 +29321,34 @@
                 }
             }
         },
+        "github_com_mudler_LocalAI_core_http_endpoints_plugins.AddMarketplaceRequest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "ID names the marketplace; the default comes from marketplace.json.",
+                    "type": "string"
+                },
+                "ref": {
+                    "description": "Ref is the branch or tag to follow; empty is the default branch.",
+                    "type": "string"
+                },
+                "source": {
+                    "description": "Source is owner/repo, an https git URL, or an https URL of a\nmarketplace.json file.",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_mudler_LocalAI_core_http_endpoints_plugins.UpdateMarketplaceRequest": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "ref": {
+                    "type": "string"
+                }
+            }
+        },
         "hostops.RequestSummary": {
             "type": "object",
             "properties": {
@@ -29438,6 +30706,10 @@
         "modeladmin.VRAMResponse": {
             "type": "object",
             "properties": {
+                "architecture": {
+                    "description": "Architecture is general.architecture of a local GGUF model file, and\nMTPLayers the layers of its embedded multi-token prediction head (absent\nwithout one). VocabSize is the number of tokens of its vocabulary. The\nmodel editor reads them to offer MTP and to say whether a draft model\nfits. Absent when unknown.",
+                    "type": "string"
+                },
                 "block_count": {
                     "description": "BlockCount is the number of layers of the model, read from the GGUF\nmetadata. Absent when it is unknown.",
                     "type": "integer"
@@ -29455,6 +30727,9 @@
                 "model_max_context": {
                     "type": "integer"
                 },
+                "mtp_layers": {
+                    "type": "integer"
+                },
                 "runtime": {
                     "description": "Runtime is the KV cache and compute buffer part of a llama.cpp model\nfor the KV cache types and physical batch of the request. Absent when\nthe estimate has no weight files.",
                     "allOf": [
@@ -29468,6 +30743,9 @@
                 },
                 "size_display": {
                     "type": "string"
+                },
+                "vocab_size": {
+                    "type": "integer"
                 },
                 "vram_bytes": {
                     "type": "integer"
@@ -31146,6 +32424,955 @@
                 },
                 "relays": {
                     "description": "Relays is auto or none.",
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.AgentRef": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "disallowedTools": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "maxTurns": {
+                    "type": "integer"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "tools": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "plugins.CatalogItem": {
+            "type": "object",
+            "properties": {
+                "author": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "homepage": {
+                    "type": "string"
+                },
+                "installs": {
+                    "description": "Installs are the installs of the plugin that the caller can see.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/plugins.InstallRef"
+                    }
+                },
+                "marketplace": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "plugin": {
+                    "description": "PluginID is name@marketplace, the ID that inspect takes.",
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason says why an entry is not supported.",
+                    "type": "string"
+                },
+                "runsCode": {
+                    "description": "RunsCode is what the last installed version of the plugin says; nil\nuntil a version was installed. Inspect tells for sure.",
+                    "type": "boolean"
+                },
+                "source": {
+                    "type": "object"
+                },
+                "strict": {
+                    "type": "boolean"
+                },
+                "supported": {
+                    "type": "boolean"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.CatalogPage": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/plugins.CatalogItem"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "plugins.ChatPluginsRequest": {
+            "type": "object",
+            "properties": {
+                "off": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "plugins.ChatPluginsResponse": {
+            "type": "object",
+            "properties": {
+                "off": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "plugins.CommandRef": {
+            "type": "object",
+            "properties": {
+                "allowedTools": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "argumentHint": {
+                    "type": "string"
+                },
+                "arguments": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "disableModelInvocation": {
+                    "type": "boolean"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "shellInjection": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "plugins.FileChange": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "boolean"
+                },
+                "newLines": {
+                    "type": "integer"
+                },
+                "oldLines": {
+                    "description": "OldLines and NewLines count the lines of each side; 0 for a missing\nside.",
+                    "type": "integer"
+                },
+                "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.FileDiff": {
+            "type": "object",
+            "properties": {
+                "diff": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.HookHandlerRef": {
+            "type": "object",
+            "properties": {
+                "args": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "command": {
+                    "type": "string"
+                },
+                "timeout": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.HookRef": {
+            "type": "object",
+            "properties": {
+                "event": {
+                    "type": "string"
+                },
+                "handlers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/plugins.HookHandlerRef"
+                    }
+                },
+                "matcher": {
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.InspectRequest": {
+            "type": "object",
+            "properties": {
+                "plugin": {
+                    "description": "Plugin is name@marketplace.",
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.InstallDetail": {
+            "type": "object",
+            "properties": {
+                "approvedAt": {
+                    "type": "string"
+                },
+                "approvedBy": {
+                    "type": "string"
+                },
+                "codeFiles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "codeReasons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "digest": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "description": "Enabled and NeedsReenable are the caller's own state.",
+                    "type": "boolean"
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/store.File"
+                    }
+                },
+                "hosts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "installedBy": {
+                    "type": "string"
+                },
+                "model": {
+                    "$ref": "#/definitions/plugins.Model"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "needsReenable": {
+                    "type": "boolean"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "plugin": {
+                    "type": "string"
+                },
+                "previousDigest": {
+                    "type": "string"
+                },
+                "runsCode": {
+                    "type": "boolean"
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "sha": {
+                    "type": "string"
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                },
+                "skipped": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/store.Skipped"
+                    }
+                },
+                "state": {
+                    "type": "string"
+                },
+                "updateDigest": {
+                    "type": "string"
+                },
+                "updateSha": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.InstallList": {
+            "type": "object",
+            "properties": {
+                "installs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/plugins.InstallView"
+                    }
+                }
+            }
+        },
+        "plugins.InstallRef": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.InstallRequest": {
+            "type": "object",
+            "properties": {
+                "scope": {
+                    "description": "Scope is \"user\" (the default) or \"instance\".",
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.InstallView": {
+            "type": "object",
+            "properties": {
+                "approvedAt": {
+                    "type": "string"
+                },
+                "approvedBy": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "digest": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "description": "Enabled and NeedsReenable are the caller's own state.",
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "installedBy": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "needsReenable": {
+                    "type": "boolean"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "plugin": {
+                    "type": "string"
+                },
+                "previousDigest": {
+                    "type": "string"
+                },
+                "runsCode": {
+                    "type": "boolean"
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "sha": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "updateDigest": {
+                    "type": "string"
+                },
+                "updateSha": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.JobAccepted": {
+            "type": "object",
+            "properties": {
+                "jobID": {
+                    "type": "string"
+                },
+                "plugin": {
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.MCPRef": {
+            "type": "object",
+            "properties": {
+                "args": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "command": {
+                    "type": "string"
+                },
+                "env": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.Marketplace": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "description": "Active is enabled and not suspended: browse and install read it.",
+                    "type": "boolean"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "createdBy": {
+                    "type": "string"
+                },
+                "default": {
+                    "description": "Default marks a marketplace that LocalAI ships (the curated one).",
+                    "type": "boolean"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "headSha": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "lastError": {
+                    "description": "LastError is a short code of the last failed refresh.",
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "ref": {
+                    "type": "string"
+                },
+                "refreshedAt": {
+                    "type": "string"
+                },
+                "suspended": {
+                    "description": "Suspended is set for a default marketplace while the \"official\nlibraries\" switch is off.",
+                    "type": "boolean"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.MarketplaceList": {
+            "type": "object",
+            "properties": {
+                "marketplaces": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/plugins.Marketplace"
+                    }
+                }
+            }
+        },
+        "plugins.Model": {
+            "type": "object",
+            "properties": {
+                "agents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/plugins.AgentRef"
+                    }
+                },
+                "bin": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "commands": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/plugins.CommandRef"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "hooks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/plugins.HookRef"
+                    }
+                },
+                "mcpServers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/plugins.MCPRef"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/plugins.SkillRef"
+                    }
+                },
+                "skipped": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/plugins.SkippedRef"
+                    }
+                },
+                "userConfig": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/plugins.OptionRef"
+                    }
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.MyState": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "type": "object"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "install": {
+                    "type": "string"
+                },
+                "needsReenable": {
+                    "type": "boolean"
+                },
+                "secretsSet": {
+                    "description": "SecretsSet names the sensitive options that have a value. Empty until\nsealed secrets exist (spec 12.4).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "plugins.MyStateRequest": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "description": "Config replaces the non-sensitive settings of the plugin.",
+                    "type": "object"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "reenable": {
+                    "description": "Reenable confirms turning on an install that runs code since the\ncaller last turned it on.",
+                    "type": "boolean"
+                },
+                "secrets": {
+                    "description": "Secrets sets sensitive settings. Not supported yet (422).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "plugins.OptionRef": {
+            "type": "object",
+            "properties": {
+                "default": {},
+                "description": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "max": {
+                    "type": "number"
+                },
+                "min": {
+                    "type": "number"
+                },
+                "multiple": {
+                    "type": "boolean"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "sensitive": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.Preview": {
+            "type": "object",
+            "properties": {
+                "codeFiles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "codeReasons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "digest": {
+                    "type": "string"
+                },
+                "entry": {
+                    "type": "string"
+                },
+                "expiresAt": {
+                    "type": "string"
+                },
+                "fileCount": {
+                    "type": "integer"
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/store.File"
+                    }
+                },
+                "hosts": {
+                    "description": "Hosts are the hosts that the remote MCP servers connect to.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "marketplace": {
+                    "type": "string"
+                },
+                "model": {
+                    "$ref": "#/definitions/plugins.Model"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "plugin": {
+                    "type": "string"
+                },
+                "runsCode": {
+                    "type": "boolean"
+                },
+                "sha": {
+                    "description": "SHA is the full commit the files come from; Digest names the files.",
+                    "type": "string"
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                },
+                "token": {
+                    "description": "Token confirms this preview once, before ExpiresAt.",
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.SkillRef": {
+            "type": "object",
+            "properties": {
+                "allowedTools": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "argumentHint": {
+                    "type": "string"
+                },
+                "arguments": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "dir": {
+                    "type": "string"
+                },
+                "disableModelInvocation": {
+                    "type": "boolean"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "shellInjection": {
+                    "type": "boolean"
+                },
+                "userInvocable": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "plugins.SkippedRef": {
+            "type": "object",
+            "properties": {
+                "component": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "reasonCode": {
+                    "type": "string"
+                }
+            }
+        },
+        "plugins.UpdatePreview": {
+            "type": "object",
+            "properties": {
+                "added": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/plugins.FileChange"
+                    }
+                },
+                "changed": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/plugins.FileChange"
+                    }
+                },
+                "codeFiles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "diffs": {
+                    "description": "Diffs are the unified diffs of the changed code files, up to\nMaxDiffBytes in all; Truncated says that some were left out.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/plugins.FileDiff"
+                    }
+                },
+                "expiresAt": {
+                    "type": "string"
+                },
+                "fromDigest": {
+                    "type": "string"
+                },
+                "fromSha": {
+                    "type": "string"
+                },
+                "install": {
+                    "type": "string"
+                },
+                "needsCodeReview": {
+                    "description": "NeedsCodeReview is set for an instance install whose code changed:\nthe approval needs the administrator's browser session and a tick for\neach file of CodeFiles.",
+                    "type": "boolean"
+                },
+                "newCodeReasons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "oldCodeReasons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "plugin": {
+                    "type": "string"
+                },
+                "removed": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/plugins.FileChange"
+                    }
+                },
+                "toDigest": {
+                    "type": "string"
+                },
+                "toSha": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "truncated": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "plugins.UpdateRequest": {
+            "type": "object",
+            "properties": {
+                "approved_files": {
+                    "description": "ApprovedFiles names each changed code file when the preview has\nneedsCodeReview.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "token": {
                     "type": "string"
                 }
             }
@@ -32844,6 +35071,13 @@
                     "description": "Network is the network preset of the Sandbox commands of the agent's\nunattended runs: off (the default), registries or all, capped by the\nadministrator's ceiling.",
                     "type": "string"
                 },
+                "plugins": {
+                    "description": "Plugins are the install IDs of the plugins the agent may use (exact\ngrant: empty grants none).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "project_id": {
                     "description": "ProjectID is the project the agent belongs to, absent for an agent of no\nproject. It is set when the agent is created and cannot change.",
                     "type": "string",
@@ -33592,6 +35826,13 @@
                 },
                 "network": {
                     "type": "string"
+                },
+                "plugins": {
+                    "description": "Plugins are the install IDs of the plugins the agent may use.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "projectRef": {
                     "description": "ProjectRef is set in an export file (version 5) of a project agent: the\nproject of the exporting server, used only as a hint for the name to\noffer. An import never takes the project from it. A write to\nPOST /api/chats/agents ignores it.",
@@ -35501,6 +37742,13 @@
                         }
                     ]
                 },
+                "plugins_off": {
+                    "description": "PluginsOff are the plugin install IDs switched off in the chat.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "project_id": {
                     "description": "ProjectID is the project the chat belongs to; PulledProjects are the\nother projects it reads from. ProjectID can name a project that was\ndeleted since; read that as no project.",
                     "type": "string"
@@ -35644,6 +37892,13 @@
                             "$ref": "#/definitions/schema.ChatsPlace"
                         }
                     ]
+                },
+                "plugins_off": {
+                    "description": "PluginsOff are the plugin install IDs switched off in the chat.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "project_id": {
                     "description": "ProjectID is the project the chat belongs to; PulledProjects are the\nother projects it reads from. ProjectID can name a project that was\ndeleted since; read that as no project.",
@@ -37160,6 +39415,13 @@
                 "name": {
                     "type": "string"
                 },
+                "plugin_install": {
+                    "description": "PluginInstall and PluginServer name the plugin install and the MCP\nserver of a connector that a plugin owns. Such a connector is read\nonly: a change answers 403. Absent for a connector you made.",
+                    "type": "string"
+                },
+                "plugin_server": {
+                    "type": "string"
+                },
                 "transport": {
                     "description": "http or stdio",
                     "type": "string"
@@ -37194,6 +39456,10 @@
                 },
                 "off": {
                     "type": "boolean"
+                },
+                "plugin_install": {
+                    "description": "PluginInstall is the plugin install that owns the connector.",
+                    "type": "string"
                 },
                 "reason": {
                     "type": "string"
@@ -39063,6 +41329,9 @@
                 "agent_name": {
                     "type": "string"
                 },
+                "argument_hint": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -39100,8 +41369,25 @@
                     "description": "New is true for a personal skill that was imported and that no chat has\nused yet. The first use clears it.",
                     "type": "boolean"
                 },
+                "no_menu": {
+                    "type": "boolean"
+                },
+                "no_model": {
+                    "description": "NoModel is set for a plugin skill that only a person may call; NoMenu\nfor one that stays out of the / menu. ArgumentHint is the hint of its\narguments in that menu.",
+                    "type": "boolean"
+                },
                 "path": {
                     "description": "Path is the path of its SKILL.md as the model sees it.",
+                    "type": "string"
+                },
+                "plugin": {
+                    "description": "Plugin, PluginTitle and PluginInstall name the plugin of a skill of the\nplugin layer: its plugin ID (name@marketplace), its name, and the\ninstall that provides it.",
+                    "type": "string"
+                },
+                "plugin_install": {
+                    "type": "string"
+                },
+                "plugin_title": {
                     "type": "string"
                 },
                 "project": {
@@ -39401,6 +41687,13 @@
                     ]
                 },
                 "mcp_off": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "plugins_off": {
+                    "description": "PluginsOff are the plugin install IDs the chat starts with off, in the\nform PUT /api/chats/{id}/plugins takes. At most 200.",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -46075,6 +48368,38 @@
                 "revision": {
                     "description": "Revision is the newest revision of the changes; it is also the event id,\nwhich a client sends back (Last-Event-ID or ?after=) to resume.",
                     "type": "integer"
+                }
+            }
+        },
+        "store.File": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "description": "\"0644\" or \"0755\"",
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "sha256": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                }
+            }
+        },
+        "store.Skipped": {
+            "type": "object",
+            "properties": {
+                "component": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
                 }
             }
         },
