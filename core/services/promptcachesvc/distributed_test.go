@@ -58,6 +58,9 @@ func (f *fleet) start(id string) *fleetWorker {
 		promptcachesvc.WithUsers(w.half.Users),
 		promptcachesvc.WithStats(fixedStats{free: 500 * gib, total: 1000 * gib}))
 	w.half.Attach(w.node)
+	// The default is off; these workers run the tier as if a frontend with
+	// the tier on had synced them.
+	w.half.Sync(context.Background(), workerctl.PromptCacheSyncRequest{Settings: new(promptcachesvc.WireSettings(onConfig(), false, 0))})
 	return w
 }
 
@@ -158,7 +161,7 @@ var _ = Describe("the disk tier of a distributed cluster", func() {
 		ledger, err = promptcachesvc.NewDBLedger(db)
 		Expect(err).ToNot(HaveOccurred())
 		workers = newFleet()
-		settings = config.DefaultPromptCacheConfig()
+		settings = onConfig()
 		a, b = frontend(), frontend()
 		hourAgo = time.Now().Add(-time.Hour)
 	})
@@ -204,7 +207,7 @@ var _ = Describe("the disk tier of a distributed cluster", func() {
 
 	It("keeps the switch of a worker that refused the tier", func() {
 		half := promptcachesvc.NewWorker(true, "i")
-		half.Sync(ctx, workerctl.PromptCacheSyncRequest{Settings: new(promptcachesvc.WireSettings(config.DefaultPromptCacheConfig(), false, 0))})
+		half.Sync(ctx, workerctl.PromptCacheSyncRequest{Settings: new(promptcachesvc.WireSettings(onConfig(), false, 0))})
 		Expect(half.Settings().DiskDisabled).To(BeTrue())
 	})
 
@@ -357,6 +360,6 @@ var _ = Describe("the settings a worker gets", func() {
 		Expect(promptcachesvc.WireSettings(c, false, 0).Version).To(Equal(v1.Version))
 		Expect(promptcachesvc.WireSettings(c, true, 2).Version).ToNot(Equal(v1.Version), "the user count feeds the automatic quota")
 		Expect(promptcachesvc.ConfigOf(v1)).To(Equal(c))
-		Expect(promptcachesvc.ConfigOf(workerctl.PromptCacheSettings{})).To(Equal(c))
+		Expect(promptcachesvc.ConfigOf(workerctl.PromptCacheSettings{Disabled: true})).To(Equal(c), "zero values keep their defaults")
 	})
 })

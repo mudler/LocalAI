@@ -101,6 +101,7 @@ var _ = Describe("the prompt cache verbs between a frontend and a worker", func(
 				ledger, err := promptcachesvc.NewDBLedger(db)
 				Expect(err).ToNot(HaveOccurred())
 				settings = config.DefaultPromptCacheConfig()
+				settings.DiskDisabled = false // the default is off; these specs run the tier
 				front = &promptcachesvc.Distributed{
 					Ledger: ledger,
 					Sender: carrier.sender,

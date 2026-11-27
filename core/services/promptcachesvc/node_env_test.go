@@ -32,12 +32,12 @@ func expectNoTierEnv(env map[string]string) {
 
 var _ = Describe("the environment of the backends of a node", func() {
 	var root string
-	settings := config.DefaultPromptCacheConfig()
+	settings := onConfig()
 	get := func() config.PromptCacheConfig { return settings }
 
 	BeforeEach(func() {
 		root = filepath.Join(GinkgoT().TempDir(), "prompt-cache")
-		settings = config.DefaultPromptCacheConfig()
+		settings = onConfig()
 	})
 
 	It("carries the whole policy of the node from the live settings", func() {
@@ -82,17 +82,15 @@ var _ = Describe("the environment of the backends of a node", func() {
 		n := promptcachesvc.NewNode(root, "", w.Settings, promptcachesvc.WithUsers(w.Users),
 			promptcachesvc.WithStats(fixedStats{free: 500 * gib, total: 1000 * gib}))
 		w.Attach(n)
-		env := n.BackendEnv()
-		Expect(env).To(HaveKeyWithValue(config.EnvPromptCacheTTLHours, "168"))
-		Expect(env).To(HaveKeyWithValue(config.EnvPromptCacheMinTokens, "1024"))
-		Expect(env).To(HaveKeyWithValue(config.EnvPromptCacheMaxSizeMiB, "20480"))
-		Expect(env).To(HaveKeyWithValue(config.EnvPromptCacheQuotaMiB, "0"))
+		// The default is off: before the first sync a worker gives its
+		// backends no tier at all.
+		expectNoTierEnv(n.BackendEnv())
 
 		s := promptcachesvc.WireSettings(config.PromptCacheConfig{
 			TTL: 3 * time.Hour, MinTokens: 512, MaxSizeMiB: 1000, CriticalFreeMiB: 64,
 		}, true, 2)
 		Expect(w.Sync(context.Background(), workerctl.PromptCacheSyncRequest{Settings: &s}).Success).To(BeTrue())
-		env = n.BackendEnv()
+		env := n.BackendEnv()
 		Expect(env).To(HaveKeyWithValue(config.EnvPromptCacheTTLHours, "3"))
 		Expect(env).To(HaveKeyWithValue(config.EnvPromptCacheMinTokens, "512"))
 		Expect(env).To(HaveKeyWithValue(config.EnvPromptCacheMaxSizeMiB, "1000"))
@@ -107,7 +105,7 @@ var _ = Describe("the environment of the backends of a node", func() {
 })
 
 var _ = Describe("the start checks of the root", func() {
-	settings := config.DefaultPromptCacheConfig
+	settings := onConfig
 	var root string
 
 	BeforeEach(func() { root = filepath.Join(GinkgoT().TempDir(), "prompt-cache") })

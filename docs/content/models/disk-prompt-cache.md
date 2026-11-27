@@ -8,7 +8,7 @@ keywords = ["prompt cache","kv cache","llama.cpp","disk","retention","privacy"]
 
 The `llama-cpp` backend keeps the KV state of earlier prompts in RAM (the [server-side prompt cache]({{%relref "/models/capabilities/text/text-generation#server-side-prompt-cache-repeated-system-prompts" %}})). That cache is lost when the model unloads. The disk prompt cache keeps the state of long prompts on disk too. After a reload, a swap or a restart, a request with the same start reads the state from disk and does not compute it again.
 
-The disk prompt cache is on by default. It needs a directory on a local disk: `--prompt-cache-path` (`LOCALAI_PROMPT_CACHE_PATH`), or the data path (`--data-path`, `LOCALAI_DATA_PATH`). With `LOCALAI_DATA_PATH=-` and no `--prompt-cache-path`, it is off.
+The disk prompt cache is off by default. Turn it on with `--prompt-cache-disk` (`LOCALAI_PROMPT_CACHE_DISK=true`) or the **Keep long prompts on disk** setting. It helps most with hybrid models and with prompts up to about 8k tokens; a dense model with a much longer prompt on a fast GPU may not get its entry saved before an unload (see [Known limits](#known-limits)). It needs a directory on a local disk: `--prompt-cache-path` (`LOCALAI_PROMPT_CACHE_PATH`), or the data path (`--data-path`, `LOCALAI_DATA_PATH`). With `LOCALAI_DATA_PATH=-` and no `--prompt-cache-path`, it is off.
 
 ## What is stored
 
@@ -76,9 +76,11 @@ With `prompt_cache_disk_shared` on (the server setting, or the model option), al
 
 A request of a zero-retention [incognito chat]({{%relref "/features/chats-and-agents/incognito" %}}) is never written to disk. The backend keeps its state in RAM only, under a private key, and drops it when the request ends.
 
-## Turning it off
+## Turning it on and off
 
-- For the whole server: set **Keep long prompts on disk** off in Settings > Models in memory, or start with `--prompt-cache-disk=false` (`LOCALAI_PROMPT_CACHE_DISK=false`). Backends get the change when they next start.
+The disk prompt cache is off by default.
+
+- For the whole server: set **Keep long prompts on disk** in Settings > Models in memory, or start with `--prompt-cache-disk` (`LOCALAI_PROMPT_CACHE_DISK=true`). Backends get the change when they next start.
 - For one model: add `prompt_cache_disk:false` to its `options:`.
 
 ```yaml
@@ -258,6 +260,22 @@ Deleting a chat does not delete its entries, as in single mode.
 `GET /api/prompt-cache` and Settings > Models in memory list every worker: its size, entries, free disk, cap in effect and state (on, paused, disabled, or off on that worker). A worker that is off says why in `off_reason`: `no_path` (no root), `switched_off` (the setting or the switch of the worker), `network_disk` or `not_writable`. A worker that is offline or does not answer is listed with the reason. The `total` adds up the workers that answered.
 
 A cache that several workers share (for example on network storage), and routing a request to the worker that has its prompt on disk, are planned, not available now.
+
+## Known limits
+
+Measured on one GPU host with a local NVMe disk (llama.cpp, 8B dense model at 4-bit, 35B-A3B hybrid model at 8-bit):
+
+| Model | Prompt | First token, cold | First token after a reload |
+|---|---|---|---|
+| 35B-A3B hybrid | 8k tokens | 5.1 s | 0.7 s |
+| 35B-A3B hybrid | 32k tokens | 19.2 s | 1.1 s |
+| 8B dense | 8k tokens | 2.5 s | 0.9 s |
+| 8B dense | 32k tokens | 14.3 s | 14.3 s (not saved) |
+
+- An entry of a dense model with a long prompt is large: about 4.5 GiB for 32k tokens of an 8B model with f16 KV. The save before an unload has at most 3 seconds, and the RAM write queue takes entries up to a quarter of `cache_ram` (at most 2 GiB). Such an entry is not written. A KV cache at q8_0 halves the size.
+- Hybrid models store a small KV and at most 3 recurrent checkpoints per entry, so their entries stay below 1 GiB at 32k tokens.
+- On a network share the read-speed gate stops the writes: at 117 MB/s, an 8B 8k-token entry (1.1 GiB) reads slower than the GPU computes it, and nothing is written.
+- Decoding streams do not slow down with the tier on: the writes run on a thread of their own.
 
 ## API
 
