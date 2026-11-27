@@ -96,7 +96,7 @@ The **Plugins** tab of the Add-ons page shows to everyone who has the `plugins` 
 
 **Install** opens a review. LocalAI fetches the plugin and checks it, then shows "Community plugin, not signed", the commit, the digest, what it adds and, for a plugin that runs code, the full text of each code file. Such a plugin needs a tick that you read the code and accept that it runs in the Sandbox, and it is installed for everyone. An administrator chooses **Everyone** or **Only me** for a plugin that runs no code. The install runs in the background and shows on the operations list.
 
-**Update** opens the update review: the commits, the files that change with their line counts, and the diff of each code file. When the code of an install for everyone changed, each changed code file needs its own tick before **Update**.
+**Update** opens the update review: the commits, the files that change with their line counts, and the diff of each code file. When the code of an install for everyone changed, each changed code file needs its own tick before **Update**. The code changed when a code file, a code reason or a code component (a command hook, a local MCP server, a `bin/` file) changed. The review also shows, in full, each file that did not change but runs now (for example a script that a new hook of the marketplace entry calls), and lists the hooks, servers and programs that the new version adds; these need a tick too.
 
 The review link that `local-ai plugins install` and the LocalAI Assistant give for a plugin that runs code, `/app/addons?tab=plugins&plugin=<name@marketplace>`, opens the review of that plugin.
 
@@ -133,7 +133,7 @@ All routes are under `/api/plugins` and need the `plugins` feature, which is on 
 | `GET /api/plugins/installs` | user | The installs for everyone and the caller's own, with the caller's switch. Administrators add `?all=true`. |
 | `GET /api/plugins/installs/{id}` | user | One install: components, skipped components, code files, hosts. |
 | `GET /api/plugins/installs/{id}/files/{path}` | user | One file of the installed plugin. |
-| `POST /api/plugins/installs/{id}/update/preview` | owner or administrator | The files that change, the diffs of the code files, and a token. |
+| `POST /api/plugins/installs/{id}/update/preview` | owner or administrator | The files that change, the diffs of the code files, the files that became code (`newCodeFiles`), the added code components (`codeItems`), and a token. |
 | `POST /api/plugins/installs/{id}/update` | owner or administrator | `{"token": "...", "approved_files": [...]}`. Answers `202` with `jobID`. |
 | `POST /api/plugins/installs/{id}/rollback` | owner or administrator | Sets the previous version again. |
 | `DELETE /api/plugins/installs/{id}` | owner or administrator | Removes the install and the switches of its users. |

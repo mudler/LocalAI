@@ -6774,8 +6774,9 @@ definitions:
       runsCode:
         type: boolean
       sha:
-        description: SHA is the full commit the files come from; Digest names the
-          files.
+        description: |-
+          SHA is the full commit the files come from; Digest names the files
+          and the effective manifest.
         type: string
       sizeBytes:
         type: integer
@@ -6837,6 +6838,14 @@ definitions:
         items:
           type: string
         type: array
+      codeItems:
+        description: |-
+          CodeItems are the code components that the new version adds or
+          changes (command hooks, stdio MCP servers, bin files), described for
+          the review. Some come from the marketplace entry and are in no file.
+        items:
+          type: string
+        type: array
       diffs:
         description: |-
           Diffs are the unified diffs of the changed code files, up to
@@ -6855,9 +6864,20 @@ definitions:
       needsCodeReview:
         description: |-
           NeedsCodeReview is set for an instance install whose code changed:
-          the approval needs the administrator's browser session and a tick for
-          each file of CodeFiles.
+          a code file, the code reasons or the code components. The approval
+          needs the administrator's browser session and a tick for each file of
+          CodeFiles.
         type: boolean
+      newCodeFiles:
+        description: |-
+          NewCodeFiles are the files that are code in the new version and were
+          not code before, although their bytes did not change: a hook of the
+          marketplace entry can start to run a file that was plain text. They
+          have no diff, so the review shows their full text. They are also in
+          CodeFiles.
+        items:
+          type: string
+        type: array
       newCodeReasons:
         items:
           type: string

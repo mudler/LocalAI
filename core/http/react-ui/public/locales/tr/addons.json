@@ -1324,7 +1324,12 @@
       "tickEach": "Her değişikliği oku, ardından aşağıda her dosyayı işaretle.",
       "truncated": "Bazı değişiklikler burada gösterilemeyecek kadar uzun. Güncellemeden sonra dosyaları plugin'in ayrıntılarından aç.",
       "approve": "Her kod dosyasını onayla",
-      "reviewed": "İnceledim"
+      "reviewed": "İnceledim",
+      "newCodeFiles": "Koda dönüşen dosyalar",
+      "newCodeFilesBody": "Bu dosyalar değişmedi ama yeni sürüm onları çalıştırıyor. Her birini baştan sona oku.",
+      "codeItems": "Yeni sürümün eklediği kod",
+      "codeItemsBody": "Sandbox'ta çalışan hook'lar, sunucular ve programlar. Bazıları pazar yeri girdisinden gelir ve hiçbir dosyada yer almaz.",
+      "reviewedItems": "Yeni sürümün eklediği kodu inceledim"
     },
     "marketplaces": {
       "intro": "Plugin'lerin geldiği yerler. Bunları bir yönetici ekler ve yeniler.",

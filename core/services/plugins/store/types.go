@@ -235,6 +235,9 @@ type Token struct {
 	// CodeFiles are the code files a confirmation must name: the changed
 	// code files of an update that needs a review of code.
 	CodeFiles []string
+	// Review is set when the confirmation needs the administrator's browser
+	// session: an update whose code changed, even with no file to tick.
+	Review    bool
 	ExpiresAt time.Time
 	CreatedAt time.Time
 }

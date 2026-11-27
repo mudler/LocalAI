@@ -33213,7 +33213,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "sha": {
-                    "description": "SHA is the full commit the files come from; Digest names the files.",
+                    "description": "SHA is the full commit the files come from; Digest names the files\nand the effective manifest.",
                     "type": "string"
                 },
                 "sizeBytes": {
@@ -33307,6 +33307,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "codeItems": {
+                    "description": "CodeItems are the code components that the new version adds or\nchanges (command hooks, stdio MCP servers, bin files), described for\nthe review. Some come from the marketplace entry and are in no file.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "diffs": {
                     "description": "Diffs are the unified diffs of the changed code files, up to\nMaxDiffBytes in all; Truncated says that some were left out.",
                     "type": "array",
@@ -33327,8 +33334,15 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "needsCodeReview": {
-                    "description": "NeedsCodeReview is set for an instance install whose code changed:\nthe approval needs the administrator's browser session and a tick for\neach file of CodeFiles.",
+                    "description": "NeedsCodeReview is set for an instance install whose code changed:\na code file, the code reasons or the code components. The approval\nneeds the administrator's browser session and a tick for each file of\nCodeFiles.",
                     "type": "boolean"
+                },
+                "newCodeFiles": {
+                    "description": "NewCodeFiles are the files that are code in the new version and were\nnot code before, although their bytes did not change: a hook of the\nmarketplace entry can start to run a file that was plain text. They\nhave no diff, so the review shows their full text. They are also in\nCodeFiles.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "newCodeReasons": {
                     "type": "array",

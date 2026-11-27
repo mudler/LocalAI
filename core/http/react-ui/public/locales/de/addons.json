@@ -1324,7 +1324,12 @@
       "tickEach": "Lesen Sie jede Änderung und haken Sie dann jede Datei unten ab.",
       "truncated": "Einige Änderungen sind zu lang für diese Ansicht. Öffnen Sie die Dateien nach dem Update in den Details des Plugins.",
       "approve": "Jede Code-Datei freigeben",
-      "reviewed": "Geprüft"
+      "reviewed": "Geprüft",
+      "newCodeFiles": "Dateien, die zu Code werden",
+      "newCodeFilesBody": "Diese Dateien haben sich nicht geändert, aber die neue Version führt sie aus. Lies jede vollständig.",
+      "codeItems": "Code, den die neue Version hinzufügt",
+      "codeItemsBody": "Hooks, Server und Programme, die in der Sandbox laufen. Manche stammen aus dem Marktplatz-Eintrag und stehen in keiner Datei.",
+      "reviewedItems": "Ich habe den Code geprüft, den die neue Version hinzufügt"
     },
     "marketplaces": {
       "intro": "Die Quellen der Plugins. Ein Administrator fügt sie hinzu und aktualisiert sie.",

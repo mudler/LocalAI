@@ -1324,7 +1324,12 @@
       "tickEach": "Read each change, then tick each file below.",
       "truncated": "Some changes are too long to show here. Open the files from the details of the plugin after the update.",
       "approve": "Approve each code file",
-      "reviewed": "I reviewed"
+      "reviewed": "I reviewed",
+      "newCodeFiles": "Files that become code",
+      "newCodeFilesBody": "These files did not change, but the new version runs them. Read each one in full.",
+      "codeItems": "Code the new version adds",
+      "codeItemsBody": "Hooks, servers and programs that run in the Sandbox. Some come from the marketplace entry and are in no file.",
+      "reviewedItems": "I reviewed the code the new version adds"
     },
     "marketplaces": {
       "intro": "The places plugins come from. An administrator adds and refreshes them.",

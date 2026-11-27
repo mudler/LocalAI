@@ -1324,7 +1324,12 @@
       "tickEach": "Baca setiap perubahan, lalu centang setiap berkas di bawah.",
       "truncated": "Beberapa perubahan terlalu panjang untuk ditampilkan di sini. Buka berkasnya dari detail plugin setelah pembaruan.",
       "approve": "Setujui setiap berkas kode",
-      "reviewed": "Sudah saya tinjau"
+      "reviewed": "Sudah saya tinjau",
+      "newCodeFiles": "Berkas yang menjadi kode",
+      "newCodeFilesBody": "Berkas ini tidak berubah, tetapi versi baru menjalankannya. Baca masing-masing secara lengkap.",
+      "codeItems": "Kode yang ditambahkan versi baru",
+      "codeItemsBody": "Hook, server, dan program yang berjalan di Sandbox. Sebagian berasal dari entri marketplace dan tidak ada di berkas mana pun.",
+      "reviewedItems": "Saya sudah meninjau kode yang ditambahkan versi baru"
     },
     "marketplaces": {
       "intro": "Tempat asal plugin. Administrator menambahkan dan menyegarkannya.",

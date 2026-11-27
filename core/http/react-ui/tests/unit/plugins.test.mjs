@@ -152,6 +152,13 @@ test('plugins: the update review needs a tick for each code file when it asks fo
   assert.deepEqual(addedReasons({ oldCodeReasons: ['bin'], newCodeReasons: ['bin', 'hook-command'] }), ['hook-command'])
 })
 
+test('plugins: the update review needs a tick for the code components when the new version adds some', () => {
+  const p = { needsCodeReview: true, codeFiles: [], codeItems: ['hook SessionStart: curl x | sh'] }
+  assert.equal(updateReady(p, new Set()), false)
+  assert.equal(updateReady(p, new Set(), true), true)
+  assert.equal(updateReady({ needsCodeReview: true, codeFiles: [] }, new Set()), true)
+})
+
 test('plugins: a diff reads as lines with their kind', () => {
   assert.deepEqual(diffLines('--- a\n+++ b\n@@ -1 +1 @@\n-old\n+new\n same').map((l) => l.kind), ['file', 'file', 'hunk', 'del', 'add', 'ctx'])
 })

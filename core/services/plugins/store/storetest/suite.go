@@ -429,7 +429,7 @@ func Run(newStore NewStore) {
 			return store.Token{
 				ID: id, Kind: store.TokenInstall, Principal: "u1", PluginID: "fmt@tools",
 				SHA: "0123456789abcdef0123456789abcdef01234567", Digest: digest('a'), RunsCode: true,
-				CodeFiles: []string{"hooks/hooks.json"}, ExpiresAt: expires, CreatedAt: base,
+				CodeFiles: []string{"hooks/hooks.json"}, Review: true, ExpiresAt: expires, CreatedAt: base,
 			}
 		}
 
@@ -442,6 +442,7 @@ func Run(newStore NewStore) {
 			Expect(got.Principal).To(Equal("u1"))
 			Expect(got.RunsCode).To(BeTrue())
 			Expect(got.CodeFiles).To(Equal([]string{"hooks/hooks.json"}))
+			Expect(got.Review).To(BeTrue())
 			Expect(got.ExpiresAt).To(BeTemporally("==", base.Add(15*time.Minute)))
 
 			got, err = s.TakeToken(ctx, "t1", base)

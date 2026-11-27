@@ -1324,7 +1324,12 @@
       "tickEach": "Lea cada cambio y luego marque cada archivo de abajo.",
       "truncated": "Algunos cambios son demasiado largos para mostrarlos aquí. Abra los archivos desde los detalles del plugin tras la actualización.",
       "approve": "Aprobar cada archivo de código",
-      "reviewed": "Revisado"
+      "reviewed": "Revisado",
+      "newCodeFiles": "Archivos que pasan a ser código",
+      "newCodeFilesBody": "Estos archivos no cambiaron, pero la nueva versión los ejecuta. Lee cada uno completo.",
+      "codeItems": "Código que añade la nueva versión",
+      "codeItemsBody": "Hooks, servidores y programas que se ejecutan en el Sandbox. Algunos vienen de la entrada del marketplace y no están en ningún archivo.",
+      "reviewedItems": "Revisé el código que añade la nueva versión"
     },
     "marketplaces": {
       "intro": "Los orígenes de los plugins. Un administrador los añade y actualiza.",

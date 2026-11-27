@@ -112,6 +112,7 @@ type tokenRow struct {
 	Digest    string `gorm:"column:digest;size:80"`
 	RunsCode  bool
 	CodeFiles string
+	Review    bool
 	ExpiresAt time.Time `gorm:"index"`
 	CreatedAt time.Time
 }
@@ -120,7 +121,7 @@ func (tokenRow) TableName() string { return "plugin_preview_tokens" }
 
 func (r tokenRow) token() (Token, error) {
 	t := Token{ID: r.ID, Kind: r.Kind, Principal: r.Principal, PluginID: r.PluginID, InstallID: r.InstallID,
-		SHA: r.SHA, Digest: r.Digest, RunsCode: r.RunsCode, ExpiresAt: r.ExpiresAt, CreatedAt: r.CreatedAt}
+		SHA: r.SHA, Digest: r.Digest, RunsCode: r.RunsCode, Review: r.Review, ExpiresAt: r.ExpiresAt, CreatedAt: r.CreatedAt}
 	return t, fromJSON(r.CodeFiles, &t.CodeFiles)
 }
 
@@ -406,7 +407,7 @@ func (s *GormStore) PutToken(ctx context.Context, t Token) error {
 		return err
 	}
 	row := tokenRow{ID: t.ID, Kind: t.Kind, Principal: t.Principal, PluginID: t.PluginID, InstallID: t.InstallID,
-		SHA: t.SHA, Digest: t.Digest, RunsCode: t.RunsCode, CodeFiles: files, ExpiresAt: t.ExpiresAt, CreatedAt: t.CreatedAt}
+		SHA: t.SHA, Digest: t.Digest, RunsCode: t.RunsCode, CodeFiles: files, Review: t.Review, ExpiresAt: t.ExpiresAt, CreatedAt: t.CreatedAt}
 	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
 		if isUniqueViolation(err) {
 			return ErrConflict

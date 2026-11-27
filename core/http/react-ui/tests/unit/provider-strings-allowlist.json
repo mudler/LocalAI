@@ -31,5 +31,6 @@
   "addons:plugins.review.read": "the Sandbox add-on is where plugin code runs, and only there (plugins spec, section 13): the person must know which add-on runs it",
   "addons:plugins.installed.reenableTitle": "the Sandbox add-on is where plugin code runs, and only there (plugins spec, section 13): the person must know which add-on runs it",
   "addons:plugins.installed.reenableConfirm": "the Sandbox add-on is where plugin code runs, and only there (plugins spec, section 13): the person must know which add-on runs it",
-  "addons:plugins.marketplaces.sourceHelp": "GitHub as the git host that the owner/repo form of a marketplace source points at; the service, not the GitHub add-on"
+  "addons:plugins.marketplaces.sourceHelp": "GitHub as the git host that the owner/repo form of a marketplace source points at; the service, not the GitHub add-on",
+  "addons:plugins.update.codeItemsBody": "the Sandbox add-on is where plugin code runs, and only there (plugins spec, section 13): the person must know which add-on runs it"
 }

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import Dialog from '../Dialog'
 import Icon from '../Icon'
 import { Button, Callout, LoadingSpinner, Tag } from '../ui'
-import { DiffView, Sha } from './PluginBits'
+import { CodeFile, DiffView, Sha } from './PluginBits'
 import { addedReasons, diffLines, errorKey, updateReady } from './pluginState'
 
 // The review of an update (spec 9.4): the commits, the files that change
@@ -18,6 +18,7 @@ export default function UpdateReview({ install, api, onQueued, onClose }) {
   const { t } = useTranslation('addons')
   const [state, setState] = useState({ status: 'loading', preview: null, error: null })
   const [ticked, setTicked] = useState(() => new Set())
+  const [itemsTicked, setItemsTicked] = useState(false)
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState(null)
   const [attempt, setAttempt] = useState(0)
@@ -26,6 +27,7 @@ export default function UpdateReview({ install, api, onQueued, onClose }) {
     let live = true
     setState({ status: 'loading', preview: null, error: null })
     setTicked(new Set())
+    setItemsTicked(false)
     setSendError(null)
     api.previewUpdate(install.id)
       .then((preview) => { if (live) setState({ status: 'ready', preview, error: null }) })
@@ -34,6 +36,7 @@ export default function UpdateReview({ install, api, onQueued, onClose }) {
   }, [install.id, attempt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const p = state.preview
+  const loadFile = (path, signal) => api.previewFile(p.token, path, signal)
   const say = (e) => (errorKey(e) ? t(errorKey(e), { defaultValue: e.message }) : e?.message || t('plugins.errors.generic'))
   const tick = (path, on) => setTicked((s) => { const n = new Set(s); if (on) n.add(path); else n.delete(path); return n })
   const gains = p ? addedReasons(p) : []
@@ -69,7 +72,7 @@ export default function UpdateReview({ install, api, onQueued, onClose }) {
         <>
           <Button variant="ghost" onClick={onClose} disabled={sending} data-autofocus>{t('plugins.review.cancel')}</Button>
           {p && (
-            <Button variant="primary" icon="arrow-up" busy={sending} disabled={sending || !updateReady(p, ticked)} onClick={send} data-testid="plugin-update-confirm">
+            <Button variant="primary" icon="arrow-up" busy={sending} disabled={sending || !updateReady(p, ticked, itemsTicked)} onClick={send} data-testid="plugin-update-confirm">
               {t('plugins.update.confirm')}
             </Button>
           )}
@@ -129,9 +132,33 @@ export default function UpdateReview({ install, api, onQueued, onClose }) {
             </section>
           )}
 
+          {(p.newCodeFiles || []).length > 0 && (
+            <section className="pl-section" aria-labelledby="pl-upd-newcode" data-testid="plugin-update-new-code">
+              <h3 className="pl-section__title" id="pl-upd-newcode">{t('plugins.update.newCodeFiles')}</h3>
+              <p className="pl-quiet">{t('plugins.update.newCodeFilesBody')}</p>
+              {p.newCodeFiles.map((f) => <CodeFile key={f} path={f} load={loadFile} />)}
+            </section>
+          )}
+
+          {(p.codeItems || []).length > 0 && (
+            <section className="pl-section" aria-labelledby="pl-upd-items" data-testid="plugin-update-items">
+              <h3 className="pl-section__title" id="pl-upd-items">{t('plugins.update.codeItems')}</h3>
+              <p className="pl-quiet">{t('plugins.update.codeItemsBody')}</p>
+              <ul className="pl-rows">
+                {p.codeItems.map((it) => <li key={it} className="pl-row"><span className="pl-row__name pl-mono ad-wrap">{it}</span></li>)}
+              </ul>
+            </section>
+          )}
+
           {p.needsCodeReview && (
             <section className="pl-section" aria-labelledby="pl-upd-ticks" data-testid="plugin-update-ticks">
               <h3 className="pl-section__title" id="pl-upd-ticks">{t('plugins.update.approve')}</h3>
+              {(p.codeItems || []).length > 0 && (
+                <label className="pl-check">
+                  <input type="checkbox" className="dk-check" checked={itemsTicked} onChange={(e) => setItemsTicked(e.target.checked)} data-testid="plugin-update-tick-items" />
+                  <span>{t('plugins.update.reviewedItems')}</span>
+                </label>
+              )}
               {(p.codeFiles || []).map((f) => (
                 <label key={f} className="pl-check">
                   <input type="checkbox" className="dk-check" checked={ticked.has(f)} onChange={(e) => tick(f, e.target.checked)} data-testid="plugin-update-tick" data-path={f} />

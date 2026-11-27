@@ -66,10 +66,21 @@ type UpdatePreview struct {
 	OldCodeReasons []string `json:"oldCodeReasons"`
 	NewCodeReasons []string `json:"newCodeReasons"`
 	// NeedsCodeReview is set for an instance install whose code changed:
-	// the approval needs the administrator's browser session and a tick for
-	// each file of CodeFiles.
+	// a code file, the code reasons or the code components. The approval
+	// needs the administrator's browser session and a tick for each file of
+	// CodeFiles.
 	NeedsCodeReview bool     `json:"needsCodeReview"`
 	CodeFiles       []string `json:"codeFiles"`
+	// NewCodeFiles are the files that are code in the new version and were
+	// not code before, although their bytes did not change: a hook of the
+	// marketplace entry can start to run a file that was plain text. They
+	// have no diff, so the review shows their full text. They are also in
+	// CodeFiles.
+	NewCodeFiles []string `json:"newCodeFiles"`
+	// CodeItems are the code components that the new version adds or
+	// changes (command hooks, stdio MCP servers, bin files), described for
+	// the review. Some come from the marketplace entry and are in no file.
+	CodeItems []string `json:"codeItems"`
 }
 
 func (s *Service) getInstall(ctx context.Context, id string) (store.Install, error) {
@@ -150,8 +161,13 @@ func (s *Service) PreviewUpdate(ctx context.Context, a Actor, installID string) 
 	if err := s.diff(ctx, &p, old, c); err != nil {
 		return UpdatePreview{}, err
 	}
+	oldModel, err := modelOf(old)
+	if err != nil {
+		return UpdatePreview{}, err
+	}
+	p.CodeItems = addedItems(CodeComponents(oldModel), CodeComponents(c.model))
 	reasonsChanged := !slices.Equal(old.CodeReasons, c.reasons)
-	p.NeedsCodeReview = in.Scope == store.ScopeInstance && (len(p.CodeFiles) > 0 || reasonsChanged)
+	p.NeedsCodeReview = in.Scope == store.ScopeInstance && (len(p.CodeFiles) > 0 || reasonsChanged || len(p.CodeItems) > 0)
 	tokenFiles := []string{}
 	if p.NeedsCodeReview {
 		tokenFiles = p.CodeFiles
@@ -163,9 +179,20 @@ func (s *Service) PreviewUpdate(ctx context.Context, a Actor, installID string) 
 	}
 	p.Token, p.ExpiresAt, err = s.newToken(ctx, store.Token{
 		Kind: store.TokenUpdate, Principal: a.ID, PluginID: in.PluginID, InstallID: in.ID,
-		SHA: c.sha, Digest: c.digest, RunsCode: runsCode, CodeFiles: tokenFiles,
+		SHA: c.sha, Digest: c.digest, RunsCode: runsCode, CodeFiles: tokenFiles, Review: p.NeedsCodeReview,
 	})
 	return p, err
+}
+
+// addedItems returns the items of next that are not in prev.
+func addedItems(prev, next []string) []string {
+	out := []string{}
+	for _, it := range next {
+		if !slices.Contains(prev, it) {
+			out = append(out, it)
+		}
+	}
+	return out
 }
 
 // markUpdate records the version a preview found on the install.
@@ -226,9 +253,17 @@ func (s *Service) diff(ctx context.Context, p *UpdatePreview, old store.Package,
 		size += len(d)
 		p.Diffs = append(p.Diffs, FileDiff{Path: path, Diff: d})
 	}
+	wasCode := map[string]bool{}
+	for _, f := range old.CodeFiles {
+		wasCode[f] = true
+	}
 	for _, f := range c.files() {
 		o, ok := oldFiles[f.Path]
 		if ok && o.SHA256 == f.SHA256 && o.Mode == f.Mode {
+			if isCode[f.Path] && !wasCode[f.Path] {
+				p.NewCodeFiles = append(p.NewCodeFiles, f.Path)
+				p.CodeFiles = append(p.CodeFiles, f.Path)
+			}
 			continue
 		}
 		nb, err := readNew(f.Path)
@@ -268,6 +303,7 @@ func (s *Service) diff(ctx context.Context, p *UpdatePreview, old store.Package,
 		}
 	}
 	slices.Sort(p.CodeFiles)
+	slices.Sort(p.NewCodeFiles)
 	return nil
 }
 
@@ -303,7 +339,7 @@ func (s *Service) Update(ctx context.Context, a Actor, installID, secret string,
 	if in.Scope == store.ScopeUser && t.RunsCode {
 		return "", ErrBlocked
 	}
-	if len(t.CodeFiles) > 0 {
+	if t.Review || len(t.CodeFiles) > 0 {
 		if !a.HumanSurface {
 			return "", ErrNotHumanSurface
 		}

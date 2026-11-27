@@ -734,8 +734,17 @@ Approval rules:
 |---|---|---|
 | `user` install, still text-only | its owner | the file list |
 | `user` install, the new version has code | nobody | The update is refused for `user` scope. The install keeps the old version, with `state = blocked` and the reason "This version runs code. An administrator must install it." |
-| `instance` install, no code file changed | an administrator | the file list |
-| `instance` install, a code file or code reason changed | an administrator, browser session | each changed code file, ticked one by one |
+| `instance` install, no code changed | an administrator | the file list |
+| `instance` install, a code file, a code reason or a code component changed | an administrator, browser session | each changed code file and each file that became code, ticked one by one, and the list of added code components |
+
+A code component is a command hook, a stdio MCP server or a `bin/` file
+(`plugins.CodeComponents`). The preview lists the components the new version
+adds or changes (`codeItems`) and the files that are code in the new version
+and were not before although their bytes did not change (`newCodeFiles`). Both
+matter because the marketplace entry can add a hook that runs a file that was
+plain text, or an inline command that is in no file. Any of these changes sets
+`needsCodeReview`, and then the confirmation needs the browser session even when
+no file needs a tick.
 
 When an update adds a code reason, every `plugin_user_state` row of that install
 gets `needs_reenable = true` and stops contributing. The user sees "This plugin

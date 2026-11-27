@@ -1324,7 +1324,12 @@
       "tickEach": "阅读每项变更，然后勾选下方的每个文件。",
       "truncated": "部分变更过长，无法在此显示。更新后请从插件详情中打开这些文件。",
       "approve": "逐一批准代码文件",
-      "reviewed": "我已审查"
+      "reviewed": "我已审查",
+      "newCodeFiles": "变为代码的文件",
+      "newCodeFilesBody": "这些文件没有变化,但新版本会运行它们。请完整阅读每个文件。",
+      "codeItems": "新版本添加的代码",
+      "codeItemsBody": "在 Sandbox 中运行的钩子、服务器和程序。有些来自市场条目,不在任何文件中。",
+      "reviewedItems": "我已审阅新版本添加的代码"
     },
     "marketplaces": {
       "intro": "插件的来源。由管理员添加和刷新。",

@@ -156,10 +156,12 @@ export function skippedKey(code) {
 }
 
 // An update needs every changed code file ticked before it goes, when the
-// preview asks for a code review.
-export function updateReady(preview, ticked) {
+// preview asks for a code review, and one more tick for the code components
+// the new version adds (hooks, servers, bin files), which may be in no file.
+export function updateReady(preview, ticked, itemsTicked = false) {
   if (!preview) return false
   if (!preview.needsCodeReview) return true
+  if ((preview.codeItems || []).length > 0 && !itemsTicked) return false
   const set = ticked instanceof Set ? ticked : new Set(ticked || [])
   return (preview.codeFiles || []).every((f) => set.has(f))
 }
