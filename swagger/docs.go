@@ -26612,14 +26612,14 @@ const docTemplate = `{
         "enginesettings.Capability": {
             "type": "string",
             "enum": [
+                "drafting",
                 "command-line",
-                "tensor-placement",
-                "drafting"
+                "tensor-placement"
             ],
             "x-enum-varnames": [
+                "CapabilityDrafting",
                 "CapabilityCommandLine",
-                "CapabilityTensorPlacement",
-                "CapabilityDrafting"
+                "CapabilityTensorPlacement"
             ]
         },
         "enginesettings.Choice": {
