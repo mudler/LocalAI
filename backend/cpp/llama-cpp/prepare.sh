@@ -280,6 +280,13 @@ if grep -q "cache_disk_ns_quota_mib" llama.cpp/common/common.h; then
 else
     HAS_PROMPT_CACHE_DISK=0
 fi
+# The policy numbers of the disk tier as parameters (0006): the reuse count,
+# checkpoints per file and the load overhead.
+if grep -q "cache_disk_min_reuse" llama.cpp/common/common.h; then
+    HAS_PROMPT_CACHE_POLICY_ENV=1
+else
+    HAS_PROMPT_CACHE_POLICY_ENV=0
+fi
 # The disk prompt cache directory changes with the llama.cpp commit and the
 # patches, whose state format can change: a new build starts cold.
 LLAMA_PIN=$( (git -C llama.cpp rev-parse HEAD 2>/dev/null || echo unknown; cat patches/*.patch prompt_cache_policy.h 2>/dev/null) | sha256sum | cut -c1-16)
@@ -332,6 +339,7 @@ cat > llama.cpp/tools/grpc-server/llama_compat.h <<EOF
 #define LOCALAI_HAS_TASK_PRIORITY ${HAS_TASK_PRIORITY}
 #define LOCALAI_HAS_ADMISSION_ORDER ${HAS_ADMISSION_ORDER}
 #define LOCALAI_HAS_PROMPT_CACHE_DISK ${HAS_PROMPT_CACHE_DISK}
+#define LOCALAI_HAS_PROMPT_CACHE_POLICY_ENV ${HAS_PROMPT_CACHE_POLICY_ENV}
 #define LOCALAI_LLAMA_PIN "${LLAMA_PIN}"
 EOF
 

@@ -803,6 +803,9 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // Disk tier of the prompt cache (prompt_cache_policy.h, patches/0005 and
     // 0006). On by default when LocalAI gives a directory.
     prompt_cache_policy::disk_options prompt_disk;
+    // The node that started this process gives the policy numbers through the
+    // environment (.agents/prompt-cache-backends.md); model options below win.
+    prompt_cache_policy::apply_env(prompt_disk, [](const char * name) { return std::getenv(name); });
 
     // Initialize fit_params options (can be overridden by options)
     // fit_params: whether to auto-adjust params to fit device memory (default: true as in llama.cpp)
@@ -2135,6 +2138,11 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 params.cache_disk_async        = true;
                 params.cache_disk_low_free_mib  = (int32_t) prompt_disk.low_free_mib;
                 params.cache_disk_crit_free_mib = (int32_t) prompt_disk.crit_free_mib;
+#if LOCALAI_HAS_PROMPT_CACHE_POLICY_ENV
+                params.cache_disk_min_reuse     = (int32_t) prompt_cache_policy::min_reuse(prompt_disk);
+                params.cache_disk_max_ckpt      = (int32_t) prompt_cache_policy::max_checkpoints_of(prompt_disk);
+                params.cache_disk_overhead_ms   = (int32_t) (prompt_cache_policy::overhead_seconds(prompt_disk) * 1000.0);
+#endif
                 // What an entry depends on, in clear, next to the entries. The
                 // file names carry hashes of it (directory: pin and model;
                 // compat: model file, KV types and layout, RoPE; namespace;

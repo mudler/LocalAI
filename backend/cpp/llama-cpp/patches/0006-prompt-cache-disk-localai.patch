@@ -1,8 +1,8 @@
 diff --git a/common/common.h b/common/common.h
-index 8660001df..65a874c9d 100644
+index b67e6100a..ec290879b 100644
 --- a/common/common.h
 +++ b/common/common.h
-@@ -678,6 +678,13 @@ struct common_params {
+@@ -678,6 +678,16 @@ struct common_params {
      bool    cache_ram_explicit  = false; // set by --cache-ram, decision models disable the cache otherwise
      std::string cache_disk_path;             // directory of the disk prompt cache, empty = disabled
      int32_t cache_disk_max_size_mib = -1;       // -1 = no limit
@@ -13,6 +13,9 @@ index 8660001df..65a874c9d 100644
 +    bool    cache_disk_async        = false;    // LocalAI: write from a thread of its own
 +    int32_t cache_disk_low_free_mib  = 0;       // LocalAI: low free-space watermark, 0 = max(15%, 10 GiB)
 +    int32_t cache_disk_crit_free_mib = 0;       // LocalAI: critical free-space watermark, 0 = 5%
++    int32_t cache_disk_min_reuse     = 2;       // LocalAI: requests that must share a prefix before it is written
++    int32_t cache_disk_max_ckpt      = 3;       // LocalAI: checkpoints kept per file
++    int32_t cache_disk_overhead_ms   = 50;      // LocalAI: fixed cost of one load in the read-or-recompute gate
  
      // llama-connect params
      bool        server_connect      = false;
@@ -131,10 +134,10 @@ index 61b564162..da1192279 100644
      uint64_t n_files = 0;
      uint64_t size    = 0; // in bytes
 diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
-index 1ae9453af..61bf8f3cd 100644
+index e553c9982..d66dff734 100644
 --- a/tools/server/server-context.cpp
 +++ b/tools/server/server-context.cpp
-@@ -1164,6 +1164,16 @@ public:
+@@ -1162,6 +1162,16 @@ public:
          metrics.reset_bucket();
      }
  
@@ -151,7 +154,7 @@ index 1ae9453af..61bf8f3cd 100644
  private:
      // note: accessing these fields outside of this class is not thread-safe
      // use server_context methods instead
-@@ -1230,8 +1240,9 @@ private:
+@@ -1228,8 +1238,9 @@ private:
      int64_t t_last_load_progress_ms = 0;
  
      // keeps the prompts for the next start, the idle slots included
@@ -163,7 +166,7 @@ index 1ae9453af..61bf8f3cd 100644
              return;
          }
  
-@@ -1241,11 +1252,12 @@ private:
+@@ -1239,11 +1250,12 @@ private:
              }
          }
  
@@ -178,7 +181,7 @@ index 1ae9453af..61bf8f3cd 100644
  
          spec.reset();
          spec_init.reset();
-@@ -1749,6 +1761,17 @@ private:
+@@ -1747,6 +1759,20 @@ private:
  
                  prompt_cache->disk = std::make_unique<server_prompt_cache_disk>(
                          params_base.cache_disk_path, server_prompt_cache_disk_compat(params_base), limit_size, mctx != nullptr);
@@ -192,11 +195,14 @@ index 1ae9453af..61bf8f3cd 100644
 +                disk_opts.queue_limit = params_base.cache_disk_async ? prompt_cache_policy::queue_limit(prompt_cache->limit_size) : 0;
 +                disk_opts.free_space.low      = (uint64_t) std::max(0, params_base.cache_disk_low_free_mib) << 20;
 +                disk_opts.free_space.critical = (uint64_t) std::max(0, params_base.cache_disk_crit_free_mib) << 20;
++                disk_opts.min_reuse   = (uint32_t) std::max(1, params_base.cache_disk_min_reuse);
++                disk_opts.max_ckpt    = (size_t) std::max(0, params_base.cache_disk_max_ckpt);
++                disk_opts.overhead_s  = std::max(0, params_base.cache_disk_overhead_ms) / 1000.0;
 +                prompt_cache->disk->configure(disk_opts);
              }
          } else {
              SRV_TRC("%s", "prompt cache is disabled - use `--cache-ram N` to enable it\n");
-@@ -2999,6 +3022,11 @@ private:
+@@ -2959,6 +2985,11 @@ private:
      }
  
      void send_final_response(server_slot & slot) {
@@ -208,7 +214,7 @@ index 1ae9453af..61bf8f3cd 100644
          auto res = std::make_unique<server_task_result_cmpl_final>();
  
          res->id      = slot.task->id;
-@@ -4152,6 +4180,9 @@ private:
+@@ -4112,6 +4143,9 @@ private:
  
                          slot->prompt.clear();
                          slot->prompt.tokens = std::move(restored);
@@ -218,7 +224,7 @@ index 1ae9453af..61bf8f3cd 100644
                      } catch (const std::exception & err) {
                          slot->prompt_clear();
                          send_error(task, std::string("Unable to restore slot: ") + err.what(), ERROR_TYPE_INVALID_REQUEST);
-@@ -5212,6 +5243,12 @@ private:
+@@ -5178,6 +5212,12 @@ private:
  
                          slot.prompt.tokens.keep_first(n_past);
  
@@ -232,7 +238,7 @@ index 1ae9453af..61bf8f3cd 100644
                          if (slot.task->params.stream) {
                              if (slot.task->params.return_progress) {
 diff --git a/tools/server/server-slot-sched.cpp b/tools/server/server-slot-sched.cpp
-index c3c0c623c..5391e5403 100644
+index c3c0c623c..e5988af14 100644
 --- a/tools/server/server-slot-sched.cpp
 +++ b/tools/server/server-slot-sched.cpp
 @@ -66,12 +66,12 @@ server_prompt_reuse server_prompt::get_reuse(int32_t n_prefix, bool has_new_toke
@@ -302,7 +308,7 @@ index c3c0c623c..5391e5403 100644
      server_cache_disk_lock guard(lock);
      refresh();
  
-@@ -186,6 +188,141 @@ server_prompt_cache_disk::server_prompt_cache_disk(const std::string & dir, cons
+@@ -186,6 +188,142 @@ server_prompt_cache_disk::server_prompt_cache_disk(const std::string & dir, cons
              this->dir.string().c_str(), n_usable, entries.size() - n_usable, size() / (1024.0 * 1024.0), limit_size / (1024.0 * 1024.0));
  }
  
@@ -374,7 +380,7 @@ index c3c0c623c..5391e5403 100644
 +
 +bool server_prompt_cache_disk::likely_reused(const server_prompt_cache_state & state) const {
 +    const auto & tokens = state.prompt.tokens;
-+    const uint64_t reused = prompt_cache_policy::reused_tokens(seen.counts(tokens.get_prefix_hashes()), server_tokens::hash_block_size);
++    const uint64_t reused = prompt_cache_policy::reused_tokens(seen.counts(tokens.get_prefix_hashes()), server_tokens::hash_block_size, opts.min_reuse);
 +    return prompt_cache_policy::likely_reused(reused, opts.min_tokens, server_tokens::hash_block_size);
 +}
 +
@@ -432,6 +438,7 @@ index c3c0c623c..5391e5403 100644
 +prompt_cache_policy::speeds server_prompt_cache_disk::speeds() const {
 +    prompt_cache_policy::speeds res;
 +    res.transfer_bps = opts.read_bps;
++    res.overhead_s   = opts.overhead_s;
 +    res.prefill_tps = prefill_tps.load();
 +    return res;
 +}
@@ -444,7 +451,7 @@ index c3c0c623c..5391e5403 100644
  void server_prompt_cache_disk::refresh() {
      entry_list known = std::move(entries);
      entries.clear();
-@@ -210,9 +347,18 @@ void server_prompt_cache_disk::refresh() {
+@@ -210,9 +348,18 @@ void server_prompt_cache_disk::refresh() {
  
          server_prompt_cache_disk_entry entry;
          entry.name   = name;
@@ -463,7 +470,7 @@ index c3c0c623c..5391e5403 100644
          if (string_starts_with(name, compat + "-")) {
              const auto it = std::find_if(known.begin(), known.end(), [&entry](const auto & cur) {
                  return cur.name == entry.name && cur.size == entry.size;
-@@ -255,10 +401,14 @@ size_t server_prompt_cache_disk::size() const {
+@@ -255,10 +402,14 @@ size_t server_prompt_cache_disk::size() const {
  }
  
  server_prompt_cache_disk_stats server_prompt_cache_disk::get_stats() const {
@@ -482,7 +489,7 @@ index c3c0c623c..5391e5403 100644
  }
  
  server_prompt_cache_disk::entry_list::iterator server_prompt_cache_disk::remove(entry_list::iterator it) {
-@@ -276,18 +426,40 @@ void server_prompt_cache_disk::touch(entry_list::iterator it) {
+@@ -276,18 +427,40 @@ void server_prompt_cache_disk::touch(entry_list::iterator it) {
      entries.splice(entries.end(), entries, it);
  }
  
@@ -526,14 +533,14 @@ index c3c0c623c..5391e5403 100644
  
      std::vector<char> tokens_data;
      try {
-@@ -299,20 +471,40 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
+@@ -299,20 +472,40 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
  
      const auto & hashes = tokens.get_prefix_hashes();
  
 +    // LocalAI: a hybrid model keeps a whole recurrent state per checkpoint, only a few go to disk
 +    std::vector<std::shared_ptr<const common_prompt_checkpoint>> checkpoints;
 +    {
-+        const auto keep = prompt_cache_policy::keep_checkpoints(state.prompt.checkpoints.size());
++        const auto keep = prompt_cache_policy::keep_checkpoints(state.prompt.checkpoints.size(), opts.max_ckpt);
 +        size_t i = 0;
 +        for (const auto & ckpt : state.prompt.checkpoints) {
 +            if (keep[i++]) {
@@ -569,7 +576,7 @@ index c3c0c623c..5391e5403 100644
      if (limit_size > 0 && size_file > limit_size) {
          SRV_WRN(" - prompt size %.3f MiB exceeds disk cache size limit %.3f MiB, skipping\n",
                  size_file / (1024.0 * 1024.0), limit_size / (1024.0 * 1024.0));
-@@ -322,6 +514,11 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
+@@ -322,6 +515,11 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
      server_cache_disk_lock guard(lock);
      refresh();
  
@@ -581,7 +588,7 @@ index c3c0c623c..5391e5403 100644
      for (auto it = entries.begin(); it != entries.end();) {
          if (it->name == name) {
              SRV_TRC(" - prompt is already on disk, '%s'\n", name.c_str());
-@@ -329,7 +526,7 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
+@@ -329,7 +527,7 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
              return true;
          }
  
@@ -590,7 +597,7 @@ index c3c0c623c..5391e5403 100644
              SRV_TRC(" - removing obsolete prompt with length %zu from disk, '%s'\n", it->n_tokens, it->name.c_str());
              it = remove(it);
          } else {
-@@ -337,6 +534,29 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
+@@ -337,6 +535,29 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
          }
      }
  
@@ -620,7 +627,7 @@ index c3c0c623c..5391e5403 100644
      if (limit_size > 0) {
          while (!entries.empty() && size() + size_file > limit_size) {
              SRV_TRC(" - making room on disk, removing oldest file '%s' (size = %.3f MiB)\n",
-@@ -351,6 +571,19 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
+@@ -351,6 +572,19 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
      const fs::path path     = dir / name;
      const fs::path path_tmp = dir / (name + FILE_EXT_TMP);
  
@@ -640,7 +647,7 @@ index c3c0c623c..5391e5403 100644
      std::error_code ec;
      {
          std::ofstream out(path_tmp, std::ios::binary | std::ios::trunc);
-@@ -358,10 +591,10 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
+@@ -358,10 +592,10 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
          write_bytes(out, &header, sizeof(header));
          write_bytes(out, hashes.data(), size_hashes);
          write_bytes(out, tokens_data.data(), tokens_data.size());
@@ -654,7 +661,7 @@ index c3c0c623c..5391e5403 100644
              server_cache_disk_checkpoint ckpt_header;
              ckpt_header.n_tokens  = ckpt->n_tokens;
              ckpt_header.pos_min   = ckpt->pos_min;
-@@ -371,14 +604,18 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
+@@ -371,14 +605,18 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
              ckpt_header.size_spec = ckpt->data_spec.size();
  
              write_bytes(out, &ckpt_header, sizeof(ckpt_header));
@@ -678,7 +685,7 @@ index c3c0c623c..5391e5403 100644
              out.close();
              fs::remove(path_tmp, ec);
              return false;
-@@ -395,6 +632,7 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
+@@ -395,6 +633,7 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
  
      server_prompt_cache_disk_entry entry;
      entry.name     = name;
@@ -686,7 +693,7 @@ index c3c0c623c..5391e5403 100644
      entry.size     = size_file;
      entry.t_used   = fs::last_write_time(path, ec);
      entry.n_tokens = tokens.size();
-@@ -411,15 +649,115 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
+@@ -411,15 +650,115 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
      return true;
  }
  
@@ -803,7 +810,7 @@ index c3c0c623c..5391e5403 100644
          // only the hashes are known here, so this is a lower bound
          const size_t n_prefix_cur = tokens.get_common_prefix_lower(it->hashes);
  
-@@ -434,29 +772,53 @@ server_prompt_cache_disk::entry_list::iterator server_prompt_cache_disk::find(co
+@@ -434,29 +773,53 @@ server_prompt_cache_disk::entry_list::iterator server_prompt_cache_disk::find(co
          }
      }
  
@@ -861,7 +868,7 @@ index c3c0c623c..5391e5403 100644
      server_prompt_cache_state res;
  
      const int64_t t_start = ggml_time_us();
-@@ -466,6 +828,7 @@ bool server_prompt_cache_disk::read(entry_list::iterator it, server_prompt_cache
+@@ -466,6 +829,7 @@ bool server_prompt_cache_disk::read(entry_list::iterator it, server_prompt_cache
  
          server_prompt_cache_disk_entry cur;
          cur.name = it->name;
@@ -869,7 +876,7 @@ index c3c0c623c..5391e5403 100644
          cur.size = it->size;
          const auto header = read_header(in, compat, cur);
  
-@@ -474,6 +837,9 @@ bool server_prompt_cache_disk::read(entry_list::iterator it, server_prompt_cache
+@@ -474,6 +838,9 @@ bool server_prompt_cache_disk::read(entry_list::iterator it, server_prompt_cache
  
          res.prompt.tokens = server_tokens::deserialize(tokens_data, has_mtmd);
  
@@ -879,7 +886,7 @@ index c3c0c623c..5391e5403 100644
          if (res.prompt.tokens.size() != it->n_tokens || res.prompt.tokens.get_hash(it->n_tokens) != it->hash) {
              throw std::runtime_error("the tokens do not match the hash");
          }
-@@ -755,20 +1121,43 @@ void server_prompt_cache::save_to_disk(const server_prompt_cache_state & state)
+@@ -755,20 +1122,43 @@ void server_prompt_cache::save_to_disk(const server_prompt_cache_state & state)
      disk->save(state);
  }
  
@@ -929,7 +936,7 @@ index c3c0c623c..5391e5403 100644
      }
  
 diff --git a/tools/server/server-slot-sched.h b/tools/server/server-slot-sched.h
-index c70305279..c4d294914 100644
+index c70305279..56732357a 100644
 --- a/tools/server/server-slot-sched.h
 +++ b/tools/server/server-slot-sched.h
 @@ -4,11 +4,17 @@
@@ -958,7 +965,7 @@ index c70305279..c4d294914 100644
  
      size_t size = 0; // in bytes
      std::filesystem::file_time_type t_used;
-@@ -98,11 +105,26 @@ struct server_prompt_cache_disk_entry {
+@@ -98,11 +105,29 @@ struct server_prompt_cache_disk_entry {
      std::vector<server_tokens::prefix_hash> hashes;
  };
  
@@ -969,6 +976,9 @@ index c70305279..c4d294914 100644
 +    uint64_t ns_quota    = 0;  // in bytes, per cache namespace, 0 = no quota
 +    double   read_bps    = 0;  // cold read speed of the directory, 0 = unknown
 +    uint64_t queue_limit = 0;  // in bytes, states waiting for the writer thread, 0 = synchronous writes
++    uint32_t min_reuse   = prompt_cache_policy::default_min_reuse; // requests that must share a prefix before it is written
++    size_t   max_ckpt    = prompt_cache_policy::max_checkpoints;   // checkpoints kept per file
++    double   overhead_s  = prompt_cache_policy::load_overhead_s;   // fixed cost of one load in the gate
 +    prompt_cache_policy::watermarks free_space; // free-space thresholds, 0 = the default rule
 +};
 +
@@ -985,7 +995,7 @@ index c70305279..c4d294914 100644
      // the files as of the last operation, another server can change them at any time
      const std::list<server_prompt_cache_disk_entry> & get_entries() const { return entries; }
  
-@@ -116,36 +138,95 @@ struct server_prompt_cache_disk {
+@@ -116,36 +141,95 @@ struct server_prompt_cache_disk {
      // loads the saved prompt that shares the longest prefix with the tokens
      // n_prefix_min: the saved prompt must share more tokens than this
      // n_tokens_max: longer saved prompts are skipped
@@ -1083,7 +1093,7 @@ index c70305279..c4d294914 100644
  };
  
  // id of everything that makes a saved state unusable when it changes
-@@ -191,7 +272,10 @@ struct server_prompt_cache {
+@@ -191,7 +275,10 @@ struct server_prompt_cache {
      std::vector<common_adapter_lora_info> lora_disk;
  
      // saves all the states to disk, they stay in the RAM

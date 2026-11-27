@@ -24,6 +24,7 @@ LocalAI follows the Linux kernel project's [guidelines for AI coding assistants]
 | [.agents/adding-backends.md](.agents/adding-backends.md) | Adding a new backend (Python, Go, or C++) — full step-by-step checklist, including importer integration (the `/import-model` dropdown is server-driven from `GET /backends/known`) |
 | [.agents/coding-style.md](.agents/coding-style.md) | Code style, editorconfig, logging, documentation conventions, React UI styling and the UI kit controls rules |
 | [.agents/llama-cpp-backend.md](.agents/llama-cpp-backend.md) | Working on the llama.cpp backend — architecture, updating, tool call parsing |
+| [.agents/prompt-cache-backends.md](.agents/prompt-cache-backends.md) | Adding the disk prompt cache to a backend: the request fields, the environment the node sets, the file layout the janitor needs, the gates, `Free()` and the reference implementation in llama.cpp |
 | [.agents/vllm-backend.md](.agents/vllm-backend.md) | Working on the vLLM / vLLM-omni backends — native parsers, ChatDelta, CPU build, libnuma packaging, backend hooks |
 | [.agents/sglang-backend.md](.agents/sglang-backend.md) | Working on the SGLang backend — `engine_args` validation against ServerArgs, speculative-decoding (EAGLE/EAGLE3/DFLASH/MTP) recipes, parser handling |
 | [.agents/ds4-backend.md](.agents/ds4-backend.md) | Working on the ds4 backend - DSML state machine, thinking modes, KV cache, Metal+CUDA matrix |

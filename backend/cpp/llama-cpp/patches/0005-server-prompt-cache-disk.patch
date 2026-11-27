@@ -30,7 +30,7 @@ index c322b5c0f..eb25abe0e 100644
          {"-kvu", "--kv-unified"},
          {"-no-kvu", "--no-kv-unified"},
 diff --git a/common/common.h b/common/common.h
-index ff69545b7..8660001df 100644
+index 45fee2ae2..b67e6100a 100644
 --- a/common/common.h
 +++ b/common/common.h
 @@ -676,6 +676,8 @@ struct common_params {
@@ -174,10 +174,10 @@ index c1a0f4dca..61b564162 100644
  // unlike server_slot_stats, server_metrics is server-global and cumulative, not tied to a slot
  struct server_metrics {
 diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
-index 9cb48d044..1ae9453af 100644
+index 2f697df66..e553c9982 100644
 --- a/tools/server/server-context.cpp
 +++ b/tools/server/server-context.cpp
-@@ -431,7 +431,7 @@ struct server_slot {
+@@ -430,7 +430,7 @@ struct server_slot {
      }
  
      bool prompt_load(server_prompt_cache & prompt_cache, const server_tokens & tokens, const std::vector<common_adapter_lora_info> & lora_new) {
@@ -186,7 +186,7 @@ index 9cb48d044..1ae9453af 100644
          if (!res) {
              SLT_WRN(*this, "%s", "failed to load prompt from cache\n");
          }
-@@ -1229,7 +1229,24 @@ private:
+@@ -1227,7 +1227,24 @@ private:
  
      int64_t t_last_load_progress_ms = 0;
  
@@ -211,7 +211,7 @@ index 9cb48d044..1ae9453af 100644
          spec.reset();
          spec_init.reset();
  
-@@ -1722,8 +1739,23 @@ private:
+@@ -1720,8 +1737,23 @@ private:
              SRV_TRC("%s", "use `--cache-ram 0` to disable the prompt cache\n");
  
              prompt_cache = std::make_unique<server_prompt_cache>(params_base.cache_ram_mib, n_ctx);
@@ -235,7 +235,7 @@ index 9cb48d044..1ae9453af 100644
          }
          SRV_TRC("%s", "for more info see https://github.com/ggml-org/llama.cpp/pull/16391\n");
  
-@@ -3981,6 +4013,10 @@ private:
+@@ -3941,6 +3973,10 @@ private:
                      res->n_tasks_deferred    = queue_tasks.queue_tasks_deferred_size();
                      res->metrics             = metrics;
  

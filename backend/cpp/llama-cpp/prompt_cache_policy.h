@@ -10,6 +10,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -39,8 +40,9 @@ constexpr size_t max_checkpoints = 3;
 // gate fits a network tier: there transfer_bps is the measured network read
 // speed.
 struct speeds {
-    double transfer_bps = 0; // bytes per second, cold read of the cache tier
-    double prefill_tps  = 0; // prompt tokens per second of this model
+    double transfer_bps = 0;               // bytes per second, cold read of the cache tier
+    double prefill_tps  = 0;               // prompt tokens per second of this model
+    double overhead_s   = load_overhead_s; // fixed cost of one load besides the transfer
 };
 
 // True when fetching `bytes` from the cache tier is faster than computing
@@ -51,7 +53,7 @@ inline bool transfer_beats_recompute(uint64_t bytes, uint64_t n_tokens, const sp
     if (s.transfer_bps <= 0 || s.prefill_tps <= 0) {
         return true;
     }
-    const double t_read      = (double) bytes / s.transfer_bps + load_overhead_s;
+    const double t_read      = (double) bytes / s.transfer_bps + s.overhead_s;
     const double t_recompute = (double) n_tokens / s.prefill_tps;
     return t_read < t_recompute;
 }
@@ -290,14 +292,17 @@ inline bool room_for(uint64_t bytes, uint64_t free, uint64_t total, const waterm
     return total == 0 || (free > bytes && free - bytes >= low_watermark(total, w));
 }
 
+// Requests that must share a prefix before it is written.
+constexpr uint32_t default_min_reuse = 2;
+
 // Write less: an entry is worth writing only when its prefix was seen in at
-// least two requests (a multi-turn conversation, or a system or tool prefix
+// least min_reuse (2) requests (a multi-turn conversation, or a system or tool prefix
 // that several requests share). A unique one-shot prompt is never written.
 // counts[k] is the number of requests whose prompt held block k of the
 // entry's hash chain. Returns the tokens of the longest such prefix.
-inline uint64_t reused_tokens(const std::vector<uint32_t> & counts, uint64_t block) {
+inline uint64_t reused_tokens(const std::vector<uint32_t> & counts, uint64_t block, uint32_t min_reuse = default_min_reuse) {
     uint64_t k = 0;
-    while (k < counts.size() && counts[k] >= 2) {
+    while (k < counts.size() && counts[k] >= std::max<uint32_t>(1, min_reuse)) {
         k++;
     }
     return k * block;
@@ -378,6 +383,9 @@ struct disk_options {
     long max_size_mib   = 0;  // of this model's directory, 0 none
     long low_free_mib   = 0;  // low free-space watermark, 0 default rule
     long crit_free_mib  = 0;  // critical free-space watermark, 0 default rule
+    long min_reuse      = -1; // -1 unset (default_min_reuse)
+    long max_ckpt       = -1; // -1 unset (max_checkpoints)
+    long overhead_ms    = -1; // -1 unset (load_overhead_s)
 };
 
 inline watermarks watermarks_of(const disk_options & o) {
@@ -424,6 +432,58 @@ inline int64_t ttl_seconds(const disk_options & o) {
 
 inline uint64_t min_tokens(const disk_options & o) {
     return o.min_tokens < 0 ? default_min_tokens : (uint64_t) o.min_tokens;
+}
+
+inline uint32_t min_reuse(const disk_options & o) {
+    return o.min_reuse < 1 ? default_min_reuse : (uint32_t) o.min_reuse;
+}
+
+inline size_t max_checkpoints_of(const disk_options & o) {
+    return o.max_ckpt < 0 ? max_checkpoints : (size_t) o.max_ckpt;
+}
+
+inline double overhead_seconds(const disk_options & o) {
+    return o.overhead_ms < 0 ? load_overhead_s : o.overhead_ms / 1000.0;
+}
+
+// The policy numbers come from the node that starts the backend, as
+// environment variables (the contract in .agents/prompt-cache-backends.md),
+// so every backend that implements the disk tier uses the same numbers.
+// A model option of the same meaning wins over the environment. `get` is
+// std::getenv in the backend and a map in the test.
+struct env_name {
+    const char * name;
+    long disk_options::*field;
+};
+
+constexpr env_name env_names[] = {
+    { "LOCALAI_PROMPT_CACHE_TTL_HOURS",          &disk_options::ttl_hours },
+    { "LOCALAI_PROMPT_CACHE_MIN_TOKENS",         &disk_options::min_tokens },
+    { "LOCALAI_PROMPT_CACHE_QUOTA_MIB",          &disk_options::quota_mib },
+    { "LOCALAI_PROMPT_CACHE_MAX_SIZE_MIB",       &disk_options::max_size_mib },
+    { "LOCALAI_PROMPT_CACHE_LOW_FREE_MIB",       &disk_options::low_free_mib },
+    { "LOCALAI_PROMPT_CACHE_CRITICAL_FREE_MIB",  &disk_options::crit_free_mib },
+    { "LOCALAI_PROMPT_CACHE_MIN_REUSE",          &disk_options::min_reuse },
+    { "LOCALAI_PROMPT_CACHE_MAX_CHECKPOINTS",    &disk_options::max_ckpt },
+    { "LOCALAI_PROMPT_CACHE_LOAD_OVERHEAD_MS",   &disk_options::overhead_ms },
+};
+
+// Fills the fields the environment sets. A missing, empty or malformed value
+// (not a whole number of 0 or more) leaves the field as it is.
+template <typename Get>
+inline void apply_env(disk_options & o, Get get) {
+    for (const auto & e : env_names) {
+        const char * v = get(e.name);
+        if (v == nullptr || *v == '\0') {
+            continue;
+        }
+        char * end = nullptr;
+        const long n = std::strtol(v, &end, 10);
+        if (end == v || *end != '\0' || n < 0) {
+            continue;
+        }
+        o.*(e.field) = n;
+    }
 }
 
 } // namespace prompt_cache_policy

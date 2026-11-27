@@ -3,7 +3,9 @@
 #include "prompt_cache_policy.h"
 
 #include <cstdio>
+#include <map>
 #include <set>
+#include <string>
 
 using namespace prompt_cache_policy;
 
@@ -239,7 +241,54 @@ static void test_resolve() {
     EXPECT(min_tokens(d) == 64, "min tokens option");
 }
 
+// The numbers a node gives every backend through the environment.
+static void test_env() {
+    std::map<std::string, std::string> env = {
+        { "LOCALAI_PROMPT_CACHE_TTL_HOURS", "24" },
+        { "LOCALAI_PROMPT_CACHE_MIN_TOKENS", "512" },
+        { "LOCALAI_PROMPT_CACHE_MIN_REUSE", "3" },
+        { "LOCALAI_PROMPT_CACHE_MAX_CHECKPOINTS", "1" },
+        { "LOCALAI_PROMPT_CACHE_LOAD_OVERHEAD_MS", "120" },
+        { "LOCALAI_PROMPT_CACHE_QUOTA_MIB", "x" },
+        { "LOCALAI_PROMPT_CACHE_LOW_FREE_MIB", "-5" },
+        { "LOCALAI_PROMPT_CACHE_CRITICAL_FREE_MIB", "" },
+    };
+    const auto get = [&](const char * n) -> const char * {
+        auto it = env.find(n);
+        return it == env.end() ? nullptr : it->second.c_str();
+    };
+    disk_options o;
+    apply_env(o, get);
+    EXPECT(ttl_seconds(o) == 24 * 3600, "ttl from the env");
+    EXPECT(min_tokens(o) == 512, "min tokens from the env");
+    EXPECT(min_reuse(o) == 3, "reuse count from the env");
+    EXPECT(max_checkpoints_of(o) == 1, "checkpoints from the env");
+    EXPECT(overhead_seconds(o) > 0.119 && overhead_seconds(o) < 0.121, "load overhead from the env");
+    EXPECT(o.quota_mib == 0, "a malformed value is ignored");
+    EXPECT(o.low_free_mib == 0, "a negative value is ignored");
+    EXPECT(o.crit_free_mib == 0, "an empty value is ignored");
+
+    disk_options d;
+    apply_env(d, [](const char *) -> const char * { return nullptr; });
+    EXPECT(ttl_seconds(d) == 7 * 24 * 3600 && min_tokens(d) == 1024 && min_reuse(d) == 2 &&
+           max_checkpoints_of(d) == 3 && overhead_seconds(d) == load_overhead_s, "no env: the defaults");
+
+    // a model option set after the env wins
+    apply_env(d, get);
+    d.min_tokens = 2048;
+    EXPECT(min_tokens(d) == 2048, "a model option wins over the env");
+
+    // the reuse count and the overhead change the decisions
+    EXPECT(reused_tokens({ 2, 2, 1 }, 64, 3) == 0, "three requests needed, two seen");
+    EXPECT(reused_tokens({ 3, 3, 2 }, 64, 3) == 128, "three requests seen for two blocks");
+    speeds s{ 1e9, 1000 };
+    EXPECT(transfer_beats_recompute(1000000, 100, s), "default overhead: a small entry pays");
+    s.overhead_s = 1.0;
+    EXPECT(!transfer_beats_recompute(1000000, 100, s), "a large overhead: it does not");
+}
+
 int main() {
+    test_env();
     test_salt();
     test_file_names();
     test_gating();
