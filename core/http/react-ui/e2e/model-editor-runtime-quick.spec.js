@@ -120,7 +120,10 @@ test.describe('Runtime tuning: quick setup', () => {
     await select.selectOption('auto')
     await expect(page.getByTestId('rt-backend-sampling-choice-hint')).toContainText('Use GPU sampling when the model runs on a GPU')
     await select.selectOption('on')
-    await expect(page.getByTestId('rt-backend-sampling-choice-hint')).toContainText('Sample tokens on the GPU. Faster with many parallel requests.')
+    // The hint shows its first sentence; "More" folds the rest.
+    const onHint = page.getByTestId('rt-backend-sampling-choice-hint')
+    await expect(onHint).toContainText('Sample tokens on the GPU.')
+    await expect(onHint).toContainText('Faster with many parallel requests.')
     // Not part of any profile.
     await expect(choice(page, 'balanced')).toHaveAttribute('aria-checked', 'true')
     await save(page).click()
