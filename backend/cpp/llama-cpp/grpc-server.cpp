@@ -750,7 +750,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // Prefix sharing between live slots and load-adaptive drafting (serving_policy.h).
     std::optional<bool> slot_attach;
     std::optional<int> spec_max_streams;
-    bool spec_type_set = false; // the model chose its drafting, so no n-gram default
     // Order of waiting requests and the per-request prefill cap (serving_policy.h).
     std::optional<bool> admission_order;
     std::optional<int> prefill_cap;
@@ -1333,9 +1332,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             auto parsed = common_speculative_types_from_names(names);
             if (!parsed.empty()) {
                 params.speculative.types = parsed;
-            }
-            if (!names.empty()) {
-                spec_type_set = true;
             }
         } else if (!strcmp(optname, "spec_n_max") || !strcmp(optname, "draft_max")) {
             if (optval != NULL) {
@@ -2025,16 +2021,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         (void) lazy_idle_save;
 #endif
         params.spec_max_streams  = spec_max_streams.value_or(serving_policy::default_spec_max_streams);
-        // Without a draft model, draft from n-grams of the context: free when it
-        // misses, and paused under load by spec_max_streams. spec_type:none opts out.
-        // Not for multimodal, embedding or score models: their batches carry embeddings or no sampling.
-        if (!spec_type_set && request->draftmodel().empty() && request->mmproj().empty() && !request->embeddings() &&
-            !request->enablescore() &&
-            (params.speculative.types.empty() ||
-             (params.speculative.types.size() == 1 && params.speculative.types[0] == COMMON_SPECULATIVE_TYPE_NONE))) {
-            params.speculative.types = { serving_policy::default_ngram_type == 0 ? COMMON_SPECULATIVE_TYPE_NGRAM_SIMPLE
-                                                                                  : COMMON_SPECULATIVE_TYPE_NGRAM_MOD };
-        }
         // The slots share one pool, so with a single slot paged serving does
         // nothing: it defaults to more. An explicit parallel (the options,
         // LLAMACPP_PARALLEL or a passthrough flag) always wins.
@@ -2057,7 +2043,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     (void) cont_batching_off;
     (void) slot_attach;
     (void) spec_max_streams;
-    (void) spec_type_set;
     (void) admission_order;
     (void) prefill_cap;
     (void) lazy_idle_save;

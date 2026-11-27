@@ -280,9 +280,6 @@ inline bool spec_paused(bool paused, int32_t n_streams, int32_t n_max) {
 // Default of spec_max_streams: drafting pauses above this many decoding streams.
 constexpr int default_spec_max_streams = 4;
 
-// N-gram drafting used by default when a model has no draft model: 0 ngram-simple, 1 ngram-mod.
-constexpr int default_ngram_type = 1;
-
 // Order of waiting requests (the deferred queue, the pool admission wait and
 // the prompt fill of each step). Classes come from the request priority
 // (-1 batch, 0 default, 1 interactive, as upstream's server_task::priority).
