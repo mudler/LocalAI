@@ -100,6 +100,53 @@ var _ = Describe("Reconciler memory sweeps", func() {
 		})
 	})
 
+	Describe("idle unload of an autoscaled model", func() {
+		BeforeEach(func() {
+			policy.IdleEnabled = true
+			policy.IdleTimeout = 10 * time.Minute
+		})
+
+		It("keeps the last idle replica, which the scale-up would load again", func() {
+			Expect(registry.SetModelScheduling(ctx, &ModelSchedulingConfig{ModelName: "auto", MinReplicas: 1, MaxReplicas: 4})).To(Succeed())
+			for i, name := range []string{"node-a", "node-b", "node-c"} {
+				n := register(name, 0, 0)
+				loaded(n, "auto", 0, time.Hour)
+				if i > 0 {
+					Expect(registry.IncrementInFlight(ctx, n.ID, "auto", 0)).To(Succeed())
+				}
+			}
+
+			rc.sweepIdle(ctx)
+
+			Expect(count("auto")).To(BeNumerically("==", 3))
+		})
+
+		It("unloads the idle replicas above the one it keeps", func() {
+			Expect(registry.SetModelScheduling(ctx, &ModelSchedulingConfig{ModelName: "auto", MinReplicas: 1, MaxReplicas: 4})).To(Succeed())
+			for i, name := range []string{"node-a", "node-b", "node-c", "node-d"} {
+				n := register(name, 0, 0)
+				loaded(n, "auto", 0, time.Hour)
+				if i == 0 {
+					Expect(registry.IncrementInFlight(ctx, n.ID, "auto", 0)).To(Succeed())
+				}
+			}
+
+			rc.sweepIdle(ctx)
+
+			Expect(count("auto")).To(BeNumerically("==", 2), "the busy replica and one idle one")
+		})
+
+		It("unloads every idle replica of a model with no rule in one pass", func() {
+			for _, name := range []string{"node-a", "node-b"} {
+				loaded(register(name, 0, 0), "free", 0, time.Hour)
+			}
+
+			rc.sweepIdle(ctx)
+
+			Expect(count("free")).To(BeZero())
+		})
+	})
+
 	Describe("a replica that takes a request during a sweep", func() {
 		BeforeEach(func() {
 			policy.IdleEnabled = true

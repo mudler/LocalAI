@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/mudler/xlog"
+	"gorm.io/gorm"
 )
 
 // The memory sweeps of the reconciler apply the cluster memory settings to
@@ -62,7 +63,9 @@ func (rc *ReplicaReconciler) unloadForSweep(ctx context.Context, nm NodeModel, w
 
 // sweepIdle unloads the replicas idle longer than the idle timeout, when the
 // idle unload is on. A model keeps its rule's min_replicas; a model with no
-// rule may go to zero and loads again on the next request.
+// rule may go to zero and loads again on the next request. An autoscaled
+// model also keeps one idle replica, as scaleDownIdle does: with none left
+// idle the reconciler sees every replica busy and loads one again.
 func (rc *ReplicaReconciler) sweepIdle(ctx context.Context) {
 	p := rc.registry.MemoryPolicy()
 	if rc.unloader == nil || !p.IdleEnabled || p.IdleTimeout <= 0 {
@@ -73,18 +76,45 @@ func (rc *ReplicaReconciler) sweepIdle(ctx context.Context) {
 		xlog.Warn("Reconciler: listing idle replicas failed", "error", err)
 		return
 	}
-	removed := map[string]int{}
 	for _, nm := range idle {
 		// The floor was checked per row against the count before this
-		// sweep; re-check as replicas of the same model go.
+		// sweep; check again as replicas of the same model go. loadedCount
+		// reads the rows, so it already leaves out the ones removed.
 		floor := rc.minReplicas(ctx, nm.ModelName)
-		if rc.loadedCount(ctx, nm.ModelName)-removed[nm.ModelName] <= floor {
+		if rc.loadedCount(ctx, nm.ModelName) <= floor {
 			continue
 		}
-		if rc.unloadForSweep(ctx, nm, "idle timeout") {
-			removed[nm.ModelName]++
+		if rc.lastIdleOfAutoscaled(ctx, nm) {
+			continue
 		}
+		rc.unloadForSweep(ctx, nm, "idle timeout")
 	}
+}
+
+// lastIdleOfAutoscaled reports whether nm is the only idle loaded replica of
+// a model with an autoscaling rule, on the nodes the rule selects. Removing
+// it would leave every replica busy, which makes the reconciler scale up.
+func (rc *ReplicaReconciler) lastIdleOfAutoscaled(ctx context.Context, nm NodeModel) bool {
+	var rule ModelSchedulingConfig
+	err := rc.registry.db.WithContext(ctx).
+		Where("COALESCE(NULLIF(target_model, ''), model_name) = ? AND (min_replicas > 0 OR max_replicas > 0 OR spread_all)", nm.ModelName).
+		First(&rule).Error
+	if err != nil {
+		return false // no autoscaling rule (or unreadable: the floor still holds)
+	}
+	selected := func() *gorm.DB {
+		return currentModelRevision(rc.registry.db.WithContext(ctx).Model(&NodeModel{})).
+			Scopes(onNodesMatching(parseSelector(rule.NodeSelector))).
+			Where("node_models.model_name = ? AND node_models.state = ? AND node_models.in_flight = 0", nm.ModelName, "loaded")
+	}
+	var self, others int64
+	if selected().Where("node_models.id = ?", nm.ID).Count(&self).Error != nil || self == 0 {
+		return false // not on a node the rule counts
+	}
+	if selected().Where("node_models.id <> ?", nm.ID).Count(&others).Error != nil {
+		return true
+	}
+	return others == 0
 }
 
 // sweepMemoryPressure unloads, on each node whose memory use is above its
