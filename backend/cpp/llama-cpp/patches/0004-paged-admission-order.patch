@@ -12,12 +12,13 @@ prefill_cap) is set. See backend/cpp/llama-cpp/PATCHES.md.
 diff --git a/common/common.h b/common/common.h
 --- a/common/common.h
 +++ b/common/common.h
-@@ -669,6 +669,8 @@ struct common_params {
+@@ -669,6 +669,9 @@ struct common_params {
      int32_t prefill_budget      = 0;     // LocalAI: decode-first prompt tokens per step, 0 = off, < 0 = adaptive
      bool    paged_attach        = false; // LocalAI: start a prompt from another slot's prefix cells (paged serving)
      int32_t spec_max_streams    = 0;     // LocalAI: pause speculative drafting above this many decoding streams, 0 = never
 +    bool    paged_order         = false; // LocalAI: order waiting requests by class, cache hit and arrival (paged serving)
 +    int32_t prefill_cap         = 0;     // LocalAI: prompt tokens one request may add per step while others read prompts, 0 = off
++    bool    paged_lazy_save     = false; // LocalAI: keep idle slots' cells until the pool needs them (paged serving)
      int32_t checkpoint_min_step = 8192;  // minimum spacing between context checkpoints
      int32_t cache_ram_mib       = 8192;  // -1 = no limit, 0 - disable, 1 = 1 MiB, etc.
      bool    cache_ram_explicit  = false; // set by --cache-ram, decision models disable the cache otherwise
@@ -241,8 +242,8 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      }
  
 -                    cache_idle_slots();
-+                    // LocalAI paged serving: idle slots keep their cells until the pool needs them
-+                    if (!params_base.paged_serving) {
++                    // LocalAI paged serving: with paged_lazy_save, idle slots keep their cells until the pool needs them
++                    if (!params_base.paged_serving || !params_base.paged_lazy_save) {
 +                        cache_idle_slots();
 +                    }
                  } break;

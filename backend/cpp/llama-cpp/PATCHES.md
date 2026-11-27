@@ -58,7 +58,7 @@ Line numbers drift with every bump. Find each hook by the grep anchor.
 | H8 | `spec_paused_now` in `pre_decode()` | Drafting pauses when more than `spec_max_streams` slots decode and resumes with hysteresis (`serving_policy::spec_paused`). n-gram drafting (no draft model) is resumable: the tables are rebuilt after a resume. |
 | H9 | `pop_deferred_task` in `server-queue.cpp` (0003, 0004) | The freed slot goes to the deferred task with the highest priority (#32219); with `paged_order`, by `serving_policy::goes_before` (class with aging, overtake cap, fewest uncached tokens, arrival). `n_uncached_hint` is set before a task is deferred. |
 | H10 | `paged_fill_order`, `fill_slot` | With `paged_order`, the prompt fill visits waiting and prefilling slots by the same key, parents before children; `paged_admit` uses the key instead of the task id. `prefill_cap` limits one request's prompt tokens per step while others read prompts. |
-| H11 | `paged_trim_idle`; `cache_idle_slots()` after a launch | Under paged serving idle slots keep their cells until the pool needs them; then the least recently used idle slot is saved to the RAM prompt cache once and trimmed from the tail, only as much as needed. |
+| H11 | `paged_trim_idle`; `cache_idle_slots()` after a launch | When the pool is short, the least recently used idle slot is saved to the RAM prompt cache once and trimmed from the tail, only as much as needed (at least `paged_min_trim`). With `paged_lazy_save`, the save-and-clear of idle slots after each launch is skipped. |
 
 A slot that cannot be resumed (a draft model or MTP, a multimodal
 prompt, a score parent or child, recurrent or hybrid memory, aLoRA) is

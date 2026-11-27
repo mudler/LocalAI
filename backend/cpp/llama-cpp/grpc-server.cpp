@@ -754,6 +754,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // Order of waiting requests and the per-request prefill cap (serving_policy.h).
     std::optional<bool> admission_order;
     std::optional<int> prefill_cap;
+    bool lazy_idle_save = false;
 
     // Initialize fit_params options (can be overridden by options)
     // fit_params: whether to auto-adjust params to fit device memory (default: true as in llama.cpp)
@@ -929,6 +930,12 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 admission_order = *v;
             } else {
                 SRV_WRN("%s: ignoring invalid value '%s' (expected true or false)\n", optname, optval_str.c_str());
+            }
+        } else if (!strcmp(optname, "lazy_idle_save")) {
+            if (const auto v = llama_grpc::parse_switch(optval_str)) {
+                lazy_idle_save = *v;
+            } else {
+                SRV_WRN("lazy_idle_save: ignoring invalid value '%s' (expected true or false)\n", optval_str.c_str());
             }
         } else if (!strcmp(optname, "prefill_cap")) {
             if (const auto n = llama_grpc::parse_non_negative_int(optval_str)) {
@@ -2011,9 +2018,11 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
 #if LOCALAI_HAS_ADMISSION_ORDER
         params.paged_order       = paged.on && admission_order.value_or(true);
         params.prefill_cap       = paged.on ? prefill_cap.value_or(serving_policy::default_prefill_cap) : 0;
+        params.paged_lazy_save   = paged.on && lazy_idle_save;
 #else
         (void) admission_order;
         (void) prefill_cap;
+        (void) lazy_idle_save;
 #endif
         params.spec_max_streams  = spec_max_streams.value_or(serving_policy::default_spec_max_streams);
         // Without a draft model, draft from n-grams of the context: free when it
@@ -2051,6 +2060,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     (void) spec_type_set;
     (void) admission_order;
     (void) prefill_cap;
+    (void) lazy_idle_save;
 #endif
 
 #ifndef LOCALAI_LLAMA_CPP_NO_SCORE_TASK
