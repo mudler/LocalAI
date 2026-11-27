@@ -1227,7 +1227,9 @@
       "scope": "Installed for",
       "installedBy": "Installed by",
       "approvedBy": "Approved by",
-      "updateTo": "Update available"
+      "updateTo": "Update available",
+      "versionValue": "Version {{version}}",
+      "more": "Package details"
     },
     "components": {
       "skills": "Skills",
@@ -1311,8 +1313,6 @@
       "checking": "Fetching the new version and comparing the files…",
       "failed": "Could not prepare this update.",
       "confirm": "Update",
-      "from": "From",
-      "to": "To",
       "gainsCode": "The new version runs code",
       "gainsCodeBody": "After the update, the plugin is off for each person until they turn it on again.",
       "files_one": "{{count}} file changes",

@@ -1231,7 +1231,9 @@
       "scope": "Installé pour",
       "installedBy": "Installé par",
       "approvedBy": "Approuvé par",
-      "updateTo": "Mise à jour disponible"
+      "updateTo": "Mise à jour disponible",
+      "versionValue": "Version {{version}}",
+      "more": "Détails du paquet"
     },
     "components": {
       "skills": "Skills",
@@ -1315,8 +1317,6 @@
       "checking": "Récupération de la nouvelle version et comparaison des fichiers…",
       "failed": "Impossible de préparer cette mise à jour.",
       "confirm": "Mettre à jour",
-      "from": "De",
-      "to": "Vers",
       "gainsCode": "La nouvelle version exécute du code",
       "gainsCodeBody": "Après la mise à jour, le plugin est désactivé pour chaque personne jusqu'à ce qu'elle le réactive.",
       "files_one": "{{count}} fichier modifié",

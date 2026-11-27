@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import Dialog from '../Dialog'
 import { Button, Callout, LoadingSpinner, Segmented, Tag } from '../ui'
 import { formatBytes } from '../../utils/format'
-import { CodeFile, ComponentList, ContributionTags, Sha, SkippedList } from './PluginBits'
+import { CodeFile, ComponentList, ContributionTags, PackageFacts, Sha, SkippedList } from './PluginBits'
 import { errorKey, scopeChoices } from './pluginState'
 
 // The review before an install (spec 9.3). It fetches and checks the plugin
@@ -104,13 +104,17 @@ export default function InstallReview({ entry, api, isAdmin, onReviewed, onQueue
             {t('plugins.review.unsignedBody')}
           </Callout>
 
-          <dl className="dk-kv pl-kv" data-testid="plugin-review-facts">
-            <dt>{t('plugins.facts.plugin')}</dt><dd className="pl-mono">{p.plugin}</dd>
-            {p.version && (<><dt>{t('plugins.facts.version')}</dt><dd>{p.version}</dd></>)}
-            <dt>{t('plugins.facts.commit')}</dt><dd><Sha sha={p.sha} testId="plugin-review-sha" /></dd>
-            <dt>{t('plugins.facts.digest')}</dt><dd className="pl-mono pl-digest" data-testid="plugin-digest">{p.digest}</dd>
-            <dt>{t('plugins.facts.size')}</dt><dd>{t('plugins.facts.sizeValue', { size: formatBytes(p.sizeBytes), count: p.fileCount })}</dd>
-          </dl>
+          <PackageFacts
+            line={[
+              ...(p.version ? [{ key: 'version', node: t('plugins.facts.versionValue', { version: p.version }) }] : []),
+              { key: 'commit', node: <>{t('plugins.facts.commit')} <Sha sha={p.sha} testId="plugin-review-sha" /></> },
+              { key: 'size', node: t('plugins.facts.sizeValue', { size: formatBytes(p.sizeBytes), count: p.fileCount }) },
+            ]}
+            more={[
+              { key: 'plugin', label: t('plugins.facts.plugin'), node: p.plugin, className: 'pl-mono' },
+              { key: 'digest', label: t('plugins.facts.digest'), node: p.digest, className: 'pl-mono pl-digest', testId: 'plugin-digest' },
+            ]}
+          />
 
           <section className="pl-section" aria-labelledby="pl-adds">
             <h3 className="pl-section__title" id="pl-adds">{t('plugins.review.adds')}</h3>

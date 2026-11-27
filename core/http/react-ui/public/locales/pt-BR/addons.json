@@ -1227,7 +1227,9 @@
       "scope": "Instalado para",
       "installedBy": "Instalado por",
       "approvedBy": "Aprovado por",
-      "updateTo": "Atualização disponível"
+      "updateTo": "Atualização disponível",
+      "versionValue": "Versão {{version}}",
+      "more": "Detalhes do pacote"
     },
     "components": {
       "skills": "Skills",
@@ -1311,8 +1313,6 @@
       "checking": "Obtendo a nova versão e comparando os arquivos…",
       "failed": "Não foi possível preparar esta atualização.",
       "confirm": "Atualizar",
-      "from": "De",
-      "to": "Para",
       "gainsCode": "A nova versão executa código",
       "gainsCodeBody": "Após a atualização, o plugin fica desativado para cada pessoa até que ela o ative novamente.",
       "files_one": "{{count}} arquivo muda",

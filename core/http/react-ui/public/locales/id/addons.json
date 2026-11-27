@@ -1227,7 +1227,9 @@
       "scope": "Dipasang untuk",
       "installedBy": "Dipasang oleh",
       "approvedBy": "Disetujui oleh",
-      "updateTo": "Pembaruan tersedia"
+      "updateTo": "Pembaruan tersedia",
+      "versionValue": "Versi {{version}}",
+      "more": "Detail paket"
     },
     "components": {
       "skills": "Skill",
@@ -1311,8 +1313,6 @@
       "checking": "Mengambil versi baru dan membandingkan berkas…",
       "failed": "Tidak dapat menyiapkan pembaruan ini.",
       "confirm": "Perbarui",
-      "from": "Dari",
-      "to": "Ke",
       "gainsCode": "Versi baru menjalankan kode",
       "gainsCodeBody": "Setelah pembaruan, plugin nonaktif untuk setiap orang sampai mereka mengaktifkannya lagi.",
       "files_one": "{{count}} berkas berubah",

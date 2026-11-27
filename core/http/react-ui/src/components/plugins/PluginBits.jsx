@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { LoadingSpinner, Tag } from '../ui'
@@ -132,5 +132,36 @@ export function DiffView({ lines }) {
     <pre className="pl-code pl-diff" data-testid="plugin-diff">
       {lines.map((l, i) => <span key={i} className="pl-diff__line" data-kind={l.kind}>{l.text}{'\n'}</span>)}
     </pre>
+  )
+}
+
+// The facts of a package: a short line people read (version, commit, size)
+// and the exact ones a check needs (the plugin ID, the digest) in a
+// disclosure, so a review leads with what the plugin adds.
+//
+//   line   [{ key, node }]  drawn as one meta line
+//   more   [{ key, label, node, className, testId }]  in "Package details"
+export function PackageFacts({ line = [], more = [], testId = 'plugin-review-facts' }) {
+  const { t } = useTranslation('addons')
+  return (
+    <div className="pl-facts" data-testid={testId}>
+      {line.length > 0 && (
+        <p className="ad-meta pl-facts__line">
+          {line.map((f) => <span key={f.key} className="ad-meta__item">{f.node}</span>)}
+        </p>
+      )}
+      {more.length > 0 && (
+        <details className="ad-disclosure pl-facts__more" data-testid={`${testId}-more`}>
+          <summary><Icon name="chevron-right" aria-hidden="true" className="ad-disclosure__icon" /> {t('plugins.facts.more')}</summary>
+          <dl className="dk-kv pl-kv">
+            {more.map((f) => (
+              <Fragment key={f.key}>
+                <dt>{f.label}</dt><dd className={f.className} data-testid={f.testId}>{f.node}</dd>
+              </Fragment>
+            ))}
+          </dl>
+        </details>
+      )}
+    </div>
   )
 }

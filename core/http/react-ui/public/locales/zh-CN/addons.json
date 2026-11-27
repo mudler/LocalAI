@@ -1227,7 +1227,9 @@
       "scope": "安装对象",
       "installedBy": "安装者",
       "approvedBy": "批准者",
-      "updateTo": "有可用更新"
+      "updateTo": "有可用更新",
+      "versionValue": "版本 {{version}}",
+      "more": "软件包详情"
     },
     "components": {
       "skills": "技能",
@@ -1311,8 +1313,6 @@
       "checking": "正在获取新版本并比较文件…",
       "failed": "无法准备此更新。",
       "confirm": "更新",
-      "from": "从",
-      "to": "到",
       "gainsCode": "新版本会运行代码",
       "gainsCodeBody": "更新后，插件对每个人都处于关闭状态，直到他们重新启用。",
       "files_one": "{{count}} 个文件有变更",

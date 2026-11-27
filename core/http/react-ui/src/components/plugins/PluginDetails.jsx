@@ -3,7 +3,7 @@ import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, LoadError, SidePane, SkeletonRows, Tag, useLoad } from '../ui'
 import { formatBytes } from '../../utils/format'
-import { CodeFile, ComponentList, ContributionTags, Sha, SkippedList } from './PluginBits'
+import { CodeFile, ComponentList, ContributionTags, PackageFacts, Sha, SkippedList } from './PluginBits'
 
 // The details of one install beside the list: its commit and digest, who
 // installed it, what it adds (the model tier of each agent), the components
@@ -35,12 +35,17 @@ export default function PluginDetails({ install, api, onClose, onSettings }) {
           <dl className="dk-kv pl-kv">
             <dt>{t('plugins.facts.scope')}</dt><dd>{t(`plugins.scope.${d.scope === 'instance' ? 'instance' : 'user'}`)}</dd>
             <dt>{t('plugins.facts.commit')}</dt><dd><Sha sha={d.sha} /></dd>
-            <dt>{t('plugins.facts.digest')}</dt><dd className="pl-mono pl-digest" data-testid="plugin-digest">{d.digest}</dd>
-            <dt>{t('plugins.facts.size')}</dt><dd>{t('plugins.facts.sizeValue', { size: formatBytes(d.sizeBytes || 0), count: (d.files || []).length })}</dd>
             {d.installedBy && (<><dt>{t('plugins.facts.installedBy')}</dt><dd>{d.installedBy}</dd></>)}
             {d.approvedBy && (<><dt>{t('plugins.facts.approvedBy')}</dt><dd>{d.approvedBy}</dd></>)}
             {d.updateSha && (<><dt>{t('plugins.facts.updateTo')}</dt><dd><Sha sha={d.updateSha} /></dd></>)}
           </dl>
+          <PackageFacts
+            testId="plugin-details-facts"
+            more={[
+              { key: 'size', label: t('plugins.facts.size'), node: t('plugins.facts.sizeValue', { size: formatBytes(d.sizeBytes || 0), count: (d.files || []).length }) },
+              { key: 'digest', label: t('plugins.facts.digest'), node: d.digest, className: 'pl-mono pl-digest', testId: 'plugin-digest' },
+            ]}
+          />
           <section className="pl-section" aria-labelledby="pl-d-adds">
             <h3 className="pl-section__title" id="pl-d-adds">{t('plugins.review.adds')}</h3>
             <ComponentList model={d.model} />

@@ -1227,7 +1227,9 @@
       "scope": "Installiert für",
       "installedBy": "Installiert von",
       "approvedBy": "Freigegeben von",
-      "updateTo": "Update verfügbar"
+      "updateTo": "Update verfügbar",
+      "versionValue": "Version {{version}}",
+      "more": "Paketdetails"
     },
     "components": {
       "skills": "Skills",
@@ -1311,8 +1313,6 @@
       "checking": "Neue Version wird abgerufen und die Dateien werden verglichen…",
       "failed": "Dieses Update konnte nicht vorbereitet werden.",
       "confirm": "Aktualisieren",
-      "from": "Von",
-      "to": "Auf",
       "gainsCode": "Die neue Version führt Code aus",
       "gainsCodeBody": "Nach dem Update ist das Plugin für jede Person ausgeschaltet, bis sie es wieder einschaltet.",
       "files_one": "{{count}} Datei ändert sich",

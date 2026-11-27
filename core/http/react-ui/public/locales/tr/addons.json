@@ -1227,7 +1227,9 @@
       "scope": "Kimin için kurulu",
       "installedBy": "Kuran",
       "approvedBy": "Onaylayan",
-      "updateTo": "Güncelleme var"
+      "updateTo": "Güncelleme var",
+      "versionValue": "Sürüm {{version}}",
+      "more": "Paket ayrıntıları"
     },
     "components": {
       "skills": "Yetenekler",
@@ -1311,8 +1313,6 @@
       "checking": "Yeni sürüm getiriliyor ve dosyalar karşılaştırılıyor…",
       "failed": "Bu güncelleme hazırlanamadı.",
       "confirm": "Güncelle",
-      "from": "Eski",
-      "to": "Yeni",
       "gainsCode": "Yeni sürüm kod çalıştırıyor",
       "gainsCodeBody": "Güncellemeden sonra plugin, her kişi için o kişi yeniden açana kadar kapalı kalır.",
       "files_one": "{{count}} dosya değişiyor",

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import Dialog from '../Dialog'
 import Icon from '../Icon'
 import { Button, Callout, LoadingSpinner, Tag } from '../ui'
-import { CodeFile, DiffView, Sha } from './PluginBits'
+import { CodeFile, DiffView, PackageFacts, Sha } from './PluginBits'
 import { addedReasons, diffLines, errorKey, updateReady } from './pluginState'
 
 // The review of an update (spec 9.4): the commits, the files that change
@@ -90,11 +90,11 @@ export default function UpdateReview({ install, api, onQueued, onClose }) {
       )}
       {p && (
         <div className="pl-review">
-          <dl className="dk-kv pl-kv">
-            <dt>{t('plugins.update.from')}</dt><dd><Sha sha={p.fromSha} /></dd>
-            <dt>{t('plugins.update.to')}</dt><dd><Sha sha={p.toSha} testId="plugin-update-to" /></dd>
-            <dt>{t('plugins.facts.digest')}</dt><dd className="pl-mono pl-digest" data-testid="plugin-digest">{p.toDigest}</dd>
-          </dl>
+          <PackageFacts
+            testId="plugin-update-facts"
+            line={[{ key: 'commits', node: <span className="pl-commits">{t('plugins.facts.commit')} <Sha sha={p.fromSha} /> <Icon name="arrow-right" aria-hidden="true" /> <Sha sha={p.toSha} testId="plugin-update-to" /></span> }]}
+            more={[{ key: 'digest', label: t('plugins.facts.digest'), node: p.toDigest, className: 'pl-mono pl-digest', testId: 'plugin-digest' }]}
+          />
 
           {gains.length > 0 && (
             <Callout tone="warn" icon="code" title={t('plugins.update.gainsCode')} testId="plugin-update-gains">

@@ -94,6 +94,14 @@
 .pl-diff__line[data-kind="hunk"] { color: var(--dk-accent-text); }
 .pl-diff__line[data-kind="file"] { color: var(--dk-muted); }
 
+/* The facts of a package: one meta line, the exact ones in a disclosure. */
+.pl-facts { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.pl-facts__line { margin: 0; }
+.pl-facts__more { margin-top: 0; }
+.pl-facts__more > .pl-kv { margin-top: var(--sp-2); }
+.pl-commits { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.pl-commits .lai-icon { width: 12px; height: 12px; color: var(--dk-muted); }
+
 /* Forms of the sheets. */
 .pl-form { display: flex; flex-direction: column; gap: var(--sp-4); }
 .pl-field { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }

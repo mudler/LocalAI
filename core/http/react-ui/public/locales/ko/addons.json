@@ -1227,7 +1227,9 @@
       "scope": "설치 대상",
       "installedBy": "설치한 사용자",
       "approvedBy": "승인한 사용자",
-      "updateTo": "업데이트 가능"
+      "updateTo": "업데이트 가능",
+      "versionValue": "버전 {{version}}",
+      "more": "패키지 세부 정보"
     },
     "components": {
       "skills": "스킬",
@@ -1311,8 +1313,6 @@
       "checking": "새 버전을 가져와 파일을 비교하는 중…",
       "failed": "이 업데이트를 준비할 수 없습니다.",
       "confirm": "업데이트",
-      "from": "이전",
-      "to": "이후",
       "gainsCode": "새 버전은 코드를 실행합니다",
       "gainsCodeBody": "업데이트 후에는 각 사용자가 다시 켤 때까지 플러그인이 꺼져 있습니다.",
       "files_one": "파일 {{count}}개 변경",
