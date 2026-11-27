@@ -1,8 +1,13 @@
 package peg
 
+import "unicode/utf8"
+
 // trie is used for multi-delimiter matching in UntilParser.
 type trie struct {
 	nodes []trieNode
+	// asciiFirst marks the ASCII bytes that start a delimiter. checkAt finds
+	// no match at any other ASCII byte.
+	asciiFirst [utf8.RuneSelf]bool
 }
 
 type trieNode struct {
@@ -23,6 +28,11 @@ func newTrie(words []string) *trie {
 	t.createNode() // root
 	for _, w := range words {
 		t.insert(w)
+	}
+	for r := range t.nodes[0].children {
+		if r < utf8.RuneSelf {
+			t.asciiFirst[r] = true
+		}
 	}
 	return t
 }
