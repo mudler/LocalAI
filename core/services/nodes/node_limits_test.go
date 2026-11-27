@@ -49,6 +49,26 @@ var _ = Describe("Node memory policy", func() {
 		Expect(cluster.For(&BackendNode{}).ReclaimerEnabled).To(BeFalse())
 	})
 
+	It("turns the reclaimer on for a node that sets its own threshold", func() {
+		off := cluster // the cluster leaves the reclaimer off
+		off.ReclaimerStated = true
+
+		worker := &BackendNode{}
+		worker.SetWorkerLimits(NodeLimits{MemoryReclaimerThreshold: ptr(0.8)})
+		p := off.For(worker)
+		Expect(p.ReclaimerEnabled).To(BeTrue())
+		Expect(p.ReclaimerThreshold).To(Equal(0.8))
+		Expect(p.Sources["memory_reclaimer_threshold"]).To(Equal(LimitSourceWorker))
+		Expect(p.Limits().MemoryReclaimerEnabled).To(BeTrue())
+
+		override := &BackendNode{LimitsOverride: encodeLimits(NodeLimits{MemoryReclaimerThreshold: ptr(0.7)})}
+		p = off.For(override)
+		Expect(p.ReclaimerEnabled).To(BeTrue())
+		Expect(p.ReclaimerThreshold).To(Equal(0.7))
+
+		Expect(off.For(&BackendNode{}).ReclaimerEnabled).To(BeFalse(), "a node with no threshold of its own follows the cluster")
+	})
+
 	It("refuses values out of range", func() {
 		Expect(NodeLimits{MaxActiveBackends: ptr(-1)}.Validate()).ToNot(Succeed())
 		Expect(NodeLimits{MemoryReclaimerThreshold: ptr(1.5)}.Validate()).ToNot(Succeed())

@@ -97,7 +97,7 @@ In distributed mode the settings of **Models in memory** are cluster settings: t
 | `lru_eviction_max_retries`, `lru_eviction_retry_interval` | The wait for a busy model to become idle | The same, capped by the request's own wait. While the scheduler chooses a node, the wait is at most 2.5 seconds when the request (or the replica reconciler) has no deadline |
 | `force_eviction_when_busy` | Unload a model that serves requests | Unload a replica that serves requests |
 | `watchdog_idle_*` | Unload models idle longer than the timeout | Unload replicas idle longer than the timeout, also of models with no scheduling rule; a rule's `min_replicas`, pinned models and warm failover targets stay |
-| `memory_reclaimer_*` | Unload when this machine's memory passes the threshold | Unload on each node whose memory passes its threshold, and keep `(1 - threshold)` of the node's memory free when placing a model. Per node (threshold); `0.90` on unified-memory nodes when the cluster names no reclaimer setting |
+| `memory_reclaimer_*` | Unload when this machine's memory passes the threshold | Unload on each node whose memory passes its threshold, and keep `(1 - threshold)` of the node's memory free when placing a model. Per node (threshold): a threshold set for one node also turns the reclaimer on there; `0.90` on unified-memory nodes when the cluster names no reclaimer setting |
 | `vram_budget` (GPU memory budget) | Cap of this machine | Cap of each worker that sets none of its own. Per node |
 
 The busy watchdog (`watchdog_busy_*`) still acts only on the backends that a frontend starts itself. In distributed mode a frontend's own watchdog handles only the backends it started; the replicas on the workers are the cluster's to unload.

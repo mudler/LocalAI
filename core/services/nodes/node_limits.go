@@ -240,6 +240,10 @@ func (p MemoryPolicy) For(n *BackendNode) NodePolicy {
 			out.Sources["vram_budget"] = level.source
 		}
 		if l.MemoryReclaimerThreshold != nil {
+			// A threshold set for one node (by its worker's env or an admin
+			// override) asks for the reclaimer there, even when the cluster
+			// leaves it off: a threshold that never acts would be a no-op.
+			out.ReclaimerEnabled = true
 			out.ReclaimerThreshold = *l.MemoryReclaimerThreshold
 			out.Sources["memory_reclaimer_threshold"] = level.source
 		}

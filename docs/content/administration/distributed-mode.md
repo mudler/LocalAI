@@ -526,7 +526,7 @@ This worker holds one route: the WebSocket tunnel to the frontend. Add `--nats-u
 | `--vram-budget` | `LOCALAI_VRAM_BUDGET` | *(empty)* | Cap the VRAM this node advertises for model placement, as a percentage (e.g. `80%`) or an absolute amount (e.g. `12GB`). Empty uses all detected VRAM. See [Per-node VRAM budget](#per-node-vram-budget). |
 | `--max-active-backends` | `LOCALAI_MAX_ACTIVE_BACKENDS` | *(empty)* | Models kept loaded on this node (`0` = no limit). Empty uses the cluster setting. See [Per-node memory limits](#per-node-memory-limits). |
 | `--model-swap` | `LOCALAI_MODEL_SWAP` | *(empty)* | `true` or `false`: unload the least recently used idle model on this node to make room for another. Empty uses the cluster setting. |
-| `--memory-reclaimer-threshold` | `LOCALAI_MEMORY_RECLAIMER_THRESHOLD` | *(empty)* | Memory use (0 to 1) above which idle models on this node are unloaded. Empty uses the cluster setting. |
+| `--memory-reclaimer-threshold` | `LOCALAI_MEMORY_RECLAIMER_THRESHOLD` | *(empty)* | Memory use (0 to 1) above which idle models on this node are unloaded. Setting it turns the memory reclaimer on for this node, even when the cluster setting leaves it off. Empty uses the cluster setting. |
 
 {{% callout style="tip" %}}
 **Advertise address:** The `--addr` flag is the local bind address for gRPC. The `--advertise-addr` is the address the frontend stores and uses to reach the worker via gRPC. If not set, the worker auto-derives it by replacing `0.0.0.0` with the OS hostname (which in Docker is the container ID, resolvable via Docker DNS). Set `--advertise-addr` explicitly when the auto-detected hostname is not routable from the frontend (e.g., in Kubernetes, use the pod's service DNS name).
@@ -1000,6 +1000,8 @@ Four of the cluster memory settings can differ per worker: **models kept loaded*
 2. the worker's environment (`LOCALAI_MAX_ACTIVE_BACKENDS`, `LOCALAI_VRAM_BUDGET`, `LOCALAI_MEMORY_RECLAIMER_THRESHOLD`, `LOCALAI_MODEL_SWAP`), reported when the worker registers;
 3. the cluster setting (Settings → Models in memory);
 4. the default.
+
+A memory threshold set for one node (by an admin override or by the worker's environment) also turns the memory reclaimer on for that node, even when the cluster setting leaves it off. To stop the reclaimer on such a node, clear its threshold.
 
 A worker that reports unified memory (a GB10, a Thor, Apple silicon) reclaims memory at a threshold of `0.90` while the cluster settings do not name the memory reclaimer: the GPU and the system share one pool there, and a full pool starves the host.
 

@@ -240,6 +240,21 @@ var _ = Describe("Reconciler memory sweeps", func() {
 			Expect(count("kept")).To(BeNumerically("==", 1))
 		})
 
+		It("reclaims on a node that sets its own threshold while the cluster leaves the reclaimer off", func() {
+			policy.ReclaimerEnabled = false
+			policy.ReclaimerStated = true
+			hot := register("node-hot", 48*gib, 4*gib)
+			Expect(registry.SetNodeLimits(ctx, hot.ID, NodeLimits{MemoryReclaimerThreshold: ptr(0.8)})).To(Succeed())
+			other := register("node-other", 48*gib, 4*gib)
+			loaded(hot, "on-hot", 0, time.Hour)
+			loaded(other, "on-other", 0, time.Hour)
+
+			rc.sweepMemoryPressure(ctx)
+
+			Expect(count("on-hot")).To(BeZero())
+			Expect(count("on-other")).To(BeNumerically("==", 1), "the cluster reclaimer is off")
+		})
+
 		It("reclaims on a unified-memory node at 0.90 when the cluster names no reclaimer", func() {
 			n := &BackendNode{Name: "spark", NodeType: NodeTypeBackend, Address: "spark:50051", MaxReplicasPerModel: 4,
 				TotalVRAM: 100 * gib, AvailableVRAM: 5 * gib, UnifiedMemory: true}
