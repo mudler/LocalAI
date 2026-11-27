@@ -19,6 +19,7 @@ import (
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/services/plugins"
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // PluginsCMD manages the plugins of a running server: plugins in the Claude
@@ -119,7 +120,9 @@ func (s *PluginsServer) call(ctx context.Context, method, path string, body, out
 	client := s.client
 	if client == nil {
 		// An inspect fetches the plugin with git, so it can take a while.
-		client = &http.Client{Timeout: 5 * time.Minute}
+		// httpclient refuses redirects: the key never follows one to
+		// another host.
+		client = httpclient.NewWithTimeout(5 * time.Minute)
 	}
 	resp, err := client.Do(req)
 	if err != nil {

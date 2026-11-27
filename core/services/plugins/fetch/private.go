@@ -76,8 +76,11 @@ func (f *Fetcher) httpClient() *http.Client {
 	return f.http
 }
 
-// publicClient copies c with a transport that dials only public addresses.
-func publicClient(c http.Client) *http.Client {
-	c.Transport = httpclient.New(httpclient.WithExternalOnly()).Transport
-	return &c
+// publicClient is the client of a marketplace URL while private addresses
+// are refused: it dials only public addresses, checks each redirect target
+// against the same rule, and follows only https redirects.
+func publicClient(timeout time.Duration) *http.Client {
+	c := httpclient.NewWithTimeout(timeout, httpclient.WithExternalOnly(), httpclient.WithFollowRedirects())
+	c.CheckRedirect = httpsRedirects(c.CheckRedirect)
+	return c
 }

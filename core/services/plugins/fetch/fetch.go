@@ -28,6 +28,7 @@ import (
 	"github.com/mudler/nib/plugin/claudeplugin"
 
 	"github.com/mudler/LocalAI/core/services/plugins/content"
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // Defaults of the design (spec 15.2).
@@ -116,25 +117,41 @@ func New(o Options) (*Fetcher, error) {
 	if f.timeout <= 0 {
 		f.timeout = DefaultGitTimeout
 	}
-	client := http.Client{Timeout: DefaultHTTPTimeout}
+	// The clients come from pkg/httpclient (TLS 1.2 floor). A marketplace
+	// URL may redirect (a raw file host does), so they follow redirects, on
+	// https only and at most 5 hops.
+	var client *http.Client
 	if o.HTTPClient != nil {
-		client = *o.HTTPClient
+		c := *o.HTTPClient
+		client = httpclient.Harden(&c)
 		if client.Timeout <= 0 {
 			client.Timeout = DefaultHTTPTimeout
 		}
+		client.CheckRedirect = httpsRedirects(nil)
+	} else {
+		client = httpclient.NewWithTimeout(DefaultHTTPTimeout, httpclient.WithFollowRedirects())
+		client.CheckRedirect = httpsRedirects(client.CheckRedirect)
 	}
-	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+	f.http = client
+	f.publicHTTP = publicClient(client.Timeout)
+	return f, nil
+}
+
+// httpsRedirects allows at most 5 redirects, each to https, then applies
+// next (the credential stripping of httpclient) when it is set.
+func httpsRedirects(next func(*http.Request, []*http.Request) error) func(*http.Request, []*http.Request) error {
+	return func(req *http.Request, via []*http.Request) error {
 		if len(via) >= 5 {
 			return errors.New("too many redirects")
 		}
 		if req.URL.Scheme != "https" {
 			return fmt.Errorf("%w: a redirect leaves https", ErrRefusedURL)
 		}
+		if next != nil {
+			return next(req, via)
+		}
 		return nil
 	}
-	f.http = &client
-	f.publicHTTP = publicClient(client)
-	return f, nil
 }
 
 // CleanScratch removes every scratch folder. A server calls it at startup,

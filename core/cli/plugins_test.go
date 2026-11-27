@@ -365,6 +365,28 @@ var _ = Describe("local-ai plugins", func() {
 		Expect(cmd.Install.Run(nil)).To(MatchError(ContainSubstring("job job-1 failed: digest mismatch")))
 	})
 
+	It("does not follow a redirect, so the API key never reaches another host", func() {
+		var leaked sync.Mutex
+		gotKey := ""
+		other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			leaked.Lock()
+			gotKey = r.Header.Get("Authorization")
+			leaked.Unlock()
+			_, _ = w.Write([]byte(`{}`))
+		}))
+		DeferCleanup(other.Close)
+		redirect := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, other.URL+r.URL.Path, http.StatusFound)
+		}))
+		DeferCleanup(redirect.Close)
+		s := &PluginsServer{Target: redirect.URL, APIKey: "secret-key"}
+		err := s.call(context.Background(), http.MethodGet, "/api/plugins/installs", nil, nil)
+		Expect(err).To(HaveOccurred())
+		leaked.Lock()
+		defer leaked.Unlock()
+		Expect(gotKey).To(BeEmpty(), "the key reached the redirect target")
+	})
+
 	It("cancels the job on the server when it is interrupted", func() {
 		api.opsPolls = 1000
 		s := &PluginsServer{}
