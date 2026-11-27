@@ -4,6 +4,7 @@ import (
 	"errors"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
@@ -46,6 +47,9 @@ type WatchDog struct {
 	pm                   ProcessManager
 	stop                 chan bool
 	done                 chan bool // Signals when Run() has completely shut down
+	// started is set when Run begins. A watchdog with only the LRU limit
+	// has no Run loop, so there is nothing for WaitDone to wait for.
+	started atomic.Bool
 
 	busyCheck, idleCheck bool
 	lruLimit             int // Maximum number of active backends (0 = unlimited)
@@ -263,7 +267,12 @@ func (wd *WatchDog) Shutdown() {
 
 // WaitDone blocks until the watchdog's Run() goroutine has completely shut down.
 // This should be called after Shutdown() to ensure the watchdog is fully stopped.
+// It returns at once when Run never started: a watchdog with only the LRU
+// limit has no loop, and waiting for one would hang a watchdog restart.
 func (wd *WatchDog) WaitDone() {
+	if !wd.started.Load() {
+		return
+	}
 	<-wd.done
 }
 
@@ -833,6 +842,7 @@ func groupsOverlap(a, b []string) bool {
 }
 
 func (wd *WatchDog) Run() {
+	wd.started.Store(true)
 	xlog.Info("[WatchDog] starting watchdog")
 
 	for {
