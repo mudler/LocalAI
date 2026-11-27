@@ -61,6 +61,7 @@ A chat keeps the plugins it switched off (`plugins_off`, install IDs, at most 20
 | Component | In a chat |
 |---|---|
 | Skills | The plugin layer of the chat's skills, named `<plugin>:<skill>`. See [Skills]({{% relref "/features/chats-and-agents/chats-skills#skills" %}}). |
+| Commands | `/<plugin>:<command> <arguments>`. See [Run a plugin command]({{% relref "/features/chats-and-agents/chats-skills#run-a-plugin-command" %}}). A command that runs a shell command needs a later version. |
 | MCP servers (`http`, `sse`) | One connector per server and user, owned by the plugin. See [Connectors of a plugin]({{% relref "/features/chat-apps/mcp-servers#connectors-of-a-plugin" %}}). A `ws` server is not supported; a `stdio` server comes in a later version. |
 
 ## Settings

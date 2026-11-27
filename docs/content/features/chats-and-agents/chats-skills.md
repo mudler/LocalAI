@@ -51,6 +51,12 @@ skill's `SKILL.md` before your message, for this turn only; the transcript
 keeps your words and shows the skill as a chip. A regenerate runs the skill
 again.
 
+### Run a plugin command
+
+A [plugin]({{% relref "/features/plugins" %}}) that is on for the chat adds its commands: `/fmt:run src/` runs the command `run` of the plugin `fmt` with the arguments `src/`. A command in a subfolder has a segment for each folder, as `/fmt:db:migrate`. The model gets the command's text for this turn only, with the arguments in it: `$ARGUMENTS` is everything you typed, `$ARGUMENTS[0]` or `$0` the first argument (quotes group words), `$name` the argument at the place of `name` in the command's `arguments`, and `\$1` stays as written. A text with none of these gets a last line `ARGUMENTS: <what you typed>`. `${CLAUDE_PLUGIN_ROOT}` and the other plugin variables are replaced as for plugin skills, and nothing else is: `{{` stays as written. A plugin skill started with `/` takes its arguments the same way. The transcript keeps what you typed and shows the command as a chip.
+
+A command whose text runs a shell command (`` !`...` ``) answers that it needs a later version of LocalAI. The `model` of a command is not applied yet: the turn uses the chat's model. A plugin skill with `user-invocable: false` is not offered after `/` and is refused there; the model still uses it. A skill and a command of the same name: the skill runs.
+
 ### Hand a task to a saved agent
 
 `/agent Reviewer check the draft` asks the model to start the saved agent
@@ -71,12 +77,13 @@ skill's `SKILL.md` before your message, for this turn only; the transcript
 keeps your words, and the line has `"invoked":{"kind":"skill","name":"review"}`.
 With an agent, the model is asked to start that saved agent as a sub-agent
 with the task (the chat must have **Saved agents** switched on). A regenerate
-runs the skill again.
+runs the skill again. A plugin command goes in `skill` too, with its arguments as the text; its line has `"invoked":{"kind":"command","name":"fmt:run"}`.
 
 ```bash
 curl -X POST .../api/chats/3f1c.../messages -H 'Content-Type: application/json' -d '{"text":"check the diff","skill":"review"}'
+curl -X POST .../api/chats/3f1c.../messages -H 'Content-Type: application/json' -d '{"text":"src/","skill":"fmt:run"}'
 curl -X POST .../api/chats/3f1c.../messages -H 'Content-Type: application/json' -d '{"text":"check the draft","agent":"rev1"}'
-# An unknown skill: 400 with the names of the skills of the chat. An unknown
+# An unknown skill: 400 with the names of the skills and plugin commands of the chat. An unknown
 # agent, another user's, or saved agents off for this chat: 400.
 ```
 

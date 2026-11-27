@@ -597,6 +597,12 @@ func (h *Handlers) Send(c echo.Context) error {
 		cmd = studiosvc.Command{Skill: req.Skill, Agent: req.Agent}
 	}
 	cmd.Skill, cmd.Agent = strings.TrimSpace(cmd.Skill), strings.TrimSpace(cmd.Agent)
+	// The text of a message sent with a skill or a plugin command is what
+	// the person typed after its name: its arguments, before any MCP context
+	// joins the text.
+	if cmd.Skill != "" {
+		cmd.Args = text
+	}
 	if text == "" && len(up) == 0 && len(refs) == 0 && cmd.Skill == "" {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "text is required")
 	}

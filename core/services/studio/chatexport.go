@@ -89,8 +89,11 @@ func (e ChatExport) Markdown() string {
 			b.WriteString("\n## You\n")
 			if m.Invoked != nil {
 				label := "Skill"
-				if m.Invoked.Kind == session.InvokeAgent {
+				switch m.Invoked.Kind {
+				case session.InvokeAgent:
 					label = "Agent"
+				case session.InvokeCommand:
+					label = "Command"
 				}
 				fmt.Fprintf(&b, "\n_%s: %s_\n", label, m.Invoked.Name)
 			}
@@ -260,7 +263,7 @@ func (s *Service) Search(ctx context.Context, user, query string, limit int) ([]
 // cleanInvocation keeps the invocation of an imported message only when it is
 // one this server writes: a known kind and a short name.
 func cleanInvocation(inv *session.Invocation) *session.Invocation {
-	if inv == nil || (inv.Kind != session.InvokeSkill && inv.Kind != session.InvokeAgent) ||
+	if inv == nil || (inv.Kind != session.InvokeSkill && inv.Kind != session.InvokeCommand && inv.Kind != session.InvokeAgent) ||
 		!utf8.ValidString(inv.Name) || !utf8.ValidString(inv.ID) || len(inv.Name) > 256 || len(inv.ID) > 256 {
 		return nil
 	}

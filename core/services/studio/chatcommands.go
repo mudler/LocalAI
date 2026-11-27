@@ -36,10 +36,14 @@ var (
 // Command is the slash command a message is sent with: at most one of Skill
 // and Agent is set.
 type Command struct {
-	// Skill is the name of a skill of the chat.
+	// Skill is the name of a skill of the chat, or of a plugin command
+	// ("<plugin>:<command>").
 	Skill string
 	// Agent is the id or the name of one of the user's saved agents.
 	Agent string
+	// Args are the arguments typed after a plugin command or skill, as
+	// typed. Empty: the text of the message.
+	Args string
 }
 
 func (c Command) empty() bool { return c.Skill == "" && c.Agent == "" }
@@ -54,7 +58,11 @@ func (s *Service) commandMessage(ctx context.Context, p string, rec session.Chat
 	case cmd.Skill != "" && cmd.Agent != "":
 		return "", nil, fmt.Errorf("%w: a message takes a skill or an agent, not both", ErrBadCommand)
 	case cmd.Skill != "":
-		return s.skillDirective(ctx, p, rec, cmd.Skill, strings.TrimSpace(text) == "")
+		args := cmd.Args
+		if args == "" {
+			args = text
+		}
+		return s.slashDirective(ctx, p, rec, cmd.Skill, args, strings.TrimSpace(text) == "")
 	default:
 		if strings.TrimSpace(text) == "" {
 			return "", nil, fmt.Errorf("%w: write the task for the agent after its name", ErrBadCommand)
@@ -104,6 +112,15 @@ func (s *Service) chatSkills(ctx context.Context, p string, rec session.ChatReco
 // model gets the text the file tools would give it whether or not it has a
 // tool to load skills.
 func (s *Service) skillDirective(ctx context.Context, p string, rec session.ChatRecord, name string, noTask bool) (string, *session.Invocation, error) {
+	return s.slashDirective(ctx, p, rec, name, "", noTask)
+}
+
+// slashDirective is skillDirective for a name typed after /, with the
+// arguments typed after it: a skill of the chat, else a command of a plugin
+// that contributes to the chat. A skill and a command of one name: the skill
+// serves, as in the plugin format. An unknown name is ErrBadCommand with the
+// names the chat has.
+func (s *Service) slashDirective(ctx context.Context, p string, rec session.ChatRecord, name, args string, noTask bool) (string, *session.Invocation, error) {
 	list, err := s.chatSkills(ctx, p, rec)
 	if err != nil {
 		return "", nil, err
@@ -111,12 +128,24 @@ func (s *Service) skillDirective(ctx context.Context, p string, rec session.Chat
 	var found *skills.Skill
 	names := make([]string, 0, len(list))
 	for i := range list {
+		if list[i].NoMenu && list[i].Name != name {
+			continue // not offered after /
+		}
 		names = append(names, list[i].Name)
 		if list[i].Name == name {
 			found = &list[i]
 		}
 	}
 	if found == nil {
+		cmds := s.pluginCommands(ctx, p, rec)
+		for _, pc := range cmds {
+			if pc.name == name {
+				return s.pluginCommandDirective(ctx, p, rec, pc, args, noTask)
+			}
+		}
+		for _, pc := range cmds {
+			names = append(names, pc.name)
+		}
 		slices.Sort(names)
 		if len(names) == 0 {
 			return "", nil, fmt.Errorf("%w: no skill %q in this chat; it has no skills", ErrBadCommand, name)
@@ -124,7 +153,10 @@ func (s *Service) skillDirective(ctx context.Context, p string, rec session.Chat
 		if len(names) > maxListedNames {
 			names = append(names[:maxListedNames], "…")
 		}
-		return "", nil, fmt.Errorf("%w: no skill %q in this chat; its skills are: %s", ErrBadCommand, name, strings.Join(names, ", "))
+		return "", nil, fmt.Errorf("%w: no skill %q in this chat; its skills and commands are: %s", ErrBadCommand, name, strings.Join(names, ", "))
+	}
+	if found.NoMenu {
+		return "", nil, fmt.Errorf("%w: the skill %q is not started with /; the model uses it when a task needs it", ErrBadCommand, name)
 	}
 	if slices.Contains(found.Requires, skills.RequireExec) {
 		c, err := s.commandsFor(ctx, p, rec)
@@ -139,7 +171,12 @@ func (s *Service) skillDirective(ctx context.Context, p string, rec session.Chat
 	if err != nil {
 		return "", nil, fmt.Errorf("studio: read the skill %q: %w", name, err)
 	}
-	body = s.expandPluginSkill(ctx, p, rec, *found, body)
+	if found.Layer == skills.LayerPlugin {
+		var serr error
+		if body, serr = s.renderPluginSkill(ctx, p, rec, *found, body, args); serr != nil {
+			return "", nil, serr
+		}
+	}
 	return skillDirectiveText(found.Name, found.GuestPath, body, noTask), &session.Invocation{Kind: session.InvokeSkill, Name: found.Name}, nil
 }
 

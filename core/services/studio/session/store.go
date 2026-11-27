@@ -334,9 +334,10 @@ type LoopMark struct {
 
 // Invocation is the command a user message carried.
 type Invocation struct {
-	// Kind is InvokeSkill or InvokeAgent.
+	// Kind is InvokeSkill, InvokeCommand or InvokeAgent.
 	Kind string `json:"kind"`
-	// Name is the skill's name, or the saved agent's name.
+	// Name is the skill's name, the plugin command's name
+	// ("<plugin>:<command>"), or the saved agent's name.
 	Name string `json:"name"`
 	// ID is the saved agent's id; empty for a skill.
 	ID string `json:"id,omitempty"`
@@ -345,7 +346,9 @@ type Invocation struct {
 // Invocation kinds.
 const (
 	InvokeSkill = "skill"
-	InvokeAgent = "agent"
+	// InvokeCommand is a command of a plugin.
+	InvokeCommand = "command"
+	InvokeAgent   = "agent"
 )
 
 // Entry roles.
