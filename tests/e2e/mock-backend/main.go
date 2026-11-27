@@ -362,6 +362,9 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 	if err := checkModelIdentity(in); err != nil {
 		return err
 	}
+	if spec, ok := parseBenchSpec(in.Prompt); ok {
+		return streamBench(spec, stream)
+	}
 	xlog.Debug("PredictStream called", "prompt", in.Prompt)
 	if strings.Contains(in.Prompt, "MOCK_ERROR_CONTEXT_OVERFLOW") {
 		return errMockContextOverflow

@@ -1,0 +1,268 @@
+=== n=4
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"role":"assistant","content":null}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":"stop","delta":{"content":null}}]}
+
+data: [DONE]
+
+
+=== reasoning=3 n=3
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":null,"reasoning":"mull"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":null,"reasoning":" mull"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":null,"reasoning":" mull"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"role":"assistant","content":null}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":"stop","delta":{"content":null}}]}
+
+data: [DONE]
+
+
+=== n=3 tool=1
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"role":"assistant","content":null}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"{\"na"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"me\":"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" \"ge"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"t_we"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"athe"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"r\", "}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"\"arg"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"umen"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ts\":"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" {\"l"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ocat"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ion\""}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":": \"S"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"an F"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ranc"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"isco"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"\", \""}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"unit"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"\": \""}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"cels"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ius\""}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":", \"d"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ays\""}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":": 3}"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"}"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"role":"assistant","content":null,"tool_calls":[{"index":0,"id":"UUID","type":"function","function":{"name":"get_weather","arguments":"{\"days\":3,\"location\":\"San Francisco\",\"unit\":\"celsius\"}"}}]}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":"tool_calls","delta":{"content":null}}]}
+
+data: [DONE]
+
+
+=== reasoning=2 n=2 tool=1
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":null,"reasoning":"mull"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":null,"reasoning":" mull"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"role":"assistant","content":null}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"{\"na"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"me\":"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" \"ge"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"t_we"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"athe"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"r\", "}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"\"arg"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"umen"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ts\":"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" {\"l"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ocat"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ion\""}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":": \"S"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"an F"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ranc"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"isco"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"\", \""}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"unit"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"\": \""}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"cels"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ius\""}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":", \"d"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ays\""}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":": 3}"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"}"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"role":"assistant","content":null,"tool_calls":[{"index":0,"id":"UUID","type":"function","function":{"name":"get_weather","arguments":"{\"days\":3,\"location\":\"San Francisco\",\"unit\":\"celsius\"}"}}]}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":"tool_calls","delta":{"content":null}}]}
+
+data: [DONE]
+
+
+=== n=3 deltas=1
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"role":"assistant","content":null}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":"stop","delta":{"content":null}}]}
+
+data: [DONE]
+
+
+=== reasoning=2 n=3 deltas=1
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":null,"reasoning":" mull"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":null,"reasoning":" mull"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"role":"assistant","content":null}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":"stop","delta":{"content":null}}]}
+
+data: [DONE]
+
+
+=== reasoning=2 n=2 tool=1 deltas=1
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":null,"reasoning":" mull"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":null,"reasoning":" mull"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"role":"assistant","content":null}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" word"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"{\"na"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"me\":"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" \"ge"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"t_we"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"athe"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"r\", "}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"\"arg"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"umen"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ts\":"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" {\"l"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ocat"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ion\""}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":": \"S"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"an F"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ranc"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"isco"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"\", \""}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"unit"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"\": \""}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"cels"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ius\""}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":", \"d"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"ays\""}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":": 3}"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"}"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"UUID","model":"mock-model","choices":[{"index":0,"finish_reason":"stop","delta":{"content":null}}]}
+
+data: [DONE]
+
+

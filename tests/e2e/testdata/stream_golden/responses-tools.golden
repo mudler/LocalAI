@@ -1,0 +1,520 @@
+=== n=4
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":null,"status":"in_progress","model":"mock-model","output":[],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":null,"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":null,"status":"in_progress","model":"mock-model","output":[],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":null,"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":1,"item":{"type":"message","id":"msg_UUID","status":"in_progress","role":"assistant","content":[],"arguments":"","summary":[]}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":3,"output_index":1,"content_index":0,"item_id":"msg_UUID","part":{"type":"output_text","text":"","annotations":[],"logprobs":[]}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":4,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":5,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":6,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":7,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","sequence_number":8,"output_index":1,"content_index":0,"item_id":"msg_UUID","text":" word word word word","logprobs":[]}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","sequence_number":9,"output_index":1,"content_index":0,"item_id":"msg_UUID","part":{"type":"output_text","text":" word word word word","annotations":[],"logprobs":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":10,"output_index":1,"item":{"type":"message","id":"msg_UUID","status":"completed","role":"assistant","content":[{"type":"output_text","text":" word word word word","annotations":[],"logprobs":[]}],"arguments":"","summary":[]}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":11,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":0,"status":"completed","model":"mock-model","output":[{"type":"message","id":"msg_UUID","status":"completed","role":"assistant","content":[{"type":"output_text","text":" word word word word","annotations":[],"logprobs":[]}],"arguments":"","summary":[]}],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":{"input_tokens":12,"output_tokens":4,"total_tokens":16,"input_tokens_details":{"cached_tokens":0},"output_tokens_details":{"reasoning_tokens":0}},"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+data: [DONE]
+
+
+=== reasoning=3 n=3
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":null,"status":"in_progress","model":"mock-model","output":[],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":null,"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":null,"status":"in_progress","model":"mock-model","output":[],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":null,"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":1,"item":{"type":"reasoning","id":"reasoning_UUID","status":"in_progress","arguments":"","summary":[]}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":3,"output_index":1,"content_index":0,"item_id":"reasoning_UUID","part":{"type":"output_text","text":"","annotations":[],"logprobs":[]}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":4,"output_index":1,"content_index":0,"item_id":"reasoning_UUID","delta":"mull","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":5,"output_index":1,"content_index":0,"item_id":"reasoning_UUID","delta":" mull","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":6,"output_index":1,"content_index":0,"item_id":"reasoning_UUID","delta":" mull","logprobs":[]}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":7,"output_index":2,"item":{"type":"message","id":"msg_UUID","status":"in_progress","role":"assistant","content":[],"arguments":"","summary":[]}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":8,"output_index":2,"content_index":0,"item_id":"msg_UUID","part":{"type":"output_text","text":"","annotations":[],"logprobs":[]}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":9,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":10,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":11,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","sequence_number":12,"output_index":2,"content_index":0,"item_id":"reasoning_UUID","text":"mull mull mull","logprobs":[]}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","sequence_number":13,"output_index":2,"content_index":0,"item_id":"reasoning_UUID","part":{"type":"output_text","text":"mull mull mull","annotations":[],"logprobs":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":14,"output_index":2,"item":{"type":"reasoning","id":"reasoning_UUID","status":"completed","content":[{"type":"output_text","text":"mull mull mull","annotations":[],"logprobs":[]}],"arguments":"","summary":[]}}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","sequence_number":15,"output_index":2,"content_index":0,"item_id":"msg_UUID","text":" word word word","logprobs":[]}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","sequence_number":16,"output_index":2,"content_index":0,"item_id":"msg_UUID","part":{"type":"output_text","text":" word word word","annotations":[],"logprobs":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":17,"output_index":2,"item":{"type":"message","id":"msg_UUID","status":"completed","role":"assistant","content":[{"type":"output_text","text":" word word word","annotations":[],"logprobs":[]}],"arguments":"","summary":[]}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":18,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":0,"status":"completed","model":"mock-model","output":[{"type":"reasoning","id":"reasoning_UUID","status":"completed","content":[{"type":"output_text","text":"mull mull mull","annotations":[],"logprobs":[]}],"arguments":"","summary":[]},{"type":"message","id":"msg_UUID","status":"completed","role":"assistant","content":[{"type":"output_text","text":" word word word","annotations":[],"logprobs":[]}],"arguments":"","summary":[]}],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":{"input_tokens":12,"output_tokens":8,"total_tokens":20,"input_tokens_details":{"cached_tokens":0},"output_tokens_details":{"reasoning_tokens":3}},"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+data: [DONE]
+
+
+=== n=3 tool=1
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":null,"status":"in_progress","model":"mock-model","output":[],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":null,"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":null,"status":"in_progress","model":"mock-model","output":[],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":null,"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":1,"item":{"type":"message","id":"msg_UUID","status":"in_progress","role":"assistant","content":[],"arguments":"","summary":[]}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":3,"output_index":1,"content_index":0,"item_id":"msg_UUID","part":{"type":"output_text","text":"","annotations":[],"logprobs":[]}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":4,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":5,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":6,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":7,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"{\"na","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":8,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"me\":","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":9,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" \"ge","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":10,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"t_we","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":11,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"athe","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":12,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"r\", ","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":13,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"\"arg","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":14,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"umen","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":15,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"ts\":","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":16,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" {\"l","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":17,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"ocat","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":18,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"ion\"","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":19,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":": \"S","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":20,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"an F","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":21,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"ranc","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":22,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"isco","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":23,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"\", \"","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":24,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"unit","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":25,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"\": \"","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":26,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"cels","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":27,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"ius\"","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":28,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":", \"d","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":29,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"ays\"","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":30,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":": 3}","logprobs":[]}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":31,"output_index":2,"item":{"type":"function_call","id":"fc_UUID","status":"completed","call_id":"fc_UUID","name":"get_weather","arguments":"{\"days\":3,\"location\":\"San Francisco\",\"unit\":\"celsius\"}","summary":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":32,"output_index":2,"item":{"type":"function_call","id":"fc_UUID","status":"completed","call_id":"fc_UUID","name":"get_weather","arguments":"{\"days\":3,\"location\":\"San Francisco\",\"unit\":\"celsius\"}","summary":[]}}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","sequence_number":33,"output_index":2,"content_index":0,"item_id":"msg_UUID","text":" word word word{\"name\": \"get_weather\", \"arguments\": {\"location\": \"San Francisco\", \"unit\": \"celsius\", \"days\": 3}","logprobs":[]}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","sequence_number":34,"output_index":2,"content_index":0,"item_id":"msg_UUID","part":{"type":"output_text","text":" word word word{\"name\": \"get_weather\", \"arguments\": {\"location\": \"San Francisco\", \"unit\": \"celsius\", \"days\": 3}","annotations":[],"logprobs":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":35,"output_index":2,"item":{"type":"message","id":"msg_UUID","status":"completed","role":"assistant","content":[{"type":"output_text","text":" word word word{\"name\": \"get_weather\", \"arguments\": {\"location\": \"San Francisco\", \"unit\": \"celsius\", \"days\": 3}","annotations":[],"logprobs":[]}],"arguments":"","summary":[]}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":36,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":0,"status":"completed","model":"mock-model","output":[{"type":"message","id":"msg_UUID","status":"completed","role":"assistant","content":[{"type":"output_text","text":" word word word{\"name\": \"get_weather\", \"arguments\": {\"location\": \"San Francisco\", \"unit\": \"celsius\", \"days\": 3}","annotations":[],"logprobs":[]}],"arguments":"","summary":[]}],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":{"input_tokens":12,"output_tokens":28,"total_tokens":40,"input_tokens_details":{"cached_tokens":0},"output_tokens_details":{"reasoning_tokens":0}},"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+data: [DONE]
+
+
+=== reasoning=2 n=2 tool=1
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":null,"status":"in_progress","model":"mock-model","output":[],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":null,"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":null,"status":"in_progress","model":"mock-model","output":[],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":null,"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":1,"item":{"type":"reasoning","id":"reasoning_UUID","status":"in_progress","arguments":"","summary":[]}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":3,"output_index":1,"content_index":0,"item_id":"reasoning_UUID","part":{"type":"output_text","text":"","annotations":[],"logprobs":[]}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":4,"output_index":1,"content_index":0,"item_id":"reasoning_UUID","delta":"mull","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":5,"output_index":1,"content_index":0,"item_id":"reasoning_UUID","delta":" mull","logprobs":[]}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":6,"output_index":2,"item":{"type":"message","id":"msg_UUID","status":"in_progress","role":"assistant","content":[],"arguments":"","summary":[]}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":7,"output_index":2,"content_index":0,"item_id":"msg_UUID","part":{"type":"output_text","text":"","annotations":[],"logprobs":[]}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":8,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":9,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":10,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"{\"na","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":11,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"me\":","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":12,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":" \"ge","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":13,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"t_we","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":14,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"athe","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":15,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"r\", ","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":16,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"\"arg","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":17,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"umen","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":18,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"ts\":","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":19,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":" {\"l","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":20,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"ocat","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":21,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"ion\"","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":22,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":": \"S","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":23,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"an F","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":24,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"ranc","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":25,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"isco","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":26,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"\", \"","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":27,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"unit","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":28,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"\": \"","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":29,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"cels","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":30,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"ius\"","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":31,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":", \"d","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":32,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":"ays\"","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":33,"output_index":2,"content_index":0,"item_id":"msg_UUID","delta":": 3}","logprobs":[]}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":34,"output_index":3,"item":{"type":"function_call","id":"fc_UUID","status":"completed","call_id":"fc_UUID","name":"get_weather","arguments":"{\"days\":3,\"location\":\"San Francisco\",\"unit\":\"celsius\"}","summary":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":35,"output_index":3,"item":{"type":"function_call","id":"fc_UUID","status":"completed","call_id":"fc_UUID","name":"get_weather","arguments":"{\"days\":3,\"location\":\"San Francisco\",\"unit\":\"celsius\"}","summary":[]}}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","sequence_number":36,"output_index":3,"content_index":0,"item_id":"reasoning_UUID","text":"mull mull","logprobs":[]}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","sequence_number":37,"output_index":3,"content_index":0,"item_id":"reasoning_UUID","part":{"type":"output_text","text":"mull mull","annotations":[],"logprobs":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":38,"output_index":3,"item":{"type":"reasoning","id":"reasoning_UUID","status":"completed","content":[{"type":"output_text","text":"mull mull","annotations":[],"logprobs":[]}],"arguments":"","summary":[]}}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","sequence_number":39,"output_index":3,"content_index":0,"item_id":"msg_UUID","text":" word word{\"name\": \"get_weather\", \"arguments\": {\"location\": \"San Francisco\", \"unit\": \"celsius\", \"days\": 3}","logprobs":[]}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","sequence_number":40,"output_index":3,"content_index":0,"item_id":"msg_UUID","part":{"type":"output_text","text":" word word{\"name\": \"get_weather\", \"arguments\": {\"location\": \"San Francisco\", \"unit\": \"celsius\", \"days\": 3}","annotations":[],"logprobs":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":41,"output_index":3,"item":{"type":"message","id":"msg_UUID","status":"completed","role":"assistant","content":[{"type":"output_text","text":" word word{\"name\": \"get_weather\", \"arguments\": {\"location\": \"San Francisco\", \"unit\": \"celsius\", \"days\": 3}","annotations":[],"logprobs":[]}],"arguments":"","summary":[]}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":42,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":0,"status":"completed","model":"mock-model","output":[{"type":"reasoning","id":"reasoning_UUID","status":"completed","content":[{"type":"output_text","text":"mull mull","annotations":[],"logprobs":[]}],"arguments":"","summary":[]},{"type":"message","id":"msg_UUID","status":"completed","role":"assistant","content":[{"type":"output_text","text":" word word{\"name\": \"get_weather\", \"arguments\": {\"location\": \"San Francisco\", \"unit\": \"celsius\", \"days\": 3}","annotations":[],"logprobs":[]}],"arguments":"","summary":[]}],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":{"input_tokens":12,"output_tokens":31,"total_tokens":43,"input_tokens_details":{"cached_tokens":0},"output_tokens_details":{"reasoning_tokens":2}},"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+data: [DONE]
+
+
+=== n=3 deltas=1
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":null,"status":"in_progress","model":"mock-model","output":[],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":null,"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":null,"status":"in_progress","model":"mock-model","output":[],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":null,"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":1,"item":{"type":"message","id":"msg_UUID","status":"in_progress","role":"assistant","content":[],"arguments":"","summary":[]}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":3,"output_index":1,"content_index":0,"item_id":"msg_UUID","part":{"type":"output_text","text":"","annotations":[],"logprobs":[]}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":4,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":5,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":6,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":7,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":0,"status":"completed","model":"mock-model","output":[],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":{"input_tokens":12,"output_tokens":3,"total_tokens":15,"input_tokens_details":{"cached_tokens":0},"output_tokens_details":{"reasoning_tokens":0}},"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+data: [DONE]
+
+
+=== reasoning=2 n=3 deltas=1
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":null,"status":"in_progress","model":"mock-model","output":[],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":null,"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":null,"status":"in_progress","model":"mock-model","output":[],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":null,"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":1,"item":{"type":"message","id":"msg_UUID","status":"in_progress","role":"assistant","content":[],"arguments":"","summary":[]}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":3,"output_index":1,"content_index":0,"item_id":"msg_UUID","part":{"type":"output_text","text":"","annotations":[],"logprobs":[]}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":4,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":5,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":6,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","sequence_number":7,"output_index":1,"content_index":0,"item_id":"msg_UUID","text":" word word word","logprobs":[]}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","sequence_number":8,"output_index":1,"content_index":0,"item_id":"msg_UUID","part":{"type":"output_text","text":" word word word","annotations":[],"logprobs":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":9,"output_index":1,"item":{"type":"message","id":"msg_UUID","status":"completed","role":"assistant","content":[{"type":"output_text","text":" word word word","annotations":[],"logprobs":[]}],"arguments":"","summary":[]}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":10,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":0,"status":"completed","model":"mock-model","output":[{"type":"message","id":"msg_UUID","status":"completed","role":"assistant","content":[{"type":"output_text","text":" word word word","annotations":[],"logprobs":[]}],"arguments":"","summary":[]}],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":{"input_tokens":12,"output_tokens":5,"total_tokens":17,"input_tokens_details":{"cached_tokens":0},"output_tokens_details":{"reasoning_tokens":0}},"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+data: [DONE]
+
+
+=== reasoning=2 n=2 tool=1 deltas=1
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":null,"status":"in_progress","model":"mock-model","output":[],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":null,"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":null,"status":"in_progress","model":"mock-model","output":[],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":null,"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":1,"item":{"type":"message","id":"msg_UUID","status":"in_progress","role":"assistant","content":[],"arguments":"","summary":[]}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":3,"output_index":1,"content_index":0,"item_id":"msg_UUID","part":{"type":"output_text","text":"","annotations":[],"logprobs":[]}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":4,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":5,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" word","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":6,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"{\"na","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":7,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"me\":","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":8,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" \"ge","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":9,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"t_we","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":10,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"athe","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":11,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"r\", ","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":12,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"\"arg","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":13,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"umen","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":14,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"ts\":","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":15,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":" {\"l","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":16,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"ocat","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":17,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"ion\"","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":18,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":": \"S","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":19,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"an F","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":20,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"ranc","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":21,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"isco","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":22,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"\", \"","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":23,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"unit","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":24,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"\": \"","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":25,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"cels","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":26,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"ius\"","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":27,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":", \"d","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":28,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"ays\"","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":29,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":": 3}","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":30,"output_index":1,"content_index":0,"item_id":"msg_UUID","delta":"}","logprobs":[]}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":31,"output_index":2,"item":{"type":"function_call","id":"fc_UUID","status":"completed","call_id":"fc_UUID","name":"get_weather","arguments":"{\"days\":3,\"location\":\"San Francisco\",\"unit\":\"celsius\"}","summary":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":32,"output_index":2,"item":{"type":"function_call","id":"fc_UUID","status":"completed","call_id":"fc_UUID","name":"get_weather","arguments":"{\"days\":3,\"location\":\"San Francisco\",\"unit\":\"celsius\"}","summary":[]}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":33,"response":{"id":"resp_UUID","object":"response","created_at":0,"completed_at":0,"status":"completed","model":"mock-model","output":[{"type":"function_call","id":"fc_UUID","status":"completed","call_id":"fc_UUID","name":"get_weather","arguments":"{\"days\":3,\"location\":\"San Francisco\",\"unit\":\"celsius\"}","summary":[]}],"error":null,"incomplete_details":null,"previous_response_id":null,"instructions":null,"tools":[{"type":"function","name":"get_weather","parameters":{"properties":{"days":{"type":"integer"},"location":{"type":"string"},"unit":{"type":"string"}},"required":["location"],"type":"object"},"strict":false}],"tool_choice":"auto","parallel_tool_calls":true,"max_tool_calls":null,"temperature":1,"top_p":1,"presence_penalty":0,"frequency_penalty":0,"top_logprobs":0,"max_output_tokens":null,"text":{"format":{"type":"text"}},"truncation":"auto","reasoning":null,"usage":{"input_tokens":12,"output_tokens":29,"total_tokens":41,"input_tokens_details":{"cached_tokens":0},"output_tokens_details":{"reasoning_tokens":0}},"metadata":{},"store":true,"background":false,"service_tier":"default","safety_identifier":null,"prompt_cache_key":null}}
+
+data: [DONE]
+
+
