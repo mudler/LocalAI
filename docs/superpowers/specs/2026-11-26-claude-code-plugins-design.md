@@ -1441,3 +1441,93 @@ session.
    decision 1 lets users install text-only plugins, and a default of off would
    hide that. Add-ons are off by default because they run code on the host;
    text-only plugins do not.
+   Resolved (2026-11-27): on by default, as recommended. A user whose feature
+   is turned off gets no plugin in any turn (section 23).
+
+## 23. P0 decisions and recorded deviations
+
+The spec review and the security review of 2026-11-27 found these places
+where P0 differs from the sections above, or where the sections above were
+silent. Each one is decided as written here.
+
+**Decisions taken after the spec review.**
+
+1. *Plugin connectors and the limit of 20 (section 10.4).* The connectors of
+   plugins do not count against a user's 20 connectors. One plugin makes at
+   most 5 (`plugins.MaxPluginConnectors`); its further remote servers are
+   skipped with a reason.
+2. *`runsCode` in Browse (sections 16 and 18.1).* The catalog takes
+   `runsCode` from an install of the plugin, else from the last review of the
+   plugin by anyone (a `plugin_inspections` row per plugin ID, replaced by
+   each inspect, with what the version adds), else, for the curated
+   marketplace only, from its `metadata.localai.runsCode`. `runsCodeFrom` says
+   which (`install`, `review`, `curated`), and the card marks a curated claim.
+   The review of the version to install decides.
+3. *Updates through the assistant (section 16).* There is no `update` action.
+   An update is the review of the files that change, done on the Plugins tab.
+   The exemption of `POST /api/plugins/installs/{id}/update` in the route map
+   says so.
+4. *Admin prompt budget (section 16, the MCP tool).* The admin turn prompt
+   budget is 10,400 bytes (`studio/localaiskills_test.go`), raised for the
+   plugins tool and its skill. The rebase on master kept it by naming the
+   plugins actions in fewer words.
+5. *Replaced personal installs (section 6.4).* An install for everyone that
+   replaces users' personal installs gets a new install ID. The chat switches
+   (`plugins_off`) and agent grants (`Agent.Plugins`) that named the old IDs no
+   longer match it: a switched-off plugin comes back on in those chats, and an
+   agent loses its grant. Accepted and documented on the plugins page; a
+   rewrite across the chat and agent stores is not worth it for a rare act.
+6. *One plugin name from two marketplaces (section 9.3).* An install is
+   refused with `409 conflict`, naming the first install, when a plugin of the
+   same manifest name from another plugin ID would contribute to the same
+   person. Qualifying names with the marketplace would break the format's
+   `<plugin>:<skill>` names.
+7. *The `model` of a command (section 10.2).* Not applied in P0. It comes in
+   P1 with plugin agents and the model tiers (E2).
+8. *`CLAUDE_PROJECT_DIR` (section 14).* `/workspace/home` in every chat in
+   P0. The project folder and the agent folder come in P1 with E4, where
+   `@file` reads are relative to it.
+
+**Deviations the lanes recorded, now part of the design.**
+
+- *Trigger runs* copy the chat's `plugins_off` with the skill, add-on and MCP
+  switches, so a plugin switched off in the source chat stays off in its runs.
+- *Install feedback.* `GET /api/operations` is for administrators. A plugin
+  install or update sends a notification of its end to the person who started
+  it, and the Plugins tab of a user watches the installs list after a `202`.
+- *The curated URL* follows the build at each start (section 8.3): a release
+  reads its own tag after an upgrade. Only the curated default changes, while
+  it is not removed.
+- *The `localai` entry* is pinned in the branch to the commit that adds
+  `plugins/localai`; after the merge the bot pins it to the merge commit.
+- *The two-frontend tests* share one database rather than
+  `testutil.NewFakeBus()` (sections 7.4 and 20). The plugin state has no
+  in-memory part that a bus would carry, but the inspect rate limit, which is
+  per frontend (below).
+
+**Changes from the security review.**
+
+- *The package digest* binds the effective manifest (section 7.2).
+- *Update review* asks for the browser session when a code component changes
+  or a file becomes code without a change of its bytes (section 9.4).
+- *The assistant's plugin changes* (`install`, `enable`, `disable`, `remove`,
+  `add_marketplace`) become a change proposal of the kind `plugin` in a Studio
+  chat, which the person confirms on a card; `browse` and `list_marketplaces`
+  return marketplace text under `marketplace_data` as data.
+- *The browser-session check with authentication off* is a known limit,
+  accepted for P0 (section 15.1a).
+- *Inspect rate limit.* A user may inspect 6 plugins in a row, then one more
+  every 10 seconds; a frontend runs at most 4 inspects at once
+  (`429 rate_limited`). Per frontend, in memory.
+- *Private addresses.* A plugin or marketplace location on a private or
+  internal network is refused unless `mcp_connectors_allow_private` allows it
+  (section 15.2).
+- *Code reasons.* An http hook (`hook-http`), an MCP server with a
+  `headersHelper` (`mcp-headers-helper`) and a `bin/` of dotfiles only count
+  as code (section 9.1).
+- *The plugins feature in the turn.* A user without `FeaturePlugins` gets no
+  plugin in any turn, their own installs and their connectors included.
+- *Fetch and path hardening.* A file size limit on each git process on Linux,
+  `os.OpenRoot` for the marketplace file, and the refusal of Unicode format
+  characters in paths (sections 15.2 and 15.3).
+
