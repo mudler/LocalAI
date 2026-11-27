@@ -199,6 +199,58 @@ If both networks block direct connections and the relay does not answer, the
 page says so and lists what helps: run a relay, forward UDP and TCP port 4001, or
 try from another network.
 
+## Users pair their own phones
+
+A user who has the feature **Pair own devices (P2P)** (`p2p_pair`) can pair
+their own phone. The phone then signs in as that user, with no password: see
+[Device sign-in](#device-sign-in). The feature is off by default. Turn it on
+for one user on the **Users** page, or change its default for every user (see
+[Feature defaults]({{% relref "/administration/authentication#feature-defaults" %}})).
+Administrators always have it.
+
+The user mints the invite with `POST /api/p2p/me/invites`. The body takes a
+`label` and `ttl_seconds` only. The server fixes the rest: the kind is `device`
+with sign-in, the invite grants no models, and the relays, open relays and local
+addresses come from the setting `p2p_user_pairing`. A user sees and changes only
+their own invites and devices; any other ID gets `404`. A client key cannot use
+these routes, and neither can the API key of `LOCALAI_API_KEY`, which has no
+account (`409`, error type `needs_account`).
+
+Limits keep the pairing window small, because every pending invite lets unknown
+machines connect to the redeem route:
+
+| Limit | Default | Where |
+|---|---|---|
+| Active devices of one user | 5 | `max_devices`, checked when the user mints and again when the device redeems |
+| Pending invites of one user | 2 | `max_pending` |
+| Life of an invite | 1 hour | `max_ttl_seconds`; a longer `ttl_seconds` gets `400` |
+| Invites one user mints in an hour | 10 | fixed |
+| Pending sign-in invites on the server | 20 | fixed |
+
+A mint over a limit gets `429` with error type `limit_reached` and a message
+that names the limit.
+
+The administrator edits `p2p_user_pairing` with `GET` and `PUT
+/api/p2p/user-pairing`. It is kept in the authentication database, so every
+frontend of a cluster uses the same value. A `PUT` changes only the fields it
+names:
+
+```bash
+curl -X PUT http://localhost:8080/api/p2p/user-pairing \
+  -H "Authorization: Bearer <admin-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"relays": "auto", "allow_open_relay": false, "omit_lan_addrs": false, "max_devices": 5, "max_pending": 2, "max_ttl_seconds": 3600}'
+```
+
+`relays` is `auto` (the relays of this server) or `none`. `max_devices` is 1 to
+100, `max_pending` 1 to 20 and `max_ttl_seconds` 60 to 86400. A change applies to
+the next invite and the next redeem; devices and invites that exist stay.
+
+The device list of the administrator shows the owner of each device
+(`owner_id`, `owner_name`) and whether it signs in (`sign_in`).
+`GET /api/p2p/devices?owner=<user ID>` lists the devices of one user. A device of
+an administrator also shows in that administrator's own list.
+
 ## How machines connect
 
 LocalAI tries three paths in this order:
@@ -270,8 +322,10 @@ Command-line flags, read at start:
 
 ## HTTP API
 
-All routes but redeem and routes are for administrators. The routes of invites, devices and
-relays need mode `share`. In another mode they answer 409 with a message that
+The routes are for administrators, except three groups: the `/api/p2p/me`
+routes, for a user who has the feature `p2p_pair` (a client key is refused);
+and redeem, routes and device session, which are served only over P2P. The
+routes of invites, devices and relays need mode `share`. In another mode they answer 409 with a message that
 names the mode.
 
 | Route | What it does |
@@ -280,7 +334,7 @@ names the mode.
 | `POST /api/p2p/invites` | Creates an invite: `{kind, label, ttl_seconds, models, all_models, relays, allow_open_relay, omit_lan_addrs, omit_relay_hints}`. `kind` is `device`, `remote`, `worker` or `split`. `models` limits the key of a remote. `all_models: true` grants every model a client key may use, explicitly; it is refused (`400`) together with a non-empty `models`. With neither, the key may use every model a client key may use. A model that does not exist or has tools attached gets `400`. A remote invite made without a user account (the API key of `LOCALAI_API_KEY`) gets `409` with error type `needs_account`. `relays` is `"auto"`, `"none"` or a list of relay IDs. `omit_lan_addrs: true` keeps the private addresses of this server out of the link (see above). `omit_relay_hints: true` keeps the public relays for hole punching out of the link (see above). The answer has the link (shown once), whether a relay pass was registered, `hints` (how many public relays the link names), and the warnings: `no_relay`, `punch_only`, `relay_unreachable`, `open_relay` and `no_public_addr`. |
 | `GET /api/p2p/invites` | The invites and their state: `pending`, `used`, `expired` or `canceled`, and `relay_pass`, the relay that holds the pass. A used invite also has `device_peer_id` and `phrase`, the confirmation phrase the device was shown. A remote invite has `all_models` or `models`, what it grants. |
 | `DELETE /api/p2p/invites/{id}` | Cancels a pending invite and its relay pass. |
-| `GET /api/p2p/devices` | The devices, with the path of each one: `direct`, `hole_punched` or `relayed`, and the relay limits. A remote has `all_models` or `models`, what its key may use. |
+| `GET /api/p2p/devices` | The devices, with the path of each one: `direct`, `hole_punched` or `relayed`, and the relay limits. A remote has `all_models` or `models`, what its key may use. Each device has `owner_id`, `owner_name` and `sign_in`. `?owner=<user ID>` lists the devices of one user. |
 | `PATCH /api/p2p/devices/{id}` | Renames a device: `{label}`. |
 | `DELETE /api/p2p/devices/{id}` | Revokes a device. |
 | `GET`, `POST /api/p2p/relays` | Lists the relays, or adds one: `{addr, label, claim_code}`. |
@@ -289,7 +343,15 @@ names the mode.
 | `GET /api/p2p/split-workers` | Lists the model-split workers with their state and path. See [Model-split workers over P2P]({{% relref "/administration/p2p-model-split" %}}#http-api-and-assistant). |
 | `PATCH /api/p2p/split-workers/{id}` | `{allow_slow_path}`: uses a worker over a relay ("Use anyway"), or stops. |
 | `GET`, `PUT /api/p2p/relays/{id}/limits` | Reads the limits of a relay (`circuit_bytes`, `circuit_seconds`, `rate_bps`; 0 is no limit) and whether this server may change them, or changes them: a field left out stays. A new data or time limit restarts the circuit service of the relay (`restarted` is `true`). `409` when this server is not an admin of the relay or the relay is open. |
+| `GET`, `PUT /api/p2p/user-pairing` | Reads or changes the setting `p2p_user_pairing`: `{relays, allow_open_relay, omit_lan_addrs, max_devices, max_pending, max_ttl_seconds}`. A field left out stays. See [Users pair their own phones](#users-pair-their-own-phones). |
 | `POST /api/p2p/identity/regenerate` | Makes a new identity. The body must be `{"confirm": true}`. Every device must pair again. |
+| `GET /api/p2p/me` | For a user with `p2p_pair`: whether a device can pair now (`available`; `reason` is `not_share` in another mode), the limits, and the number of own devices and pending invites. |
+| `POST /api/p2p/me/invites` | For a user with `p2p_pair`: mints a sign-in invite for an own device: `{label, ttl_seconds}`. Any other field is ignored. The answer is the one of `POST /api/p2p/invites`. |
+| `GET /api/p2p/me/invites` | For a user with `p2p_pair`: the own pending invites. |
+| `DELETE /api/p2p/me/invites/{id}` | For a user with `p2p_pair`: cancels an own invite and its relay pass. |
+| `GET /api/p2p/me/devices` | For a user with `p2p_pair`: the own devices, with path and last-seen time. |
+| `PATCH /api/p2p/me/devices/{id}` | For a user with `p2p_pair`: renames an own device: `{label}`. |
+| `DELETE /api/p2p/me/devices/{id}` | For a user with `p2p_pair`: revokes an own device and ends its sessions. |
 | `POST /api/p2p/redeem` | Redeems an invite: `{v: 1, code, name, platform}`. Served **only over P2P**; the normal HTTP listener answers 404. |
 | `GET /api/p2p/routes` | The current routes to this server, for a paired device: `{server, addrs, relays, hints}`. Served **only over P2P** and only to a paired device; the normal HTTP listener answers 404. |
 | `POST /api/p2p/device/session` | Signs a paired sign-in device in as its owner: `{credential}` as JSON, or the form field `credential`. Sets the session cookie; a form post gets `303` to `/`, JSON gets `200` with the user. Served **only over P2P** and only to a paired device; the normal HTTP listener answers 404. See [Device sign-in](#device-sign-in). |
@@ -357,7 +419,8 @@ server gives them over that connection. Then cancel that invite.
 The LocalAI Assistant has the tools `get_p2p_status`, `list_p2p_devices`,
 `list_p2p_invites`, `list_p2p_relays`, `get_p2p_relay_limits`,
 `list_p2p_split_workers`, `revoke_p2p_device`, `cancel_p2p_invite`,
-`set_p2p_relay_limits`, `set_p2p_split_slow_path` and `set_p2p_split_node`. It cannot create invites: a link is a credential.
+`set_p2p_relay_limits`, `set_p2p_split_slow_path`, `set_p2p_split_node`,
+`get_p2p_user_pairing` and `set_p2p_user_pairing`. It cannot create invites: a link is a credential.
 
 ## Several frontends
 

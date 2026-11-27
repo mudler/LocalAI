@@ -273,6 +273,8 @@ curl -X PUT http://localhost:8080/api/auth/admin/features/p2p_pair/default \
   -d '{"enabled": true}'
 ```
 
+A user who has `p2p_pair` may pair their own phone over P2P; the phone then signs in as that user. See [Users pair their own phones]({{% relref "/administration/p2p#users-pair-their-own-phones" %}}). Disabling or deleting a user revokes the phones that sign in as that user and ends their sessions.
+
 In the response of `GET /api/auth/admin/features`, `default` is the default in force and `configurable` tells whether the `PUT` accepts the feature. The `PUT` answers `400` for a feature that is not configurable and `404` for an unknown feature.
 
 These rules apply:
