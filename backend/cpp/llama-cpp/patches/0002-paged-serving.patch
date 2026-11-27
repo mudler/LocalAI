@@ -84,7 +84,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
          other.init_sampler();
      }
  };
-@@ -1941,6 +1967,250 @@ private:
+@@ -1941,6 +1967,277 @@ private:
          return res;
      }
  
@@ -179,7 +179,21 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +        return slot.task->type == SERVER_TASK_TYPE_COMPLETION && (!slot.can_speculate() || !ctx_dft) && !slot.task->tokens.has_mtmd &&
 +               !slot.prompt.tokens.has_mtmd && !slot.task->is_parent() && !slot.task->is_child() &&
 +               slot.task->n_tokens_shared == 0 && slot.inp_embd.empty() && !lora_all_alora(slot.lora) &&
-+               ctx_tgt_seq_rm_type == COMMON_CONTEXT_SEQ_RM_TYPE_PART;
++               // recurrent and hybrid memory: the full removal of prompt_clear() works, and the
++               // recompute from position 0 rebuilds the state as a fresh prompt does
++               (ctx_tgt_seq_rm_type == COMMON_CONTEXT_SEQ_RM_TYPE_PART ||
++                ctx_tgt_seq_rm_type == COMMON_CONTEXT_SEQ_RM_TYPE_FULL ||
++                ctx_tgt_seq_rm_type == COMMON_CONTEXT_SEQ_RM_TYPE_RS);
++    }
++
++    // where the recompute of a preempted slot stops once to make a context checkpoint, as the
++    // upstream prompt path does near the end of a prompt (-1: no checkpoint for this slot)
++    int64_t paged_ckpt_at(const server_slot & slot) const {
++        const bool use_ckpt = params_base.n_ctx_checkpoints > 0 &&
++            (ctx_tgt_seq_rm_type == COMMON_CONTEXT_SEQ_RM_TYPE_FULL ||
++             ctx_tgt_seq_rm_type == COMMON_CONTEXT_SEQ_RM_TYPE_RS || n_swa > 0);
++        const int64_t at = slot.task->n_tokens() - 4;
++        return use_ckpt && at > 0 && at < (int64_t) slot.paged_resume.size() ? at : -1;
 +    }
 +
 +    // a slot that waits for admission may still hold the cells of its previous task
@@ -317,7 +331,20 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +
 +    // decode the tokens of a preempted slot again, then let it generate from where it stopped
 +    void paged_resume_fill(server_slot & slot, int32_t n_fill_max) {
-+        while (slot.prompt.n_tokens() < (int32_t) slot.paged_resume.size() && batch.size() < n_fill_max) {
++        // preemption dropped the checkpoints: make the one near the end of the original prompt
++        // again, so the next turn of the conversation can reuse its prefix
++        const int64_t ckpt_at = paged_ckpt_at(slot);
++        bool ckpt_done = ckpt_at < 0 || slot.prompt.n_tokens() > ckpt_at;
++        if (!ckpt_done && slot.prompt.n_tokens() == ckpt_at) {
++            const auto pos_min = llama_memory_seq_pos_min(llama_get_memory(ctx_tgt), slot.id);
++            const auto pos_max = llama_memory_seq_pos_max(llama_get_memory(ctx_tgt), slot.id);
++            if (pos_min >= 0) {
++                create_checkpoint(slot, 0, pos_min, pos_max);
++            }
++            ckpt_done = true;
++        }
++        const int32_t n_stop = ckpt_done ? (int32_t) slot.paged_resume.size() : (int32_t) ckpt_at;
++        while (slot.prompt.n_tokens() < n_stop && batch.size() < n_fill_max) {
 +            const llama_token tok = slot.paged_resume[slot.prompt.n_tokens()];
 +            GGML_ASSERT(batch.add(slot.id, tok, slot.prompt.tokens.pos_next(), false, false));
 +            slot.prompt.tokens.push_back(tok);
@@ -335,7 +362,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
      std::vector<common_adapter_lora_info> construct_lora_list(const std::map<int, float> & config) const {
          std::vector<common_adapter_lora_info> output = params_base.lora_adapters; // copy
          for (size_t i = 0; i < output.size(); ++i) {
-@@ -3299,7 +3569,15 @@ private:
+@@ -3299,7 +3596,15 @@ private:
  
                      // the task is not deferred past this point
                      if (plan.update_cache && prompt_cache) {
@@ -352,7 +379,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      }
  
                      if (task.is_parent()) {
-@@ -4071,6 +4349,24 @@ private:
+@@ -4071,6 +4376,24 @@ private:
          // start populating the batch for this iteration
          batch.clear();
  
@@ -377,7 +404,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
          // track if given slot can be batched with slots already in the batch
          auto & slot_batched = batch.slot_batched;
  
-@@ -4102,7 +4398,7 @@ private:
+@@ -4102,7 +4425,7 @@ private:
                  const bool use_ckpt_tgt = ctx_tgt_seq_rm_type == COMMON_CONTEXT_SEQ_RM_TYPE_FULL;
                  const bool use_ckpt_dft = ctx_dft_seq_rm_type == COMMON_CONTEXT_SEQ_RM_TYPE_FULL;
  
@@ -386,7 +413,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
  
                  if (n_draft_max > 0) {
                      GGML_ASSERT(slot.can_speculate());
-@@ -4216,12 +4512,17 @@ private:
+@@ -4216,12 +4539,17 @@ private:
          auto & alora_scale       = batch.alora_scale;
          auto & alora_disabled_id = batch.alora_disabled_id;
  
@@ -405,7 +432,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      return; // batch is full, skip remaining slots
                  }
  
-@@ -4248,6 +4549,19 @@ private:
+@@ -4248,6 +4576,19 @@ private:
  
                  // this slot still has a prompt to be processed
                  if (slot.state == SLOT_STATE_PROCESSING_PROMPT || slot.state == SLOT_STATE_STARTED) {
@@ -425,7 +452,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      const auto & input_tokens = slot.task->tokens;
  
                      // used to determine the number of tokens added to the batch for the current slot
-@@ -4436,6 +4750,12 @@ private:
+@@ -4436,6 +4777,12 @@ private:
                                  n_past = 0;
                              }
  
@@ -438,7 +465,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                              llama_pos pos_next = slot.prompt.tokens.pos_next(n_past);
  
                              // number of cached tokens shared with the new prompt, before any checkpoint is restored
-@@ -4694,7 +5014,8 @@ private:
+@@ -4694,7 +5041,8 @@ private:
                      const int32_t n_decision_first = slot.task->type == SERVER_TASK_TYPE_DECISION ? slot.task->decision.pos_first() : -1;
  
                      // add prompt tokens for processing in the current batch

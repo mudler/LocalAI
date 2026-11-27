@@ -53,7 +53,7 @@ Line numbers drift with every bump. Find each hook by the grep anchor.
 | H3 | `paged_admit`, called at `if (slot.state == SLOT_STATE_PROCESSING_PROMPT \|\| slot.state == SLOT_STATE_STARTED)` | A new prompt starts only when the pool has room for it plus the output reserve, after the claims of the running slots. Otherwise the slot stays in `SLOT_STATE_STARTED` and asks again next step. Idle or waiting slots lose their cached cells first (`paged_purge`). First come, first served by task id, so a preempted request goes before newer ones. A resumed request needs only the part of its reserve it has not generated. With the RAM prompt cache, the launch path saves the slot's old prompt and sets `paged_cache_load`; the cache is loaded here, at admission, so a waiting slot holds no cells. |
 | H4 | `n_fill_max` before `next, batch any pending prompts` | Decode-first prefill budget: the prompt-fill loops stop at `n_fill_max` instead of `n_batch`. Equal to `n_batch` when the budget is off. A negative `prefill_budget` asks for the adaptive budget (`serving_policy::step_prefill_budget`, from the number of generating slots). |
 | H5 | `paged_preempt_pass`, called after `batch.clear()` in `pre_decode()` | When decode plus the rest of the admitted prompts need more cells than the pool has, drop the cached cells of idle or waiting slots. With `paged_preempt`, then preempt a running slot until the step fits or one slot is left: the one holding the fewest cells, the youngest on a tie; a request preempted `paged_max_preemptions` times (2) is skipped while another can go. A preempted request is admitted again only with room for its tokens plus `resume_need`'s spare (twice the reserve, at least 256 cells). Without `paged_preempt` an overflow reaches the upstream decode failure, which fails every in-flight stream with HTTP 500: keep it on. |
-| H6 | `paged_resume`, `paged_resume_fill` | A preempted slot keeps its text tokens in `paged_resume`, loses its cells, waits for admission, decodes the tokens again without outputs, then generates on. Its sampler and grammar keep their state. |
+| H6 | `paged_resume`, `paged_resume_fill`, `paged_ckpt_at` | A preempted slot keeps its text tokens in `paged_resume`, loses its cells, waits for admission, decodes the tokens again without outputs, then generates on. Its sampler and grammar keep their state. Recurrent and hybrid memory (`seq_rm` FULL or RS) resume the same way: the full removal frees the recurrent cell and the recompute from position 0 rebuilds it. For those, and for SWA, the recompute stops once 4 tokens before the end of the original prompt to make the context checkpoint the upstream prompt path would have made, so the next turn can reuse the prefix. |
 | H7 | `paged_attach`, called before `pos_next = slot.prompt.tokens.pos_next(n_past)` in the `SLOT_STATE_STARTED` branch | Prefix sharing: when another slot (busy or idle) holds a longer prefix of the new prompt, at least `paged_min_attach` (256) tokens, the slot drops its own cells and `seq_cp`s that prefix. Off for SWA, recurrent and hybrid memory, multimodal, draft models, aLoRA, shared-prefix children and `n_cache_reuse`. |
 | H8 | `spec_paused_now` in `pre_decode()` | Drafting pauses when more than `spec_max_streams` slots decode and resumes with hysteresis (`serving_policy::spec_paused`). n-gram drafting (no draft model) is resumable: the tables are rebuilt after a resume. |
 | H9 | `pop_deferred_task` in `server-queue.cpp` (0003, 0004) | The freed slot goes to the deferred task with the highest priority (#32219); with `paged_order`, by `serving_policy::goes_before` (class with aging, overtake cap, fewest uncached tokens, arrival). `n_uncached_hint` is set before a task is deferred. |
@@ -61,7 +61,7 @@ Line numbers drift with every bump. Find each hook by the grep anchor.
 | H11 | `paged_trim_idle`; `cache_idle_slots()` after a launch | When the pool is short, the least recently used idle slot is saved to the RAM prompt cache once and trimmed from the tail, only as much as needed (at least `paged_min_trim`). With `paged_lazy_save`, the save-and-clear of idle slots after each launch is skipped. |
 
 A slot that cannot be resumed (a draft model or MTP, a multimodal
-prompt, a score parent or child, recurrent or hybrid memory, aLoRA) is
+prompt, a score parent or child, aLoRA) is
 preempted only when no resumable slot is left. It fails with the retryable
 error "KV pool full, preempted; retry the request" (HTTP 503 class). Each
 such abort logs `aborts = N`; each recompute logs `preemptions = N`; each
@@ -144,8 +144,8 @@ follow-up.
 
 ## Known limits
 
-- Hybrid and recurrent models, draft-model speculative decoding and MTP are
-  not resumable (n-gram drafting is).
+- Draft-model speculative decoding and MTP are not resumable (n-gram
+  drafting is). Multimodal prompts, score forks and aLoRA are not resumable.
   Admission and the prefill budget work for them; preemption aborts them only
   as a last resort.
 - Shared cells are counted once only for prompt copies between slots

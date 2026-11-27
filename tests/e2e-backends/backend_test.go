@@ -165,6 +165,7 @@ const (
 	capPagedBudget    = "paged_budget"
 	capPagedCache     = "paged_cache"
 	capPagedAttach    = "paged_attach"
+	capPagedResume    = "paged_resume"
 
 	defaultPrompt             = "The capital of France is"
 	streamPrompt              = "Once upon a time"
@@ -1625,6 +1626,35 @@ var _ = Describe("Backend container", Ordered, func() {
 		}
 		// A different batch composition can flip a near tie, so one stream may differ.
 		Expect(same).To(BeNumerically(">=", len(prompts)-1), "greedy output changed under paged serving")
+	})
+
+	// Preempted requests resume by recompute on every memory type, including
+	// the recurrent state of hybrid models, instead of failing with the
+	// retryable "KV pool full" error. Greedy text may change at near ties, so
+	// this checks completion only. A follow-up that branches right after one
+	// prompt reuses its prefix through the context checkpoint the recompute
+	// makes again.
+	It("resumes preempted requests instead of failing them", func() {
+		if !caps[capPagedResume] {
+			Skip("paged_resume capability not enabled")
+		}
+		ctxSize := int(envInt32("BACKEND_TEST_CTX_SIZE", 512))
+		prompts := make([]string, 6)
+		for i := range prompts {
+			prompts[i] = pagedPrompt(700+i, ctxSize/5)
+		}
+		res := pagedConcurrent(client, prompts, 96, 10*time.Minute)
+		for i, r := range res {
+			Expect(r.err).NotTo(HaveOccurred(), "request %d failed instead of resuming", i)
+			Expect(r.chunk).To(HaveLen(96), "request %d did not get all its tokens", i)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		next, err := client.Predict(ctx, &pb.PredictOptions{
+			Prompt: prompts[len(prompts)-1] + " Question: next.", Tokens: 4, Temperature: 0, TopK: 1, Seed: 1, PromptCacheAll: true,
+		})
+		Expect(err).NotTo(HaveOccurred())
+		GinkgoWriter.Printf("paged resume: follow-up prompt processing %.1f ms\n", next.GetTimingPromptProcessing())
 	})
 
 	It("keeps decoding while a long prompt is read with a prefill budget", func() {
