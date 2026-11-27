@@ -10,6 +10,10 @@ import (
 type NodeReport struct {
 	// Node names the node; "local" for the node that answers.
 	Node string `json:"node"`
+	// Enabled is false when the tier is off on the node.
+	Enabled bool `json:"enabled"`
+	// Error says why the node gave no usage (offline, no answer).
+	Error string `json:"error,omitempty"`
 	pc.NodeUsage
 }
 
@@ -45,5 +49,5 @@ func (l Local) Usage(ctx context.Context) ([]NodeReport, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []NodeReport{{Node: LocalNodeName, NodeUsage: u}}, nil
+	return []NodeReport{{Node: LocalNodeName, Enabled: l.Node.Enabled(), NodeUsage: u}}, nil
 }

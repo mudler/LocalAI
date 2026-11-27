@@ -129,13 +129,16 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	defer shutdownCancel()
 
-	// The disk tier of the prompt cache: the files stay on this worker's
-	// disk and its own janitor keeps them in bounds. The settings are the
-	// defaults plus the switch of this worker.
-	promptCacheDefaults := config.DefaultPromptCacheConfig()
-	promptCacheDefaults.DiskDisabled = !cfg.PromptCacheDisk
-	promptCacheNode := promptcachesvc.NewNode(cfg.promptCacheRoot(), cfg.ModelsPath,
-		func() config.PromptCacheConfig { return promptCacheDefaults })
+	// The disk tier of the prompt cache. This worker owns its files: they
+	// live under its own data dir, its backends write them and its own
+	// janitor keeps them in bounds. The settings and the purges come from
+	// the frontends over the control verbs (promptcache.sync); until the
+	// first sync the worker runs the defaults. Its own switch can only turn
+	// the tier off.
+	promptCache := promptcachesvc.NewWorker(!cfg.PromptCacheDisk, workerIncarnation)
+	promptCacheNode := promptcachesvc.NewNode(cfg.promptCacheRoot(), cfg.ModelsPath, promptCache.Settings,
+		promptcachesvc.WithUsers(promptCache.Users))
+	promptCache.Attach(promptCacheNode)
 	ml.SetBackendEnv(promptCacheNode.BackendEnv)
 	promptCacheNode.Start(shutdownCtx)
 
@@ -316,6 +319,9 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		}
 		if err := prefetcher.register(control); err != nil {
 			return fmt.Errorf("serving model.prefetch: %w", err)
+		}
+		if err := registerPromptCacheVerbs(control, promptCache); err != nil {
+			return fmt.Errorf("serving the prompt cache verbs: %w", err)
 		}
 		// Serve the file staging verbs only when S3 is configured
 		if cfg.StorageURL != "" {

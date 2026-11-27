@@ -209,6 +209,41 @@ func PurgeModel(ctx context.Context, s Store, model16 string) (Result, error) {
 	return res, purgeMeta(ctx, s, func(dir string) bool { return len(dir) == 33 && dir[17:] == model16 })
 }
 
+// PurgeAllBefore is PurgeAll for the files last used at or before before. A
+// file used later stays, and so do the metadata files of a model directory
+// that still holds a cache file. A purge that arrives twice, or late, then
+// deletes only what existed when it was asked for (see promptcachesvc).
+func PurgeAllBefore(ctx context.Context, s Store, before time.Time) (Result, error) {
+	return purgeBefore(ctx, s, before, func(string) bool { return true })
+}
+
+// PurgeModelBefore is PurgeModel for the files last used at or before before,
+// with the rules of PurgeAllBefore.
+func PurgeModelBefore(ctx context.Context, s Store, model16 string, before time.Time) (Result, error) {
+	if !hex16RE.MatchString(model16) {
+		return Result{}, ErrBadID
+	}
+	return purgeBefore(ctx, s, before, func(model string) bool { return model == model16 })
+}
+
+func purgeBefore(ctx context.Context, s Store, before time.Time, model func(model16 string) bool) (Result, error) {
+	res, err := purge(ctx, s, "", func(e Entry) bool { return model(e.Model16) && !e.LastUse.After(before) })
+	if err != nil {
+		return res, err
+	}
+	left, err := s.List(ctx, "")
+	if err != nil {
+		return res, err
+	}
+	busy := map[string]bool{}
+	for _, e := range left {
+		busy[e.ModelDir] = true
+	}
+	return res, purgeMeta(ctx, s, func(dir string) bool {
+		return len(dir) == 33 && model(dir[17:]) && !busy[dir]
+	})
+}
+
 // PurgeNamespace deletes the cache files of one namespace (the files with
 // -<ns16>- in the name) in every model directory. Metadata files stay: other
 // namespaces use them.

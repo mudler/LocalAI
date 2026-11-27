@@ -379,3 +379,36 @@ func (h *Commands) PrefetchModelFiles(ctx context.Context, nodeID string, req wo
 		return p.PrefetchModelFiles(ctx, nodeID, req, timeout)
 	})
 }
+
+var _ nodes.PromptCacheControl = (*Commands)(nil)
+
+// promptCacheOf returns the prompt cache verbs of a route, or a not-started
+// error that moves the call to the next route of the node.
+func promptCacheOf(r *WorkerRoute) (nodes.PromptCacheControl, error) {
+	if p, ok := r.Commands.(nodes.PromptCacheControl); ok {
+		return p, nil
+	}
+	return nil, fmt.Errorf("%w: the %s route does not send the prompt cache verbs", nodes.ErrNoRoute, r.Kind)
+}
+
+// PromptCacheSync sends promptcache.sync on the routes of the node.
+func (h *Commands) PromptCacheSync(ctx context.Context, nodeID string, req workerctl.PromptCacheSyncRequest, timeout time.Duration) (*workerctl.PromptCacheSyncReply, error) {
+	return call(ctx, h.t, nodeID, func(r *WorkerRoute) (*workerctl.PromptCacheSyncReply, error) {
+		p, err := promptCacheOf(r)
+		if err != nil {
+			return nil, err
+		}
+		return p.PromptCacheSync(ctx, nodeID, req, timeout)
+	})
+}
+
+// PromptCacheUsage sends promptcache.usage on the routes of the node.
+func (h *Commands) PromptCacheUsage(ctx context.Context, nodeID string, timeout time.Duration) (*workerctl.PromptCacheUsageReply, error) {
+	return call(ctx, h.t, nodeID, func(r *WorkerRoute) (*workerctl.PromptCacheUsageReply, error) {
+		p, err := promptCacheOf(r)
+		if err != nil {
+			return nil, err
+		}
+		return p.PromptCacheUsage(ctx, nodeID, timeout)
+	})
+}

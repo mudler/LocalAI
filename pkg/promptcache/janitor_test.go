@@ -218,6 +218,36 @@ var _ = Describe("the prompt cache janitor", func() {
 		Expect(exists(bx)).To(BeFalse())
 	})
 
+	It("purges only what was used before the time of the request, so a late or repeated purge keeps newer files", func() {
+		old := put(root, modelA, nsX, "1", 10, 2*time.Hour, false)
+		fresh := put(root, modelA, nsY, "2", 10, time.Minute, false)
+		oldB := put(root, modelB, nsX, "3", 10, 2*time.Hour, false)
+		manifestA := filepath.Join(root, "llama-cpp", pin+"-"+modelA, promptcache.ManifestName)
+		manifestB := filepath.Join(root, "llama-cpp", pin+"-"+modelB, promptcache.ManifestName)
+		for _, f := range []string{manifestA, manifestB} {
+			Expect(os.WriteFile(f, []byte("{}"), 0o600)).To(Succeed())
+		}
+		store := promptcache.NewDiskStore(root)
+
+		res, err := promptcache.PurgeModelBefore(ctx, store, modelA, now.Add(-time.Hour))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res.Files).To(Equal(1))
+		Expect(exists(old)).To(BeFalse())
+		Expect(exists(fresh)).To(BeTrue(), "used after the purge was asked for")
+		Expect(exists(manifestA)).To(BeTrue(), "the directory still holds a file that needs its manifest")
+		Expect(exists(oldB)).To(BeTrue(), "another model")
+
+		res, err = promptcache.PurgeAllBefore(ctx, store, now.Add(-time.Hour))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res.Files).To(Equal(1))
+		Expect(exists(oldB)).To(BeFalse())
+		Expect(exists(manifestB)).To(BeFalse(), "an emptied directory loses its metadata")
+		Expect(exists(fresh)).To(BeTrue())
+
+		_, err = promptcache.PurgeModelBefore(ctx, store, "../x", now)
+		Expect(err).To(MatchError(promptcache.ErrBadID))
+	})
+
 	It("refuses an id that is not 16 hex characters", func() {
 		_, err := promptcache.PurgeModel(ctx, promptcache.NewDiskStore(root), "../../etc")
 		Expect(err).To(MatchError(promptcache.ErrBadID))

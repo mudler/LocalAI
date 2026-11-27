@@ -198,6 +198,19 @@ func SubjectNodeModelPrefetch(nodeID string) string {
 	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".model.prefetch"
 }
 
+// SubjectNodePromptCacheSync brings the disk prompt cache of a worker node up
+// to date: the cluster settings and the purges it has not applied
+// (workerctl.PromptCacheSyncRequest). Request-reply.
+func SubjectNodePromptCacheSync(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".promptcache.sync"
+}
+
+// SubjectNodePromptCacheUsage asks a worker node what its disk prompt cache
+// holds (workerctl.PromptCacheUsageReply). Request-reply.
+func SubjectNodePromptCacheUsage(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".promptcache.usage"
+}
+
 // SubjectNodeModelDelete tells a worker node to delete model files from disk.
 // Uses NATS request-reply.
 func SubjectNodeModelDelete(nodeID string) string {

@@ -54,6 +54,10 @@ func (n *natsControlServer) subject(v controlVerb) (string, error) {
 		return messaging.SubjectNodeFilesListDir(n.nodeID), nil
 	case verbFilesRelease:
 		return messaging.SubjectNodeFilesRelease(n.nodeID), nil
+	case verbPromptCacheSync:
+		return messaging.SubjectNodePromptCacheSync(n.nodeID), nil
+	case verbPromptCacheUsage:
+		return messaging.SubjectNodePromptCacheUsage(n.nodeID), nil
 	}
 	return "", fmt.Errorf("no NATS subject for control verb %q", v)
 }

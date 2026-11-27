@@ -24,7 +24,7 @@ var _ = Describe("Control paths", func() {
 	})
 
 	It("lists each verb once", func() {
-		Expect(workerctl.AllVerbs()).To(HaveLen(17))
+		Expect(workerctl.AllVerbs()).To(HaveLen(19))
 		Expect(workerctl.AllVerbs()).To(ContainElements(workerctl.VerbModelOp, workerctl.VerbModelPrefetch, workerctl.VerbFilesRelease))
 		seen := map[string]bool{}
 		for _, v := range workerctl.AllVerbs() {

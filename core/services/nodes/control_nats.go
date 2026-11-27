@@ -80,6 +80,10 @@ func natsSubject(nodeID, verb string) string {
 		return messaging.SubjectNodeFilesListDir(nodeID)
 	case workerctl.VerbFilesRelease:
 		return messaging.SubjectNodeFilesRelease(nodeID)
+	case workerctl.VerbPromptCacheSync:
+		return messaging.SubjectNodePromptCacheSync(nodeID)
+	case workerctl.VerbPromptCacheUsage:
+		return messaging.SubjectNodePromptCacheUsage(nodeID)
 	}
 	return ""
 }

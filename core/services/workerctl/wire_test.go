@@ -100,6 +100,24 @@ var _ = Describe("Control payload wire format", func() {
 			`{"success":true,"error":"e"}`),
 		Entry("ModelDeleteReply, zero value", workerctl.ModelDeleteReply{}, `{"success":false}`),
 
+		Entry("PromptCacheSyncRequest, every field set", workerctl.PromptCacheSyncRequest{
+			Settings: &workerctl.PromptCacheSettings{
+				Version: "v", Disabled: true, MaxSizeMiB: 1, TTLSeconds: 2, UserQuotaMiB: 3, MinTokens: 4,
+				Shared: true, LowFreeMiB: 5, CriticalFreeMiB: 6, AuthOn: true, Users: 7,
+			},
+			Purges: []workerctl.PromptCachePurge{{Seq: 1, All: true, AgeMs: 9}, {Seq: 2, Model16: "m"}, {Seq: 3, NSIDs: []string{"n"}}},
+		}, `{"settings":{"version":"v","disabled":true,"max_size_mib":1,"ttl_seconds":2,"user_quota_mib":3,"min_tokens":4,"shared":true,"low_free_mib":5,"critical_free_mib":6,"auth_on":true,"users":7},"purges":[{"seq":1,"all":true,"age_ms":9},{"seq":2,"model16":"m"},{"seq":3,"nsids":["n"]}]}`),
+		Entry("PromptCacheSyncRequest, zero value", workerctl.PromptCacheSyncRequest{}, `{}`),
+		Entry("PromptCacheSyncReply, every field set", workerctl.PromptCacheSyncReply{
+			Success: true, Error: "e", Incarnation: "i", SettingsVersion: "v", PurgedThrough: 3, Files: 1, Bytes: 2,
+		}, `{"success":true,"error":"e","incarnation":"i","settings_version":"v","purged_through":3,"files":1,"bytes":2}`),
+		Entry("PromptCacheSyncReply, zero value", workerctl.PromptCacheSyncReply{}, `{"success":false}`),
+		Entry("PromptCacheUsageRequest", workerctl.PromptCacheUsageRequest{}, `{}`),
+		Entry("PromptCacheUsageReply, every field set", workerctl.PromptCacheUsageReply{
+			Enabled: true, Usage: []byte(`{"bytes":1}`), Error: "e",
+		}, `{"enabled":true,"usage":{"bytes":1},"error":"e"}`),
+		Entry("PromptCacheUsageReply, zero value", workerctl.PromptCacheUsageReply{}, `{"enabled":false}`),
+
 		Entry("ModelsRunningRequest", workerctl.ModelsRunningRequest{}, `{}`),
 
 		Entry("ModelsRunningReply, every field set", workerctl.ModelsRunningReply{

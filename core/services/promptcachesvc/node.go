@@ -3,9 +3,12 @@
 // processes their environment, and runs the janitor of pkg/promptcache on a
 // timer. It also answers purge and usage requests through the Nodes seam.
 //
-// Distributed mode: each node keeps its files on its own local disk and runs
-// its own janitor (per-instance state, see .agents/distributed-state.md). The
-// Nodes implementation of this package acts on the local node only.
+// Distributed mode: each node owns its files. They live on its own local disk,
+// its backend processes write them and its own janitor keeps them in bounds;
+// a frontend never touches them. The frontends keep the settings and the
+// purges once, in the database (Ledger), and bring every worker up to date
+// over the node control channel (Distributed on the frontend, Worker on the
+// worker). Local acts on the node that answers, for single mode.
 package promptcachesvc
 
 import (
@@ -216,6 +219,11 @@ type Scope struct {
 	All     bool     `json:"all,omitempty"`
 	Model16 string   `json:"model16,omitempty"`
 	NSIDs   []string `json:"nsids,omitempty"`
+	// Before, when set, bounds a purge of everything or of a model to the
+	// files last used at or before it, so a purge that reaches a worker late
+	// or twice never deletes newer entries. A purge of namespaces ignores it:
+	// the namespaces of a removed principal go whole.
+	Before time.Time `json:"-"`
 }
 
 // ModelScope is the scope of one model, from its model string.
@@ -240,8 +248,12 @@ func (n *Node) Purge(ctx context.Context, s Scope) (pc.Result, error) {
 		return pc.Result{}, nil
 	}
 	switch {
+	case s.All && !s.Before.IsZero():
+		return pc.PurgeAllBefore(ctx, n.store, s.Before)
 	case s.All:
 		return pc.PurgeAll(ctx, n.store)
+	case s.Model16 != "" && !s.Before.IsZero():
+		return pc.PurgeModelBefore(ctx, n.store, s.Model16, s.Before)
 	case s.Model16 != "":
 		return pc.PurgeModel(ctx, n.store, s.Model16)
 	case len(s.NSIDs) > 0:

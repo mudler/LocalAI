@@ -99,6 +99,22 @@ func (f *failingCommands) PrefetchModelFiles(_ context.Context, nodeID string, _
 	return &workerctl.ModelPrefetchReply{Success: true}, nil
 }
 
+func (f *failingCommands) PromptCacheSync(_ context.Context, nodeID string, _ workerctl.PromptCacheSyncRequest, _ time.Duration) (*workerctl.PromptCacheSyncReply, error) {
+	f.rec("PromptCacheSync:" + nodeID)
+	if err := f.current(); err != nil {
+		return nil, err
+	}
+	return &workerctl.PromptCacheSyncReply{Success: true}, nil
+}
+
+func (f *failingCommands) PromptCacheUsage(_ context.Context, nodeID string, _ time.Duration) (*workerctl.PromptCacheUsageReply, error) {
+	f.rec("PromptCacheUsage:" + nodeID)
+	if err := f.current(); err != nil {
+		return nil, err
+	}
+	return &workerctl.PromptCacheUsageReply{Enabled: true}, nil
+}
+
 // failingAgents answers the agent RPC with the error that the spec sets.
 type failingAgents struct {
 	recorder
@@ -273,6 +289,33 @@ var _ = Describe("The route table", func() {
 			tun.set.Commands = tun.commands
 			_, err = commands.PrefetchModelFiles(ctx, "both", workerctl.ModelPrefetchRequest{}, time.Second)
 			Expect(err).To(MatchError(nodes.ErrNoRoute))
+		})
+	})
+
+	Describe("the prompt cache verbs", func() {
+		It("send promptcache.sync and promptcache.usage on the route of the node, and move on when a route cannot send them", func() {
+			reply, err := commands.PromptCacheSync(ctx, "both", workerctl.PromptCacheSyncRequest{}, time.Second)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(reply.Success).To(BeTrue())
+			Expect(directPingSeen()).To(Equal([]string{"PromptCacheSync:both"}))
+
+			dCmds.fail(fmt.Errorf("%w: no responders", nodes.ErrNoRoute))
+			usage, err := commands.PromptCacheUsage(ctx, "both", time.Second)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usage.Enabled).To(BeTrue())
+			Expect(tunnelPingSeen()).To(Equal([]string{"PromptCacheUsage:both"}))
+
+			direct.set.Commands = direct.commands // the plain fake has no prompt cache verbs
+			tun.set.Commands = tun.commands
+			_, err = commands.PromptCacheSync(ctx, "both", workerctl.PromptCacheSyncRequest{}, time.Second)
+			Expect(err).To(MatchError(nodes.ErrNoRoute))
+		})
+
+		It("never sends a sync again after a timeout: the worker may have applied it", func() {
+			dCmds.fail(fmt.Errorf("request: %w", context.DeadlineExceeded))
+			_, err := commands.PromptCacheSync(ctx, "both", workerctl.PromptCacheSyncRequest{}, time.Second)
+			Expect(err).To(MatchError(context.DeadlineExceeded))
+			Expect(tunnelPingSeen()).To(BeEmpty())
 		})
 	})
 

@@ -33,6 +33,10 @@ const (
 	VerbFilesTemp      = "files.temp"
 	VerbFilesListDir   = "files.listdir"
 	VerbFilesRelease   = "files.release"
+	// VerbPromptCacheSync and VerbPromptCacheUsage carry the disk tier of the
+	// prompt cache (see promptcache.go).
+	VerbPromptCacheSync  = "promptcache.sync"
+	VerbPromptCacheUsage = "promptcache.usage"
 )
 
 // AllVerbs returns every control verb once. A spec that asserts a property of
@@ -44,6 +48,7 @@ func AllVerbs() []string {
 		VerbBackendList, VerbModelsRunning, VerbModelUnload, VerbModelStop,
 		VerbModelDelete, VerbModelPrefetch, VerbModelOp, VerbNodeStop,
 		VerbFilesEnsure, VerbFilesStage, VerbFilesTemp, VerbFilesListDir, VerbFilesRelease,
+		VerbPromptCacheSync, VerbPromptCacheUsage,
 	}
 }
 

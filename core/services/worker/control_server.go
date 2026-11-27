@@ -30,6 +30,9 @@ const (
 	verbFilesTemp      controlVerb = workerctl.VerbFilesTemp
 	verbFilesListDir   controlVerb = workerctl.VerbFilesListDir
 	verbFilesRelease   controlVerb = workerctl.VerbFilesRelease
+
+	verbPromptCacheSync  controlVerb = workerctl.VerbPromptCacheSync
+	verbPromptCacheUsage controlVerb = workerctl.VerbPromptCacheUsage
 )
 
 // progressSink receives install progress while a long-running verb runs.
