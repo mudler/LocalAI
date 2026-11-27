@@ -195,14 +195,9 @@ function PageOutlet() {
 
 function AddonsShell() {
   const { features, featuresLoaded } = useHubAuth()
-  const { hasFeature } = useAuth()
   const outletContext = useOutletContext()
   const { pathname } = useLocation()
   if (!featuresLoaded) return null
-  // The Plugins tab of the Add-ons page does not need the add-on runtime.
-  if (features.addons === false && /\/app\/addons\/?$/.test(pathname) && hasFeature('plugins')) {
-    return <Outlet context={outletContext} />
-  }
   if (features.addons === false) {
     const addon = /\/app\/addons\/([^/]+)/.exec(pathname)?.[1] || 'addons'
     return <Navigate to="/app" replace state={{ addonsOff: addon }} />

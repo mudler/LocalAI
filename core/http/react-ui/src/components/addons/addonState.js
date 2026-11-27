@@ -9,18 +9,15 @@ import { updateView } from './updateState.js'
 export const TABS = ['apps', 'browse', 'libraries', 'access', 'plugins']
 export const ADMIN_TABS = new Set(['browse', 'libraries', 'access'])
 
-// addons: the add-on runtime is on (/api/features). Plugins do not need it,
-// so with it off the page keeps the Plugins tab alone.
-const allowed = (tab, isAdmin, plugins, addons) =>
-  (tab === 'plugins' ? plugins : addons) && (isAdmin || !ADMIN_TABS.has(tab))
+const allowed = (tab, isAdmin, plugins) => (isAdmin || !ADMIN_TABS.has(tab)) && (tab !== 'plugins' || plugins)
 
-export function resolveTab(requested, isAdmin, { plugins = false, addons = true } = {}) {
-  if (requested && TABS.includes(requested) && allowed(requested, isAdmin, plugins, addons)) return requested
-  return addons ? 'apps' : 'plugins'
+export function resolveTab(requested, isAdmin, { plugins = false } = {}) {
+  if (requested && TABS.includes(requested) && allowed(requested, isAdmin, plugins)) return requested
+  return 'apps'
 }
 
-export function visibleTabs(isAdmin, { plugins = false, addons = true } = {}) {
-  return TABS.filter(tab => allowed(tab, isAdmin, plugins, addons))
+export function visibleTabs(isAdmin, { plugins = false } = {}) {
+  return TABS.filter(tab => allowed(tab, isAdmin, plugins))
 }
 
 // The first-run card: shown to someone who can install add-ons, once the list

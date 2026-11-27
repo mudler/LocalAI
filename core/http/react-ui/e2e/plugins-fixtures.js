@@ -40,6 +40,14 @@ function preview(entry, model, runsCode) {
 
 export async function stubPlugins(page, { installs = [] } = {}) {
   const api = { installs: [...installs], posts: [], mePuts: [], updates: [], added: [] }
+  // The Plugins tab lives on the Add-ons page, which a server with the add-on
+  // runtime off does not serve: this test server is one, so the page reads
+  // the runtime as on.
+  await page.route('**/api/features', async (route) => {
+    const res = await route.fetch()
+    const json = await res.json()
+    return route.fulfill({ response: res, json: { ...json, addons: true } })
+  })
   await page.route('**/api/plugins/marketplaces', (route) => {
     if (route.request().method() === 'POST') {
       api.added.push(route.request().postDataJSON())
