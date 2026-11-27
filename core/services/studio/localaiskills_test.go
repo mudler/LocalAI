@@ -182,7 +182,11 @@ func recipeNames() []string {
 // safety rule 1; the measured size went to 10,384 bytes. The tool has
 // mutating actions, so rule 1 must name it, and the recipe holds the steps
 // that keep code plugins in the browser.
-const adminTurnPromptBudget = 10400
+// 10,400 to 10,600: after the rebase of the plugins on master, master's own
+// rule 1 names more tools (set_p2p_user_pairing and drain_node among them)
+// and the measured size went to 10,503 bytes; the plugins part is
+// unchanged.
+const adminTurnPromptBudget = 10600
 
 var _ = Describe("the admin recipes as skills", func() {
 	ctx := context.Background()
