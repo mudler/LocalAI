@@ -28,6 +28,7 @@ type fakeService struct {
 	renamed  [2]string
 	regen    int
 	limits   SetRelayLimitsRequest
+	session  [2]string
 }
 
 func (f *fakeService) Status(context.Context) (Status, error) {
@@ -79,6 +80,11 @@ func (f *fakeService) RegenerateIdentity(context.Context) (Status, error) {
 func (f *fakeService) Redeem(_ context.Context, from string, req RedeemRequest) (RedeemResult, error) {
 	f.redeemBy, f.redeem = from, req
 	return RedeemResult{DeviceID: "dev", Kind: "device", Phrase: "a b c d"}, f.err
+}
+
+func (f *fakeService) DeviceSession(_ context.Context, from, credential string) (DeviceSession, error) {
+	f.session = [2]string{from, credential}
+	return DeviceSession{Token: "tok", User: SessionUser{ID: "alice", Name: "Alice", Role: "user"}}, f.err
 }
 
 func (f *fakeService) Routes(_ context.Context, from string) (Routes, error) {
@@ -315,6 +321,52 @@ var _ = Describe("P2P handlers", func() {
 			svc.err = ErrForbidden
 			rec := call(RoutesEndpoint(svc), http.MethodGet, "", overP2P)
 			Expect(rec.Code).To(Equal(http.StatusForbidden))
+		})
+	})
+
+	Describe("device session", func() {
+		overP2P := WithPeer(context.Background(), "12D3KooWpeer")
+
+		It("answers 404 to a request that did not arrive over P2P", func() {
+			rec := call(DeviceSessionEndpoint(svc), http.MethodPost, `{"credential":"c"}`, context.Background())
+			Expect(rec.Code).To(Equal(http.StatusNotFound))
+			Expect(svc.session[0]).To(BeEmpty())
+		})
+
+		It("sets the session cookie and answers JSON with the user", func() {
+			rec := call(DeviceSessionEndpoint(svc), http.MethodPost, `{"credential":" c "}`, overP2P)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(svc.session).To(Equal([2]string{"12D3KooWpeer", "c"}))
+			Expect(rec.Header().Get("Set-Cookie")).To(ContainSubstring("session=tok"))
+			Expect(rec.Header().Get("Set-Cookie")).To(ContainSubstring("HttpOnly"))
+			Expect(rec.Body.String()).To(ContainSubstring(`"id":"alice"`))
+			Expect(rec.Body.String()).ToNot(ContainSubstring("tok"))
+			Expect(rec.Header().Get("Cache-Control")).To(Equal("no-store"))
+		})
+
+		It("redirects a form post to the start page", func() {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("credential=c")).WithContext(overP2P)
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+			rec := httptest.NewRecorder()
+			Expect(DeviceSessionEndpoint(svc)(e.NewContext(req, rec))).To(Succeed())
+			Expect(rec.Code).To(Equal(http.StatusSeeOther))
+			Expect(rec.Header().Get("Location")).To(Equal("/"))
+			Expect(svc.session[1]).To(Equal("c"))
+		})
+
+		It("answers every refusal with the same 403 and no cookie", func() {
+			svc.err = ErrSignInRefused
+			rec := call(DeviceSessionEndpoint(svc), http.MethodPost, `{"credential":"c"}`, overP2P)
+			Expect(rec.Code).To(Equal(http.StatusForbidden))
+			Expect(errorOf(rec)).To(Equal(ErrSignInRefused.Error()))
+			Expect(rec.Header().Get("Set-Cookie")).To(BeEmpty())
+		})
+
+		It("answers 429 when the limiter refuses", func() {
+			svc.err = ErrRateLimited
+			rec := call(DeviceSessionEndpoint(svc), http.MethodPost, `{"credential":"c"}`, overP2P)
+			Expect(rec.Code).To(Equal(http.StatusTooManyRequests))
 		})
 	})
 })

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/mudler/xlog"
@@ -290,29 +289,19 @@ func (s p2pService) RenameDevice(ctx context.Context, id, label string) error {
 	return pairErr(rt.pair.RenameDevice(ctx, id, label))
 }
 
-// RevokeDevice revokes the device row and its client key, removes the peer
-// from the gate and closes its connections, tells the relays, and tells the
-// other frontends.
+// RevokeDevice revokes the device row and its client key, ends the web
+// sessions the device opened, removes the peer from the gate and closes its
+// connections, tells the relays, and tells the other frontends.
 func (s p2pService) RevokeDevice(ctx context.Context, id, by string) error {
 	rt, err := s.share()
 	if err != nil {
 		return err
 	}
-	devs, err := rt.pair.ListDevices(ctx)
+	dev, err := rt.pair.GetDevice(ctx, id)
 	if err != nil {
-		return err
+		return pairErr(err)
 	}
-	i := slices.IndexFunc(devs, func(d p2ppair.Device) bool { return d.ID == id })
-	if i < 0 {
-		return p2papi.ErrNotFound
-	}
-	revokeErr := rt.pair.Revoke(ctx, id, by)
-	if p, err := p2pnet.DecodePeerID(devs[i].PeerID); err == nil && !errors.Is(revokeErr, p2ppair.ErrNotFound) {
-		rt.host.Revoke(p)
-		if rt.relays != nil {
-			rt.relays.PeerRemoved(p.String())
-		}
-	}
+	revokeErr := rt.revokeDevice(ctx, dev, by)
 	rt.changed("revoke")
 	return pairErr(revokeErr)
 }

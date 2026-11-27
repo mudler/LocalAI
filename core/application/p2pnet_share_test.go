@@ -35,6 +35,7 @@ func shareServer() (*Application, *p2pRuntime) {
 	only := echo.New()
 	only.POST(redeemPath, p2papi.RedeemEndpoint(a.P2P()))
 	only.GET(routesPath, p2papi.RoutesEndpoint(a.P2P()))
+	only.POST(deviceSessionPath, p2papi.DeviceSessionEndpoint(a.P2PUsers()))
 	a.ServeP2PHTTP(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = io.WriteString(w, "main")
 	}), only)

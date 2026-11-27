@@ -684,3 +684,24 @@ func (s *Service) PairedPeers(ctx context.Context) ([]peer.ID, error) {
 	}
 	return out, nil
 }
+
+// ListInvitesByOwner returns the invites of one owner, newest first.
+func (s *Service) ListInvitesByOwner(ctx context.Context, ownerID string) ([]Invite, error) {
+	return s.st.ListInvitesByOwner(ctx, ownerID)
+}
+
+// ListDevicesByOwner returns the devices of one owner, revoked ones included,
+// newest first.
+func (s *Service) ListDevicesByOwner(ctx context.Context, ownerID string) ([]Device, error) {
+	return s.st.ListDevicesByOwner(ctx, ownerID)
+}
+
+// GetDevice returns one device or ErrNotFound.
+func (s *Service) GetDevice(ctx context.Context, id string) (Device, error) {
+	return s.st.GetDevice(ctx, id)
+}
+
+// GetInvite returns one invite or ErrNotFound.
+func (s *Service) GetInvite(ctx context.Context, id string) (Invite, error) {
+	return s.st.GetInvite(ctx, id)
+}

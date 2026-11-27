@@ -37,6 +37,36 @@ type Service interface {
 	Routes(ctx context.Context, from string) (Routes, error)
 }
 
+// UserService is what the handlers of a signed-in user and of a paired
+// device's sign-in need from the P2P layer.
+type UserService interface {
+	// DeviceSession is served over P2P only: it checks the credential of the
+	// sign-in device of peer from and opens a web session of its owner.
+	DeviceSession(ctx context.Context, from, credential string) (DeviceSession, error)
+}
+
+// DeviceSessionRequest is the body of POST /api/p2p/device/session, as JSON
+// or as a form.
+type DeviceSessionRequest struct {
+	Credential string `json:"credential" form:"credential"`
+}
+
+// DeviceSession is a web session opened with a device credential.
+type DeviceSession struct {
+	// Token is the plaintext session token; the handler puts it in the
+	// session cookie and never in the body.
+	Token string      `json:"-"`
+	User  SessionUser `json:"user"`
+}
+
+// SessionUser is the account a device signed in as.
+type SessionUser struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email,omitempty"`
+	Role  string `json:"role"`
+}
+
 // Status is the state of the P2P layer.
 type Status struct {
 	// Mode is the mode in effect: off, connect or share.
@@ -411,6 +441,10 @@ var (
 	ErrRateLimited = errors.New("too many attempts, try again later")
 	// ErrUnavailable: 503. Wrap it with the reason.
 	ErrUnavailable = errors.New("unavailable")
+	// ErrSignInRefused: 403, the one answer of the device session route
+	// for a wrong credential, a device that is not an active sign-in device
+	// of the peer, an owner who is not active and an owner without p2p_pair.
+	ErrSignInRefused = errors.New("this device cannot sign in")
 	// ErrNeedsAccount: 409. The key of a remote belongs to the user account
 	// that shares, and the caller has none: it signed in with the API key of
 	// LOCALAI_API_KEY.
