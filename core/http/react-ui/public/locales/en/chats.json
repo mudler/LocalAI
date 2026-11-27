@@ -1510,7 +1510,8 @@
       "page": "Page",
       "dashboard": "Dashboard",
       "knowledge": "Knowledge",
-      "voice_profile": "Voice profile"
+      "voice_profile": "Voice profile",
+      "plugin": "Plugin"
     },
     "scope": {
       "user": "All your chats",
@@ -1613,6 +1614,17 @@
       "thisProject": "this project",
       "why": "Share the project with edit access again, then ask for the note again if you still want it.",
       "nameHint": "Project name taken from its folder"
+    },
+    "plugin": {
+      "label": "The plugin action",
+      "help": "The assistant asked for this. It runs as you when you confirm. Check that you want it: the assistant reads text from plugin marketplaces, which anyone can publish.",
+      "action": "Action",
+      "plugin": "Plugin",
+      "scope": "For",
+      "install": "Install",
+      "source": "Source",
+      "ref": "Branch or tag",
+      "marketplace": "Marketplace ID"
     }
   },
   "proposalsPage": {

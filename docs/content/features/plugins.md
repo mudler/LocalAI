@@ -186,6 +186,8 @@ The admin tools of the [LocalAI Assistant]({{% relref "/features/chats-and-agent
 
 The tool acts as the person whose chat runs it, with the rights of the REST API. It never has the administrator's browser session, so it does not install a plugin that runs code, apply an update or roll back. For a plugin that runs code, the tool answers with an error that gives the review page, `/app/addons?tab=plugins&plugin=<name@marketplace>`. It also does not turn on an install that gained code: accepting the code is a person's act on the Plugins tab. The read-only flavour of `local-ai mcp-server` keeps the read actions and refuses the others.
 
+In a LocalAI chat, the actions `add_marketplace`, `install`, `enable`, `disable` and `remove` do not run when the model calls them. Each call shows a confirmation card in the chat with the action and its target, and the action runs, as the owner of the chat, only when the person confirms the card. The reason is that the model reads text from marketplaces, which anyone can publish, and a description can hold instructions. For the same reason, `browse` and `list_marketplaces` return that text under `marketplace_data` with a note that it is data, not instructions. The read actions and `refresh_marketplace` run at once. `local-ai mcp-server` has no cards: an MCP client acts with the rights of its own API key, and the client must ask for confirmation itself.
+
 ## Settings
 
 | Setting | Default | Meaning |

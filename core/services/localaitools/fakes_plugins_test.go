@@ -19,6 +19,9 @@ func (f *fakeClient) RefreshPluginMarketplace(_ context.Context, id string) (*Pl
 
 func (f *fakeClient) BrowsePlugins(_ context.Context, q PluginBrowseQuery) (*PluginCatalog, error) {
 	f.record("BrowsePlugins", q)
+	if f.browsePlugins != nil {
+		return f.browsePlugins(q)
+	}
 	return &PluginCatalog{Items: []PluginCatalogItem{}}, nil
 }
 

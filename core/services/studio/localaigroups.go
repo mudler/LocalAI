@@ -371,7 +371,7 @@ func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, x session.
 			finish()
 			return tools, deferred, deferredGroups, "", assistantUnavailable(rec)
 		}
-		add(builtins.GroupLocalAIAdmin, ts)
+		add(builtins.GroupLocalAIAdmin, s.guardPlugins(ts, chat))
 		// The prompt carries the safety rules (confirm before changing
 		// anything), so the tools never come without it.
 		prompt = s.adminPrompt()

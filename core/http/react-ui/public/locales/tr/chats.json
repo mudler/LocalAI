@@ -1510,7 +1510,8 @@
       "page": "Sayfa",
       "dashboard": "Pano",
       "knowledge": "Bilgi",
-      "voice_profile": "Ses profili"
+      "voice_profile": "Ses profili",
+      "plugin": "Plugin"
     },
     "scope": {
       "user": "Tüm sohbetlerin",
@@ -1613,6 +1614,17 @@
       "thisProject": "bu proje",
       "why": "Projeyi düzenleme erişimiyle yeniden paylaş, notu hâlâ istiyorsan yeniden iste.",
       "nameHint": "Proje adı klasöründen alındı"
+    },
+    "plugin": {
+      "label": "Plugin işlemi",
+      "help": "Bunu asistan istedi. Onayladığında senin adına çalışır. İstediğinden emin ol: asistan, herkesin yayınlayabildiği plugin pazar yerlerindeki metinleri okur.",
+      "action": "İşlem",
+      "plugin": "Plugin",
+      "scope": "Kimin için",
+      "install": "Kurulum",
+      "source": "Kaynak",
+      "ref": "Dal veya etiket",
+      "marketplace": "Pazar yeri kimliği"
     }
   },
   "proposalsPage": {

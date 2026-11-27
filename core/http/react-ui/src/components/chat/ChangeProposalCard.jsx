@@ -3,8 +3,8 @@ import { useCallback, useContext, useEffect, useId, useMemo, useState } from 're
 import { Link } from 'react-router-dom'
 import { agentCollectionsApi, chatChangesApi, filesApi } from '../../utils/api'
 import {
-  appliedReceiptKey, byteText, CHANGES_EVENT, changeProposalView, estimatePassages, KNOWLEDGE_MAX_BYTES, knowledgeEntryText, isVoiceProfile, KNOWN_KINDS, KNOWN_SCOPES, previewLines, proposalProject, proposalProposer, scopeOfProposal, sourceOfProposal,
-  targetPath, timeLeft, voiceProfileFields, writesElsewhere,
+  appliedReceiptKey, byteText, CHANGES_EVENT, changeProposalView, estimatePassages, KNOWLEDGE_MAX_BYTES, knowledgeEntryText, isPluginAction, isVoiceProfile, KNOWN_KINDS, KNOWN_SCOPES, previewLines, proposalProject, proposalProposer, scopeOfProposal, sourceOfProposal,
+  pluginActionFields, targetPath, timeLeft, voiceProfileFields, writesElsewhere,
 } from '../../utils/changeProposal'
 import { diffLines, diffStats, withContext } from '../../utils/lineDiff'
 import Icon from '../Icon'
@@ -78,6 +78,22 @@ function Diff({ before, after, target, t }) {
           {rows.length > shown.length && <li className="cp-diff__gap" data-op="gap">{t('changes.diff.more', { count: rows.length - shown.length })}</li>}
         </ul>
       )}
+    </div>
+  )
+}
+
+// The action a plugin proposal runs when the person confirms. The values come
+// from the model's call, so they are shown as code, never as links.
+function PluginActionPreview({ p, t }) {
+  const rows = pluginActionFields(p)
+  return (
+    <div className="cp-diff cp-knowledge" role="group" aria-label={t('changes.plugin.label')} data-testid="change-plugin-preview">
+      <dl className="cx-plan">
+        {rows.map(([key, value]) => (
+          <div className="cx-plan__row" key={key} data-row={`plugin-${key}`}><dt>{t(`changes.plugin.${key}`)}</dt><dd><code>{value}</code></dd></div>
+        ))}
+      </dl>
+      <p className="cx-help" data-testid="change-plugin-help">{t('changes.plugin.help')}</p>
     </div>
   )
 }
@@ -227,9 +243,12 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
   const proposer = proposalProposer(p)
   const projectName = proposalProject(p)
   const voice = isVoiceProfile(p)
-  const knowledge = writesElsewhere(p) && !voice
+  const action = isPluginAction(p)
+  // A voice profile and a plugin action name no file and have nothing to edit.
+  const special = voice || action
+  const knowledge = writesElsewhere(p) && !special
   // A knowledge change belongs to the person and names a collection, not a file.
-  const meta = voice ? [
+  const meta = special ? [
     ['kind', t('changes.row.kind'), kindName(p, t)],
     ['source', t('changes.row.source'), sourceName(p, t)],
   ] : knowledge ? [
@@ -252,7 +271,7 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
         <Icon name="check-circle" className="cx-receipt__icon" />
         <div className="cx-receipt__main">
           <p className="cx-receipt__line"><b>{t(appliedReceiptKey(p))}</b> <span data-testid="change-summary">{p.summary}</span></p>
-          <p className="cx-receipt__sub"><span>{knowledge || voice ? kindName(p, t) : `${kindName(p, t)} · ${scopeName(p, t)}`}</span>{!voice && <code>{target}</code>}</p>
+          <p className="cx-receipt__sub"><span>{knowledge || special ? kindName(p, t) : `${kindName(p, t)} · ${scopeName(p, t)}`}</span>{!special && <code>{target}</code>}</p>
           {alert}
         </div>
         <span className="cx-receipt__acts">
@@ -318,8 +337,9 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
       )}
       {knowledge && edit === null && <KnowledgePreview p={p} t={t} chunking={chunking} />}
       {voice && <VoiceProfilePreview p={p} t={t} admin={isAdmin} />}
-      {!knowledge && !voice && current !== undefined && edit === null && <Diff before={current ?? ''} after={p.content || ''} target={target} t={t} />}
-      {!knowledge && !voice && current === null && <p className="cx-help">{t('changes.unreadFile')}</p>}
+      {action && <PluginActionPreview p={p} t={t} />}
+      {!knowledge && !special && current !== undefined && edit === null && <Diff before={current ?? ''} after={p.content || ''} target={target} t={t} />}
+      {!knowledge && !special && current === null && <p className="cx-help">{t('changes.unreadFile')}</p>}
       {edit !== null ? (
         <form
           className="cx-proposal__edit cp-edit"
@@ -344,7 +364,7 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
           <button type="button" className="cx-btn cx-btn--primary" disabled={!!busy}
             onClick={() => act('confirm', () => chatChangesApi.confirm(p.id), t('changes.announce.applied'))}
           >{t(voice ? 'changes.voice.confirm' : 'changes.confirm')}</button>
-          {!voice && <button type="button" className="cx-btn" disabled={!!busy} onClick={() => setEdit(p.content || '')}>{t('changes.edit')}</button>}
+          {!special && <button type="button" className="cx-btn" disabled={!!busy} onClick={() => setEdit(p.content || '')}>{t('changes.edit')}</button>}
           <button type="button" className="cx-btn" disabled={!!busy}
             onClick={() => act('dismiss', () => chatChangesApi.dismiss(p.id), t('changes.announce.dismissed'))}
           >{t('proposal.notNow')}</button>

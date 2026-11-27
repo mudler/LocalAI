@@ -25910,7 +25910,8 @@
                 "page",
                 "dashboard",
                 "knowledge",
-                "voice_profile"
+                "voice_profile",
+                "plugin"
             ],
             "x-enum-varnames": [
                 "ChangeMemory",
@@ -25919,7 +25920,8 @@
                 "ChangePage",
                 "ChangeDashboard",
                 "ChangeKnowledge",
-                "ChangeVoiceProfile"
+                "ChangeVoiceProfile",
+                "ChangePlugin"
             ]
         },
         "contract.ChangeProposal": {

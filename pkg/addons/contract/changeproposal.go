@@ -36,11 +36,16 @@ const (
 	// the voice_profile tool of the chats proposes it, never a model through
 	// propose_change, and the person confirms that the speaker agreed.
 	ChangeVoiceProfile ChangeKind = "voice_profile"
+	// ChangePlugin is an action of the plugins tool of an assistant chat that
+	// changes the server: an install, a switch, a removal or a new
+	// marketplace. Only that tool proposes it, never a model through
+	// propose_change, and the action runs when the person confirms.
+	ChangePlugin ChangeKind = "plugin"
 )
 
 // ChangeKinds lists every kind in a stable order.
 func ChangeKinds() []ChangeKind {
-	return []ChangeKind{ChangeMemory, ChangeProfile, ChangeSkill, ChangePage, ChangeDashboard, ChangeKnowledge, ChangeVoiceProfile}
+	return []ChangeKind{ChangeMemory, ChangeProfile, ChangeSkill, ChangePage, ChangeDashboard, ChangeKnowledge, ChangeVoiceProfile, ChangePlugin}
 }
 
 // ValidChangeKind reports whether s names a kind.

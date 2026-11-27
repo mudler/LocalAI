@@ -1185,7 +1185,8 @@
       "page": "Página",
       "dashboard": "Panel",
       "knowledge": "Conocimiento",
-      "voice_profile": "Perfil de voz"
+      "voice_profile": "Perfil de voz",
+      "plugin": "Plugin"
     },
     "scope": {
       "user": "Todos tus chats",
@@ -1288,6 +1289,17 @@
       "thisProject": "este proyecto",
       "why": "Vuelve a compartir el proyecto con permiso de edición y pide la nota de nuevo si todavía la quieres.",
       "nameHint": "Nombre del proyecto tomado de su carpeta"
+    },
+    "plugin": {
+      "label": "La acción del plugin",
+      "help": "El asistente lo pidió. Se ejecuta en tu nombre cuando confirmas. Comprueba que lo quieres: el asistente lee texto de marketplaces de plugins, que cualquiera puede publicar.",
+      "action": "Acción",
+      "plugin": "Plugin",
+      "scope": "Para",
+      "install": "Instalación",
+      "source": "Origen",
+      "ref": "Rama o etiqueta",
+      "marketplace": "ID del marketplace"
     }
   },
   "proposalsPage": {

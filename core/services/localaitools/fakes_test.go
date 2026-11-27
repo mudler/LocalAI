@@ -72,6 +72,7 @@ type fakeClient struct {
 	unpinFailoverTarget   func(string) error
 	installPlugin         func(string, string) (*PluginInstallResult, error)
 	listPluginInstalls    func(bool) ([]PluginInstall, error)
+	browsePlugins         func(PluginBrowseQuery) (*PluginCatalog, error)
 }
 
 type fakeCall struct {

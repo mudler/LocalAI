@@ -33,6 +33,14 @@ var pluginsMutatingActions = map[string]bool{
 	PluginsActionRemove:             true,
 }
 
+// PluginsActionConfirms reports whether an action of the plugins tool needs
+// the person's confirmation in an assistant chat: it installs, switches or
+// removes a plugin, or adds a marketplace that every user then browses.
+// refresh_marketplace only reads a marketplace again.
+func PluginsActionConfirms(action string) bool {
+	return pluginsMutatingActions[action] && action != PluginsActionRefreshMarketplace
+}
+
 // PluginsRequest is the input of the plugins tool: one flat object, and the
 // handler checks the fields each action needs.
 type PluginsRequest struct {

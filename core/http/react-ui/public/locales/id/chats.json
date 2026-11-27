@@ -1185,7 +1185,8 @@
       "page": "Halaman",
       "dashboard": "Dasbor",
       "knowledge": "Pengetahuan",
-      "voice_profile": "Profil suara"
+      "voice_profile": "Profil suara",
+      "plugin": "Plugin"
     },
     "scope": {
       "user": "Semua obrolan Anda",
@@ -1288,6 +1289,17 @@
       "thisProject": "proyek ini",
       "why": "Bagikan proyek lagi dengan akses ubah, lalu minta catatan itu lagi jika Anda masih menginginkannya.",
       "nameHint": "Nama proyek diambil dari foldernya"
+    },
+    "plugin": {
+      "label": "Tindakan plugin",
+      "help": "Asisten memintanya. Tindakan berjalan atas namamu saat kamu mengonfirmasi. Pastikan kamu menginginkannya: asisten membaca teks dari marketplace plugin, yang bisa diterbitkan siapa saja.",
+      "action": "Tindakan",
+      "plugin": "Plugin",
+      "scope": "Untuk",
+      "install": "Pemasangan",
+      "source": "Sumber",
+      "ref": "Branch atau tag",
+      "marketplace": "ID marketplace"
     }
   },
   "proposalsPage": {

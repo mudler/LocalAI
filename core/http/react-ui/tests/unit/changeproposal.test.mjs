@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  appliedReceiptKey, byteText, changeProposalIds, changeProposalView, estimatePassages, KNOWLEDGE_MAX_BYTES, knowledgeEntryText, isVoiceProfile, KNOWN_KINDS, KNOWN_SCOPES, previewLines, sourceOfProposal, targetPath, timeLeft, voiceProfileFields,
+  appliedReceiptKey, byteText, changeProposalIds, changeProposalView, estimatePassages, KNOWLEDGE_MAX_BYTES, knowledgeEntryText, isPluginAction, isVoiceProfile, KNOWN_KINDS, pluginActionFields, writesElsewhere, KNOWN_SCOPES, previewLines, sourceOfProposal, targetPath, timeLeft, voiceProfileFields,
 } from '../../src/utils/changeProposal.js'
 import { diffLines, diffStats, splitLines, withContext } from '../../src/utils/lineDiff.js'
 import { allFiles, groupKind, indexFits, indexUse } from '../../src/utils/memoryFiles.js'
@@ -221,4 +221,13 @@ test('change proposals: the project scope has a card label in every locale', asy
       assert.ok(chats.changes.scope[scope], `${lang}: changes.scope.${scope}`)
     }
   }
+})
+
+test('change proposal: a plugin action names no file and shows only the fields of its action', () => {
+  const p = proposal({ kind: 'plugin', target: 'plugins', content: JSON.stringify({ action: 'install', plugin: 'fmt@acme', scope: 'instance' }) })
+  assert.ok(KNOWN_KINDS.includes('plugin'))
+  assert.equal(isPluginAction(p), true)
+  assert.equal(writesElsewhere(p), true)
+  assert.deepEqual(pluginActionFields(p), [['action', 'install'], ['plugin', 'fmt@acme'], ['scope', 'instance']])
+  assert.deepEqual(pluginActionFields({ content: 'not json' }), [])
 })

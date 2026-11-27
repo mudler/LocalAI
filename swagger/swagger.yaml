@@ -1173,6 +1173,7 @@ definitions:
     - dashboard
     - knowledge
     - voice_profile
+    - plugin
     type: string
     x-enum-varnames:
     - ChangeMemory
@@ -1182,6 +1183,7 @@ definitions:
     - ChangeDashboard
     - ChangeKnowledge
     - ChangeVoiceProfile
+    - ChangePlugin
   contract.ChangeProposal:
     properties:
       agent:

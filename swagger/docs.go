@@ -25913,7 +25913,8 @@ const docTemplate = `{
                 "page",
                 "dashboard",
                 "knowledge",
-                "voice_profile"
+                "voice_profile",
+                "plugin"
             ],
             "x-enum-varnames": [
                 "ChangeMemory",
@@ -25922,7 +25923,8 @@ const docTemplate = `{
                 "ChangePage",
                 "ChangeDashboard",
                 "ChangeKnowledge",
-                "ChangeVoiceProfile"
+                "ChangeVoiceProfile",
+                "ChangePlugin"
             ]
         },
         "contract.ChangeProposal": {

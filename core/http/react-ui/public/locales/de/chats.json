@@ -1185,7 +1185,8 @@
       "page": "Seite",
       "dashboard": "Dashboard",
       "knowledge": "Wissen",
-      "voice_profile": "Stimmprofil"
+      "voice_profile": "Stimmprofil",
+      "plugin": "Plugin"
     },
     "scope": {
       "user": "Alle deine Chats",
@@ -1288,6 +1289,17 @@
       "thisProject": "dieses Projekt",
       "why": "Geben Sie das Projekt erneut mit Bearbeitungsrechten frei und bitten Sie dann erneut um die Notiz, falls Sie sie noch möchten.",
       "nameHint": "Projektname aus dem Ordner übernommen"
+    },
+    "plugin": {
+      "label": "Die Plugin-Aktion",
+      "help": "Der Assistent hat darum gebeten. Es läuft in deinem Namen, wenn du bestätigst. Prüfe, ob du das willst: Der Assistent liest Text aus Plugin-Marktplätzen, die jeder veröffentlichen kann.",
+      "action": "Aktion",
+      "plugin": "Plugin",
+      "scope": "Für",
+      "install": "Installation",
+      "source": "Quelle",
+      "ref": "Branch oder Tag",
+      "marketplace": "Marktplatz-ID"
     }
   },
   "proposalsPage": {

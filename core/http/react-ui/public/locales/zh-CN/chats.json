@@ -1185,7 +1185,8 @@
       "page": "页面",
       "dashboard": "仪表板",
       "knowledge": "知识库",
-      "voice_profile": "语音档案"
+      "voice_profile": "语音档案",
+      "plugin": "插件"
     },
     "scope": {
       "user": "你的所有聊天",
@@ -1288,6 +1289,17 @@
       "thisProject": "此项目",
       "why": "请重新以编辑权限共享项目，如果仍然需要，再请对方重新提议这条笔记。",
       "nameHint": "项目名称取自其文件夹"
+    },
+    "plugin": {
+      "label": "插件操作",
+      "help": "这是助手请求的。你确认后会以你的身份运行。请确认你需要它:助手会读取插件市场中的文本,而任何人都可以发布插件市场。",
+      "action": "操作",
+      "plugin": "插件",
+      "scope": "对象",
+      "install": "安装",
+      "source": "来源",
+      "ref": "分支或标签",
+      "marketplace": "市场 ID"
     }
   },
   "proposalsPage": {

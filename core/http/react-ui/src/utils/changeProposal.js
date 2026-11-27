@@ -33,12 +33,29 @@ export function changeProposalView(p, err, now = Date.now()) {
 // A knowledge change adds an entry to a collection instead of writing a file of
 // the home, so it has no change set (rev stays 0) and its target is the name
 // of the collection, not a path. Undo removes the entry.
-export const writesElsewhere = (p) => p?.kind === 'knowledge' || isVoiceProfile(p)
+export const writesElsewhere = (p) => p?.kind === 'knowledge' || isVoiceProfile(p) || isPluginAction(p)
 
 // A voice profile proposal saves a recording as a voice-cloning profile. The
 // person confirms that the speaker agreed; there is nothing to edit, and Undo is
 // the delete button of the Voice library.
 export const isVoiceProfile = (p) => p?.kind === 'voice_profile'
+
+// A plugin proposal is an action of the plugins tool of an assistant chat
+// (install, switch, remove, new marketplace) that runs when the person
+// confirms. There is nothing to edit, and Undo is on the Plugins tab.
+export const isPluginAction = (p) => p?.kind === 'plugin'
+
+// What the card shows of a plugin proposal: the fields of the action, kept as
+// the JSON content of the proposal. Only the fields the action uses are set.
+export function pluginActionFields(p) {
+  try {
+    const c = JSON.parse(p?.content || '{}')
+    const rows = [['action', c.action], ['plugin', c.plugin], ['scope', c.scope], ['install', c.id], ['source', c.source], ['ref', c.ref], ['marketplace', c.marketplace]]
+    return rows.filter(([, v]) => typeof v === 'string' && v !== '').map(([k, v]) => [k, v])
+  } catch {
+    return []
+  }
+}
 
 // What the card shows of a voice profile proposal: the arguments of the create
 // call, kept as the JSON content of the proposal.
@@ -143,7 +160,7 @@ export function timeLeft(p, now = Date.now()) {
 }
 
 // A kind the card has no wording for is shown by its raw name.
-export const KNOWN_KINDS = ['memory', 'profile', 'skill', 'page', 'dashboard', 'knowledge', 'voice_profile']
+export const KNOWN_KINDS = ['memory', 'profile', 'skill', 'page', 'dashboard', 'knowledge', 'voice_profile', 'plugin']
 export const KNOWN_SCOPES = ['user', 'agent', 'channel', 'project']
 
 // A short, readable size.
