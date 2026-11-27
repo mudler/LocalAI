@@ -42,7 +42,10 @@ type Session struct {
 	ExpiresAt time.Time
 	RotatedAt time.Time
 	CreatedAt time.Time
-	User      User `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+	// DeviceID is the P2P device whose credential made the session; nil for
+	// a session made by a sign-in. Revoking the device ends its sessions.
+	DeviceID *string `gorm:"size:64;index"`
+	User     User    `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 }
 
 // UserAPIKey represents a user-generated API key for programmatic access.

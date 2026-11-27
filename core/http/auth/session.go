@@ -3,6 +3,7 @@ package auth
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -22,6 +23,29 @@ const (
 // plaintext token (64-char hex string). The stored session ID is the
 // HMAC-SHA256 hash of the token.
 func CreateSession(db *gorm.DB, userID, hmacSecret string) (string, error) {
+	return createSession(db, userID, nil, hmacSecret)
+}
+
+// CreateDeviceSession creates a session for userID that a paired P2P device
+// obtained with its credential. The session carries the device ID, so that
+// DeleteDeviceSessions ends it when the device is revoked.
+func CreateDeviceSession(db *gorm.DB, userID, deviceID, hmacSecret string) (string, error) {
+	if deviceID == "" {
+		return "", errors.New("a device session needs a device ID")
+	}
+	return createSession(db, userID, &deviceID, hmacSecret)
+}
+
+// DeleteDeviceSessions removes the sessions that a device obtained with its
+// credential. An empty device ID removes nothing.
+func DeleteDeviceSessions(db *gorm.DB, deviceID string) error {
+	if deviceID == "" {
+		return nil
+	}
+	return db.Where("device_id = ?", deviceID).Delete(&Session{}).Error
+}
+
+func createSession(db *gorm.DB, userID string, deviceID *string, hmacSecret string) (string, error) {
 	b := make([]byte, sessionIDBytes)
 	if _, err := rand.Read(b); err != nil {
 		return "", fmt.Errorf("failed to generate session ID: %w", err)
@@ -36,6 +60,7 @@ func CreateSession(db *gorm.DB, userID, hmacSecret string) (string, error) {
 		UserID:    userID,
 		ExpiresAt: now.Add(sessionDuration),
 		RotatedAt: now,
+		DeviceID:  deviceID,
 	}
 
 	if err := db.Create(&session).Error; err != nil {
@@ -93,6 +118,8 @@ func RotateSession(db *gorm.DB, oldSession *Session, hmacSecret string) (string,
 		UserID:    oldSession.UserID,
 		ExpiresAt: oldSession.ExpiresAt,
 		RotatedAt: now,
+		// The new session keeps the device, so a revoke still finds it.
+		DeviceID: oldSession.DeviceID,
 	}
 
 	err := db.Transaction(func(tx *gorm.DB) error {
