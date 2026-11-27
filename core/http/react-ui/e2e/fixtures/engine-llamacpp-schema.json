@@ -1653,6 +1653,22 @@
       "group": "sampling"
     },
     {
+      "key": "grammar_engine",
+      "target": "option",
+      "path": "options",
+      "option": "grammar_engine",
+      "type": "enum",
+      "enum": [
+        "auto",
+        "gbnf",
+        "llguidance"
+      ],
+      "default": "auto",
+      "doc": "Engine of the grammars LocalAI builds from a JSON schema (response_format and tool calls). auto: llguidance when the backend build has it, GBNF otherwise. gbnf: always llama.cpp's GBNF sampler. A grammar you write yourself always uses GBNF.",
+      "group": "sampling",
+      "localai_only": true
+    },
+    {
       "key": "override_tensor",
       "target": "option",
       "path": "options",
