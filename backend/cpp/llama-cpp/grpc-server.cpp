@@ -618,6 +618,11 @@ static void add_rpc_devices(std::string servers) {
     if (rpc_servers.empty()) {
         throw std::invalid_argument("no RPC servers specified");
     }
+    // A GGML_BACKEND_DL build registers no backend until one is loaded, and
+    // this runs before model load does it. Same guard as llama_supports_rpc().
+    if (!ggml_backend_reg_count()) {
+        ggml_backend_load_all();
+    }
     ggml_backend_reg_t rpc_reg = ggml_backend_reg_by_name("RPC");
     if (!rpc_reg) {
         throw std::invalid_argument("failed to find RPC backend");
