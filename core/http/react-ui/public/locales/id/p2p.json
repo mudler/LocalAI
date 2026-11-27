@@ -238,7 +238,8 @@
       "seen": "Terakhir terlihat",
       "path": "Jalur",
       "status": "Status",
-      "actions": "Tindakan"
+      "actions": "Tindakan",
+      "owner": "Pemilik"
     },
     "never": "Tidak pernah",
     "status": {
@@ -264,7 +265,14 @@
       "remote": "Remote langsung kehilangan kunci P2P dan kunci API-nya, dan koneksinya yang terbuka ditutup. Modelnya berhenti berfungsi di sisi lain. Perangkat lain tidak terpengaruh. Untuk menghubungkannya lagi, buat undangan baru.",
       "other": "Node langsung kehilangan kunci P2P-nya dan koneksinya yang terbuka ditutup. Perangkat lain tidak terpengaruh. Untuk menghubungkannya lagi, buat undangan baru."
     },
-    "revoked": "{{label}} dicabut."
+    "revoked": "{{label}} dicabut.",
+    "owner": {
+      "filter": "Pemilik",
+      "all": "Semua pemilik",
+      "none": "Tanpa akun"
+    },
+    "signsIn": "Masuk otomatis",
+    "signsInHint": "Perangkat ini masuk ke UI web sebagai pemiliknya."
   },
   "invite": {
     "connectWith": "Hubungkan dengan",

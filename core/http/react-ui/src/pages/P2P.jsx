@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useEffect, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Dialog from '../components/Dialog'
 import AdminPage from '../components/admin/AdminPage'
@@ -11,7 +11,7 @@ import { Button, Callout, EmptyState, LoadError, Notice, SkeletonRows, StatusChi
 import { copyToClipboard } from '../utils/clipboard'
 import { p2pNetApi } from '../utils/api'
 import {
-  clock, modelGrant, pathKey, pathTone, pendingInvites, relativeTime, secondsLeft, shortPeer, sortedDevices, splitWorkers,
+  NO_OWNER, clock, deviceOwners, devicesOfOwner, modelGrant, pathKey, pathTone, pendingInvites, relativeTime, secondsLeft, shortPeer, sortedDevices, splitWorkers,
 } from '../utils/p2p'
 import '../components/p2p/p2p.css'
 
@@ -227,14 +227,39 @@ function InvitesSection({ invites, now, onCancel, onShare }) {
 
 function DevicesSection({ devices, onRevoke }) {
   const { t, i18n } = useTranslation('p2p')
-  const rows = devices.status === 'ready' ? sortedDevices(splitWorkers(devices.data?.devices).shared) : []
+  const [params, setParams] = useSearchParams()
+  const all = devices.status === 'ready' ? sortedDevices(splitWorkers(devices.data?.devices).shared) : []
+  const owners = deviceOwners(all)
+  // The owner filter lives in the address (?owner=<user ID>), so a link can
+  // open the devices of one user. An owner with no device left shows all.
+  const asked = params.get('owner') || ''
+  const owner = owners.some(o => o.id === asked) ? asked : ''
+  const rows = devicesOfOwner(all, owner)
   const active = rows.filter(d => d.status !== 'revoked').length
+  const pickOwner = (id) => {
+    const next = new URLSearchParams(params)
+    if (id) next.set('owner', id)
+    else next.delete('owner')
+    setParams(next, { replace: true })
+  }
+  const ownerName = (o) => (o.id === NO_OWNER ? t('devices.owner.none') : o.name || o.id)
   return (
     <section className="p2p-section" aria-labelledby="p2p-devices-title" data-testid="p2p-devices">
       <div className="p2p-section__head">
         <h2 className="p2p-h2" id="p2p-devices-title">{t('devices.title')} <span className="p2p-count">{t('devices.active', { count: active })}</span></h2>
         <p className="p2p-section__note">{t('devices.note')}</p>
       </div>
+      {owners.length > 1 && (
+        <div className="p2p-owner-filter">
+          <label className="dk-label" htmlFor="p2p-owner-filter">{t('devices.owner.filter')}</label>
+          <div className="dk-select-wrap">
+            <select id="p2p-owner-filter" className="dk-select" value={owner} onChange={e => pickOwner(e.target.value)} data-testid="p2p-owner-filter">
+              <option value="">{t('devices.owner.all')}</option>
+              {owners.map(o => <option key={o.id} value={o.id}>{ownerName(o)}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
       {devices.status === 'loading' && <SkeletonRows count={3} />}
       {devices.status === 'error' && <LoadError title={t('devices.loadFailed')} error={devices.error} onRetry={devices.retry} />}
       {devices.status === 'ready' && rows.length === 0 && (
@@ -248,6 +273,7 @@ function DevicesSection({ devices, onRevoke }) {
               <tr>
                 <th scope="col">{t('devices.col.label')}</th>
                 <th scope="col" className="dk-hide-phone">{t('devices.col.kind')}</th>
+                <th scope="col" className="dk-hide-phone">{t('devices.col.owner')}</th>
                 <th scope="col" className="dk-hide-phone">{t('devices.col.peer')}</th>
                 <th scope="col" className="dk-hide-phone">{t('devices.col.seen')}</th>
                 <th scope="col">{t('devices.col.path')}</th>
@@ -261,11 +287,16 @@ function DevicesSection({ devices, onRevoke }) {
                 return (
                   <tr key={d.id} data-testid={`p2p-device-${d.id}`} data-revoked={revoked || undefined}>
                     <td>
-                      <span className="p2p-cell-title">{d.label || shortPeer(d.peer_id)}</span>
+                      <span className="p2p-label-line">
+                        <span className="p2p-cell-title">{d.label || shortPeer(d.peer_id)}</span>
+                        {d.sign_in && <Tag tone="accent" icon="user" title={t('devices.signsInHint')} testId={`p2p-device-signin-${d.id}`}>{t('devices.signsIn')}</Tag>}
+                      </span>
                       <span className="p2p-cell-sub">{t(`kinds.${d.kind}.title`, d.kind)}</span>
+                      <span className="p2p-cell-sub dk-only-phone">{deviceOwner(d, t)}</span>
                       <ModelGrant row={d} />
                     </td>
                     <td className="dk-hide-phone">{t(`kinds.${d.kind}.title`, d.kind)}</td>
+                    <td className="dk-hide-phone p2p-cell-owner" data-testid={`p2p-device-owner-${d.id}`}>{deviceOwner(d, t)}</td>
                     <td className="dk-hide-phone dk-mono" title={d.peer_id}>{shortPeer(d.peer_id)}</td>
                     <td className="dk-hide-phone">{d.last_seen_at ? relativeTime(d.last_seen_at, i18n.language) : t('devices.never')}</td>
                     <td><DevicePath device={d} /></td>
@@ -288,6 +319,13 @@ function DevicesSection({ devices, onRevoke }) {
       )}
     </section>
   )
+}
+
+// Who a device belongs to: the owner's name, the user ID when the name is not
+// known, or "No account" for a device the API key of LOCALAI_API_KEY paired.
+function deviceOwner(d, t) {
+  if (!d.owner_id) return t('devices.owner.none')
+  return d.owner_name || d.owner_id
 }
 
 // What a remote invite or device may use: "All models" or the number of

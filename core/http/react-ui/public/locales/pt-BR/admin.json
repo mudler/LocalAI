@@ -283,7 +283,9 @@
     "sheet": {
       "account": "Conta",
       "activity": "Atividade",
-      "apiKeys": "Chaves de API"
+      "apiKeys": "Chaves de API",
+      "defaultOn": "Ligado por padrão para usuários",
+      "defaultOnHint": "Salvo na hora. Vale para todo usuário cujo acesso não define este recurso."
     },
     "empty": {
       "title": "Nenhum usuário ainda",
@@ -312,7 +314,10 @@
       "deleted": "Usuário excluído",
       "deleteFailed": "Falha ao excluir o usuário: {{message}}",
       "passwordReset": "Senha redefinida para {{name}}",
-      "resetFailed": "Falha ao redefinir a senha: {{message}}"
+      "resetFailed": "Falha ao redefinir a senha: {{message}}",
+      "defaultOn": "O recurso agora está ligado por padrão para usuários.",
+      "defaultOff": "O recurso agora está desligado por padrão para usuários.",
+      "defaultFailed": "Não foi possível mudar o padrão: {{message}}"
     },
     "reset": {
       "title": "Redefinir senha",

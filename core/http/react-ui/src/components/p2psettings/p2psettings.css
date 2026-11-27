@@ -65,7 +65,12 @@
 .p2ps-limits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--dk-space-3); }
 .p2ps-unit { display: flex; align-items: center; gap: var(--dk-space-2); }
 .p2ps-unit .dk-input { flex: 1 1 auto; min-width: 0; }
+.p2ps-unit--fit .dk-input { flex: none; }
 .p2ps-unit__label { flex: none; font-size: var(--dk-text-12); color: var(--dk-muted); }
+
+/* User pairing: the range under a limit turns to the error role when the
+   value is out of it. */
+.p2ps-range[data-invalid] { color: var(--dk-error-text); }
 
 /* Identity. */
 .p2ps-id { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); align-items: center; }

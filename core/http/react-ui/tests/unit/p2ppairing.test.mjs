@@ -1,8 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  TTL_CHOICES, myMintFailure, newDevice, pairBlocked, ttlWords, userTtlChoices,
+  NO_OWNER, TTL_CHOICES, deviceOwners, devicesOfOwner, myMintFailure, newDevice, pairBlocked, ttlWords, userTtlChoices,
 } from '../../src/utils/p2p.js'
+import {
+  USER_PAIRING_DEFAULTS, userPairingForm, userPairingFrom, userPairingIssues, userPairingLimitsPatch,
+} from '../../src/components/p2psettings/p2pSettingsModel.js'
 
 test('p2p pairing: the lives a user may pick stop at the cap', () => {
   assert.deepEqual(userTtlChoices(3600).map(c => c.seconds), [600, 3600])
@@ -56,4 +59,46 @@ test('p2p pairing: the device a redeem added', () => {
   // A revoked device that was not known is not the new phone.
   assert.equal(newDevice([{ id: 'b', status: 'revoked' }], []), null)
   assert.equal(newDevice(null, []), null)
+})
+
+test('p2p pairing: the owners of the admin device table and the filter', () => {
+  const devices = [
+    { id: 'd1', owner_id: 'u2', owner_name: 'bob' },
+    { id: 'd2', owner_id: 'u1', owner_name: 'alice' },
+    { id: 'd3', owner_id: '' },
+    { id: 'd4', owner_id: 'u1', owner_name: 'alice' },
+    { id: 'd5', owner_id: 'u3' },
+  ]
+  assert.deepEqual(deviceOwners(devices), [
+    { id: 'u1', name: 'alice' },
+    { id: 'u2', name: 'bob' },
+    { id: 'u3', name: '' },
+    { id: NO_OWNER, name: '' },
+  ])
+  assert.deepEqual(devicesOfOwner(devices, 'u1').map(d => d.id), ['d2', 'd4'])
+  assert.deepEqual(devicesOfOwner(devices, NO_OWNER).map(d => d.id), ['d3'])
+  assert.equal(devicesOfOwner(devices, '').length, 5)
+  assert.deepEqual(deviceOwners(undefined), [])
+})
+
+test('p2p pairing: the user pairing setting, its form and its patch', () => {
+  assert.deepEqual(userPairingFrom(undefined), USER_PAIRING_DEFAULTS)
+  const s = userPairingFrom({ relays: 'none', allow_open_relay: true, omit_lan_addrs: true, max_devices: 3, max_pending: 1, max_ttl_seconds: 1800 })
+  assert.deepEqual(s, { relays: 'none', allow_open_relay: true, omit_lan_addrs: true, max_devices: 3, max_pending: 1, max_ttl_seconds: 1800 })
+  assert.equal(userPairingFrom({ relays: 'bogus', max_devices: -1 }).relays, 'auto')
+  assert.equal(userPairingFrom({ max_devices: -1 }).max_devices, 5)
+
+  const form = userPairingForm(s)
+  assert.deepEqual(form, { max_devices: '3', max_pending: '1', ttl_minutes: '30' })
+  assert.deepEqual(userPairingIssues(form), {})
+  assert.deepEqual(userPairingLimitsPatch(s, form), {})
+
+  assert.deepEqual(userPairingIssues({ max_devices: '0', max_pending: '21', ttl_minutes: 'x' }), { max_devices: true, max_pending: true, ttl_minutes: true })
+  assert.deepEqual(userPairingIssues({ max_devices: '100', max_pending: '20', ttl_minutes: '1440' }), {})
+  assert.deepEqual(userPairingIssues({ max_devices: '101', max_pending: '1', ttl_minutes: '1441' }), { max_devices: true, ttl_minutes: true })
+
+  assert.deepEqual(userPairingLimitsPatch(s, { max_devices: '4', max_pending: '1', ttl_minutes: '60' }), { max_devices: 4, max_ttl_seconds: 3600 })
+  // A life the form rounded to minutes is not a change.
+  const odd = userPairingFrom({ max_ttl_seconds: 90 })
+  assert.deepEqual(userPairingLimitsPatch(odd, userPairingForm(odd)), {})
 })

@@ -208,6 +208,22 @@ for one user on the **Users** page, or change its default for every user (see
 [Feature defaults]({{% relref "/administration/authentication#feature-defaults" %}})).
 Administrators always have it.
 
+In the web UI the user opens **Account > My devices** and presses **Pair a
+phone**. The tab shows only to a user with the feature while the server is in
+mode `share`. The dialog asks for a name and a life, up to the limit, and shows
+the QR code and the link. An administrator who pairs their own phone is told
+that the phone gets an admin session. The tab lists the user's phones, with the
+path and the last-seen time, and the invites that wait; the user renames or
+revokes a phone and cancels an invite there.
+
+The administrator finds the matching controls in three places. On **Users**,
+the access sheet of a user has the switch **Pair own devices (P2P)** and, under
+it, **On by default for users**, which changes the default at once for every
+user whose access does not set the feature. In **Sharing > Settings**, the
+section **User pairing** edits `p2p_user_pairing`. In **Sharing > Devices and
+invites**, the device table has an **Owner** column, a **Signs in** tag on each
+device that signs in, and a filter by owner.
+
 The user mints the invite with `POST /api/p2p/me/invites`. The body takes a
 `label` and `ttl_seconds` only. The server fixes the rest: the kind is `device`
 with sign-in, the invite grants no models, and the relays, open relays and local

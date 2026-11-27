@@ -283,7 +283,9 @@
     "sheet": {
       "account": "Account",
       "activity": "Attività",
-      "apiKeys": "Chiavi API"
+      "apiKeys": "Chiavi API",
+      "defaultOn": "Attivo di default per gli utenti",
+      "defaultOnHint": "Salvato subito. Vale per ogni utente il cui accesso non imposta questa funzione."
     },
     "empty": {
       "title": "Nessun utente",
@@ -312,7 +314,10 @@
       "deleted": "Utente eliminato",
       "deleteFailed": "Eliminazione utente non riuscita: {{message}}",
       "passwordReset": "Password reimpostata per {{name}}",
-      "resetFailed": "Reimpostazione password non riuscita: {{message}}"
+      "resetFailed": "Reimpostazione password non riuscita: {{message}}",
+      "defaultOn": "La funzione ora è attiva di default per gli utenti.",
+      "defaultOff": "La funzione ora è disattivata di default per gli utenti.",
+      "defaultFailed": "Impossibile cambiare il default: {{message}}"
     },
     "reset": {
       "title": "Reimposta password",

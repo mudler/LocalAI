@@ -283,7 +283,9 @@
     "sheet": {
       "account": "Cuenta",
       "activity": "Actividad",
-      "apiKeys": "Claves API"
+      "apiKeys": "Claves API",
+      "defaultOn": "Activado por defecto para los usuarios",
+      "defaultOnHint": "Se guarda al instante. Se aplica a cada usuario cuyo acceso no define esta función."
     },
     "empty": {
       "title": "Todavía no hay usuarios",
@@ -312,7 +314,10 @@
       "deleted": "Usuario eliminado",
       "deleteFailed": "Error al eliminar el usuario: {{message}}",
       "passwordReset": "Contraseña restablecida para {{name}}",
-      "resetFailed": "Error al restablecer la contraseña: {{message}}"
+      "resetFailed": "Error al restablecer la contraseña: {{message}}",
+      "defaultOn": "La función ahora está activada por defecto para los usuarios.",
+      "defaultOff": "La función ahora está desactivada por defecto para los usuarios.",
+      "defaultFailed": "No se pudo cambiar el valor por defecto: {{message}}"
     },
     "reset": {
       "title": "Restablecer contraseña",

@@ -238,7 +238,8 @@
       "seen": "Last seen",
       "path": "Path",
       "status": "Status",
-      "actions": "Actions"
+      "actions": "Actions",
+      "owner": "Owner"
     },
     "never": "Never",
     "status": {
@@ -264,7 +265,14 @@
       "remote": "The remote loses its P2P key and its API key now, and its open connections close. Its models stop working on the other side. Other devices are not affected. To connect it again, make a new invite.",
       "other": "The node loses its P2P key now and its open connections close. Other devices are not affected. To connect it again, make a new invite."
     },
-    "revoked": "{{label}} revoked."
+    "revoked": "{{label}} revoked.",
+    "owner": {
+      "filter": "Owner",
+      "all": "All owners",
+      "none": "No account"
+    },
+    "signsIn": "Signs in",
+    "signsInHint": "This device signs in to the web UI as its owner."
   },
   "invite": {
     "connectWith": "Connect with",

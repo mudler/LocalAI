@@ -210,7 +210,9 @@
     "sheet": {
       "account": "Compte",
       "activity": "Activité",
-      "apiKeys": "Clés API"
+      "apiKeys": "Clés API",
+      "defaultOn": "Activé par défaut pour les utilisateurs",
+      "defaultOnHint": "Enregistré immédiatement. S'applique à chaque utilisateur dont l'accès ne définit pas cette fonction."
     },
     "empty": {
       "title": "Aucun utilisateur pour l'instant",
@@ -239,7 +241,10 @@
       "deleted": "Utilisateur supprimé",
       "deleteFailed": "Échec de la suppression : {{message}}",
       "passwordReset": "Mot de passe réinitialisé pour {{name}}",
-      "resetFailed": "Échec de la réinitialisation du mot de passe : {{message}}"
+      "resetFailed": "Échec de la réinitialisation du mot de passe : {{message}}",
+      "defaultOn": "La fonction est maintenant activée par défaut pour les utilisateurs.",
+      "defaultOff": "La fonction est maintenant désactivée par défaut pour les utilisateurs.",
+      "defaultFailed": "Impossible de changer la valeur par défaut : {{message}}"
     },
     "reset": {
       "title": "Réinitialiser le mot de passe",

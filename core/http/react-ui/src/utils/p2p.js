@@ -281,3 +281,25 @@ export function newDevice(devices, knownIds) {
   const known = knownIds instanceof Set ? knownIds : new Set(knownIds || [])
   return (Array.isArray(devices) ? devices : []).find(d => d && d.status !== 'revoked' && !known.has(d.id)) || null
 }
+
+// The owner filter of the admin device table. NO_OWNER stands for the devices
+// without an account, which the API key of LOCALAI_API_KEY paired.
+export const NO_OWNER = '~'
+
+// The owners of a device list, each once, by name: [{ id, name }]. A device
+// with no owner gives { id: NO_OWNER, name: '' }.
+export function deviceOwners(devices) {
+  const seen = new Map()
+  for (const d of Array.isArray(devices) ? devices : []) {
+    const id = d?.owner_id || NO_OWNER
+    if (!seen.has(id)) seen.set(id, { id, name: d?.owner_id ? (d.owner_name || '') : '' })
+  }
+  return [...seen.values()].sort((a, b) => (a.id === NO_OWNER) - (b.id === NO_OWNER) || (a.name || a.id).localeCompare(b.name || b.id))
+}
+
+// The devices of one owner; an empty owner keeps every device.
+export function devicesOfOwner(devices, owner) {
+  const list = Array.isArray(devices) ? devices : []
+  if (!owner) return list
+  return list.filter(d => (d?.owner_id || NO_OWNER) === owner)
+}

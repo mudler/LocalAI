@@ -343,3 +343,65 @@ export function ago(ts, now = Date.now()) {
   if (hours < 24) return { key: 'hours', count: hours }
   return { key: 'days', count: Math.floor(hours / 24) }
 }
+
+// The setting p2p_user_pairing: what an invite a user mints for their own
+// device carries, and the limits of each user. The ranges are the ones the
+// server accepts (PUT /api/p2p/user-pairing answers 400 outside them).
+export const USER_PAIRING_RELAYS = ['auto', 'none']
+export const USER_PAIRING_DEFAULTS = {
+  relays: 'auto', allow_open_relay: false, omit_lan_addrs: false, max_devices: 5, max_pending: 2, max_ttl_seconds: 3600,
+}
+export const USER_PAIRING_RANGES = {
+  max_devices: [1, 100],
+  max_pending: [1, 20],
+  // The life is edited in minutes: 60 to 86400 seconds.
+  ttl_minutes: [1, 1440],
+}
+
+// userPairingFrom reads the answer of GET /api/p2p/user-pairing, with the
+// defaults of the server for anything missing or unknown.
+export function userPairingFrom(raw) {
+  const r = raw || {}
+  const num = (v, d) => (Number.isInteger(v) && v > 0 ? v : d)
+  return {
+    relays: USER_PAIRING_RELAYS.includes(r.relays) ? r.relays : USER_PAIRING_DEFAULTS.relays,
+    allow_open_relay: r.allow_open_relay === true,
+    omit_lan_addrs: r.omit_lan_addrs === true,
+    max_devices: num(r.max_devices, USER_PAIRING_DEFAULTS.max_devices),
+    max_pending: num(r.max_pending, USER_PAIRING_DEFAULTS.max_pending),
+    max_ttl_seconds: num(r.max_ttl_seconds, USER_PAIRING_DEFAULTS.max_ttl_seconds),
+  }
+}
+
+// The limits as the form edits them: text fields, the life in minutes.
+export function userPairingForm(s) {
+  return {
+    max_devices: String(s.max_devices),
+    max_pending: String(s.max_pending),
+    ttl_minutes: String(Math.max(1, Math.round(s.max_ttl_seconds / 60))),
+  }
+}
+
+// The fields of the form that are not a whole number in their range, as
+// { field: true }. An empty object means the form can be saved.
+export function userPairingIssues(form) {
+  const issues = {}
+  for (const [field, [lo, hi]] of Object.entries(USER_PAIRING_RANGES)) {
+    const text = String(form?.[field] ?? '').trim()
+    const n = Number(text)
+    if (!/^\d+$/.test(text) || n < lo || n > hi) issues[field] = true
+  }
+  return issues
+}
+
+// The body of the PUT for the limits: only the fields that changed.
+export function userPairingLimitsPatch(saved, form) {
+  const patch = {}
+  const devices = Number(form.max_devices)
+  const pending = Number(form.max_pending)
+  const ttl = Number(form.ttl_minutes) * 60
+  if (devices !== saved.max_devices) patch.max_devices = devices
+  if (pending !== saved.max_pending) patch.max_pending = pending
+  if (ttl !== saved.max_ttl_seconds && Math.round(saved.max_ttl_seconds / 60) * 60 !== ttl) patch.max_ttl_seconds = ttl
+  return patch
+}

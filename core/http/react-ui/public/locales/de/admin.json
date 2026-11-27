@@ -283,7 +283,9 @@
     "sheet": {
       "account": "Konto",
       "activity": "Aktivität",
-      "apiKeys": "API-Schlüssel"
+      "apiKeys": "API-Schlüssel",
+      "defaultOn": "Standardmäßig an für Benutzer",
+      "defaultOnHint": "Wird sofort gespeichert. Gilt für jeden Benutzer, dessen Zugriff diese Funktion nicht festlegt."
     },
     "empty": {
       "title": "Noch keine Benutzer",
@@ -312,7 +314,10 @@
       "deleted": "Benutzer gelöscht",
       "deleteFailed": "Löschen fehlgeschlagen: {{message}}",
       "passwordReset": "Passwort für {{name}} zurückgesetzt",
-      "resetFailed": "Zurücksetzen des Passworts fehlgeschlagen: {{message}}"
+      "resetFailed": "Zurücksetzen des Passworts fehlgeschlagen: {{message}}",
+      "defaultOn": "Die Funktion ist jetzt standardmäßig für Benutzer an.",
+      "defaultOff": "Die Funktion ist jetzt standardmäßig für Benutzer aus.",
+      "defaultFailed": "Der Standard konnte nicht geändert werden: {{message}}"
     },
     "reset": {
       "title": "Passwort zurücksetzen",

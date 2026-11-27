@@ -13,7 +13,8 @@
     "label": "Bereiche der P2P-Einstellungen",
     "network": "Netzwerk",
     "relays": "Relays",
-    "identity": "Identität"
+    "identity": "Identität",
+    "users": "Koppeln durch Benutzer"
   },
   "actions": {
     "save": "Speichern",
@@ -287,5 +288,32 @@
     "confirmOnly": "Tu das nur, wenn der Identitätsschlüssel offengelegt wurde.",
     "confirmCheck_one": "Ich verstehe, dass {{count}} gekoppeltes Gerät sich neu koppeln muss",
     "confirmCheck_other": "Ich verstehe, dass {{count}} gekoppelte Geräte sich neu koppeln müssen"
+  },
+  "users": {
+    "title": "Koppeln durch Benutzer",
+    "lede": "Was eine Einladung enthält, wenn ein Benutzer sein eigenes Telefon unter Meine Geräte koppelt, und die Limits jedes Benutzers. Eine Änderung gilt ab der nächsten Einladung. Gekoppelte Telefone bleiben.",
+    "loadError": "Die Einstellungen zum Koppeln durch Benutzer konnten nicht geladen werden.",
+    "relays": {
+      "title": "Relays in Benutzereinladungen",
+      "desc": "Auto nennt die Relays dieses Servers in der Einladung, damit sich ein Telefon außerhalb deines Netzes verbinden kann. Keine lässt sie weg: Das Telefon braucht dann eine direkte Verbindung oder Hole Punching.",
+      "auto": "Auto: die Relays dieses Servers",
+      "none": "Keine"
+    },
+    "open": {
+      "title": "Offene Relays erlauben",
+      "desc": "Eine Einladung darf ein offenes Relay nennen, wenn kein geschütztes Relay von dir verfügbar ist. Jeder kann ein offenes Relay nutzen, und es kann die Geschwindigkeit begrenzen."
+    },
+    "lan": {
+      "title": "Lokale Adressen weglassen",
+      "desc": "Die Einladung enthält nicht die Adressen dieses Servers in deinem lokalen Netz."
+    },
+    "limits": {
+      "title": "Limits pro Benutzer",
+      "desc": "Administratoren haben dieselben Limits, wenn sie ihr eigenes Telefon koppeln.",
+      "devices": "Geräte",
+      "pending": "Wartende Einladungen",
+      "ttl": "Längste Laufzeit einer Einladung",
+      "range": "{{min}} bis {{max}}"
+    }
   }
 }

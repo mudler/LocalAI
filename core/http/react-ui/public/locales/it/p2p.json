@@ -238,7 +238,8 @@
       "seen": "Ultimo accesso",
       "path": "Percorso",
       "status": "Stato",
-      "actions": "Azioni"
+      "actions": "Azioni",
+      "owner": "Proprietario"
     },
     "never": "Mai",
     "status": {
@@ -264,7 +265,14 @@
       "remote": "Il remoto perde subito la sua chiave P2P e la sua chiave API, e le sue connessioni aperte si chiudono. I suoi modelli smettono di funzionare sull'altro lato. Gli altri dispositivi non sono interessati. Per connetterlo di nuovo, crea un nuovo invito.",
       "other": "Il nodo perde subito la sua chiave P2P e le sue connessioni aperte si chiudono. Gli altri dispositivi non sono interessati. Per connetterlo di nuovo, crea un nuovo invito."
     },
-    "revoked": "{{label}} revocato."
+    "revoked": "{{label}} revocato.",
+    "owner": {
+      "filter": "Proprietario",
+      "all": "Tutti i proprietari",
+      "none": "Nessun account"
+    },
+    "signsIn": "Accede",
+    "signsInHint": "Questo dispositivo accede all'interfaccia web come il suo proprietario."
   },
   "invite": {
     "connectWith": "Connetti con",

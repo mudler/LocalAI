@@ -283,7 +283,9 @@
     "sheet": {
       "account": "账户",
       "activity": "活动",
-      "apiKeys": "API 密钥"
+      "apiKeys": "API 密钥",
+      "defaultOn": "默认为用户开启",
+      "defaultOnHint": "立即保存。适用于访问权限未设置此功能的所有用户。"
     },
     "empty": {
       "title": "还没有用户",
@@ -312,7 +314,10 @@
       "deleted": "用户已删除",
       "deleteFailed": "删除用户失败：{{message}}",
       "passwordReset": "已重置 {{name}} 的密码",
-      "resetFailed": "重置密码失败：{{message}}"
+      "resetFailed": "重置密码失败：{{message}}",
+      "defaultOn": "此功能现已默认为用户开启。",
+      "defaultOff": "此功能现已默认为用户关闭。",
+      "defaultFailed": "无法更改默认值：{{message}}"
     },
     "reset": {
       "title": "重置密码",

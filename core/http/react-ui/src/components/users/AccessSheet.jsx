@@ -6,6 +6,7 @@ import { initialOf } from '../../utils/access'
 import { relativeTime } from '../../utils/p2p'
 import SideSheet from '../SideSheet'
 import Icon from '../Icon'
+import { Switch } from '../ui'
 
 const WINDOW_OPTIONS = [
   { value: '1m', label: '1 minute' },
@@ -17,7 +18,12 @@ const WINDOW_OPTIONS = [
   { value: '30d', label: '30 days' },
 ]
 
-function FeatureGroup({ title, features, permissions, onToggle, onAll }) {
+// A feature whose default the administrator may change (configurable) gets a
+// second switch under it: "On by default for users". That switch is saved at
+// once for every user whose access does not name the feature, so it is not
+// part of the Save of this sheet.
+function FeatureGroup({ title, features, permissions, onToggle, onAll, onDefault, savingDefault }) {
+  const { t } = useTranslation('admin')
   if (!features.length) return null
   return (
     <section className="us-section" aria-label={title}>
@@ -30,12 +36,24 @@ function FeatureGroup({ title, features, permissions, onToggle, onAll }) {
       </div>
       <ul className="us-switches">
         {features.map(f => (
-          <li key={f.key} className="us-switch">
+          <li key={f.key} className={f.configurable && onDefault ? 'us-switch us-switch--has-default' : 'us-switch'}>
             <span id={`perm-${f.key}`}>{f.label}</span>
             <button
               type="button" role="switch" className="dk-switch" aria-checked={!!permissions[f.key]}
               aria-labelledby={`perm-${f.key}`} onClick={() => onToggle(f.key)}
             />
+            {f.configurable && onDefault && (
+              <div className="us-switch us-switch--default" data-testid={`feature-default-${f.key}`}>
+                <span>
+                  <span id={`perm-default-${f.key}`}>{t('users.sheet.defaultOn')}</span>
+                  <span className="us-hint" id={`perm-default-${f.key}-hint`}>{t('users.sheet.defaultOnHint')}</span>
+                </span>
+                <Switch
+                  checked={!!f.default} onChange={(v) => onDefault(f.key, v)} disabled={savingDefault === f.key}
+                  labelledBy={`perm-default-${f.key}`} describedBy={`perm-default-${f.key}-hint`} testId={`feature-default-switch-${f.key}`}
+                />
+              </div>
+            )}
           </li>
         ))}
       </ul>
@@ -49,13 +67,24 @@ function FeatureGroup({ title, features, permissions, onToggle, onAll }) {
 //
 // Account actions that do not belong to the access form (reset password, role,
 // delete) sit at the bottom and are handled by the page.
-export default function AccessSheet({ user, featureMeta, availableModels, onClose, onSave, addToast, actions }) {
+//   onFeatureDefault(key, enabled)  saves the default of a configurable
+//                                   feature at once; returns a promise
+export default function AccessSheet({ user, featureMeta, availableModels, onClose, onSave, addToast, actions, onFeatureDefault }) {
   const { t, i18n } = useTranslation('admin')
   const [permissions, setPermissions] = useState({ ...(user.permissions || {}) })
   const [allowedModels, setAllowedModels] = useState(user.allowed_models || { enabled: false, models: [] })
   const [quotas, setQuotas] = useState((user.quotas || []).map(q => ({ ...q, _dirty: false })))
   const [deletedQuotaIds, setDeletedQuotaIds] = useState([])
   const [saving, setSaving] = useState(false)
+  const [savingDefault, setSavingDefault] = useState('')
+  const setDefault = onFeatureDefault ? async (key, enabled) => {
+    setSavingDefault(key)
+    try {
+      await onFeatureDefault(key, enabled)
+    } finally {
+      setSavingDefault('')
+    }
+  } : null
 
   const apiFeatures = featureMeta?.api_features || []
   const agentFeatures = featureMeta?.agent_features || []
@@ -151,9 +180,9 @@ export default function AccessSheet({ user, featureMeta, availableModels, onClos
         </dl>
 
         <p className="us-eyebrow">What they can use</p>
-        <FeatureGroup title="API endpoints" features={apiFeatures} permissions={permissions} onToggle={toggleFeature} onAll={setAllFeatures} />
-        <FeatureGroup title="Agent features" features={agentFeatures} permissions={permissions} onToggle={toggleFeature} onAll={setAllFeatures} />
-        <FeatureGroup title="Features" features={generalFeatures} permissions={permissions} onToggle={toggleFeature} onAll={setAllFeatures} />
+        <FeatureGroup title="API endpoints" features={apiFeatures} permissions={permissions} onToggle={toggleFeature} onAll={setAllFeatures} onDefault={setDefault} savingDefault={savingDefault} />
+        <FeatureGroup title="Agent features" features={agentFeatures} permissions={permissions} onToggle={toggleFeature} onAll={setAllFeatures} onDefault={setDefault} savingDefault={savingDefault} />
+        <FeatureGroup title="Features" features={generalFeatures} permissions={permissions} onToggle={toggleFeature} onAll={setAllFeatures} onDefault={setDefault} savingDefault={savingDefault} />
 
         <p className="us-eyebrow">Models</p>
         <section className="us-section" aria-label="Model access">

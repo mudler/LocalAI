@@ -13,7 +13,8 @@
     "label": "P2P setting sections",
     "network": "Network",
     "relays": "Relays",
-    "identity": "Identity"
+    "identity": "Identity",
+    "users": "User pairing"
   },
   "actions": {
     "save": "Save",
@@ -287,5 +288,32 @@
     "confirmOnly": "Do this only if the identity key leaked.",
     "confirmCheck_one": "I understand that {{count}} paired device must pair again",
     "confirmCheck_other": "I understand that {{count}} paired devices must pair again"
+  },
+  "users": {
+    "title": "User pairing",
+    "lede": "What an invite carries when a user pairs their own phone from My devices, and the limits of each user. A change applies to the next invite. Paired phones stay.",
+    "loadError": "Could not load the user pairing settings.",
+    "relays": {
+      "title": "Relays in user invites",
+      "desc": "Auto names the relays of this server in the invite, so a phone outside your network can connect. None leaves them out: a phone then needs a direct connection or a hole punch.",
+      "auto": "Auto: the relays of this server",
+      "none": "None"
+    },
+    "open": {
+      "title": "Allow open relays",
+      "desc": "An invite may name an open relay when no gated relay of yours is available. Anyone can use an open relay, and it may limit the speed."
+    },
+    "lan": {
+      "title": "Leave out local addresses",
+      "desc": "The invite does not carry the addresses of this server on your local network."
+    },
+    "limits": {
+      "title": "Limits of each user",
+      "desc": "Administrators have the same limits when they pair their own phone.",
+      "devices": "Devices",
+      "pending": "Waiting invites",
+      "ttl": "Longest invite life",
+      "range": "{{min}} to {{max}}"
+    }
   }
 }

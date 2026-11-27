@@ -238,7 +238,8 @@
       "seen": "Dernière activité",
       "path": "Chemin",
       "status": "État",
-      "actions": "Actions"
+      "actions": "Actions",
+      "owner": "Propriétaire"
     },
     "never": "Jamais",
     "status": {
@@ -264,7 +265,14 @@
       "remote": "Le serveur distant perd sa clé P2P et sa clé API tout de suite, et ses connexions ouvertes se ferment. Ses modèles cessent de fonctionner de l'autre côté. Les autres appareils ne sont pas touchés. Pour le reconnecter, créez une nouvelle invitation.",
       "other": "Le nœud perd sa clé P2P tout de suite et ses connexions ouvertes se ferment. Les autres appareils ne sont pas touchés. Pour le reconnecter, créez une nouvelle invitation."
     },
-    "revoked": "{{label}} révoqué."
+    "revoked": "{{label}} révoqué.",
+    "owner": {
+      "filter": "Propriétaire",
+      "all": "Tous les propriétaires",
+      "none": "Aucun compte"
+    },
+    "signsIn": "Se connecte",
+    "signsInHint": "Cet appareil se connecte à l'interface web en tant que son propriétaire."
   },
   "invite": {
     "connectWith": "Se connecter avec",

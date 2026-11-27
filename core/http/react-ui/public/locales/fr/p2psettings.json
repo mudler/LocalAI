@@ -13,7 +13,8 @@
     "label": "Sections des paramètres P2P",
     "network": "Réseau",
     "relays": "Relais",
-    "identity": "Identité"
+    "identity": "Identité",
+    "users": "Appairage par les utilisateurs"
   },
   "actions": {
     "save": "Enregistrer",
@@ -287,5 +288,32 @@
     "confirmOnly": "Ne le faites que si la clé d'identité a fuité.",
     "confirmCheck_one": "Je comprends que {{count}} appareil appairé doit s'appairer à nouveau",
     "confirmCheck_other": "Je comprends que {{count}} appareils appairés doivent s'appairer à nouveau"
+  },
+  "users": {
+    "title": "Appairage par les utilisateurs",
+    "lede": "Ce que contient une invitation quand un utilisateur appaire son propre téléphone depuis Mes appareils, et les limites de chaque utilisateur. Un changement s'applique à la prochaine invitation. Les téléphones appairés restent.",
+    "loadError": "Impossible de charger les réglages d'appairage par les utilisateurs.",
+    "relays": {
+      "title": "Relais dans les invitations des utilisateurs",
+      "desc": "Auto indique les relais de ce serveur dans l'invitation, pour qu'un téléphone hors de votre réseau puisse se connecter. Aucun les omet : le téléphone a alors besoin d'une connexion directe ou d'un hole punching.",
+      "auto": "Auto : les relais de ce serveur",
+      "none": "Aucun"
+    },
+    "open": {
+      "title": "Autoriser les relais ouverts",
+      "desc": "Une invitation peut indiquer un relais ouvert quand aucun de vos relais protégés n'est disponible. Tout le monde peut utiliser un relais ouvert, et il peut limiter la vitesse."
+    },
+    "lan": {
+      "title": "Omettre les adresses locales",
+      "desc": "L'invitation ne contient pas les adresses de ce serveur sur votre réseau local."
+    },
+    "limits": {
+      "title": "Limites de chaque utilisateur",
+      "desc": "Les administrateurs ont les mêmes limites quand ils appairent leur propre téléphone.",
+      "devices": "Appareils",
+      "pending": "Invitations en attente",
+      "ttl": "Durée maximale d'une invitation",
+      "range": "De {{min}} à {{max}}"
+    }
   }
 }

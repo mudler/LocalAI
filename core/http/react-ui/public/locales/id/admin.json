@@ -283,7 +283,9 @@
     "sheet": {
       "account": "Akun",
       "activity": "Aktivitas",
-      "apiKeys": "Kunci API"
+      "apiKeys": "Kunci API",
+      "defaultOn": "Aktif secara default untuk pengguna",
+      "defaultOnHint": "Langsung disimpan. Berlaku untuk setiap pengguna yang aksesnya tidak mengatur fitur ini."
     },
     "empty": {
       "title": "Belum ada pengguna",
@@ -312,7 +314,10 @@
       "deleted": "Pengguna dihapus",
       "deleteFailed": "Gagal menghapus pengguna: {{message}}",
       "passwordReset": "Kata sandi {{name}} telah diatur ulang",
-      "resetFailed": "Gagal mengatur ulang kata sandi: {{message}}"
+      "resetFailed": "Gagal mengatur ulang kata sandi: {{message}}",
+      "defaultOn": "Fitur ini sekarang aktif secara default untuk pengguna.",
+      "defaultOff": "Fitur ini sekarang nonaktif secara default untuk pengguna.",
+      "defaultFailed": "Tidak bisa mengubah default: {{message}}"
     },
     "reset": {
       "title": "Atur ulang kata sandi",

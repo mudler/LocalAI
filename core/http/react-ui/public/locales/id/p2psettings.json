@@ -13,7 +13,8 @@
     "label": "Bagian pengaturan P2P",
     "network": "Jaringan",
     "relays": "Relay",
-    "identity": "Identitas"
+    "identity": "Identitas",
+    "users": "Pemasangan pengguna"
   },
   "actions": {
     "save": "Simpan",
@@ -287,5 +288,32 @@
     "confirmOnly": "Lakukan ini hanya jika kunci identitas bocor.",
     "confirmCheck_one": "Saya mengerti bahwa {{count}} perangkat yang dipasangkan harus dipasangkan ulang",
     "confirmCheck_other": "Saya mengerti bahwa {{count}} perangkat yang dipasangkan harus dipasangkan ulang"
+  },
+  "users": {
+    "title": "Pemasangan pengguna",
+    "lede": "Isi undangan saat pengguna memasangkan ponselnya sendiri dari Perangkat saya, dan batas tiap pengguna. Perubahan berlaku untuk undangan berikutnya. Ponsel yang sudah terpasang tetap ada.",
+    "loadError": "Tidak bisa memuat pengaturan pemasangan pengguna.",
+    "relays": {
+      "title": "Relay di undangan pengguna",
+      "desc": "Auto menyebut relay server ini di undangan, agar ponsel di luar jaringan Anda bisa terhubung. Tidak ada menghilangkannya: ponsel lalu perlu koneksi langsung atau hole punching.",
+      "auto": "Auto: relay server ini",
+      "none": "Tidak ada"
+    },
+    "open": {
+      "title": "Izinkan relay terbuka",
+      "desc": "Undangan boleh menyebut relay terbuka saat tidak ada relay terlindung milik Anda yang tersedia. Siapa pun bisa memakai relay terbuka, dan relay itu bisa membatasi kecepatan."
+    },
+    "lan": {
+      "title": "Hilangkan alamat lokal",
+      "desc": "Undangan tidak membawa alamat server ini di jaringan lokal Anda."
+    },
+    "limits": {
+      "title": "Batas tiap pengguna",
+      "desc": "Administrator punya batas yang sama saat memasangkan ponselnya sendiri.",
+      "devices": "Perangkat",
+      "pending": "Undangan menunggu",
+      "ttl": "Masa berlaku undangan terlama",
+      "range": "{{min}} sampai {{max}}"
+    }
   }
 }

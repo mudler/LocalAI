@@ -13,7 +13,8 @@
     "label": "Sezioni delle impostazioni P2P",
     "network": "Rete",
     "relays": "Relay",
-    "identity": "Identità"
+    "identity": "Identità",
+    "users": "Abbinamento utenti"
   },
   "actions": {
     "save": "Salva",
@@ -287,5 +288,32 @@
     "confirmOnly": "Fallo solo se la chiave di identità è trapelata.",
     "confirmCheck_one": "Capisco che {{count}} dispositivo associato dovrà associarsi di nuovo",
     "confirmCheck_other": "Capisco che {{count}} dispositivi associati dovranno associarsi di nuovo"
+  },
+  "users": {
+    "title": "Abbinamento utenti",
+    "lede": "Cosa contiene un invito quando un utente abbina il proprio telefono da I miei dispositivi, e i limiti di ogni utente. Una modifica vale dal prossimo invito. I telefoni abbinati restano.",
+    "loadError": "Impossibile caricare le impostazioni di abbinamento utenti.",
+    "relays": {
+      "title": "Relay negli inviti degli utenti",
+      "desc": "Auto indica nell'invito i relay di questo server, così un telefono fuori dalla tua rete può connettersi. Nessuno li esclude: il telefono ha bisogno di una connessione diretta o di un hole punch.",
+      "auto": "Auto: i relay di questo server",
+      "none": "Nessuno"
+    },
+    "open": {
+      "title": "Consenti relay aperti",
+      "desc": "Un invito può indicare un relay aperto quando nessun tuo relay protetto è disponibile. Chiunque può usare un relay aperto, e può limitare la velocità."
+    },
+    "lan": {
+      "title": "Escludi gli indirizzi locali",
+      "desc": "L'invito non contiene gli indirizzi di questo server nella tua rete locale."
+    },
+    "limits": {
+      "title": "Limiti di ogni utente",
+      "desc": "Gli amministratori hanno gli stessi limiti quando abbinano il proprio telefono.",
+      "devices": "Dispositivi",
+      "pending": "Inviti in attesa",
+      "ttl": "Durata massima di un invito",
+      "range": "Da {{min}} a {{max}}"
+    }
   }
 }

@@ -13,7 +13,8 @@
     "label": "Secciones de ajustes de P2P",
     "network": "Red",
     "relays": "Relays",
-    "identity": "Identidad"
+    "identity": "Identidad",
+    "users": "Vinculación de usuarios"
   },
   "actions": {
     "save": "Guardar",
@@ -287,5 +288,32 @@
     "confirmOnly": "Hazlo solo si la clave de identidad se filtró.",
     "confirmCheck_one": "Entiendo que {{count}} dispositivo vinculado debe vincularse de nuevo",
     "confirmCheck_other": "Entiendo que {{count}} dispositivos vinculados deben vincularse de nuevo"
+  },
+  "users": {
+    "title": "Vinculación de usuarios",
+    "lede": "Qué lleva una invitación cuando un usuario vincula su propio teléfono desde Mis dispositivos, y los límites de cada usuario. Un cambio se aplica a la siguiente invitación. Los teléfonos vinculados se mantienen.",
+    "loadError": "No se pudieron cargar los ajustes de vinculación de usuarios.",
+    "relays": {
+      "title": "Relays en las invitaciones de usuarios",
+      "desc": "Auto incluye los relays de este servidor en la invitación, para que un teléfono fuera de tu red pueda conectarse. Ninguno los omite: el teléfono necesita entonces una conexión directa o hole punching.",
+      "auto": "Auto: los relays de este servidor",
+      "none": "Ninguno"
+    },
+    "open": {
+      "title": "Permitir relays abiertos",
+      "desc": "Una invitación puede incluir un relay abierto cuando no hay ningún relay protegido tuyo disponible. Cualquiera puede usar un relay abierto, y puede limitar la velocidad."
+    },
+    "lan": {
+      "title": "Omitir direcciones locales",
+      "desc": "La invitación no lleva las direcciones de este servidor en tu red local."
+    },
+    "limits": {
+      "title": "Límites de cada usuario",
+      "desc": "Los administradores tienen los mismos límites cuando vinculan su propio teléfono.",
+      "devices": "Dispositivos",
+      "pending": "Invitaciones en espera",
+      "ttl": "Duración máxima de una invitación",
+      "range": "De {{min}} a {{max}}"
+    }
   }
 }

@@ -238,7 +238,8 @@
       "seen": "Zuletzt gesehen",
       "path": "Pfad",
       "status": "Status",
-      "actions": "Aktionen"
+      "actions": "Aktionen",
+      "owner": "Besitzer"
     },
     "never": "Nie",
     "status": {
@@ -264,7 +265,14 @@
       "remote": "Die Gegenstelle verliert sofort ihren P2P-Schlüssel und ihren API-Schlüssel, und ihre offenen Verbindungen werden geschlossen. Ihre Modelle funktionieren auf der anderen Seite nicht mehr. Andere Geräte sind nicht betroffen. Um sie erneut zu verbinden, erstellen Sie eine neue Einladung.",
       "other": "Der Knoten verliert sofort seinen P2P-Schlüssel, und seine offenen Verbindungen werden geschlossen. Andere Geräte sind nicht betroffen. Um ihn erneut zu verbinden, erstellen Sie eine neue Einladung."
     },
-    "revoked": "{{label}} widerrufen."
+    "revoked": "{{label}} widerrufen.",
+    "owner": {
+      "filter": "Besitzer",
+      "all": "Alle Besitzer",
+      "none": "Kein Konto"
+    },
+    "signsIn": "Meldet sich an",
+    "signsInHint": "Dieses Gerät meldet sich als sein Besitzer in der Weboberfläche an."
   },
   "invite": {
     "connectWith": "Verbinden per",

@@ -210,7 +210,9 @@
     "sheet": {
       "account": "Account",
       "activity": "Activity",
-      "apiKeys": "API keys"
+      "apiKeys": "API keys",
+      "defaultOn": "On by default for users",
+      "defaultOnHint": "Saved at once. Applies to every user whose access does not set this feature."
     },
     "empty": {
       "title": "No users yet",
@@ -239,7 +241,10 @@
       "deleted": "User deleted",
       "deleteFailed": "Failed to delete user: {{message}}",
       "passwordReset": "Password reset for {{name}}",
-      "resetFailed": "Failed to reset password: {{message}}"
+      "resetFailed": "Failed to reset password: {{message}}",
+      "defaultOn": "The feature is now on by default for users.",
+      "defaultOff": "The feature is now off by default for users.",
+      "defaultFailed": "Could not change the default: {{message}}"
     },
     "reset": {
       "title": "Reset password",

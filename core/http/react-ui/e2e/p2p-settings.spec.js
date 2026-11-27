@@ -13,7 +13,7 @@ test.describe('P2P settings: modes', () => {
     await expect(page.getByText('Public DHT', { exact: true })).toBeVisible()
     await expect(page.getByText('Relay for paired devices', { exact: true })).toBeVisible()
     const rail = page.getByRole('navigation', { name: 'P2P setting sections' })
-    await expect(rail.getByRole('button')).toHaveText(['Network', 'Relays', 'Identity'])
+    await expect(rail.getByRole('button')).toHaveText(['Network', 'Relays', 'User pairing', 'Identity'])
     await expect(page.getByTestId('p2p-share-only-note')).toHaveCount(0)
   })
 

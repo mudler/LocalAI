@@ -13,7 +13,8 @@
     "label": "Seções das configurações de P2P",
     "network": "Rede",
     "relays": "Relays",
-    "identity": "Identidade"
+    "identity": "Identidade",
+    "users": "Pareamento de usuários"
   },
   "actions": {
     "save": "Salvar",
@@ -287,5 +288,32 @@
     "confirmOnly": "Faça isso só se a chave de identidade vazou.",
     "confirmCheck_one": "Entendo que {{count}} dispositivo pareado precisa parear de novo",
     "confirmCheck_other": "Entendo que {{count}} dispositivos pareados precisam parear de novo"
+  },
+  "users": {
+    "title": "Pareamento de usuários",
+    "lede": "O que um convite leva quando um usuário pareia o próprio celular em Meus dispositivos, e os limites de cada usuário. Uma mudança vale a partir do próximo convite. Os celulares pareados continuam.",
+    "loadError": "Não foi possível carregar as configurações de pareamento de usuários.",
+    "relays": {
+      "title": "Relays nos convites de usuários",
+      "desc": "Auto coloca os relays deste servidor no convite, para que um celular fora da sua rede possa se conectar. Nenhum os deixa de fora: o celular precisa então de uma conexão direta ou de hole punching.",
+      "auto": "Auto: os relays deste servidor",
+      "none": "Nenhum"
+    },
+    "open": {
+      "title": "Permitir relays abertos",
+      "desc": "Um convite pode citar um relay aberto quando nenhum relay protegido seu estiver disponível. Qualquer pessoa pode usar um relay aberto, e ele pode limitar a velocidade."
+    },
+    "lan": {
+      "title": "Omitir endereços locais",
+      "desc": "O convite não leva os endereços deste servidor na sua rede local."
+    },
+    "limits": {
+      "title": "Limites de cada usuário",
+      "desc": "Administradores têm os mesmos limites quando pareiam o próprio celular.",
+      "devices": "Dispositivos",
+      "pending": "Convites aguardando",
+      "ttl": "Duração máxima de um convite",
+      "range": "De {{min}} a {{max}}"
+    }
   }
 }

@@ -238,7 +238,8 @@
       "seen": "Visto por último",
       "path": "Caminho",
       "status": "Status",
-      "actions": "Ações"
+      "actions": "Ações",
+      "owner": "Dono"
     },
     "never": "Nunca",
     "status": {
@@ -264,7 +265,14 @@
       "remote": "O remoto perde agora a chave P2P e a chave de API, e as conexões abertas são encerradas. Os modelos dele param de funcionar do outro lado. Os outros dispositivos não são afetados. Para conectá-lo de novo, crie um novo convite.",
       "other": "O nó perde agora a chave P2P e as conexões abertas são encerradas. Os outros dispositivos não são afetados. Para conectá-lo de novo, crie um novo convite."
     },
-    "revoked": "{{label}} revogado."
+    "revoked": "{{label}} revogado.",
+    "owner": {
+      "filter": "Dono",
+      "all": "Todos os donos",
+      "none": "Sem conta"
+    },
+    "signsIn": "Faz login",
+    "signsInHint": "Este dispositivo faz login na interface web como o seu dono."
   },
   "invite": {
     "connectWith": "Conectar com",

@@ -10,6 +10,7 @@ import { p2pRelaysApi, settingsApi } from '../utils/api'
 import NetworkSection from '../components/p2psettings/NetworkSection'
 import RelaysSection from '../components/p2psettings/RelaysSection'
 import IdentitySection from '../components/p2psettings/IdentitySection'
+import UserPairingSection from '../components/p2psettings/UserPairingSection'
 import { p2pSettingsFrom } from '../components/p2psettings/p2pSettingsModel'
 import './settings.css'
 // The relay commands use the command block of the Swarm pages.
@@ -22,6 +23,9 @@ import '../components/p2psettings/p2psettings.css'
 const SECTIONS = [
   { id: 'network', modes: ['off', 'connect', 'share'] },
   { id: 'relays', modes: ['share'] },
+  // What a user's own phone invite carries and the limits of each user. Users
+  // exist only with authentication, which mode share needs anyway.
+  { id: 'users', modes: ['share'], auth: true },
   { id: 'identity', modes: ['connect', 'share'] },
 ]
 
@@ -88,7 +92,7 @@ export default function P2PSettings() {
     }
   }
 
-  const visible = SECTIONS.filter(s => s.modes.includes(mode))
+  const visible = SECTIONS.filter(s => s.modes.includes(mode) && (!s.auth || authEnabled))
   const requested = params.get('section')
   const section = visible.some(s => s.id === requested) ? requested : 'network'
   const pick = (id) => setParams(id === 'network' ? {} : { section: id }, { replace: true })
@@ -124,6 +128,7 @@ export default function P2PSettings() {
         <div className="st-content">
           {section === 'network' && <NetworkSection settings={settings} authEnabled={authEnabled} saving={saving} onSave={save} />}
           {section === 'relays' && <RelaysSection status={status} relays={relays} error={relaysError} onReload={reloadRelays} addToast={addToast} />}
+          {section === 'users' && <UserPairingSection addToast={addToast} />}
           {section === 'identity' && <IdentitySection status={status} onChanged={load} addToast={addToast} />}
         </div>
       </div>
