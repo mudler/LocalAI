@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
@@ -73,6 +74,10 @@ func parsePluginChange(content string) (localaitools.PluginsRequest, error) {
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&in); err != nil {
 		return in, errors.New("the content of a plugin action is the JSON arguments of the plugins tool")
+	}
+	// One object and nothing after it, as the REST endpoints decode a body.
+	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
+		return in, errors.New("the content of a plugin action is one JSON object")
 	}
 	if !localaitools.PluginsActionConfirms(in.Action) {
 		return in, fmt.Errorf("the plugins action %q does not need a confirmation", in.Action)
