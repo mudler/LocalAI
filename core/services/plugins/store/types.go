@@ -106,7 +106,7 @@ type Snapshot struct {
 // Entry is one normalized plugin entry of a marketplace.
 type Entry struct {
 	Name        string          `json:"name"`
-	Source      json.RawMessage `json:"source,omitempty"`
+	Source      json.RawMessage `json:"source,omitempty" swaggertype:"object"`
 	Description string          `json:"description,omitempty"`
 	Version     string          `json:"version,omitempty"`
 	Category    string          `json:"category,omitempty"`
