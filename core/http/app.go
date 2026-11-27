@@ -603,6 +603,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 	mcpMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCP)
 	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpMw)
 	routes.RegisterCollectionsRoutes(e, application, collectionsMw)
+	// Plugins compatible with the Claude Code plugin format. The routes answer
+	// 503 with the reason when the service is off.
+	routes.RegisterPluginRoutes(e, application, opcache, adminMiddleware)
 	if addonsOn {
 		// Fine-tuning routes
 		fineTuningMw := auth.RequireFeature(application.AuthDB(), auth.FeatureFineTuning)

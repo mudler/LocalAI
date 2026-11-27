@@ -10,7 +10,7 @@ devbuild = "feature"
 
 LocalAI installs plugins that are compatible with the Claude Code plugin format. A plugin is a folder of skills, slash commands, sub-agents, MCP servers and hooks. A marketplace is a git repository or a JSON file that lists plugins and where to get them.
 
-This page describes what the server does in this version. The REST API, the `local-ai plugins` command and the **Plugins** tab of the Add-ons page come in later versions; until then the server keeps its marketplaces and refreshes them, and nothing is installed from the UI.
+This page describes what the server does in this version. The server keeps its marketplaces, refreshes them, and installs plugins through the [REST API](#rest-api). The `local-ai plugins` command and the **Plugins** tab of the Add-ons page come in later versions.
 
 The names `CLAUDE_PLUGIN_ROOT` and the other `CLAUDE_*` variables are names of the format: plugins read them, so LocalAI keeps them.
 
@@ -63,6 +63,60 @@ A chat keeps the plugins it switched off (`plugins_off`, install IDs, at most 20
 | Skills | The plugin layer of the chat's skills, named `<plugin>:<skill>`. See [Skills]({{% relref "/features/chats-and-agents/chats-skills#skills" %}}). |
 | Commands | `/<plugin>:<command> <arguments>`. See [Run a plugin command]({{% relref "/features/chats-and-agents/chats-skills#run-a-plugin-command" %}}). A command that runs a shell command needs a later version. |
 | MCP servers (`http`, `sse`) | One connector per server and user, owned by the plugin. See [Connectors of a plugin]({{% relref "/features/chat-apps/mcp-servers#connectors-of-a-plugin" %}}). A `ws` server is not supported; a `stdio` server comes in a later version. |
+
+## REST API
+
+All routes are under `/api/plugins` and need the `plugins` feature, which is on for every user by default. An administrator can turn it off for a user on the Users page. The routes answer `503` with the type `plugins_unavailable` and the reason when the server has no data path or no chat files.
+
+| Method and path | Who | What it does |
+|---|---|---|
+| `GET /api/plugins/marketplaces` | user | Lists the marketplaces, with their state and the code of the last failed refresh. |
+| `POST /api/plugins/marketplaces` | administrator | Adds a marketplace and reads it at once: `{"source": "owner/repo", "ref": "", "id": ""}`. |
+| `PUT /api/plugins/marketplaces/{id}` | administrator | Changes `ref` or `enabled`. |
+| `DELETE /api/plugins/marketplaces/{id}` | administrator | Removes a marketplace. The installs from it stay. |
+| `POST /api/plugins/marketplaces/{id}/refresh` | administrator | Reads the marketplace now. |
+| `GET /api/plugins/catalog` | user | Browses the active marketplaces: `q`, `marketplace`, `category`, `runs_code`, `offset`, `limit` (at most 200). |
+| `GET /api/plugins/catalog/{marketplace}/{name}` | user | One entry, with the installs of it that the caller can see. |
+| `POST /api/plugins/inspect` | user | `{"plugin": "name@marketplace"}`: fetches, checks and reads the plugin, and returns the preview with a token. |
+| `GET /api/plugins/inspect/{token}/files/{path}` | user | One file of the preview, as plain text. |
+| `POST /api/plugins/installs` | user or administrator | `{"token": "...", "scope": "user"}`. Answers `202` with `jobID`. |
+| `GET /api/plugins/installs` | user | The installs for everyone and the caller's own, with the caller's switch. Administrators add `?all=true`. |
+| `GET /api/plugins/installs/{id}` | user | One install: components, skipped components, code files, hosts. |
+| `GET /api/plugins/installs/{id}/files/{path}` | user | One file of the installed plugin. |
+| `POST /api/plugins/installs/{id}/update/preview` | owner or administrator | The files that change, the diffs of the code files, and a token. |
+| `POST /api/plugins/installs/{id}/update` | owner or administrator | `{"token": "...", "approved_files": [...]}`. Answers `202` with `jobID`. |
+| `POST /api/plugins/installs/{id}/rollback` | owner or administrator | Sets the previous version again. |
+| `DELETE /api/plugins/installs/{id}` | owner or administrator | Removes the install and the switches of its users. |
+| `GET /api/plugins/installs/{id}/me` | user | The caller's switch and settings. |
+| `PUT /api/plugins/installs/{id}/me` | user | `{"enabled": true, "reenable": false, "config": {...}}`. |
+| `PUT /api/chats/{id}/plugins` | user | `{"off": ["<install ID>"]}`: the installs switched off in one chat, at most 200. |
+
+A preview token works once, for 15 minutes, and only for the caller who made the preview. The install fetches the plugin again at the same commit and fails when the files differ from the reviewed ones. Its progress is in `GET /api/operations`, where the row has `isPlugin: true`, and `POST /api/operations/{jobID}/cancel` cancels it.
+
+The install or the update of a plugin that runs code needs the administrator's own browser session. The request must be a same-origin request of the web UI, without an API key, and carry the header `X-LocalAI-Confirm` with the plugin ID (install) or the install ID (update and rollback). A request with an API key or from an MCP client gets `403` with the type `not_human_surface`.
+
+An install for everyone starts off for each user. A user turns it on with `PUT /api/plugins/installs/{id}/me`. When an update adds code, the install stops for each user and the request to turn it on again answers `409 needs_reenable` until it sends `"reenable": true`. Secret settings of a plugin are not supported yet (`422`).
+
+Errors use the usual error body; `error.type` says why:
+
+| Status | `error.type` | Meaning |
+|---|---|---|
+| 400 | `invalid_token` | The preview token is unknown, expired, used, or another user's. Inspect again. |
+| 400 | `invalid_request` | A field, a source, a ref or a path is not valid. |
+| 403 | `needs_admin` | A user installs a plugin that runs code, or personal installs are off. |
+| 403 | `code_for_everyone` | A plugin that runs code is installed for everyone only. |
+| 403 | `blocked` | The new version of a personal install runs code. The install keeps its version. |
+| 403 | `not_human_surface` | The change needs the administrator's browser session. |
+| 403 | `forbidden` | The caller may not do this. |
+| 404 | `not_found` | No such marketplace, entry, install or file. A personal install of another user is not found. |
+| 409 | `conflict` | The plugin is installed already, or the install changed meanwhile. |
+| 409 | `instance_installed` | The plugin is installed for everyone; `error.param` is that install. |
+| 409 | `no_update` | The install is at the latest version. |
+| 409 | `needs_reenable` | The install now runs code; send `"reenable": true`. |
+| 422 | `unsupported` | A source type that LocalAI does not fetch, or a secret setting. |
+| 422 | `content_refused` | A file of the plugin failed the checks. |
+| 422 | `limit_reached` | Too many marketplaces or installs. |
+| 502 | `fetch_failed` | The plugin or the marketplace could not be read. The server log has the cause. |
 
 ## Settings
 

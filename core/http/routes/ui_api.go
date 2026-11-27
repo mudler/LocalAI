@@ -199,6 +199,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 			// An add-on install of the install queue: its key names the add-on.
 			addonID, isAddon := galleryop.ParseAddonOpKey(galleryID)
+			// A plugin install or update: its key names the plugin
+			// (name@marketplace).
+			pluginID, isPlugin := galleryop.ParsePluginOpKey(galleryID)
 
 			// Determine if it's a model or backend
 			// First check if it was explicitly marked as a backend operation
@@ -208,7 +211,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			// backend-vs-model, and a GPU-only backend installed on a worker is
 			// still a backend op even when this host cannot run it. The
 			// capability-filtered listing misclassified those as model ops.
-			if !isBackend && !isAddon {
+			if !isBackend && !isAddon && !isPlugin {
 				backends, _ := gallery.AvailableBackendsUnfiltered(appConfig.BackendGalleries, appConfig.SystemState)
 				for _, b := range backends {
 					backendID := fmt.Sprintf("%s@%s", b.Gallery.Name, b.Name)
@@ -234,6 +237,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			displayName := galleryID
 			if isAddon {
 				displayName = addonID
+			} else if isPlugin {
+				displayName = pluginID
 			} else if strings.Contains(galleryID, "@") {
 				parts := strings.Split(galleryID, "@")
 				if len(parts) > 1 {
@@ -256,6 +261,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"isDeletion":  isDeletion,
 				"isBackend":   isBackend,
 				"isAddon":     isAddon,
+				"isPlugin":    isPlugin,
 				"isQueued":    isQueued,
 				"cancellable": isCancellable,
 				"message":     message,

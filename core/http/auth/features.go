@@ -144,6 +144,9 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/chats/draft/egress", FeatureChats},
 	{"GET", "/api/chats/:id/addons", FeatureChats},
 	{"PUT", "/api/chats/:id/addons", FeatureChats},
+	// The plugin switches of a chat are part of the chat; the route also
+	// needs the plugins feature (routes/plugins.go).
+	{"PUT", "/api/chats/:id/plugins", FeatureChats},
 	{"PUT", "/api/chats/:id/connections", FeatureChats},
 	{"PUT", "/api/chats/:id/builtins", FeatureChats},
 	{"POST", "/api/chats/:id/host-exec/consent", FeatureChats},
@@ -301,6 +304,27 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"DELETE", "/api/motion/sessions/:id", FeatureMotion},
 	{"GET", "/api/motion/sessions/:id/poses", FeatureMotion},
 	{"POST", "/api/motion/sessions/:id/tickets", FeatureMotion},
+	// Plugins compatible with the Claude Code plugin format. Administrator
+	// routes also need the administrator role (routes/plugins.go).
+	{"GET", "/api/plugins/marketplaces", FeaturePlugins},
+	{"POST", "/api/plugins/marketplaces", FeaturePlugins},
+	{"PUT", "/api/plugins/marketplaces/:id", FeaturePlugins},
+	{"DELETE", "/api/plugins/marketplaces/:id", FeaturePlugins},
+	{"POST", "/api/plugins/marketplaces/:id/refresh", FeaturePlugins},
+	{"GET", "/api/plugins/catalog", FeaturePlugins},
+	{"GET", "/api/plugins/catalog/:marketplace/:name", FeaturePlugins},
+	{"POST", "/api/plugins/inspect", FeaturePlugins},
+	{"GET", "/api/plugins/inspect/:token/files/*", FeaturePlugins},
+	{"GET", "/api/plugins/installs", FeaturePlugins},
+	{"POST", "/api/plugins/installs", FeaturePlugins},
+	{"GET", "/api/plugins/installs/:id", FeaturePlugins},
+	{"DELETE", "/api/plugins/installs/:id", FeaturePlugins},
+	{"GET", "/api/plugins/installs/:id/files/*", FeaturePlugins},
+	{"POST", "/api/plugins/installs/:id/update/preview", FeaturePlugins},
+	{"POST", "/api/plugins/installs/:id/update", FeaturePlugins},
+	{"POST", "/api/plugins/installs/:id/rollback", FeaturePlugins},
+	{"GET", "/api/plugins/installs/:id/me", FeaturePlugins},
+	{"PUT", "/api/plugins/installs/:id/me", FeaturePlugins},
 	{"POST", "/api/addons/dispatch", FeatureAddons},
 	{"POST", "/api/addons/relay", FeatureAddons},
 	{"POST", "/api/addons/proposals", FeatureAddons},
@@ -549,6 +573,7 @@ func GeneralFeatureMetas() []FeatureMeta {
 		{FeatureFineTuning, "Fine-Tuning", false, false},
 		{FeatureQuantization, "Quantization", false, false},
 		{Key: FeatureP2PPair, Label: "Pair own devices (P2P)", DefaultValue: false, ConfigurableDefault: true},
+		{FeaturePlugins, "Plugins", true, false},
 	}
 }
 

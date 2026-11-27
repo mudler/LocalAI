@@ -791,6 +791,9 @@ func operationDisplayName(key string) (name, nodeID string) {
 	if id, ok := ParseAddonOpKey(key); ok {
 		return id, ""
 	}
+	if id, ok := ParsePluginOpKey(key); ok {
+		return id, ""
+	}
 	if id, backend, ok := ParseNodeScopedKey(key); ok {
 		nodeID = id
 		name = backend

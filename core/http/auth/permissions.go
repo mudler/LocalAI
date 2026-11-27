@@ -81,6 +81,11 @@ const (
 	// default; an administrator can change the default for every user
 	// (see feature_defaults.go).
 	FeatureP2PPair = "p2p_pair"
+	// FeaturePlugins gates the plugins in the Claude Code plugin format
+	// (/api/plugins): browsing, personal installs and the per-user switch.
+	// Unlike the other general features it is on by default; administrator
+	// rights cover the rest.
+	FeaturePlugins = "plugins"
 
 	// API features (default ON for new users)
 	FeatureChat                = "chat"
@@ -117,8 +122,12 @@ const (
 // AgentFeatures lists agent-related features (default OFF).
 var AgentFeatures = []string{FeatureCollections, FeatureLocalAIAssistant, FeatureAgents, FeatureTriggers, FeatureConnectors, FeatureMCPJobs, FeaturePages}
 
-// GeneralFeatures lists general features (default OFF).
-var GeneralFeatures = []string{FeatureAddons, FeatureFineTuning, FeatureQuantization, FeatureP2PPair}
+// GeneralFeatures lists general features (default OFF, except the ones in
+// defaultOnGeneralFeatures).
+var GeneralFeatures = []string{FeatureAddons, FeatureFineTuning, FeatureQuantization, FeatureP2PPair, FeaturePlugins}
+
+// defaultOnGeneralFeatures are the general features that default to ON.
+var defaultOnGeneralFeatures = []string{FeaturePlugins}
 
 // APIFeatures lists API endpoint features (default ON).
 var APIFeatures = []string{
@@ -140,6 +149,9 @@ var AllFeatures = append(append(append([]string{}, AgentFeatures...), GeneralFea
 var defaultOnFeatures = func() map[string]bool {
 	m := map[string]bool{}
 	for _, f := range APIFeatures {
+		m[f] = true
+	}
+	for _, f := range defaultOnGeneralFeatures {
 		m[f] = true
 	}
 	return m
