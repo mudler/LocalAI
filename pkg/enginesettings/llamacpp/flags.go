@@ -124,7 +124,8 @@ var flags = []es.Flag{
 	{
 		Key: "paged_preempt", Target: es.TargetOption, Path: "options", Option: "paged_preempt",
 		Type: es.TypeBool, Default: "on", Group: GroupServing, LocalAIOnly: true,
-		Doc: "With paged serving: pause the newest request when the KV cache is full and resume it later. Off makes new requests wait instead.",
+		Doc: "With paged serving: pause the request that is cheapest to recompute when the KV cache is full, and resume it later. " +
+			"Keep it on: with it off, a full cache fails every running request.",
 	},
 	{
 		Key: "prefill_budget", Target: es.TargetOption, Path: "options", Option: "prefill_budget",
@@ -142,6 +143,29 @@ var flags = []es.Flag{
 		Key: "kv_output_reserve", Target: es.TargetOption, Path: "options", Option: "kv_output_reserve",
 		Type: es.TypeInt, Min: es.F64(0), Default: "256", Group: GroupServing, LocalAIOnly: true,
 		Doc: "With paged serving: free tokens a request needs beyond its prompt before it starts, capped at its max tokens.",
+	},
+	{
+		Key: "slot_attach", Target: es.TargetOption, Path: "options", Option: "slot_attach",
+		Type: es.TypeBool, Default: "on", Group: GroupServing, LocalAIOnly: true,
+		Doc:           "With paged serving: a request whose prompt starts like one another request holds starts from that request's KV cache instead of reading the prompt again.",
+		OptionAliases: []string{"prefix_attach"},
+	},
+	{
+		Key: "admission_order", Target: es.TargetOption, Path: "options", Option: "admission_order",
+		Type: es.TypeBool, Default: "on", Group: GroupServing, LocalAIOnly: true,
+		Doc: "With paged serving: waiting requests go by priority class, then by the fewest prompt tokens not in a cache, then by arrival. " +
+			"Off serves them first come, first served.",
+		OptionAliases: []string{"paged_order"},
+	},
+	{
+		Key: "prefill_cap", Target: es.TargetOption, Path: "options", Option: "prefill_cap",
+		Type: es.TypeInt, Min: es.F64(0), Default: "512", Group: GroupServing, LocalAIOnly: true,
+		Doc: "With paged serving: the most prompt tokens one request reads per step while other requests read prompts too. 0 turns it off.",
+	},
+	{
+		Key: "lazy_idle_save", Target: es.TargetOption, Path: "options", Option: "lazy_idle_save",
+		Type: es.TypeBool, Default: "off", Group: GroupServing, LocalAIOnly: true,
+		Doc: "With paged serving: idle slots keep their KV cache until the cache needs room, instead of saving it to the RAM prompt cache after each new request.",
 	},
 	{
 		Key: "threads_batch", Target: es.TargetOption, Path: "options", Option: "threads_batch",
@@ -386,6 +410,11 @@ var flags = []es.Flag{
 		CLI: []string{"--spec-type"}, Type: es.TypeString, Default: "none, or draft-simple with a draft model", Group: GroupSpeculative,
 		OptionAliases: []string{"speculative_type"},
 		Doc:           "Kind of speculative decoding, or several comma-separated: draft-simple, draft-mtp, draft-eagle3, ngram-simple, ngram-mod and others.",
+	},
+	{
+		Key: "spec_max_streams", Target: es.TargetOption, Path: "options", Option: "spec_max_streams",
+		Type: es.TypeInt, Min: es.F64(0), Default: "4", Group: GroupSpeculative, LocalAIOnly: true,
+		Doc: "Drafting pauses while more than this many requests generate, and resumes when the count drops by a quarter. 0 never pauses.",
 	},
 	{
 		Key: "spec_n_max", Target: es.TargetOption, Path: "options", Option: "spec_n_max",
