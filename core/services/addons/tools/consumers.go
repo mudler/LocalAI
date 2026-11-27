@@ -164,6 +164,14 @@ var Consumers = []Consumer{
 		Enforcement: "a turn gets the assistant tools only when the chat is flagged, the user is an administrator and the setting is on, checked again on every turn; sub-agents never get them; add-on tools of the chat still come through studio-chats-addons",
 	},
 	{
+		ID:          "studio-plugin-change",
+		Surface:     "the plugin change that the LocalAI Assistant proposes in a chat and its owner confirms on a card: the host runs the plugins tool of the assistant server once, as that owner",
+		Files:       []string{"core/services/studio/pluginchange.go"},
+		Decision:    Reject,
+		Reason:      "it runs one instance management tool of the in-process assistant server, localaitools.ToolPlugins, not an add-on tool; the add-on namespace is not part of that server",
+		Enforcement: "the tool name is the fixed localaitools.ToolPlugins, never taken from the proposal; the content must be one JSON object of the plugins tool arguments for an action that needs a confirmation; the tool runs as the owner of the proposal with the rights of the REST API",
+	},
+	{
 		ID:          "studio-chats-client-tools",
 		Surface:     "the LocalAI client tools that the host runs for a chat's user outside a model turn: the confirmation of a voice profile proposal, which creates the profile and checks its recording",
 		Files:       []string{"core/services/studio/voiceprofilechange.go"},
