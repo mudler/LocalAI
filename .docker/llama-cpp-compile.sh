@@ -46,7 +46,8 @@ LLGUIDANCE="${LLGUIDANCE:-ON}"
 if [ "$LLGUIDANCE" = "ON" ]; then
   export RUSTUP_HOME=/root/.rustup CARGO_HOME=/root/.cargo
   export PATH="$CARGO_HOME/bin:$PATH"
-  if ! rustup toolchain list 2>/dev/null | grep -q "^${RUST_TOOLCHAIN:=1.100.0}"; then
+  RUST_TOOLCHAIN="${RUST_TOOLCHAIN:-1.100.0}"
+  if ! rustup toolchain list 2>/dev/null | grep -q "^${RUST_TOOLCHAIN}"; then
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
       sh -s -- -y --no-modify-path --profile minimal --default-toolchain "$RUST_TOOLCHAIN"
   fi
