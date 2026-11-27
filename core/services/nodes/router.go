@@ -394,10 +394,22 @@ func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode, backend
 	// parallel option is set. parallel is a llama.cpp option string, so it is
 	// also gated by backend: a strict backend (e.g. longcat-video) rejects an
 	// unknown option at LoadModel. The typed NBatch above needs no such gate.
+	//
+	// A hybrid or recurrent model keeps one recurrent state per slot on the
+	// device and up to n_ctx_checkpoints copies of it in host memory, so the
+	// slot count counts the state, and the checkpoints are bounded by the
+	// node's RAM. The state comes from the GGUF header on this host: the
+	// options still carry the local path, staging rewrites it later.
 	if config.UsesLlamaCppServingOptions(backend) {
-		opts.Options = config.EnsureParallelOptionForContext(opts.Options, gpu, int(opts.ContextSize))
+		state := recurrentStateOf(opts.ModelFile)
+		opts.Options = config.EnsureParallelOptionForModel(opts.Options, gpu, int(opts.ContextSize), state)
+		opts.Options = config.EnsureCheckpointOption(opts.Options, state, config.SlotsFromOptions(opts.Options), node.TotalRAM)
 	}
 }
+
+// recurrentStateOf reads the recurrent state of a model file; a var so tests
+// can set it without a GGUF file.
+var recurrentStateOf = config.RecurrentStateForModelFile
 
 // scheduleAndLoad is the shared core for loading a model on a new node.
 // Used by both Route() (for first-time loads) and ScheduleAndLoadModel() (for reconciler scale-ups).

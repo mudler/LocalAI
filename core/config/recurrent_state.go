@@ -172,3 +172,22 @@ func slotsFromOptions(opts []string) int {
 	}
 	return backendDefaultParallel
 }
+
+// SlotsFromOptions is the slot count the llama.cpp backend will use for opts:
+// the parallel option when set, else paged serving's default of 8.
+func SlotsFromOptions(opts []string) int { return slotsFromOptions(opts) }
+
+// RecurrentStateForModelFile returns the per-sequence recurrent state of the
+// GGUF at path (0 for a model without one, or when the header cannot be
+// read). The header comes from the same cache as the model defaults, so a
+// file already seen is not parsed again.
+func RecurrentStateForModelFile(path string) uint64 {
+	if path == "" {
+		return 0
+	}
+	h, err := loadGGUFHeader(path, gguf.ParseGGUFFile)
+	if err != nil {
+		return 0
+	}
+	return h.RecurrentStateBytes
+}

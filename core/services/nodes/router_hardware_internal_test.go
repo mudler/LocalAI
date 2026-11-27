@@ -42,6 +42,30 @@ var _ = Describe("applyNodeHardwareDefaults", func() {
 		Expect(opts.NBatch).To(BeEquivalentTo(int32(1024)))
 	})
 
+	It("counts the recurrent state of a hybrid model on the selected node", func() {
+		saved := recurrentStateOf
+		DeferCleanup(func() { recurrentStateOf = saved })
+		recurrentStateOf = func(path string) uint64 {
+			Expect(path).To(Equal("/models/hybrid.gguf"))
+			return 1200 << 20 // a large hybrid: 1.2 GiB per slot
+		}
+		opts := &pb.ModelOptions{ModelFile: "/models/hybrid.gguf", ContextSize: 4096}
+		applyNodeHardwareDefaults(opts, &BackendNode{GPUComputeCapability: "8.9", TotalVRAM: 16 << 30, TotalRAM: 32 << 30}, "llama-cpp")
+		// 4 slots of state do not fit a quarter of 16 GiB: two do. The checkpoints of
+		// both slots get a quarter of the node's 32 GiB: 8 GiB / (2 x 1.2 GiB) is 3,
+		// raised to the floor of 4.
+		Expect(opts.Options).To(Equal([]string{"parallel:2", "n_ctx_checkpoints:4"}))
+	})
+
+	It("leaves a model without a recurrent state as before", func() {
+		saved := recurrentStateOf
+		DeferCleanup(func() { recurrentStateOf = saved })
+		recurrentStateOf = func(string) uint64 { return 0 }
+		opts := &pb.ModelOptions{ModelFile: "/models/dense.gguf", ContextSize: 4096}
+		applyNodeHardwareDefaults(opts, &BackendNode{GPUComputeCapability: "8.9", TotalVRAM: 16 << 30, TotalRAM: 32 << 30}, "llama-cpp")
+		Expect(opts.Options).To(Equal([]string{"parallel:4"}))
+	})
+
 	It("adds a VRAM-scaled parallel option for the selected node", func() {
 		// frontend may have had no GPU (no parallel option); the node has a big GPU
 		opts := &pb.ModelOptions{NBatch: config.DefaultPhysicalBatch}
