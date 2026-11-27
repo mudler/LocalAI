@@ -2873,6 +2873,11 @@ func (r *NodeRegistry) FindNodesWithFreeSlot(ctx context.Context, modelName stri
 // current_replicas[n,m]). When candidateNodeIDs is empty all healthy backend
 // nodes are considered.
 //
+// The model limit of a node (max_active_backends of its memory policy) caps
+// what it can take. With model swap off the node can take only its free
+// model slots (CountNodeReplicas); with swap on it can unload other models,
+// so it can take up to the limit minus the replicas of this model it holds.
+//
 // The reconciler uses this to bound MinReplicas at what the cluster can
 // actually host, preventing the "scale-up forever" loop from #9XXX where a
 // MinReplicas=2 with one worker × one slot churned the model every 30s.
@@ -2882,24 +2887,40 @@ func (r *NodeRegistry) ClusterCapacityForModel(ctx context.Context, modelName st
 	if len(candidateNodeIDs) > 0 {
 		q = q.Where("id IN ?", candidateNodeIDs)
 	}
-	subq := currentModelRevision(r.db.Model(&NodeModel{})).
-		Select("node_id, COUNT(*) as cnt").
-		Where("node_models.model_name = ? AND node_models.state <> ?", modelName, "unloading").
-		Group("node_id")
-
-	var nodes []struct {
-		MaxReplicasPerModel int
-		Loaded              int
-	}
-	err := q.Select("backend_nodes.max_replicas_per_model AS max_replicas_per_model, COALESCE(rc.cnt, 0) AS loaded").
-		Joins("LEFT JOIN (?) AS rc ON rc.node_id = backend_nodes.id", subq).
-		Scan(&nodes).Error
-	if err != nil {
+	var nodes []BackendNode
+	if err := q.Find(&nodes).Error; err != nil {
 		return 0, fmt.Errorf("computing cluster capacity for %s: %w", modelName, err)
 	}
+	var counts []struct {
+		NodeID string
+		Cnt    int
+	}
+	if err := currentModelRevision(r.db.WithContext(ctx).Model(&NodeModel{})).
+		Select("node_id, COUNT(*) as cnt").
+		Where("node_models.model_name = ? AND node_models.state <> ?", modelName, "unloading").
+		Group("node_id").
+		Scan(&counts).Error; err != nil {
+		return 0, fmt.Errorf("computing cluster capacity for %s: %w", modelName, err)
+	}
+	held := make(map[string]int, len(counts))
+	for _, c := range counts {
+		held[c.NodeID] = c.Cnt
+	}
 	total := 0
-	for _, n := range nodes {
-		free := n.MaxReplicasPerModel - n.Loaded
+	for i := range nodes {
+		n := &nodes[i]
+		free := n.MaxReplicasPerModel - held[n.ID]
+		if pol := r.NodePolicy(n); pol.MaxActiveBackends > 0 && free > 0 {
+			limitFree := pol.MaxActiveBackends - held[n.ID]
+			if !pol.ModelSwap {
+				used, err := r.CountNodeReplicas(ctx, n.ID, modelName)
+				if err != nil {
+					return 0, fmt.Errorf("computing cluster capacity for %s: %w", modelName, err)
+				}
+				limitFree = pol.MaxActiveBackends - used
+			}
+			free = min(free, limitFree)
+		}
 		if free > 0 {
 			total += free
 		}

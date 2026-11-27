@@ -292,6 +292,30 @@ var _ = Describe("Scheduler memory policy", func() {
 		Expect(time.Since(start)).To(BeNumerically("<", 2*time.Second))
 	})
 
+	It("counts no capacity for the reconciler on a node at its model limit with swap off", func() {
+		policy.MaxActiveBackends = 1
+		policy.ModelSwap = false
+		full := register("node-a")
+		loaded(full, "other", time.Hour, 0)
+
+		capacity, err := registry.ClusterCapacityForModel(ctx, model, nil)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(capacity).To(BeZero(), "the node may not unload other for a new replica")
+	})
+
+	It("caps the capacity of a node at its model limit", func() {
+		policy.MaxActiveBackends = 2
+		register("node-a") // empty, 4 replica slots per model
+		b := register("node-b")
+		loaded(b, model, time.Hour, 0)
+
+		capacity, err := registry.ClusterCapacityForModel(ctx, model, nil)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(capacity).To(Equal(2+1), "two models on node-a, one more replica on node-b")
+	})
+
 	It("records the size estimate on the loaded replica", func() {
 		estimate = 2 * gib
 		node := &BackendNode{Name: "node-a", NodeType: NodeTypeBackend, Address: "node-a:50051", MaxReplicasPerModel: 4, TotalVRAM: 48 * gib, AvailableVRAM: 48 * gib}
