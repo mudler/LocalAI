@@ -96,25 +96,31 @@ func (rt *p2pRuntime) revokeDevice(ctx context.Context, dev p2ppair.Device, by s
 		return err
 	}
 	// The row is revoked even when the client key could not be, so the
-	// sessions and the connections go in every case.
-	rt.net.app.deleteDeviceSessions(dev.ID)
+	// sessions and the connections go in every case. A failure to end the
+	// sessions is returned: the caller must not report a clean revoke.
+	serr := rt.net.app.deleteDeviceSessions(dev.ID)
 	if p, perr := p2pnet.DecodePeerID(dev.PeerID); perr == nil {
 		rt.host.Revoke(p)
 		if rt.relays != nil {
 			rt.relays.PeerRemoved(p.String())
 		}
 	}
-	return err
+	return errors.Join(err, serr)
 }
 
-func (a *Application) deleteDeviceSessions(deviceID string) {
+// deleteDeviceSessions ends the web sessions of a device. The sessions are
+// useless once the device is revoked (see deviceSessionCheck), but the rows
+// must go, and a failure is an error of the revoke.
+func (a *Application) deleteDeviceSessions(deviceID string) error {
 	db := a.AuthDB()
 	if db == nil {
-		return
+		return nil
 	}
 	if err := auth.DeleteDeviceSessions(db, deviceID); err != nil {
 		xlog.Warn("P2P: could not end the sessions of a revoked device", "device", deviceID, "error", err)
+		return fmt.Errorf("p2p: the device is revoked but its sessions could not be ended: %w", err)
 	}
+	return nil
 }
 
 // RevokeUserDevices revokes the active sign-in devices of a user, as the
@@ -169,7 +175,9 @@ func (a *Application) RevokeUserDevices(ctx context.Context, userID, by string) 
 			errs = append(errs, err)
 			continue
 		}
-		a.deleteDeviceSessions(d.ID)
+		if err := a.deleteDeviceSessions(d.ID); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if nc := a.p2pBroadcaster(); nc != nil && n > 0 {
 		if err := nc.Publish(messaging.SubjectCacheInvalidateP2PPeers, messaging.CacheInvalidateEvent{Op: "revoke"}); err != nil {

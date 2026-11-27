@@ -423,7 +423,9 @@ not limit normal use. Each request with such a session reads the device row by
 its ID from the shared database, so a revoke takes effect on every frontend at
 once.
 
-Revoking a device ends the sessions it opened. When an administrator disables
+Revoking a device ends the sessions it opened. If the server cannot delete
+those sessions, the revoke answers an error; the device is revoked all the
+same, and its sessions no longer work. When an administrator disables
 or deletes a user, the server revokes the sign-in devices of that user and ends
 their sessions. Every frontend also leaves the sign-in devices of a user who is
 not active out of its allowlist at its next reload. Devices without sign-in (an

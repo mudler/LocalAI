@@ -237,6 +237,35 @@ var _ = Describe("P2P device sign-in", func() {
 		Expect(server.gate.Allowed(h.ID())).To(BeFalse())
 	})
 
+	It("reports a revoke whose sessions could not be ended", func() {
+		a, server := shareServer()
+		signInUser(a, "alice", auth.RoleUser, true)
+		h, c, cred := pairSignIn(server, "alice")
+		Expect(askSession(c, server, cred, false).status).To(Equal(http.StatusOK))
+		devs, err := server.pair.ListDevices(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+
+		// The delete of the sessions fails, as on a lock timeout.
+		Expect(a.AuthDB().Migrator().DropTable(&auth.Session{})).To(Succeed())
+
+		By("failing the admin revoke and the user revoke")
+		Expect(a.P2P().RevokeDevice(context.Background(), devs[0].ID, "root")).ToNot(Succeed())
+		Expect(a.P2PUsers().RevokeMyDevice(context.Background(), "alice", devs[0].ID)).ToNot(Succeed())
+
+		By("still revoking the device and closing its connections")
+		d, err := server.pair.GetDevice(context.Background(), devs[0].ID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(d.Status()).To(Equal(p2ppair.DeviceRevoked))
+		Expect(server.gate.Allowed(h.ID())).To(BeFalse())
+
+		By("failing the revoke of the user's devices too, with or without a running host")
+		pairSignIn(server, "alice")
+		Expect(a.RevokeUserDevices(context.Background(), "alice", "root")).ToNot(Succeed())
+		pairSignIn(server, "alice")
+		a.StopP2PNet()
+		Expect(a.RevokeUserDevices(context.Background(), "alice", "root")).ToNot(Succeed())
+	})
+
 	It("revokes the sign-in devices of a user and ends their sessions", func() {
 		a, server := shareServer()
 		signInUser(a, "alice", auth.RoleUser, true)
