@@ -552,21 +552,18 @@ func (s *Service) VerifyDeviceCredential(ctx context.Context, p peer.ID, credent
 	if p == "" || credential == "" || len(credential) > 128 {
 		return Device{}, ErrCredentialInvalid
 	}
-	devs, err := s.st.ListDevices(ctx)
+	d, err := s.st.GetActiveDeviceByPeer(ctx, p)
+	if errors.Is(err, ErrNotFound) {
+		return Device{}, ErrCredentialInvalid
+	}
 	if err != nil {
 		return Device{}, err
 	}
 	want := hashCredential(credential, s.cfg.HMACSecret)
-	for _, d := range devs {
-		if d.PeerID != p.String() || d.RevokedAt != nil {
-			continue
-		}
-		if !d.SignIn || d.CredentialHash == "" || !codeMatches(d.CredentialHash, want) {
-			return Device{}, ErrCredentialInvalid
-		}
-		return d, nil
+	if !d.SignIn || d.CredentialHash == "" || !codeMatches(d.CredentialHash, want) {
+		return Device{}, ErrCredentialInvalid
 	}
-	return Device{}, ErrCredentialInvalid
+	return d, nil
 }
 
 // Revoke revokes a device and, for a remote device, its client key. The

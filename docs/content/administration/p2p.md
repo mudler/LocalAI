@@ -426,6 +426,9 @@ not limit normal use. Each request with such a session reads the device row by
 its ID from the shared database, so a revoke takes effect on every frontend at
 once.
 
+A device keeps one live session. When it signs in again, the new session
+replaces the earlier ones of that device.
+
 Revoking a device ends the sessions it opened. If the server cannot delete
 those sessions, the revoke answers an error; the device is revoked all the
 same, and its sessions no longer work. When an administrator disables

@@ -237,6 +237,25 @@ var _ = Describe("P2P device sign-in", func() {
 		Expect(server.gate.Allowed(h.ID())).To(BeFalse())
 	})
 
+	It("replaces the session of a device when it signs in again", func() {
+		a, server := shareServer()
+		signInUser(a, "alice", auth.RoleUser, true)
+		_, c, cred := pairSignIn(server, "alice")
+		secret := a.ApplicationConfig().Auth.APIKeyHMACSecret
+		first := askSession(c, server, cred, false)
+		Expect(first.status).To(Equal(http.StatusOK))
+		second := askSession(c, server, cred, false)
+		Expect(second.status).To(Equal(http.StatusOK))
+
+		u, _ := auth.ValidateSession(a.AuthDB(), first.cookie, secret)
+		Expect(u).To(BeNil(), "the first session ends")
+		u, _ = auth.ValidateSession(a.AuthDB(), second.cookie, secret)
+		Expect(u).ToNot(BeNil())
+		var n int64
+		Expect(a.AuthDB().Model(&auth.Session{}).Where("device_id IS NOT NULL").Count(&n).Error).To(Succeed())
+		Expect(n).To(BeEquivalentTo(1))
+	})
+
 	It("leaves no session when the device is revoked during the exchange", func() {
 		a, server := shareServer()
 		signInUser(a, "alice", auth.RoleUser, true)

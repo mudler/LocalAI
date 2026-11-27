@@ -74,6 +74,9 @@ type Store interface {
 
 	// GetDevice returns one device or ErrNotFound.
 	GetDevice(ctx context.Context, id string) (Device, error)
+	// GetActiveDeviceByPeer returns the device of peer p that is not
+	// revoked, or ErrNotFound. A peer has at most one.
+	GetActiveDeviceByPeer(ctx context.Context, p peer.ID) (Device, error)
 	// ListDevices returns all devices, revoked ones included, newest first.
 	ListDevices(ctx context.Context) ([]Device, error)
 	// ListDevicesByOwner returns the devices of one owner, revoked ones

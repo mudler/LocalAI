@@ -336,6 +336,21 @@ func (s *jsonStore) GetDevice(_ context.Context, id string) (Device, error) {
 	return d, nil
 }
 
+func (s *jsonStore) GetActiveDeviceByPeer(_ context.Context, p peer.ID) (Device, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	f, err := s.load()
+	if err != nil {
+		return Device{}, err
+	}
+	for _, d := range f.Devices {
+		if d.PeerID == p.String() && d.RevokedAt == nil {
+			return d, nil
+		}
+	}
+	return Device{}, ErrNotFound
+}
+
 func (s *jsonStore) ListDevices(_ context.Context) ([]Device, error) {
 	return s.listDevices(func(Device) bool { return true })
 }

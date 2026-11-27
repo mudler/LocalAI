@@ -193,6 +193,34 @@ func storeContract(newStore func() p2ppair.Store) {
 		Expect(devs).To(HaveLen(2))
 	})
 
+	It("finds the active device of a peer and no revoked one", func() {
+		Expect(s.CreateInvite(ctx, invite("a", time.Hour), testCode)).To(Succeed())
+		Expect(s.CreateInvite(ctx, invite("b", time.Hour), "BBBBBBBBB2")).To(Succeed())
+		p := newPeer()
+		first := redeemParams(testCode, "d1")
+		first.Peer = p
+		_, _, err := s.Redeem(ctx, first)
+		Expect(err).NotTo(HaveOccurred())
+		d, err := s.GetActiveDeviceByPeer(ctx, p)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(d.ID).To(Equal("d1"))
+
+		_, err = s.RevokeDevice(ctx, "d1", "admin", t0)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = s.GetActiveDeviceByPeer(ctx, p)
+		Expect(err).To(MatchError(p2ppair.ErrNotFound))
+
+		second := redeemParams("BBBBBBBBB2", "d2")
+		second.Peer = p
+		_, _, err = s.Redeem(ctx, second)
+		Expect(err).NotTo(HaveOccurred())
+		d, err = s.GetActiveDeviceByPeer(ctx, p)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(d.ID).To(Equal("d2"))
+		_, err = s.GetActiveDeviceByPeer(ctx, newPeer())
+		Expect(err).To(MatchError(p2ppair.ErrNotFound))
+	})
+
 	It("revokes a device, once, and records who", func() {
 		Expect(s.CreateInvite(ctx, invite("a", time.Hour), testCode)).To(Succeed())
 		_, dev, err := s.Redeem(ctx, redeemParams(testCode, "d1"))

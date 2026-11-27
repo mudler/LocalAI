@@ -39,6 +39,30 @@ var _ = Describe("Device sessions", func() {
 		Expect(*s.DeviceID).To(Equal("dev-1"))
 	})
 
+	It("keeps one live session per device: a new one replaces the earlier ones", func() {
+		first, err := auth.CreateDeviceSession(db, user.ID, "dev-1", secret)
+		Expect(err).ToNot(HaveOccurred())
+		other, err := auth.CreateDeviceSession(db, user.ID, "dev-2", secret)
+		Expect(err).ToNot(HaveOccurred())
+		web, err := auth.CreateSession(db, user.ID, secret)
+		Expect(err).ToNot(HaveOccurred())
+
+		second, err := auth.CreateDeviceSession(db, user.ID, "dev-1", secret)
+		Expect(err).ToNot(HaveOccurred())
+
+		u, _ := auth.ValidateSession(db, first, secret)
+		Expect(u).To(BeNil(), "the earlier session of the device ends")
+		u, _ = auth.ValidateSession(db, second, secret)
+		Expect(u).ToNot(BeNil())
+		u, _ = auth.ValidateSession(db, other, secret)
+		Expect(u).ToNot(BeNil(), "another device keeps its session")
+		u, _ = auth.ValidateSession(db, web, secret)
+		Expect(u).ToNot(BeNil(), "a normal session stays")
+		var n int64
+		Expect(db.Model(&auth.Session{}).Where("device_id = ?", "dev-1").Count(&n).Error).To(Succeed())
+		Expect(n).To(BeEquivalentTo(1))
+	})
+
 	It("leaves the device empty on a normal session", func() {
 		token, err := auth.CreateSession(db, user.ID, secret)
 		Expect(err).ToNot(HaveOccurred())

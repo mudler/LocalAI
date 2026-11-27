@@ -325,6 +325,19 @@ func (s *gormStore) GetDevice(ctx context.Context, id string) (Device, error) {
 	return row.device(), nil
 }
 
+// GetActiveDeviceByPeer uses the partial unique index on the peer ID of the
+// active rows.
+func (s *gormStore) GetActiveDeviceByPeer(ctx context.Context, p peer.ID) (Device, error) {
+	var row deviceRow
+	if err := s.db.WithContext(ctx).Where("peer_id = ? AND revoked_at IS NULL", p.String()).Take(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return Device{}, ErrNotFound
+		}
+		return Device{}, err
+	}
+	return row.device(), nil
+}
+
 func (s *gormStore) ListDevices(ctx context.Context) ([]Device, error) {
 	return s.listDevices(s.db.WithContext(ctx))
 }

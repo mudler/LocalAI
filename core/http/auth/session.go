@@ -28,12 +28,27 @@ func CreateSession(db *gorm.DB, userID, hmacSecret string) (string, error) {
 
 // CreateDeviceSession creates a session for userID that a paired P2P device
 // obtained with its credential. The session carries the device ID, so that
-// DeleteDeviceSessions ends it when the device is revoked.
+// DeleteDeviceSessions ends it when the device is revoked. A device keeps one
+// live session: the new one replaces the earlier sessions of the device, in
+// one transaction, so an app that signs in again and again does not fill the
+// table.
 func CreateDeviceSession(db *gorm.DB, userID, deviceID, hmacSecret string) (string, error) {
 	if deviceID == "" {
 		return "", errors.New("a device session needs a device ID")
 	}
-	return createSession(db, userID, &deviceID, hmacSecret)
+	var token string
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if err := DeleteDeviceSessions(tx, deviceID); err != nil {
+			return fmt.Errorf("failed to end the earlier sessions of the device: %w", err)
+		}
+		var err error
+		token, err = createSession(tx, userID, &deviceID, hmacSecret)
+		return err
+	})
+	if err != nil {
+		return "", err
+	}
+	return token, nil
 }
 
 // DeleteDeviceSessions removes the sessions that a device obtained with its
