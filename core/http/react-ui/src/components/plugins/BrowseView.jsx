@@ -153,14 +153,12 @@ function PluginCard({ item, marketplace, isAdmin, op, preview, model, onInstall,
             <Icon name="store" aria-hidden="true" />
             {marketplace?.default ? t('plugins.browse.curated') : (marketplace?.name || item.marketplace)}
             {item.author && <> · {t('plugins.browse.by', { author: item.author })}</>}
+            {item.version && <> · <span className="pl-version">{t('plugins.facts.versionValue', { version: item.version })}</span></>}
           </p>
         </div>
       </div>
       {item.description && <p className="ad-entry__text">{item.description}</p>}
-      <span className="ui-tags pl-tags">
-        {item.category && <Tag icon="tag">{item.category}</Tag>}
-        {item.version && <Tag mono>{item.version}</Tag>}
-      </span>
+      {item.category && <span className="ui-tags pl-tags"><Tag icon="tag">{item.category}</Tag></span>}
       {known && <ContributionTags model={known.model} hosts={known.hosts} runsCode={runsCode} />}
       {!known && runsCode === true && <span className="ui-tags pl-tags"><CodeMarks /></span>}
       {/* With no install, review or curated claim, the card says that

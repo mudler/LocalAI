@@ -4,7 +4,8 @@
    commit, and code read as text. */
 
 .pl-view { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
-.pl-view > .dk-tabs { align-self: flex-start; }
+/* The view tabs fit their labels, as the add-on page's own tabs do. */
+.pl-view > .ui-tabs { align-self: flex-start; }
 .pl-browse, .pl-markets { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
 .pl-toolbar .ui-search { flex-grow: 1; min-width: min(100%, 240px); }
 /* Widths, not flex bases: the toolbar is a column on a phone. */
@@ -19,6 +20,7 @@
   gap: var(--sp-3);
 }
 .pl-card .ad-card__by { flex-wrap: wrap; }
+.pl-version { font-variant-numeric: tabular-nums; }
 .pl-tags { display: flex; }
 .pl-more { display: flex; justify-content: center; }
 
@@ -110,6 +112,9 @@
 
 @media (max-width: 640px) {
   .pl-cards { grid-template-columns: minmax(0, 1fr); }
-  .pl-select { width: 100%; }
+  /* The two lists share a row on a phone; the search keeps its own. */
+  .ad-toolbar.pl-toolbar { flex-direction: row; flex-wrap: wrap; }
+  .ad-toolbar.pl-toolbar .ui-search { flex: 1 1 100%; }
+  .pl-select { width: calc(50% - var(--sp-3) / 2); }
   .pl-tile .ad-tile__upgrade { padding-left: var(--sp-4); }
 }
