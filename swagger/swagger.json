@@ -4179,6 +4179,100 @@
                 }
             }
         },
+        "/api/auth/admin/features": {
+            "get": {
+                "description": "Returns the agent, general and API features with their labels, the default a user gets when their permissions do not name the feature (an administrator's override, or the built-in default), and a configurable flag that tells whether PUT /api/auth/admin/features/{feature}/default accepts the feature. Also returns the names of the installed models.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "List the features and their defaults (admin)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/admin/features/{feature}/default": {
+            "put": {
+                "description": "Sets the default of a feature for every user whose permissions do not name it. An explicit value in a user's permissions still wins, and administrators always have every feature. Only features reported as configurable by GET /api/auth/admin/features accept a default; others answer 400. The default is stored in the auth database, so every frontend applies it within 30 seconds.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Change the default of a feature (admin)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Feature key, for example p2p_pair",
+                        "name": "feature",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "The new default",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/routes.featureDefaultRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.FeatureMeta"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/backend-logs": {
             "get": {
                 "description": "Returns a sorted list of model IDs that have captured backend process output",
@@ -23808,6 +23902,25 @@
                 }
             }
         },
+        "auth.FeatureMeta": {
+            "type": "object",
+            "properties": {
+                "configurable": {
+                    "description": "ConfigurableDefault marks a feature whose default an administrator may\nchange (PUT /api/auth/admin/features/:feature/default).",
+                    "type": "boolean"
+                },
+                "default": {
+                    "description": "DefaultValue is the value a user gets when their permission map does\nnot name the feature. The metas functions give the built-in default;\nEffectiveFeatureMetas gives the one in force.",
+                    "type": "boolean"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                }
+            }
+        },
         "auth.WebSocketTicketResponse": {
             "type": "object",
             "properties": {
@@ -31066,6 +31179,14 @@
                 "type": "array",
                 "items": {
                     "$ref": "#/definitions/resourcesets.Entry"
+                }
+            }
+        },
+        "routes.featureDefaultRequest": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
                 }
             }
         },

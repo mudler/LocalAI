@@ -789,6 +789,24 @@ definitions:
           $ref: '#/definitions/apps.SlotView'
         type: array
     type: object
+  auth.FeatureMeta:
+    properties:
+      configurable:
+        description: |-
+          ConfigurableDefault marks a feature whose default an administrator may
+          change (PUT /api/auth/admin/features/:feature/default).
+        type: boolean
+      default:
+        description: |-
+          DefaultValue is the value a user gets when their permission map does
+          not name the feature. The metas functions give the built-in default;
+          EffectiveFeatureMetas gives the one in force.
+        type: boolean
+      key:
+        type: string
+      label:
+        type: string
+    type: object
   auth.WebSocketTicketResponse:
     properties:
       expires_at:
@@ -6411,6 +6429,11 @@ definitions:
       items:
         $ref: '#/definitions/resourcesets.Entry'
       type: array
+    type: object
+  routes.featureDefaultRequest:
+    properties:
+      enabled:
+        type: boolean
     type: object
   schema.APIError:
     properties:
@@ -21230,6 +21253,77 @@ paths:
       summary: List model aliases
       tags:
       - models
+  /api/auth/admin/features:
+    get:
+      description: Returns the agent, general and API features with their labels,
+        the default a user gets when their permissions do not name the feature (an
+        administrator's override, or the built-in default), and a configurable flag
+        that tells whether PUT /api/auth/admin/features/{feature}/default accepts
+        the feature. Also returns the names of the installed models.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List the features and their defaults (admin)
+      tags:
+      - auth
+  /api/auth/admin/features/{feature}/default:
+    put:
+      consumes:
+      - application/json
+      description: Sets the default of a feature for every user whose permissions
+        do not name it. An explicit value in a user's permissions still wins, and
+        administrators always have every feature. Only features reported as configurable
+        by GET /api/auth/admin/features accept a default; others answer 400. The default
+        is stored in the auth database, so every frontend applies it within 30 seconds.
+      parameters:
+      - description: Feature key, for example p2p_pair
+        in: path
+        name: feature
+        required: true
+        type: string
+      - description: The new default
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/routes.featureDefaultRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.FeatureMeta'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Change the default of a feature (admin)
+      tags:
+      - auth
   /api/backend-logs:
     get:
       description: Returns a sorted list of model IDs that have captured backend process
