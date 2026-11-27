@@ -363,6 +363,7 @@ func (rt *p2pRuntime) startShare() error {
 	if db := app.AuthDB(); db != nil {
 		pcfg.Issuer = &clientKeyIssuer{app: app}
 		pcfg.OwnerName = app.p2pOwnerName
+		pcfg.DeviceLimit = app.p2pDeviceLimit
 	}
 	if rt.net.relayFactory != nil {
 		rm, err := rt.net.relayFactory(relayManagerConfig{

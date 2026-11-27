@@ -160,6 +160,11 @@ func (s p2pService) MintInvite(ctx context.Context, by string, req p2papi.MintRe
 		return p2papi.MintResult{}, pairErr(err)
 	}
 	rt.reload()
+	return mintResult(m), nil
+}
+
+// mintResult is the answer of a mint.
+func mintResult(m *p2ppair.Minted) p2papi.MintResult {
 	out := p2papi.MintResult{
 		ID: m.Invite.ID, Link: m.Link.String(), Kind: string(m.Invite.Kind), ExpiresAt: m.Invite.ExpiresAt,
 		QR:       m.Invite.Kind == p2ppair.KindDevice || m.Invite.Kind == p2ppair.KindRemote,
@@ -170,7 +175,7 @@ func (s p2pService) MintInvite(ctx context.Context, by string, req p2papi.MintRe
 	for _, w := range m.Warnings {
 		out.Warnings = append(out.Warnings, string(w))
 	}
-	return out, nil
+	return out
 }
 
 func (s p2pService) ListInvites(ctx context.Context) ([]p2papi.InviteView, error) {
@@ -182,6 +187,11 @@ func (s p2pService) ListInvites(ctx context.Context) ([]p2papi.InviteView, error
 	if err != nil {
 		return nil, err
 	}
+	return rt.inviteViews(invs, func(p2ppair.Invite) bool { return true }), nil
+}
+
+// inviteViews converts the invites that keep accepts.
+func (rt *p2pRuntime) inviteViews(invs []p2ppair.Invite, keep func(p2ppair.Invite) bool) []p2papi.InviteView {
 	relays := map[string]string{}
 	for _, r := range rt.relayList() {
 		relays[r.ID] = r.Label
@@ -189,6 +199,9 @@ func (s p2pService) ListInvites(ctx context.Context) ([]p2papi.InviteView, error
 	now := time.Now()
 	out := make([]p2papi.InviteView, 0, len(invs))
 	for _, i := range invs {
+		if !keep(i) {
+			continue
+		}
 		v := p2papi.InviteView{
 			ID: i.ID, Kind: string(i.Kind), Label: i.Label, CreatedAt: i.CreatedAt, CreatedBy: i.CreatedBy,
 			ExpiresAt: i.ExpiresAt, Status: string(i.Status(now)), DeviceID: i.DeviceID,
@@ -208,7 +221,7 @@ func (s p2pService) ListInvites(ctx context.Context) ([]p2papi.InviteView, error
 		}
 		out = append(out, v)
 	}
-	return out, nil
+	return out
 }
 
 func (s p2pService) CancelInvite(ctx context.Context, id string) error {
@@ -223,21 +236,34 @@ func (s p2pService) CancelInvite(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s p2pService) ListDevices(ctx context.Context) ([]p2papi.DeviceView, error) {
+func (s p2pService) ListDevices(ctx context.Context, owner string) ([]p2papi.DeviceView, error) {
 	rt, err := s.share()
 	if err != nil {
 		return nil, err
 	}
-	devs, err := rt.pair.ListDevices(ctx)
+	var devs []p2ppair.Device
+	if owner != "" {
+		devs, err = rt.pair.ListDevicesByOwner(ctx, owner)
+	} else {
+		devs, err = rt.pair.ListDevices(ctx)
+	}
 	if err != nil {
 		return nil, err
 	}
+	return rt.deviceViews(ctx, devs), nil
+}
+
+// deviceViews converts devices, with the path of the connected ones and the
+// names of their owners.
+func (rt *p2pRuntime) deviceViews(ctx context.Context, devs []p2ppair.Device) []p2papi.DeviceView {
 	labels := rt.relayLabels()
+	names := rt.net.app.userNames(ctx, devs)
 	out := make([]p2papi.DeviceView, 0, len(devs))
 	for _, d := range devs {
 		v := p2papi.DeviceView{
 			ID: d.ID, Kind: string(d.Kind), Label: d.Label, PeerID: d.PeerID, CreatedAt: d.CreatedAt,
 			LastSeenAt: d.LastSeenAt, Status: string(d.Status()), Path: p2papi.PathView{Kind: string(p2pnet.PathNone)},
+			OwnerID: d.OwnerID, OwnerName: names[d.OwnerID], SignIn: d.SignIn,
 		}
 		v.Models, v.AllModels = modelGrant(d.Kind, d.Scope)
 		if d.LastPath != "" {
@@ -251,7 +277,7 @@ func (s p2pService) ListDevices(ctx context.Context) ([]p2papi.DeviceView, error
 		}
 		out = append(out, v)
 	}
-	return out, nil
+	return out
 }
 
 // modelGrant reads what a remote invite or device grants: its list, or every

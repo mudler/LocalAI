@@ -17,7 +17,9 @@ type Service interface {
 	MintInvite(ctx context.Context, by string, req MintRequest) (MintResult, error)
 	ListInvites(ctx context.Context) ([]InviteView, error)
 	CancelInvite(ctx context.Context, id string) error
-	ListDevices(ctx context.Context) ([]DeviceView, error)
+	// ListDevices lists the devices; a non-empty owner keeps the devices of
+	// that user only.
+	ListDevices(ctx context.Context, owner string) ([]DeviceView, error)
 	RenameDevice(ctx context.Context, id, label string) error
 	RevokeDevice(ctx context.Context, id, by string) error
 	ListRelays(ctx context.Context) ([]Relay, error)
@@ -29,6 +31,11 @@ type Service interface {
 	RelayLimits(ctx context.Context, id string) (RelayLimitsInfo, error)
 	SetRelayLimits(ctx context.Context, id string, req SetRelayLimitsRequest) (RelayLimitsInfo, error)
 	RegenerateIdentity(ctx context.Context) (Status, error)
+	// UserPairing reads the setting p2p_user_pairing.
+	UserPairing(ctx context.Context) (UserPairingSettings, error)
+	// SetUserPairing changes the setting p2p_user_pairing; by is the
+	// administrator.
+	SetUserPairing(ctx context.Context, by string, req SetUserPairingRequest) (UserPairingSettings, error)
 	// Redeem is served over P2P only; from is the caller's peer ID as the
 	// connection authenticated it.
 	Redeem(ctx context.Context, from string, req RedeemRequest) (RedeemResult, error)
@@ -39,10 +46,86 @@ type Service interface {
 
 // UserService is what the handlers of a signed-in user and of a paired
 // device's sign-in need from the P2P layer.
+//
+// The methods of a user take the ID of the signed-in user. An empty ID, or
+// one with no active user row, gets ErrPairNeedsAccount. An invite or device
+// of another user gets ErrNotFound.
 type UserService interface {
+	// MyPairing says whether the user can pair now, the limits, and how many
+	// devices and pending invites the user has.
+	MyPairing(ctx context.Context, user string) (MyPairing, error)
+	// MintMyInvite mints a sign-in device invite for the user. The policy
+	// of p2p_user_pairing fixes everything but the label and the life.
+	MintMyInvite(ctx context.Context, user string, req MyMintRequest) (MintResult, error)
+	// ListMyInvites lists the pending invites of the user.
+	ListMyInvites(ctx context.Context, user string) ([]InviteView, error)
+	// CancelMyInvite cancels a pending invite of the user.
+	CancelMyInvite(ctx context.Context, user, id string) error
+	// ListMyDevices lists the devices of the user, revoked ones included.
+	ListMyDevices(ctx context.Context, user string) ([]DeviceView, error)
+	// RenameMyDevice renames a device of the user.
+	RenameMyDevice(ctx context.Context, user, id, label string) error
+	// RevokeMyDevice revokes a device of the user.
+	RevokeMyDevice(ctx context.Context, user, id string) error
 	// DeviceSession is served over P2P only: it checks the credential of the
 	// sign-in device of peer from and opens a web session of its owner.
 	DeviceSession(ctx context.Context, from, credential string) (DeviceSession, error)
+}
+
+// MyPairing is the answer of GET /api/p2p/me.
+type MyPairing struct {
+	// Available is true when the server is in mode share, so a device can
+	// pair now.
+	Available bool `json:"available"`
+	// Reason says why not: not_share.
+	Reason string `json:"reason,omitempty"`
+	// Mode is the P2P mode in effect.
+	Mode   string            `json:"mode"`
+	Limits UserPairingLimits `json:"limits"`
+	// Devices is the number of active devices of the user.
+	Devices int `json:"devices"`
+	// PendingInvites is the number of pending invites of the user.
+	PendingInvites int `json:"pending_invites"`
+}
+
+// UserPairingLimits are the limits of one user.
+type UserPairingLimits struct {
+	MaxDevices    int `json:"max_devices"`
+	MaxPending    int `json:"max_pending"`
+	MaxTTLSeconds int `json:"max_ttl_seconds"`
+	// MaxMintsPerHour is fixed in code.
+	MaxMintsPerHour int `json:"max_mints_per_hour"`
+}
+
+// MyMintRequest is the body of POST /api/p2p/me/invites. Any other field is
+// ignored: the kind, the relays and the scope come from the policy.
+type MyMintRequest struct {
+	Label string `json:"label"`
+	// TTLSeconds is the life of the invite: 600 (or max_ttl_seconds, when
+	// shorter) when zero, at most max_ttl_seconds.
+	TTLSeconds int `json:"ttl_seconds"`
+}
+
+// UserPairingSettings is the setting p2p_user_pairing.
+type UserPairingSettings struct {
+	// Relays is auto or none.
+	Relays         string `json:"relays"`
+	AllowOpenRelay bool   `json:"allow_open_relay"`
+	OmitLANAddrs   bool   `json:"omit_lan_addrs"`
+	MaxDevices     int    `json:"max_devices"`
+	MaxPending     int    `json:"max_pending"`
+	MaxTTLSeconds  int    `json:"max_ttl_seconds"`
+}
+
+// SetUserPairingRequest is the body of PUT /api/p2p/user-pairing. A field
+// that is left out stays as it is.
+type SetUserPairingRequest struct {
+	Relays         *string `json:"relays,omitempty"`
+	AllowOpenRelay *bool   `json:"allow_open_relay,omitempty"`
+	OmitLANAddrs   *bool   `json:"omit_lan_addrs,omitempty"`
+	MaxDevices     *int    `json:"max_devices,omitempty"`
+	MaxPending     *int    `json:"max_pending,omitempty"`
+	MaxTTLSeconds  *int    `json:"max_ttl_seconds,omitempty"`
 }
 
 // DeviceSessionRequest is the body of POST /api/p2p/device/session, as JSON
@@ -257,6 +340,13 @@ type DeviceView struct {
 	Models []string `json:"models,omitempty"`
 	// AllModels is true for a remote device that may use every model.
 	AllModels bool `json:"all_models,omitempty"`
+	// OwnerID is the user whose invite paired the device; empty for the
+	// API key of LOCALAI_API_KEY.
+	OwnerID string `json:"owner_id"`
+	// OwnerName is the display name of the owner, when known.
+	OwnerName string `json:"owner_name,omitempty"`
+	// SignIn is true when the device signs in as its owner.
+	SignIn bool `json:"sign_in"`
 }
 
 // PathView says how a device reaches the server.
@@ -445,6 +535,11 @@ var (
 	// for a wrong credential, a device that is not an active sign-in device
 	// of the peer, an owner who is not active and an owner without p2p_pair.
 	ErrSignInRefused = errors.New("this device cannot sign in")
+	// ErrLimitReached: 429. Wrap it with the limit that was reached.
+	ErrLimitReached = errors.New("limit reached")
+	// ErrPairNeedsAccount: 409. A device paired by a user signs in as that
+	// user, and the caller has no user account.
+	ErrPairNeedsAccount = errors.New("pairing your own device needs a signed-in user account, because the device signs in as that account. The API key set with LOCALAI_API_KEY has no account: sign in with a user account")
 	// ErrNeedsAccount: 409. The key of a remote belongs to the user account
 	// that shares, and the caller has none: it signed in with the API key of
 	// LOCALAI_API_KEY.

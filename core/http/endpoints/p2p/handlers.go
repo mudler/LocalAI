@@ -58,6 +58,10 @@ func fail(c echo.Context, err error) error {
 		code, msg = http.StatusBadRequest, err.Error()
 	case errors.Is(err, ErrConflict):
 		code, msg = http.StatusConflict, err.Error()
+	case errors.Is(err, ErrLimitReached):
+		code, msg, typ = http.StatusTooManyRequests, err.Error(), "limit_reached"
+	case errors.Is(err, ErrPairNeedsAccount):
+		code, msg, typ = http.StatusConflict, ErrPairNeedsAccount.Error(), "needs_account"
 	case errors.Is(err, ErrNeedsAccount):
 		// The type lets a client tell this refusal from a wrong mode.
 		code, msg, typ = http.StatusConflict, ErrNeedsAccount.Error(), "needs_account"
@@ -172,15 +176,16 @@ func CancelInviteEndpoint(svc Service) echo.HandlerFunc {
 // ListDevicesEndpoint lists the paired devices.
 //
 //	@Summary	List P2P devices
-//	@Description	Lists the paired devices, revoked ones included, with how each one reaches the server now (path kind direct, hole_punched or relayed, the relay and its limits). Needs P2P mode share. Admin only.
+//	@Description	Lists the paired devices, revoked ones included, with how each one reaches the server now (path kind direct, hole_punched or relayed, the relay and its limits), the owner (owner_id, owner_name) and whether the device signs in as its owner (sign_in). owner keeps the devices of one user. Needs P2P mode share. Admin only.
 //	@Tags		p2p
 //	@Produce	json
+//	@Param		owner	query		string	false	"Keep the devices of this user ID"
 //	@Success	200	{object}	DeviceList
 //	@Failure	409	{object}	schema.ErrorResponse
 //	@Router		/api/p2p/devices [get]
 func ListDevicesEndpoint(svc Service) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		devs, err := svc.ListDevices(c.Request().Context())
+		devs, err := svc.ListDevices(c.Request().Context(), strings.TrimSpace(c.QueryParam("owner")))
 		if err != nil {
 			return fail(c, err)
 		}

@@ -29,6 +29,11 @@ type fakeService struct {
 	regen    int
 	limits   SetRelayLimitsRequest
 	session  [2]string
+	owner    string
+	user     string
+	myMint   MyMintRequest
+	myID     string
+	setPair  SetUserPairingRequest
 }
 
 func (f *fakeService) Status(context.Context) (Status, error) {
@@ -42,8 +47,44 @@ func (f *fakeService) ListInvites(context.Context) ([]InviteView, error) {
 	return []InviteView{{ID: "inv", Status: "pending"}}, f.err
 }
 func (f *fakeService) CancelInvite(context.Context, string) error { return f.err }
-func (f *fakeService) ListDevices(context.Context) ([]DeviceView, error) {
-	return []DeviceView{{ID: "dev", Status: "active", Path: PathView{Kind: "direct"}}}, f.err
+func (f *fakeService) ListDevices(_ context.Context, owner string) ([]DeviceView, error) {
+	f.owner = owner
+	return []DeviceView{{ID: "dev", Status: "active", Path: PathView{Kind: "direct"}, OwnerID: "alice", OwnerName: "Alice", SignIn: true}}, f.err
+}
+func (f *fakeService) UserPairing(context.Context) (UserPairingSettings, error) {
+	return UserPairingSettings{Relays: "auto", MaxDevices: 5, MaxPending: 2, MaxTTLSeconds: 3600}, f.err
+}
+func (f *fakeService) SetUserPairing(_ context.Context, by string, req SetUserPairingRequest) (UserPairingSettings, error) {
+	f.user, f.setPair = by, req
+	return UserPairingSettings{Relays: "none", MaxDevices: *req.MaxDevices, MaxPending: 2, MaxTTLSeconds: 3600}, f.err
+}
+func (f *fakeService) MyPairing(_ context.Context, user string) (MyPairing, error) {
+	f.user = user
+	return MyPairing{Available: true, Mode: "share", Limits: UserPairingLimits{MaxDevices: 5}}, f.err
+}
+func (f *fakeService) MintMyInvite(_ context.Context, user string, req MyMintRequest) (MintResult, error) {
+	f.user, f.myMint = user, req
+	return MintResult{ID: "inv", Link: "localai://pair?v=1", Kind: "device"}, f.err
+}
+func (f *fakeService) ListMyInvites(_ context.Context, user string) ([]InviteView, error) {
+	f.user = user
+	return []InviteView{{ID: "inv", Status: "pending"}}, f.err
+}
+func (f *fakeService) CancelMyInvite(_ context.Context, user, id string) error {
+	f.user, f.myID = user, id
+	return f.err
+}
+func (f *fakeService) ListMyDevices(_ context.Context, user string) ([]DeviceView, error) {
+	f.user = user
+	return []DeviceView{{ID: "dev", Status: "active"}}, f.err
+}
+func (f *fakeService) RenameMyDevice(_ context.Context, user, id, label string) error {
+	f.user, f.myID, f.renamed = user, id, [2]string{id, label}
+	return f.err
+}
+func (f *fakeService) RevokeMyDevice(_ context.Context, user, id string) error {
+	f.user, f.myID = user, id
+	return f.err
 }
 func (f *fakeService) RenameDevice(_ context.Context, id, label string) error {
 	f.renamed = [2]string{id, label}
@@ -367,6 +408,81 @@ var _ = Describe("P2P handlers", func() {
 			svc.err = ErrRateLimited
 			rec := call(DeviceSessionEndpoint(svc), http.MethodPost, `{"credential":"c"}`, overP2P)
 			Expect(rec.Code).To(Equal(http.StatusTooManyRequests))
+		})
+	})
+
+	Describe("devices of an owner", func() {
+		It("passes the owner filter and shows the owner fields", func() {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/?owner=%20alice%20", nil)
+			rec := httptest.NewRecorder()
+			Expect(ListDevicesEndpoint(svc)(e.NewContext(req, rec))).To(Succeed())
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(svc.owner).To(Equal("alice"))
+			Expect(rec.Body.String()).To(ContainSubstring(`"owner_id":"alice"`))
+			Expect(rec.Body.String()).To(ContainSubstring(`"owner_name":"Alice"`))
+			Expect(rec.Body.String()).To(ContainSubstring(`"sign_in":true`))
+		})
+	})
+
+	Describe("user pairing setting", func() {
+		It("reads it", func() {
+			rec := call(UserPairingEndpoint(svc), http.MethodGet, "", nil)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(rec.Body.String()).To(ContainSubstring(`"max_devices":5`))
+		})
+
+		It("passes only the fields that were given", func() {
+			rec := call(SetUserPairingEndpoint(svc), http.MethodPut, `{"max_devices":3}`, nil)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(svc.setPair.MaxDevices).ToNot(BeNil())
+			Expect(*svc.setPair.MaxDevices).To(Equal(3))
+			Expect(svc.setPair.Relays).To(BeNil())
+			Expect(svc.setPair.MaxPending).To(BeNil())
+		})
+
+		It("answers 400 for a value out of range", func() {
+			svc.err = fmt.Errorf("%w: max_devices must be between 1 and 100", ErrInvalid)
+			rec := call(SetUserPairingEndpoint(svc), http.MethodPut, `{"max_devices":0}`, nil)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		})
+	})
+
+	Describe("routes of a user", func() {
+		It("reads only the label and the life of an invite", func() {
+			rec := call(MintMyInviteEndpoint(svc), http.MethodPost, `{"label":" phone ","ttl_seconds":600,"kind":"remote","relays":["r1"],"models":["m"],"all_models":true,"sign_in":false}`, nil)
+			Expect(rec.Code).To(Equal(http.StatusCreated))
+			Expect(svc.myMint).To(Equal(MyMintRequest{Label: "phone", TTLSeconds: 600}))
+			Expect(rec.Header().Get("Cache-Control")).To(Equal("no-store"))
+		})
+
+		It("serves the other routes", func() {
+			Expect(call(MyPairingEndpoint(svc), http.MethodGet, "", nil).Code).To(Equal(http.StatusOK))
+			Expect(call(ListMyInvitesEndpoint(svc), http.MethodGet, "", nil).Code).To(Equal(http.StatusOK))
+			Expect(call(CancelMyInviteEndpoint(svc), http.MethodDelete, "", nil, "id", "inv").Code).To(Equal(http.StatusOK))
+			Expect(svc.myID).To(Equal("inv"))
+			Expect(call(ListMyDevicesEndpoint(svc), http.MethodGet, "", nil).Code).To(Equal(http.StatusOK))
+			Expect(call(RenameMyDeviceEndpoint(svc), http.MethodPatch, `{"label":" tablet "}`, nil, "id", "dev").Code).To(Equal(http.StatusOK))
+			Expect(svc.renamed).To(Equal([2]string{"dev", "tablet"}))
+			Expect(call(RevokeMyDeviceEndpoint(svc), http.MethodDelete, "", nil, "id", "dev").Code).To(Equal(http.StatusOK))
+		})
+
+		It("maps a limit to 429 and a missing account to 409 needs_account", func() {
+			svc.err = fmt.Errorf("%w: you have 2 pending invites", ErrLimitReached)
+			rec := call(MintMyInviteEndpoint(svc), http.MethodPost, `{}`, nil)
+			Expect(rec.Code).To(Equal(http.StatusTooManyRequests))
+			Expect(errorOf(rec)).To(ContainSubstring("2 pending invites"))
+
+			svc.err = ErrPairNeedsAccount
+			rec = call(MyPairingEndpoint(svc), http.MethodGet, "", nil)
+			Expect(rec.Code).To(Equal(http.StatusConflict))
+			Expect(rec.Body.String()).To(ContainSubstring(`"type":"needs_account"`))
+		})
+
+		It("answers 404 for an invite or device of another user", func() {
+			svc.err = ErrNotFound
+			Expect(call(CancelMyInviteEndpoint(svc), http.MethodDelete, "", nil, "id", "x").Code).To(Equal(http.StatusNotFound))
+			Expect(call(RevokeMyDeviceEndpoint(svc), http.MethodDelete, "", nil, "id", "x").Code).To(Equal(http.StatusNotFound))
 		})
 	})
 })

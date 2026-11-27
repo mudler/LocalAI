@@ -127,7 +127,7 @@ var _ = Describe("P2P layer in mode share", func() {
 		Expect(body).To(Equal("main"))
 
 		By("listing the device with its path")
-		devs, err := svc.ListDevices(ctx)
+		devs, err := svc.ListDevices(ctx, "")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(devs).To(HaveLen(1))
 		Expect(devs[0].Online).To(BeTrue())
@@ -261,7 +261,7 @@ var _ = Describe("P2P layer in mode share", func() {
 		Expect(key.Models).To(BeEmpty())
 		Expect(key.AllowsModel("added-later")).To(BeTrue())
 
-		devs, err := svc.ListDevices(ctx)
+		devs, err := svc.ListDevices(ctx, "")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(svc.RevokeDevice(ctx, devs[0].ID, owner.ID)).To(Succeed())
 		Expect(auth.ClientKeyActive(a.AuthDB(), keyID, owner.ID)).To(BeFalse())
@@ -345,7 +345,7 @@ var _ = Describe("P2P layer in mode share", func() {
 		Expect(byID[dev.ID].Models).To(BeEmpty())
 
 		By("listing the device of the redeemed invite with the same grant")
-		devs, err := svc.ListDevices(ctx)
+		devs, err := svc.ListDevices(ctx, "")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(devs).To(HaveLen(1))
 		Expect(devs[0].AllModels).To(BeTrue())
@@ -509,7 +509,7 @@ var _ = Describe("P2P layer with a relay manager", func() {
 		added, _ := relays.seen()
 		Expect(added).To(Equal([]string{h.ID().String()}))
 
-		devs, err := a.P2P().ListDevices(ctx)
+		devs, err := a.P2P().ListDevices(ctx, "")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(a.P2P().RevokeDevice(ctx, devs[0].ID, "admin")).To(Succeed())
 		_, removed := relays.seen()

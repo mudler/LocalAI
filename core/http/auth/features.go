@@ -37,6 +37,15 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/v1/audio/classification", FeatureClientInference},
 	{"GET", "/v1/realtime", FeatureClientInference},
 	{"GET", "/v1/models", FeatureClientInference},
+	// A user pairs their own devices over P2P. These are the only P2P routes
+	// that are not for administrators. No client row: a client key is refused.
+	{"GET", "/api/p2p/me", FeatureP2PPair},
+	{"POST", "/api/p2p/me/invites", FeatureP2PPair},
+	{"GET", "/api/p2p/me/invites", FeatureP2PPair},
+	{"DELETE", "/api/p2p/me/invites/:id", FeatureP2PPair},
+	{"GET", "/api/p2p/me/devices", FeatureP2PPair},
+	{"PATCH", "/api/p2p/me/devices/:id", FeatureP2PPair},
+	{"DELETE", "/api/p2p/me/devices/:id", FeatureP2PPair},
 	{"POST", "/api/chats", FeatureChats},
 	{"GET", "/api/chats", FeatureChats},
 	{"GET", "/api/chats/:id", FeatureChats},

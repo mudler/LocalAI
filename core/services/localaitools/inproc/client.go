@@ -1662,7 +1662,7 @@ func (c *Client) ListP2PDevices(ctx context.Context) ([]localaitools.P2PDeviceIn
 	if c.P2P == nil {
 		return nil, errNoP2P
 	}
-	devs, err := c.P2P.ListDevices(ctx)
+	devs, err := c.P2P.ListDevices(ctx, "")
 	if err != nil {
 		return nil, err
 	}
@@ -1671,7 +1671,7 @@ func (c *Client) ListP2PDevices(ctx context.Context) ([]localaitools.P2PDeviceIn
 		out = append(out, localaitools.P2PDeviceInfo{
 			ID: d.ID, Kind: d.Kind, Label: d.Label, PeerID: d.PeerID, Status: d.Status, Online: d.Online,
 			Path: d.Path.Kind, RelayLabel: d.Path.RelayLabel, LastSeenAt: d.LastSeenAt,
-			Models: d.Models, AllModels: d.AllModels,
+			Models: d.Models, AllModels: d.AllModels, OwnerName: d.OwnerName, SignIn: d.SignIn,
 		})
 	}
 	return out, nil
@@ -1734,6 +1734,42 @@ func (c *Client) SetP2PRelayLimits(ctx context.Context, id string, req localaito
 		return nil, err
 	}
 	return relayLimitsInfo(info), nil
+}
+
+func (c *Client) GetP2PUserPairing(ctx context.Context) (*localaitools.P2PUserPairingInfo, error) {
+	if c.P2P == nil {
+		return nil, errNoP2P
+	}
+	st, err := c.P2P.UserPairing(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return userPairingInfo(st), nil
+}
+
+func (c *Client) SetP2PUserPairing(ctx context.Context, req localaitools.SetP2PUserPairingRequest) (*localaitools.P2PUserPairingInfo, error) {
+	if c.P2P == nil {
+		return nil, errNoP2P
+	}
+	by := ""
+	if u := localaitools.UserFromContext(ctx); u != nil {
+		by = u.ID
+	}
+	st, err := c.P2P.SetUserPairing(ctx, by, p2papi.SetUserPairingRequest{
+		Relays: req.Relays, AllowOpenRelay: req.AllowOpenRelay, OmitLANAddrs: req.OmitLANAddrs,
+		MaxDevices: req.MaxDevices, MaxPending: req.MaxPending, MaxTTLSeconds: req.MaxTTLSeconds,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return userPairingInfo(st), nil
+}
+
+func userPairingInfo(s p2papi.UserPairingSettings) *localaitools.P2PUserPairingInfo {
+	return &localaitools.P2PUserPairingInfo{
+		Relays: s.Relays, AllowOpenRelay: s.AllowOpenRelay, OmitLANAddrs: s.OmitLANAddrs,
+		MaxDevices: s.MaxDevices, MaxPending: s.MaxPending, MaxTTLSeconds: s.MaxTTLSeconds,
+	}
 }
 
 func relayLimitsInfo(i p2papi.RelayLimitsInfo) *localaitools.P2PRelayLimitsInfo {
