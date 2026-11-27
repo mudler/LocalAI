@@ -200,7 +200,7 @@ function ChatPage() {
   const incognitoLevel = activeId ? (activeChat?.incognito || incognitoChatLevel(activeId)) : incognitoDraft
   const incognitoBlocked = incognitoBlocks(incognitoLevel)
   const composer = useChatComposer({
-    chatId: activeId, userId: user?.id, activeChat, filesOn: chat.files.on && !incognitoBlocked.attach, canAgents,
+    chatId: activeId, userId: user?.id, activeChat, filesOn: chat.files.on && !incognitoBlocked.attach, pluginsOn: chat.files.on, canAgents,
     initialModel: searchParams.get('model') || '', initialAgent: location.state?.agentId || '',
   })
   const { drafts, draftModel, agentId, pickedAgent, effectiveModel, switches } = composer

@@ -20,15 +20,19 @@ const PLUGIN_SKILL = {
   plugin: 'review@localai', plugin_title: 'review', plugin_install: 'in-1', argument_hint: '<file>', enabled: true,
 }
 
-export async function openPluginChat(page) {
+// incognito: the level of an incognito chat, or ''. The API records the
+// incognito marker of each plugin and message request.
+export async function openPluginChat(page, { incognito = '' } = {}) {
   await page.addInitScript(() => {
     window.EventSource = class { constructor() { setTimeout(() => this.onopen && this.onopen(), 0) } addEventListener() {} close() {} }
   })
   await mockChat(page)
-  const api = { off: [], puts: [], sent: [], messages: [{ seq: 1, turn: 1, role: 'user', text: 'hello', at: AT }] }
-  await page.route('**/api/plugins/installs', (route) => route.fulfill({ json: { installs: INSTALLS } }))
-  await page.route('**/api/plugins/installs/in-1', (route) => route.fulfill({ json: { ...INSTALLS[0], model: MODEL, files: [], codeReasons: [], codeFiles: [], skipped: [] } }))
+  const api = { off: [], puts: [], sent: [], markers: [], messages: [{ seq: 1, turn: 1, role: 'user', text: 'hello', at: AT }] }
+  const mark = (route, what) => api.markers.push([what, route.request().headers()['x-localai-incognito'] || ''])
+  await page.route('**/api/plugins/installs', (route) => { mark(route, 'installs'); return route.fulfill({ json: { installs: INSTALLS } }) })
+  await page.route('**/api/plugins/installs/in-1', (route) => { mark(route, 'install'); return route.fulfill({ json: { ...INSTALLS[0], model: MODEL, files: [], codeReasons: [], codeFiles: [], skipped: [] } }) })
   await page.route('**/api/chats/c1/plugins', (route) => {
+    mark(route, 'switch')
     const body = route.request().postDataJSON()
     api.puts.push(body)
     api.off = body.off
@@ -36,6 +40,7 @@ export async function openPluginChat(page) {
   })
   await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, (route) => {
     if (route.request().method() === 'POST') {
+      mark(route, 'message')
       const body = route.request().postDataJSON()
       api.sent.push(body)
       api.messages.push({ seq: api.messages.length + 1, turn: 2, role: 'user', text: body.text, at: AT, invoked: { kind: body.skill === 'review:pr' ? 'command' : 'skill', name: body.skill } })
@@ -50,7 +55,7 @@ export async function openPluginChat(page) {
   } }))
   await page.route('**/api/chats/c1/addons', (route) => route.fulfill({ json: { addons: [], commands: 'none' } }))
   await page.route('**/api/chats/agents', (route) => route.fulfill({ json: { agents: [] } }))
-  const detail = { id: 'c1', title: 'Review', model: 'qwen3-8b', kind: 'chat', created: AT, updated: AT, running: false, last_turn: 'done', pending: [], plugins_off: [] }
+  const detail = { id: 'c1', title: 'Review', model: 'qwen3-8b', kind: 'chat', created: AT, updated: AT, running: false, last_turn: 'done', pending: [], plugins_off: [], ...(incognito ? { incognito } : {}) }
   await page.route('**/api/chats/c1', (route) => route.fulfill({ json: detail }))
   await page.route(/\/api\/chats(\?.*)?$/, (route) => route.fulfill({ json: { conversations: [{ ...detail, pending: undefined }], persistent: true, files: true } }))
   await page.goto('/app/chats/c1')

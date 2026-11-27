@@ -23,7 +23,10 @@ import { useModels } from './useModels'
 //   initialModel, initialAgent   the model and the agent a new chat starts on
 // projectId (setProjectId) is the project the new chat starts in; '' is none.
 // pulledDraft (setPulledDraft) are the refs of shared projects it pulls in.
-export function useChatComposer({ chatId = null, draftKey = '', userId, activeChat = null, filesOn = true, canAgents = false, initialModel = '', initialAgent = '' }) {
+// pluginsOn: the files of the chats work, so the shared plugin packages can be
+// read. A zero-retention chat takes no attachment (filesOn is false) but its
+// plugins still contribute, so it passes pluginsOn on its own.
+export function useChatComposer({ chatId = null, draftKey = '', userId, activeChat = null, filesOn = true, pluginsOn = filesOn, canAgents = false, initialModel = '', initialAgent = '' }) {
   const { user, sessionEpoch, hasFeature } = useAuth()
   const actorSession = JSON.stringify([user?.id ?? userId ?? null, sessionEpoch])
   // The id the draft is kept under (useChatDrafts): the chat, or draftKey.
@@ -53,7 +56,7 @@ export function useChatComposer({ chatId = null, draftKey = '', userId, activeCh
   const attached = useProjectAttached(chatId ? activeChat?.project_id : projectId)
   const switches = useChatSwitches(chatId, filesOn, chatId ? null : { model: effectiveModel, agentId }, actorSession, attached)
   // The plugins of the chat with the chat's switch, and their / commands.
-  const plugins = useChatPlugins({ chatId, activeChat, agent: pickedAgent || null, enabled: filesOn && Boolean(hasFeature?.('plugins')), onChanged: switches.reloadSkills })
+  const plugins = useChatPlugins({ chatId, activeChat, agent: pickedAgent || null, enabled: pluginsOn && Boolean(hasFeature?.('plugins')), onChanged: switches.reloadSkills })
 
   // Files go to the server with the message that starts a turn and are saved
   // in the chat's folder of the workspace.

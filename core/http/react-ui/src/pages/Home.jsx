@@ -139,7 +139,7 @@ export default function Home() {
   // The composer is the chat page's (useChatComposer): the draft is Home's,
   // the switches are a draft that goes with the new chat.
   const composer = useChatComposer({
-    draftKey: HOME_DRAFT, userId: user?.id, filesOn: chatServer.files && incognito !== ZERO_RETENTION, canAgents: hasFeature('agents'),
+    draftKey: HOME_DRAFT, userId: user?.id, filesOn: chatServer.files && incognito !== ZERO_RETENTION, pluginsOn: chatServer.files, canAgents: hasFeature('agents'),
     initialModel: searchParams.get('model') || '',
   })
   // The sandbox profile and the network of the new chat: picked here, saved

@@ -72,4 +72,29 @@ test.describe('Plugins in a chat', () => {
     await expect(pane.getByTestId('mcp-details-remove')).toHaveCount(0)
     await expect(pane.getByTestId('mcp-details-plugin-link')).toHaveAttribute('href', /\/app\/addons\?tab=plugins&view=installed&install=in-1$/)
   })
+
+  test('an incognito chat keeps its plugin commands and connectors, and every plugin request carries the marker', async ({ page }) => {
+    const api = await open(page, { incognito: 'zero-retention' })
+    // The connector of the plugin is in the Tools menu, with its switch.
+    await page.getByTestId('chat-tools-button').click()
+    const group = page.getByTestId('chat-tools-group-plugins')
+    await expect(group).toContainText('review-search')
+    await group.getByRole('switch', { name: 'review', exact: true }).click()
+    await expect.poll(() => api.puts).toEqual([{ off: ['in-1'] }])
+    await group.getByRole('switch', { name: 'review', exact: true }).click()
+    await expect.poll(() => api.puts.at(-1)).toEqual({ off: [] })
+    await page.keyboard.press('Escape')
+    // The command completes and goes as the skill of the message.
+    await box(page).fill('/review:p')
+    await page.getByTestId('home-slash-plugin-review:pr').click()
+    await box(page).pressSequentially('7')
+    await box(page).press('Enter')
+    await expect.poll(() => api.sent.length).toBe(1)
+    expect(api.sent[0]).toEqual({ text: '7', skill: 'review:pr' })
+    // The requests of the open chat carry the marker: its plugin switch and
+    // its messages.
+    const unmarked = api.markers.filter(([what, level]) => ['switch', 'message'].includes(what) && level !== 'zero-retention')
+    expect(unmarked).toEqual([])
+    expect(api.markers.some(([what]) => what === 'switch')).toBe(true)
+  })
 })
