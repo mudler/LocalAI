@@ -182,6 +182,62 @@ var _ = Describe("Scheduler memory policy", func() {
 		Expect(replicasOf("resident")).To(BeNumerically("==", 1))
 	})
 
+	It("counts the cold load of another model on the node against its limit", func() {
+		policy.MaxActiveBackends = 2
+		a := register("node-a")
+		loaded(a, "resident", time.Hour, 0)
+		// Another frontend claimed a load of a second model on the node. It
+		// has no replica row until staging, but it takes a model slot.
+		_, claimed, err := registry.ClaimLoadJobOn(ctx, "other-cold", a.ID, "other-frontend")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(claimed).To(BeTrue())
+
+		_, err = newRouter().ScheduleAndLoadModel(ctx, model, nil)
+
+		if err != nil {
+			Expect(err).To(MatchError(ErrNoAvailableNodes))
+			Expect(replicasOf(model)).To(BeZero())
+		} else {
+			Expect(replicasOf("resident")).To(BeZero(), "the node holds the resident, the cold load and the new model")
+		}
+	})
+
+	It("keeps two concurrent cold loads within the limit of a node", func() {
+		policy.MaxActiveBackends = 2
+		a := register("node-a")
+		loaded(a, "resident", time.Hour, 0)
+		for _, m := range []string{"cold-1", "cold-2"} {
+			blob, err := proto.Marshal(&pb.ModelOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(registry.UpsertModelLoadInfo(ctx, m, "llama-cpp", blob)).To(Succeed())
+		}
+		r := newRouter()
+
+		// Both loads are placed and claimed before either makes room, as on
+		// two frontends that pick the node at the same time.
+		var placed []*replicaPlacement
+		for _, m := range []string{"cold-1", "cold-2"} {
+			p, err := r.placeNewReplica(ctx, m, &pb.ModelOptions{}, nil, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(p.node.ID).To(Equal(a.ID))
+			_, claimed, err := registry.ClaimLoadJobOn(ctx, m, p.node.ID, "frontend-"+m)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(claimed).To(BeTrue())
+			placed = append(placed, p)
+		}
+		proceeded := 0
+		for i, m := range []string{"cold-1", "cold-2"} {
+			if err := r.makeRoom(ctx, m, placed[i]); err != nil {
+				Expect(err).To(MatchError(ErrNoAvailableNodes))
+				continue
+			}
+			proceeded++
+		}
+
+		Expect(replicasOf("resident")+int64(proceeded)).To(BeNumerically("<=", 2),
+			"resident %d, loads that proceeded %d", replicasOf("resident"), proceeded)
+	})
+
 	It("records the size estimate on the loaded replica", func() {
 		estimate = 2 * gib
 		node := &BackendNode{Name: "node-a", NodeType: NodeTypeBackend, Address: "node-a:50051", MaxReplicasPerModel: 4, TotalVRAM: 48 * gib, AvailableVRAM: 48 * gib}

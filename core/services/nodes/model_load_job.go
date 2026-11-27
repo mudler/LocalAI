@@ -938,6 +938,20 @@ func (r *NodeRegistry) CountLiveLoadJobs(ctx context.Context, trackingKey string
 	return len(jobs), nil
 }
 
+// countUnstagedClaimsOnNode counts the live loads claimed on nodeID, of
+// models other than exceptModel, that have no replica row yet (pending or
+// installing, lease not expired). The model limit counts them as taken slots.
+func (r *NodeRegistry) countUnstagedClaimsOnNode(ctx context.Context, nodeID, exceptModel string) (int, error) {
+	var jobs []ModelLoadJob
+	if err := r.db.WithContext(ctx).
+		Where("node_id = ? AND tracking_key <> ? AND state IN ? AND lease_until IS NOT NULL AND lease_until > ?",
+			nodeID, exceptModel, []string{LoadJobStatePending, LoadJobStateInstalling}, r.dbNow()).
+		Find(&jobs).Error; err != nil {
+		return 0, fmt.Errorf("counting the load claims on node: %w", err)
+	}
+	return len(jobs), nil
+}
+
 // ListLoadJobsOnNode returns the jobs placed on nodeID.
 func (r *NodeRegistry) ListLoadJobsOnNode(ctx context.Context, nodeID string) ([]ModelLoadJob, error) {
 	var jobs []ModelLoadJob

@@ -127,10 +127,10 @@ func (r *SmartRouter) candidateNodes(ctx context.Context, candidates []string) (
 	return out, nil
 }
 
-// modelCounter counts the replicas on a node that hold a model slot: loaded,
-// loading and staging. The node registry implements it.
+// modelCounter counts the model slots taken on a node (see
+// NodeRegistry.CountNodeReplicas). The node registry implements it.
 type modelCounter interface {
-	CountNodeReplicas(ctx context.Context, nodeID string) (int, error)
+	CountNodeReplicas(ctx context.Context, nodeID, forModel string) (int, error)
 }
 
 // narrowByModelLimit applies the per-node model limit (max_active_backends)
@@ -156,7 +156,7 @@ func (r *SmartRouter) narrowByModelLimit(ctx context.Context, modelID string, ca
 			continue
 		}
 		limited = true
-		n, err := counter.CountNodeReplicas(ctx, nodes[i].ID)
+		n, err := counter.CountNodeReplicas(ctx, nodes[i].ID, modelID)
 		if err != nil {
 			return nil, err
 		}
@@ -197,7 +197,7 @@ func (r *SmartRouter) makeRoomForLimit(ctx context.Context, modelID string, p *r
 	if pol.MaxActiveBackends <= 0 {
 		return nil
 	}
-	n, err := counter.CountNodeReplicas(ctx, p.node.ID)
+	n, err := counter.CountNodeReplicas(ctx, p.node.ID, modelID)
 	if err != nil {
 		return fmt.Errorf("counting the models on %s: %w", p.node.Name, err)
 	}
@@ -220,14 +220,25 @@ func (r *SmartRouter) makeRoomForLimit(ctx context.Context, modelID string, p *r
 	return nil
 }
 
-// CountNodeReplicas counts the replicas on a node that hold a model slot:
-// loaded, loading or staging.
-func (r *NodeRegistry) CountNodeReplicas(ctx context.Context, nodeID string) (int, error) {
-	var n int64
-	err := r.db.WithContext(ctx).Model(&NodeModel{}).
+// CountNodeReplicas counts the model slots taken on a node: the replicas
+// that are loaded, loading or staging, and the live cold loads of other
+// models claimed on the node that have no replica yet. A claimed load gets
+// its replica row only at staging, after it made room, so without the
+// claims two loads placed at the same time would each see a free slot.
+// forModel is the model being placed: its own claim is the load that asks.
+func (r *NodeRegistry) CountNodeReplicas(ctx context.Context, nodeID, forModel string) (int, error) {
+	var rows int64
+	db := r.db.WithContext(ctx)
+	if err := db.Model(&NodeModel{}).
 		Where("node_id = ? AND state IN ?", nodeID, []string{"loaded", "loading", "staging"}).
-		Count(&n).Error
-	return int(n), err
+		Count(&rows).Error; err != nil {
+		return 0, err
+	}
+	claims, err := r.countUnstagedClaimsOnNode(ctx, nodeID, forModel)
+	if err != nil {
+		return 0, err
+	}
+	return int(rows) + claims, nil
 }
 
 // SetReplicaSize records the memory a replica was placed with, for the
