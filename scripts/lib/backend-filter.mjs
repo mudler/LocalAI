@@ -41,6 +41,13 @@ export function inferBackendPath(item) {
   if (item.backend === "moss-transcribe-cpp") {
     return `backend/go/moss-transcribe-cpp/`;
   }
+  // avatarforcing-cpp is a Go backend (Dockerfile.golang) wrapping the
+  // avatarforcing.cpp ggml port via purego, living in
+  // backend/go/avatarforcing-cpp/. Same explicit-branch rationale as its
+  // siblings above.
+  if (item.backend === "avatarforcing-cpp") {
+    return `backend/go/avatarforcing-cpp/`;
+  }
   // moss-tts-cpp is a Go backend (Dockerfile.golang) wrapping the moss-tts.cpp
   // ggml port via purego, living in backend/go/moss-tts-cpp/. Same
   // explicit-branch rationale as parakeet-cpp / ced / moss-transcribe-cpp: the

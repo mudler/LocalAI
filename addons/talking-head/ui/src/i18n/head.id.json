@@ -1,0 +1,209 @@
+{
+  "title": "Wajah bicara",
+  "subtitle": "giliran demi giliran",
+  "stage": "Wajah dan kontrol",
+  "chips": {
+    "noAvatar": "Tidak ada model avatar",
+    "noChat": "Tidak ada model chat",
+    "defaultVoice": "suara bawaan"
+  },
+  "empty": {
+    "title": "Pasang model yang belum ada",
+    "avatar": "Model avatar: model video dengan backend avatarforcing-cpp, misalnya avatarforcing dari galeri.",
+    "tts": "Model suara ucap, agar balasan bersuara.",
+    "licence": "Bobot avatarforcing dilisensikan dengan CC BY-NC 4.0: gunakan hanya untuk tujuan nonkomersial.",
+    "gallery": "Cari di galeri",
+    "errorTitle": "Daftar model tidak dapat dimuat",
+    "errorBody": "Jawaban server: {{message}}"
+  },
+  "notices": {
+    "notAvatar": "{{model}} bukan model wajah bicara. Pilih model avatar di pengaturan.",
+    "notStored": "Browser ini tidak menyimpan potret. Potret tetap ada sampai Anda menutup halaman.",
+    "copied": "Transkrip disalin",
+    "copyFailed": "Tidak dapat menyalin ke clipboard"
+  },
+  "settings": {
+    "title": "Pengaturan",
+    "desc": "Disimpan di browser ini. Berlaku untuk giliran berikutnya.",
+    "close": "Tutup",
+    "models": "Model",
+    "pipeline": "Pipeline",
+    "pipelineNone": "Tidak ada: pilih tiap model",
+    "pipelineHelp": "Model pipeline menetapkan model chat, transkripsi, dan suara ucap sekaligus.",
+    "role": {
+      "chat": "Model chat",
+      "stt": "Model transkripsi",
+      "tts": "Model suara ucap",
+      "avatar": "Model avatar"
+    },
+    "noneInstalled": "Belum ada yang terpasang",
+    "voice": "Suara",
+    "voicePlaceholder": "Nama suara (kosongkan untuk bawaan model)",
+    "instructions": "Instruksi",
+    "instructionsHelp": "Dikirim ke model chat sebelum percakapan. Minta balasan singkat: setiap detik ucapan berarti satu detik video yang harus dibuat.",
+    "video": "Video",
+    "nfe": "Kualitas (nfe)",
+    "nfeHelp": "Langkah sampler model avatar, 3 sampai 12. Bawaannya 6. Nilai yang lebih rendah lebih cepat dan kurang detail.",
+    "seed": "Benih acak",
+    "seedPlaceholder": "Kosongkan untuk bawaan model",
+    "cpuNote": "Video lambat di CPU: sekitar 15 detik kerja untuk setiap detik ucapan. GPU jauh lebih cepat.",
+    "licence": "Bobot avatarforcing dilisensikan dengan CC BY-NC 4.0: gunakan hanya untuk tujuan nonkomersial."
+  },
+  "portrait": {
+    "library": "Potret yang disimpan di browser ini",
+    "use": "Gunakan {{name}}",
+    "remove": "Hapus {{name}}",
+    "add": "Tambah",
+    "upload": "Unggah potret",
+    "untitled": "Potret"
+  },
+  "crop": {
+    "title": "Pangkas potret",
+    "desc": "Letakkan satu wajah di tengah persegi.",
+    "cancel": "Batal",
+    "unreadable": "File ini bukan gambar yang dapat dibaca browser. Coba PNG atau JPEG.",
+    "preview": "Pratinjau pangkasan. Gunakan tombol panah untuk menggeser gambar.",
+    "zoom": "Perbesar",
+    "help": "Seret gambar atau gunakan tombol panah. Wajah sebaiknya mengisi sekitar separuh persegi. Potret tetap di browser ini.",
+    "save": "Gunakan potret ini"
+  },
+  "status": {
+    "ready": "Siap",
+    "readyBody": "Tahan tombol lalu bicara, atau ketik pesan.",
+    "recording": "Merekam",
+    "recordingBody": "Lepaskan tombol untuk mengirim ucapan Anda.",
+    "noPortrait": "Tambahkan potret",
+    "noPortraitBody": "Unggah foto satu wajah. Anda memangkasnya menjadi persegi di sini.",
+    "failed": "Giliran gagal",
+    "videoSlow": "Membuat klip. Di CPU, ini memakan sekitar 15 detik untuk setiap detik ucapan."
+  },
+  "stages": {
+    "title": "Tahap giliran ini",
+    "transcribe": {
+      "label": "Transkripsi",
+      "busy": "Mendengarkan rekaman"
+    },
+    "chat": {
+      "label": "Balasan",
+      "busy": "Menulis balasan"
+    },
+    "speech": {
+      "label": "Ucapan",
+      "busy": "Mengucapkan balasan"
+    },
+    "video": {
+      "label": "Video",
+      "busy": "Membuat klip"
+    }
+  },
+  "mic": {
+    "blocked": {
+      "title": "Mikrofon diblokir",
+      "body": "Klik ikon gembok di bilah alamat, setel Mikrofon ke Izinkan, lalu coba lagi. Tidak ada yang direkam."
+    },
+    "missing": {
+      "title": "Tidak ada mikrofon",
+      "body": "Browser ini tidak punya mikrofon yang dapat dipakai. Ketik pesan Anda saja."
+    },
+    "error": {
+      "title": "Mikrofon gagal dimulai",
+      "body": "Coba lagi, atau ketik pesan Anda saja."
+    }
+  },
+  "composer": {
+    "label": "Pesan",
+    "placeholder": "Ketik pesan untuk dijawab wajah",
+    "placeholderSay": "Ketik apa yang harus diucapkan wajah",
+    "hold": "Tahan untuk bicara",
+    "holdHelp": "Tahan tombol selama Anda bicara, lalu lepaskan.",
+    "noStt": "Pasang model transkripsi untuk bicara dengan suara.",
+    "recording": "Merekam {{time}}",
+    "send": "Balas",
+    "say": "Ucapkan",
+    "cancel": "Batal",
+    "note": "Balas meminta jawaban dari model chat, lalu wajah mengucapkannya. Ucapkan membuat wajah mengucapkan teks Anda apa adanya."
+  },
+  "transcript": {
+    "title": "Percakapan",
+    "copy": "Salin",
+    "empty": "Pesan Anda dan balasannya muncul di sini, masing-masing dengan klipnya. Semuanya tetap di tab ini dan tidak disimpan.",
+    "user": "Anda",
+    "assistant": "Wajah",
+    "said": "Diucapkan",
+    "note": "Catatan",
+    "cancelled": "Giliran dibatalkan",
+    "replay": "Putar lagi",
+    "download": "Unduh"
+  },
+  "errors": {
+    "tooShort": "Rekaman terlalu pendek. Tahan tombol selama Anda bicara.",
+    "emptyTranscript": "Tidak ada kata yang terdengar dalam rekaman. Coba lagi lebih dekat ke mikrofon.",
+    "emptyText": "Ketik pesan terlebih dahulu.",
+    "emptyReply": "Model chat memberi balasan kosong. Coba lagi, atau coba model lain.",
+    "noVideo": "Server tidak mengembalikan video.",
+    "stage": "{{stage}} gagal: {{message}}"
+  },
+  "face": {
+    "portraitAlt": "Potret yang mengucapkan balasan",
+    "empty": "Unggah potret untuk melihat wajah di sini.",
+    "play": "Putar",
+    "unplayable": "Browser ini tidak dapat memutar klip: tidak ada dekoder video H.264. Unduh klip untuk menontonnya.",
+    "download": "Unduh klip"
+  },
+  "setup": {
+    "button": "Siapkan wajah bicara",
+    "title": "Siapkan wajah bicara",
+    "desc": "Memasang model yang dibutuhkan wajah bicara dan menggabungkannya dalam model pipeline.",
+    "models": "Model",
+    "part": {
+      "avatar": "Avatar",
+      "chat": "Chat",
+      "stt": "Transkripsi",
+      "tts": "Suara ucap",
+      "vad": "Deteksi suara",
+      "pipeline": "Pipeline"
+    },
+    "none": "Tidak ada",
+    "installedOption": "{{name}} (terpasang)",
+    "pipelineNote": "Model pipeline {{name}} menggabungkan model transkripsi, chat, dan suara ucap. Talk juga bisa memakainya.",
+    "plan": "Yang akan terjadi",
+    "checking": "Memeriksa galeri.",
+    "sizeUnknown": "ukuran tidak diketahui",
+    "total": "Model yang akan diunduh: {{count}}. Ukuran: {{size}}.",
+    "totalPartial": "Model yang akan diunduh: {{count}}. Ukuran: setidaknya {{size}}; ukuran beberapa model tidak diketahui.",
+    "nothing": "Semua sudah terpasang. Penyiapan hanya memilih model.",
+    "variant": "Build",
+    "state": {
+      "waiting": "Akan dipasang",
+      "installing": "Memasang",
+      "done": "Terpasang",
+      "skipped": "Sudah terpasang",
+      "failed": "Gagal",
+      "error": "Tidak tersedia",
+      "cancelled": "Dibatalkan"
+    },
+    "progress": "Progres pemasangan {{name}}",
+    "licenceTitle": "Lisensi model avatar",
+    "licenceBody": "Bobot avatarforcing dilisensikan dengan CC BY-NC 4.0. Anda hanya boleh menggunakannya untuk tujuan nonkomersial.",
+    "licenceAgree": "Saya akan menggunakan model avatar hanya untuk tujuan nonkomersial.",
+    "install": "Pasang dan siapkan",
+    "use": "Gunakan model ini",
+    "retry": "Coba lagi",
+    "cancel": "Batal",
+    "close": "Selesai",
+    "doneBody": "Model sudah terpasang dan dipilih. Model pipeline-nya adalah {{name}}.",
+    "failedBody": "Penyiapan berhenti. Perbaiki penyebabnya, lalu pilih Coba lagi: bagian yang sudah terpasang dilewati.",
+    "cancelledBody": "Penyiapan dibatalkan. Coba lagi melanjutkan bagian yang belum terpasang.",
+    "adminTitle": "Hanya administrator yang dapat memasang model",
+    "adminBody": "Minta administrator membuka halaman ini dan memilih Siapkan wajah bicara, atau memasang model berikut:",
+    "forbidden": "Server menolak permintaan: hanya administrator yang dapat memasang model.",
+    "lookupFailed": "Galeri tidak dapat dibaca: {{message}}",
+    "errors": {
+      "none": "Pilih model untuk bagian ini.",
+      "notInGallery": "{{name}} tidak ada di galeri server ini. Pilih model lain.",
+      "lookup": "{{name}} tidak dapat diperiksa: {{message}}"
+    },
+    "noPipeline": "Belum ada model pipeline. Penyiapan memasang model yang belum ada dan menulis satu model pipeline.",
+    "settingsHelp": "Memasang model yang belum ada dari galeri dan menulis model pipeline. Bagian yang sudah terpasang dilewati."
+  }
+}

@@ -1,0 +1,209 @@
+{
+  "title": "Rosto falante",
+  "subtitle": "turno a turno",
+  "stage": "Rosto e controles",
+  "chips": {
+    "noAvatar": "Nenhum modelo de avatar",
+    "noChat": "Nenhum modelo de chat",
+    "defaultVoice": "voz padrão"
+  },
+  "empty": {
+    "title": "Instale os modelos que faltam",
+    "avatar": "Um modelo de avatar: um modelo de vídeo com o backend avatarforcing-cpp, por exemplo o avatarforcing da galeria.",
+    "tts": "Um modelo de texto para fala, para dar voz à resposta.",
+    "licence": "Os pesos do avatarforcing são licenciados sob CC BY-NC 4.0: use-os apenas para fins não comerciais.",
+    "gallery": "Encontre na galeria",
+    "errorTitle": "Não foi possível listar os modelos",
+    "errorBody": "O servidor respondeu: {{message}}"
+  },
+  "notices": {
+    "notAvatar": "{{model}} não é um modelo de rosto falante. Escolha um modelo de avatar nas configurações.",
+    "notStored": "Este navegador não guardou o retrato. Ele fica disponível até você fechar a página.",
+    "copied": "Transcrição copiada",
+    "copyFailed": "Não foi possível copiar para a área de transferência"
+  },
+  "settings": {
+    "title": "Configurações",
+    "desc": "Salvas neste navegador. Valem a partir do próximo turno.",
+    "close": "Fechar",
+    "models": "Modelos",
+    "pipeline": "Pipeline",
+    "pipelineNone": "Nenhum: escolha cada modelo",
+    "pipelineHelp": "Um modelo de pipeline define de uma vez os modelos de chat, transcrição e fala.",
+    "role": {
+      "chat": "Modelo de chat",
+      "stt": "Modelo de transcrição",
+      "tts": "Modelo de fala",
+      "avatar": "Modelo de avatar"
+    },
+    "noneInstalled": "Nenhum instalado",
+    "voice": "Voz",
+    "voicePlaceholder": "Nome da voz (em branco para o padrão do modelo)",
+    "instructions": "Instruções",
+    "instructionsHelp": "Enviadas ao modelo de chat antes da conversa. Peça respostas curtas: cada segundo de fala é um segundo de vídeo a gerar.",
+    "video": "Vídeo",
+    "nfe": "Qualidade (nfe)",
+    "nfeHelp": "Passos do amostrador do modelo de avatar, de 3 a 12. O padrão é 6. Um valor menor é mais rápido e menos detalhado.",
+    "seed": "Semente",
+    "seedPlaceholder": "Em branco para o padrão do modelo",
+    "cpuNote": "O vídeo é lento em uma CPU: cerca de 15 segundos de trabalho para cada segundo de fala. Uma GPU é muito mais rápida.",
+    "licence": "Os pesos do avatarforcing são licenciados sob CC BY-NC 4.0: use-os apenas para fins não comerciais."
+  },
+  "portrait": {
+    "library": "Retratos salvos neste navegador",
+    "use": "Usar {{name}}",
+    "remove": "Remover {{name}}",
+    "add": "Adicionar",
+    "upload": "Enviar um retrato",
+    "untitled": "Retrato"
+  },
+  "crop": {
+    "title": "Recortar o retrato",
+    "desc": "Coloque um único rosto no meio do quadrado.",
+    "cancel": "Cancelar",
+    "unreadable": "Este arquivo não é uma imagem que o navegador consiga ler. Tente um PNG ou um JPEG.",
+    "preview": "Prévia do recorte. Use as teclas de seta para mover a imagem.",
+    "zoom": "Zoom",
+    "help": "Arraste a imagem ou use as teclas de seta. O rosto deve ocupar cerca de metade do quadrado. O retrato fica neste navegador.",
+    "save": "Usar este retrato"
+  },
+  "status": {
+    "ready": "Pronto",
+    "readyBody": "Segure o botão e fale, ou digite uma mensagem.",
+    "recording": "Gravando",
+    "recordingBody": "Solte o botão para enviar o que você disse.",
+    "noPortrait": "Adicione um retrato",
+    "noPortraitBody": "Envie uma foto de um rosto. Você a recorta em um quadrado aqui.",
+    "failed": "O turno falhou",
+    "videoSlow": "Gerando o clipe. Em uma CPU, isso leva cerca de 15 segundos para cada segundo de fala."
+  },
+  "stages": {
+    "title": "Etapas deste turno",
+    "transcribe": {
+      "label": "Transcrever",
+      "busy": "Ouvindo a gravação"
+    },
+    "chat": {
+      "label": "Resposta",
+      "busy": "Escrevendo a resposta"
+    },
+    "speech": {
+      "label": "Fala",
+      "busy": "Falando a resposta"
+    },
+    "video": {
+      "label": "Vídeo",
+      "busy": "Gerando o clipe"
+    }
+  },
+  "mic": {
+    "blocked": {
+      "title": "Microfone bloqueado",
+      "body": "Clique no ícone de cadeado na barra de endereço, defina Microfone como Permitir e tente de novo. Nada foi gravado."
+    },
+    "missing": {
+      "title": "Nenhum microfone",
+      "body": "Este navegador não tem um microfone que possa usar. Digite sua mensagem."
+    },
+    "error": {
+      "title": "O microfone não iniciou",
+      "body": "Tente de novo ou digite sua mensagem."
+    }
+  },
+  "composer": {
+    "label": "Mensagem",
+    "placeholder": "Digite uma mensagem para o rosto responder",
+    "placeholderSay": "Digite o que o rosto deve dizer",
+    "hold": "Segure para falar",
+    "holdHelp": "Segure o botão enquanto fala e depois solte.",
+    "noStt": "Instale um modelo de transcrição para falar por voz.",
+    "recording": "Gravando {{time}}",
+    "send": "Responder",
+    "say": "Dizer isto",
+    "cancel": "Cancelar",
+    "note": "Responder consulta o modelo de chat e o rosto fala a resposta. Dizer isto faz o rosto falar o seu texto como está."
+  },
+  "transcript": {
+    "title": "Conversa",
+    "copy": "Copiar",
+    "empty": "Suas mensagens e as respostas aparecem aqui, cada uma com seu clipe. Elas ficam nesta aba e não são salvas.",
+    "user": "Você",
+    "assistant": "Rosto",
+    "said": "Dito",
+    "note": "Nota",
+    "cancelled": "Turno cancelado",
+    "replay": "Reproduzir de novo",
+    "download": "Baixar"
+  },
+  "errors": {
+    "tooShort": "A gravação foi curta demais. Segure o botão enquanto fala.",
+    "emptyTranscript": "Nenhuma palavra foi ouvida na gravação. Tente de novo mais perto do microfone.",
+    "emptyText": "Digite uma mensagem primeiro.",
+    "emptyReply": "O modelo de chat deu uma resposta vazia. Tente de novo ou use outro modelo.",
+    "noVideo": "O servidor não retornou nenhum vídeo.",
+    "stage": "{{stage}} falhou: {{message}}"
+  },
+  "face": {
+    "portraitAlt": "O retrato que fala as respostas",
+    "empty": "Envie um retrato para ver o rosto aqui.",
+    "play": "Reproduzir",
+    "unplayable": "Este navegador não consegue reproduzir o clipe: ele não tem decodificador de vídeo H.264. Baixe o clipe para assistir.",
+    "download": "Baixar o clipe"
+  },
+  "setup": {
+    "button": "Configurar o rosto falante",
+    "title": "Configurar o rosto falante",
+    "desc": "Instala os modelos de que um rosto falante precisa e os une em um modelo de pipeline.",
+    "models": "Modelos",
+    "part": {
+      "avatar": "Avatar",
+      "chat": "Chat",
+      "stt": "Transcrição",
+      "tts": "Fala",
+      "vad": "Detecção de voz",
+      "pipeline": "Pipeline"
+    },
+    "none": "Nenhum",
+    "installedOption": "{{name}} (instalado)",
+    "pipelineNote": "O modelo de pipeline {{name}} une os modelos de transcrição, chat e fala. O Talk também pode usá-lo.",
+    "plan": "O que acontece",
+    "checking": "Verificando a galeria.",
+    "sizeUnknown": "tamanho desconhecido",
+    "total": "Modelos para baixar: {{count}}. Tamanho: {{size}}.",
+    "totalPartial": "Modelos para baixar: {{count}}. Tamanho: pelo menos {{size}}; o tamanho de alguns modelos não é conhecido.",
+    "nothing": "Tudo já está instalado. A configuração apenas seleciona os modelos.",
+    "variant": "Build",
+    "state": {
+      "waiting": "A instalar",
+      "installing": "Instalando",
+      "done": "Instalado",
+      "skipped": "Já instalado",
+      "failed": "Falhou",
+      "error": "Indisponível",
+      "cancelled": "Cancelado"
+    },
+    "progress": "Progresso da instalação de {{name}}",
+    "licenceTitle": "Licença do modelo de avatar",
+    "licenceBody": "Os pesos do avatarforcing são licenciados sob CC BY-NC 4.0. Você só pode usá-los para fins não comerciais.",
+    "licenceAgree": "Vou usar o modelo de avatar apenas para fins não comerciais.",
+    "install": "Instalar e configurar",
+    "use": "Usar estes modelos",
+    "retry": "Tentar de novo",
+    "cancel": "Cancelar",
+    "close": "Concluir",
+    "doneBody": "Os modelos estão instalados e selecionados. O modelo de pipeline é {{name}}.",
+    "failedBody": "A configuração parou. Corrija a causa e escolha Tentar de novo: as partes já instaladas são ignoradas.",
+    "cancelledBody": "A configuração foi cancelada. Tentar de novo continua com as partes que não estão instaladas.",
+    "adminTitle": "Apenas um administrador pode instalar modelos",
+    "adminBody": "Peça a um administrador para abrir esta página e escolher Configurar o rosto falante, ou para instalar estes modelos:",
+    "forbidden": "O servidor recusou a solicitação: apenas um administrador pode instalar modelos.",
+    "lookupFailed": "Não foi possível ler a galeria: {{message}}",
+    "errors": {
+      "none": "Escolha um modelo para esta parte.",
+      "notInGallery": "{{name}} não está na galeria deste servidor. Escolha outro modelo.",
+      "lookup": "Não foi possível verificar {{name}}: {{message}}"
+    },
+    "noPipeline": "Ainda não há modelo de pipeline. A configuração instala os modelos que faltam e escreve um.",
+    "settingsHelp": "Instala da galeria os modelos que faltam e escreve um modelo de pipeline. As partes já instaladas são ignoradas."
+  }
+}

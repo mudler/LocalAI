@@ -43621,3 +43621,411 @@
     - https://github.com/OVHai-LLM/llama.cpp
     - https://huggingface.co/OVHaiLLM
   version: 0.0.0-development
+- alias: avatarforcing-cpp
+  capabilities:
+    default: cpu-avatarforcing-cpp
+    nvidia: cuda12-avatarforcing-cpp
+    nvidia-cuda-12: cuda12-avatarforcing-cpp
+    nvidia-cuda-13: cuda13-avatarforcing-cpp
+    nvidia-l4t: nvidia-l4t-arm64-avatarforcing-cpp
+    nvidia-l4t-cuda-12: nvidia-l4t-arm64-avatarforcing-cpp
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-avatarforcing-cpp
+  channel: latest
+  description: |
+    avatarforcing.cpp is a C++/ggml port of the AvatarForcing talking-head model. It turns a portrait image and
+    speech audio into a lip-synced 512x512 video at 25 fps, served through the /video endpoint as an mp4 with the
+    speech as its audio track. It runs on CPU, NVIDIA CUDA and NVIDIA Jetson (L4T) targets. It needs ffmpeg on PATH.
+  icon: https://avatars.githubusercontent.com/u/95302084
+  id: avatarforcing-cpp
+  kind: backend
+  license: mit
+  name: avatarforcing-cpp
+  schemaVersion: 1
+  tags:
+    - video-generation
+    - talking-head
+    - CPU
+    - GPU
+    - CUDA
+  urls:
+    - https://github.com/mudler/avatarforcing.cpp
+  version: 0.0.0-latest
+- alias: avatarforcing-cpp
+  capabilities:
+    default: cpu-avatarforcing-cpp-development
+    nvidia: cuda12-avatarforcing-cpp-development
+    nvidia-cuda-12: cuda12-avatarforcing-cpp-development
+    nvidia-cuda-13: cuda13-avatarforcing-cpp-development
+    nvidia-l4t: nvidia-l4t-arm64-avatarforcing-cpp-development
+    nvidia-l4t-cuda-12: nvidia-l4t-arm64-avatarforcing-cpp-development
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-avatarforcing-cpp-development
+  channel: development
+  description: |
+    avatarforcing.cpp is a C++/ggml port of the AvatarForcing talking-head model. It turns a portrait image and
+    speech audio into a lip-synced 512x512 video at 25 fps, served through the /video endpoint as an mp4 with the
+    speech as its audio track. It runs on CPU, NVIDIA CUDA and NVIDIA Jetson (L4T) targets. It needs ffmpeg on PATH.
+  icon: https://avatars.githubusercontent.com/u/95302084
+  id: avatarforcing-cpp-development
+  kind: backend
+  license: mit
+  name: avatarforcing-cpp-development
+  schemaVersion: 1
+  tags:
+    - video-generation
+    - talking-head
+    - CPU
+    - GPU
+    - CUDA
+  urls:
+    - https://github.com/mudler/avatarforcing.cpp
+  version: 0.0.0-development
+- alias: avatarforcing-cpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-cpu-avatarforcing-cpp
+  capabilities:
+    default: cpu-avatarforcing-cpp
+    nvidia: cuda12-avatarforcing-cpp
+    nvidia-cuda-12: cuda12-avatarforcing-cpp
+    nvidia-cuda-13: cuda13-avatarforcing-cpp
+    nvidia-l4t: nvidia-l4t-arm64-avatarforcing-cpp
+    nvidia-l4t-cuda-12: nvidia-l4t-arm64-avatarforcing-cpp
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-avatarforcing-cpp
+  channel: latest
+  description: |
+    avatarforcing.cpp is a C++/ggml port of the AvatarForcing talking-head model. It turns a portrait image and
+    speech audio into a lip-synced 512x512 video at 25 fps, served through the /video endpoint as an mp4 with the
+    speech as its audio track. It runs on CPU, NVIDIA CUDA and NVIDIA Jetson (L4T) targets. It needs ffmpeg on PATH.
+  icon: https://avatars.githubusercontent.com/u/95302084
+  id: cpu-avatarforcing-cpp
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-cpu-avatarforcing-cpp
+  mutable: true
+  name: cpu-avatarforcing-cpp
+  os: linux
+  schemaVersion: 1
+  tags:
+    - video-generation
+    - talking-head
+    - CPU
+    - GPU
+    - CUDA
+  urls:
+    - https://github.com/mudler/avatarforcing.cpp
+  version: 0.0.0-latest
+- alias: avatarforcing-cpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-cpu-avatarforcing-cpp
+  capabilities:
+    default: cpu-avatarforcing-cpp-development
+    nvidia: cuda12-avatarforcing-cpp-development
+    nvidia-cuda-12: cuda12-avatarforcing-cpp-development
+    nvidia-cuda-13: cuda13-avatarforcing-cpp-development
+    nvidia-l4t: nvidia-l4t-arm64-avatarforcing-cpp-development
+    nvidia-l4t-cuda-12: nvidia-l4t-arm64-avatarforcing-cpp-development
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-avatarforcing-cpp-development
+  channel: development
+  description: |
+    avatarforcing.cpp is a C++/ggml port of the AvatarForcing talking-head model. It turns a portrait image and
+    speech audio into a lip-synced 512x512 video at 25 fps, served through the /video endpoint as an mp4 with the
+    speech as its audio track. It runs on CPU, NVIDIA CUDA and NVIDIA Jetson (L4T) targets. It needs ffmpeg on PATH.
+  icon: https://avatars.githubusercontent.com/u/95302084
+  id: cpu-avatarforcing-cpp-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-cpu-avatarforcing-cpp
+  mutable: true
+  name: cpu-avatarforcing-cpp-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - video-generation
+    - talking-head
+    - CPU
+    - GPU
+    - CUDA
+  urls:
+    - https://github.com/mudler/avatarforcing.cpp
+  version: 0.0.0-development
+- alias: avatarforcing-cpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-avatarforcing-cpp
+  capabilities:
+    default: cpu-avatarforcing-cpp
+    nvidia: cuda12-avatarforcing-cpp
+    nvidia-cuda-12: cuda12-avatarforcing-cpp
+    nvidia-cuda-13: cuda13-avatarforcing-cpp
+    nvidia-l4t: nvidia-l4t-arm64-avatarforcing-cpp
+    nvidia-l4t-cuda-12: nvidia-l4t-arm64-avatarforcing-cpp
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-avatarforcing-cpp
+  channel: latest
+  description: |
+    avatarforcing.cpp is a C++/ggml port of the AvatarForcing talking-head model. It turns a portrait image and
+    speech audio into a lip-synced 512x512 video at 25 fps, served through the /video endpoint as an mp4 with the
+    speech as its audio track. It runs on CPU, NVIDIA CUDA and NVIDIA Jetson (L4T) targets. It needs ffmpeg on PATH.
+  icon: https://avatars.githubusercontent.com/u/95302084
+  id: cuda12-avatarforcing-cpp
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-gpu-nvidia-cuda-12-avatarforcing-cpp
+  mutable: true
+  name: cuda12-avatarforcing-cpp
+  os: linux
+  schemaVersion: 1
+  tags:
+    - video-generation
+    - talking-head
+    - CPU
+    - GPU
+    - CUDA
+  urls:
+    - https://github.com/mudler/avatarforcing.cpp
+  version: 0.0.0-latest
+- alias: avatarforcing-cpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-avatarforcing-cpp
+  capabilities:
+    default: cpu-avatarforcing-cpp-development
+    nvidia: cuda12-avatarforcing-cpp-development
+    nvidia-cuda-12: cuda12-avatarforcing-cpp-development
+    nvidia-cuda-13: cuda13-avatarforcing-cpp-development
+    nvidia-l4t: nvidia-l4t-arm64-avatarforcing-cpp-development
+    nvidia-l4t-cuda-12: nvidia-l4t-arm64-avatarforcing-cpp-development
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-avatarforcing-cpp-development
+  channel: development
+  description: |
+    avatarforcing.cpp is a C++/ggml port of the AvatarForcing talking-head model. It turns a portrait image and
+    speech audio into a lip-synced 512x512 video at 25 fps, served through the /video endpoint as an mp4 with the
+    speech as its audio track. It runs on CPU, NVIDIA CUDA and NVIDIA Jetson (L4T) targets. It needs ffmpeg on PATH.
+  icon: https://avatars.githubusercontent.com/u/95302084
+  id: cuda12-avatarforcing-cpp-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-gpu-nvidia-cuda-12-avatarforcing-cpp
+  mutable: true
+  name: cuda12-avatarforcing-cpp-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - video-generation
+    - talking-head
+    - CPU
+    - GPU
+    - CUDA
+  urls:
+    - https://github.com/mudler/avatarforcing.cpp
+  version: 0.0.0-development
+- alias: avatarforcing-cpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-avatarforcing-cpp
+  capabilities:
+    default: cpu-avatarforcing-cpp
+    nvidia: cuda12-avatarforcing-cpp
+    nvidia-cuda-12: cuda12-avatarforcing-cpp
+    nvidia-cuda-13: cuda13-avatarforcing-cpp
+    nvidia-l4t: nvidia-l4t-arm64-avatarforcing-cpp
+    nvidia-l4t-cuda-12: nvidia-l4t-arm64-avatarforcing-cpp
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-avatarforcing-cpp
+  channel: latest
+  description: |
+    avatarforcing.cpp is a C++/ggml port of the AvatarForcing talking-head model. It turns a portrait image and
+    speech audio into a lip-synced 512x512 video at 25 fps, served through the /video endpoint as an mp4 with the
+    speech as its audio track. It runs on CPU, NVIDIA CUDA and NVIDIA Jetson (L4T) targets. It needs ffmpeg on PATH.
+  icon: https://avatars.githubusercontent.com/u/95302084
+  id: cuda13-avatarforcing-cpp
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-gpu-nvidia-cuda-13-avatarforcing-cpp
+  mutable: true
+  name: cuda13-avatarforcing-cpp
+  os: linux
+  schemaVersion: 1
+  tags:
+    - video-generation
+    - talking-head
+    - CPU
+    - GPU
+    - CUDA
+  urls:
+    - https://github.com/mudler/avatarforcing.cpp
+  version: 0.0.0-latest
+- alias: avatarforcing-cpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-avatarforcing-cpp
+  capabilities:
+    default: cpu-avatarforcing-cpp-development
+    nvidia: cuda12-avatarforcing-cpp-development
+    nvidia-cuda-12: cuda12-avatarforcing-cpp-development
+    nvidia-cuda-13: cuda13-avatarforcing-cpp-development
+    nvidia-l4t: nvidia-l4t-arm64-avatarforcing-cpp-development
+    nvidia-l4t-cuda-12: nvidia-l4t-arm64-avatarforcing-cpp-development
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-avatarforcing-cpp-development
+  channel: development
+  description: |
+    avatarforcing.cpp is a C++/ggml port of the AvatarForcing talking-head model. It turns a portrait image and
+    speech audio into a lip-synced 512x512 video at 25 fps, served through the /video endpoint as an mp4 with the
+    speech as its audio track. It runs on CPU, NVIDIA CUDA and NVIDIA Jetson (L4T) targets. It needs ffmpeg on PATH.
+  icon: https://avatars.githubusercontent.com/u/95302084
+  id: cuda13-avatarforcing-cpp-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-gpu-nvidia-cuda-13-avatarforcing-cpp
+  mutable: true
+  name: cuda13-avatarforcing-cpp-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - video-generation
+    - talking-head
+    - CPU
+    - GPU
+    - CUDA
+  urls:
+    - https://github.com/mudler/avatarforcing.cpp
+  version: 0.0.0-development
+- alias: avatarforcing-cpp
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-avatarforcing-cpp
+  capabilities:
+    default: cpu-avatarforcing-cpp
+    nvidia: cuda12-avatarforcing-cpp
+    nvidia-cuda-12: cuda12-avatarforcing-cpp
+    nvidia-cuda-13: cuda13-avatarforcing-cpp
+    nvidia-l4t: nvidia-l4t-arm64-avatarforcing-cpp
+    nvidia-l4t-cuda-12: nvidia-l4t-arm64-avatarforcing-cpp
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-avatarforcing-cpp
+  channel: latest
+  description: |
+    avatarforcing.cpp is a C++/ggml port of the AvatarForcing talking-head model. It turns a portrait image and
+    speech audio into a lip-synced 512x512 video at 25 fps, served through the /video endpoint as an mp4 with the
+    speech as its audio track. It runs on CPU, NVIDIA CUDA and NVIDIA Jetson (L4T) targets. It needs ffmpeg on PATH.
+  icon: https://avatars.githubusercontent.com/u/95302084
+  id: nvidia-l4t-arm64-avatarforcing-cpp
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-nvidia-l4t-arm64-avatarforcing-cpp
+  mutable: true
+  name: nvidia-l4t-arm64-avatarforcing-cpp
+  os: linux
+  schemaVersion: 1
+  tags:
+    - video-generation
+    - talking-head
+    - CPU
+    - GPU
+    - CUDA
+  urls:
+    - https://github.com/mudler/avatarforcing.cpp
+  version: 0.0.0-latest
+- alias: avatarforcing-cpp
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-avatarforcing-cpp
+  capabilities:
+    default: cpu-avatarforcing-cpp-development
+    nvidia: cuda12-avatarforcing-cpp-development
+    nvidia-cuda-12: cuda12-avatarforcing-cpp-development
+    nvidia-cuda-13: cuda13-avatarforcing-cpp-development
+    nvidia-l4t: nvidia-l4t-arm64-avatarforcing-cpp-development
+    nvidia-l4t-cuda-12: nvidia-l4t-arm64-avatarforcing-cpp-development
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-avatarforcing-cpp-development
+  channel: development
+  description: |
+    avatarforcing.cpp is a C++/ggml port of the AvatarForcing talking-head model. It turns a portrait image and
+    speech audio into a lip-synced 512x512 video at 25 fps, served through the /video endpoint as an mp4 with the
+    speech as its audio track. It runs on CPU, NVIDIA CUDA and NVIDIA Jetson (L4T) targets. It needs ffmpeg on PATH.
+  icon: https://avatars.githubusercontent.com/u/95302084
+  id: nvidia-l4t-arm64-avatarforcing-cpp-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-nvidia-l4t-arm64-avatarforcing-cpp
+  mutable: true
+  name: nvidia-l4t-arm64-avatarforcing-cpp-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - video-generation
+    - talking-head
+    - CPU
+    - GPU
+    - CUDA
+  urls:
+    - https://github.com/mudler/avatarforcing.cpp
+  version: 0.0.0-development
+- alias: avatarforcing-cpp
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-avatarforcing-cpp
+  capabilities:
+    default: cpu-avatarforcing-cpp
+    nvidia: cuda12-avatarforcing-cpp
+    nvidia-cuda-12: cuda12-avatarforcing-cpp
+    nvidia-cuda-13: cuda13-avatarforcing-cpp
+    nvidia-l4t: nvidia-l4t-arm64-avatarforcing-cpp
+    nvidia-l4t-cuda-12: nvidia-l4t-arm64-avatarforcing-cpp
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-avatarforcing-cpp
+  channel: latest
+  description: |
+    avatarforcing.cpp is a C++/ggml port of the AvatarForcing talking-head model. It turns a portrait image and
+    speech audio into a lip-synced 512x512 video at 25 fps, served through the /video endpoint as an mp4 with the
+    speech as its audio track. It runs on CPU, NVIDIA CUDA and NVIDIA Jetson (L4T) targets. It needs ffmpeg on PATH.
+  icon: https://avatars.githubusercontent.com/u/95302084
+  id: cuda13-nvidia-l4t-arm64-avatarforcing-cpp
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-avatarforcing-cpp
+  mutable: true
+  name: cuda13-nvidia-l4t-arm64-avatarforcing-cpp
+  os: linux
+  schemaVersion: 1
+  tags:
+    - video-generation
+    - talking-head
+    - CPU
+    - GPU
+    - CUDA
+  urls:
+    - https://github.com/mudler/avatarforcing.cpp
+  version: 0.0.0-latest
+- alias: avatarforcing-cpp
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-avatarforcing-cpp
+  capabilities:
+    default: cpu-avatarforcing-cpp-development
+    nvidia: cuda12-avatarforcing-cpp-development
+    nvidia-cuda-12: cuda12-avatarforcing-cpp-development
+    nvidia-cuda-13: cuda13-avatarforcing-cpp-development
+    nvidia-l4t: nvidia-l4t-arm64-avatarforcing-cpp-development
+    nvidia-l4t-cuda-12: nvidia-l4t-arm64-avatarforcing-cpp-development
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-avatarforcing-cpp-development
+  channel: development
+  description: |
+    avatarforcing.cpp is a C++/ggml port of the AvatarForcing talking-head model. It turns a portrait image and
+    speech audio into a lip-synced 512x512 video at 25 fps, served through the /video endpoint as an mp4 with the
+    speech as its audio track. It runs on CPU, NVIDIA CUDA and NVIDIA Jetson (L4T) targets. It needs ffmpeg on PATH.
+  icon: https://avatars.githubusercontent.com/u/95302084
+  id: cuda13-nvidia-l4t-arm64-avatarforcing-cpp-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-avatarforcing-cpp
+  mutable: true
+  name: cuda13-nvidia-l4t-arm64-avatarforcing-cpp-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - video-generation
+    - talking-head
+    - CPU
+    - GPU
+    - CUDA
+  urls:
+    - https://github.com/mudler/avatarforcing.cpp
+  version: 0.0.0-development

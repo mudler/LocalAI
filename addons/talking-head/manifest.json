@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "talking-head",
+  "version": "0.1.0",
+  "executable": "talking-head",
+  "os": "linux",
+  "arch": "amd64",
+  "host": { "min": 1, "max": 1 },
+  "api": {"min": 2, "max": 2},
+  "protocol": { "min": 1, "max": 1 },
+  "dataFormat": { "min": 1, "max": 1 },
+  "capabilities": {
+    "ui": {
+      "entry": "ui/talking-head.js",
+      "css": ["ui/talking-head.css"],
+      "sdk": { "min": 2, "max": 2 },
+      "pages": ["talking-head"],
+      "navigation": ["talking-head"],
+      "modelActions": [{"capability": "FLAG_VIDEO", "page": "talking-head"}],
+      "mainPage": "talking-head",
+      "icon": "ui/icon.png",
+      "title": {
+        "en": "Talking Head",
+        "it": "Volto parlante",
+        "de": "Sprechendes Gesicht",
+        "es": "Rostro parlante",
+        "fr": "Visage parlant",
+        "pt-BR": "Rosto falante",
+        "zh-CN": "会说话的头像",
+        "ko": "말하는 얼굴",
+        "id": "Wajah bicara"
+      },
+      "description": {
+        "en": "Talk to a face: type or speak, and a portrait answers in a lip-synced video clip.",
+        "it": "Parla con un volto: scrivi o parla, e un ritratto risponde con un video in cui le labbra seguono la voce.",
+        "de": "Sprechen Sie mit einem Gesicht: Tippen oder sprechen Sie, und ein Porträt antwortet in einem lippensynchronen Videoclip.",
+        "es": "Habla con un rostro: escribe o habla, y un retrato responde en un vídeo con los labios sincronizados.",
+        "fr": "Parlez à un visage : écrivez ou parlez, et un portrait répond dans une vidéo synchronisée sur les lèvres.",
+        "pt-BR": "Converse com um rosto: digite ou fale, e um retrato responde em um vídeo com os lábios sincronizados.",
+        "zh-CN": "与一张面孔对话：输入文字或说话，肖像会用口型同步的视频回答。",
+        "ko": "얼굴과 대화하세요. 입력하거나 말하면 초상화가 입 모양이 맞는 영상으로 답합니다.",
+        "id": "Bicara dengan sebuah wajah: ketik atau ucapkan, dan potret menjawab dalam klip video dengan gerak bibir yang selaras."
+      }
+    }
+  }
+}

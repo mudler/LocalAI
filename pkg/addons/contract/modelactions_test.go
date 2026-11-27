@@ -34,10 +34,11 @@ var _ = Describe("Optional model actions", func() {
 	})
 	It("declares only owning model actions for existing addon destinations", func() {
 		expected := map[string][]ModelAction{
-			"studio": {{Capability: "FLAG_IMAGE", Page: "studio", Path: "images"}, {Capability: "FLAG_VIDEO", Page: "studio", Path: "video"}, {Capability: "FLAG_TTS", Page: "studio", Path: "tts"}, {Capability: "FLAG_SOUND_GENERATION", Page: "studio", Path: "sound"}},
-			"talk":   {{Capability: "FLAG_TRANSCRIPT", Page: "talk"}},
-			"face":   {{Capability: "FLAG_FACE_RECOGNITION", Page: "recognition"}},
-			"voice":  {{Capability: "FLAG_SPEAKER_RECOGNITION", Page: "recognition"}},
+			"studio":       {{Capability: "FLAG_IMAGE", Page: "studio", Path: "images"}, {Capability: "FLAG_VIDEO", Page: "studio", Path: "video"}, {Capability: "FLAG_TTS", Page: "studio", Path: "tts"}, {Capability: "FLAG_SOUND_GENERATION", Page: "studio", Path: "sound"}},
+			"talk":         {{Capability: "FLAG_TRANSCRIPT", Page: "talk"}},
+			"talking-head": {{Capability: "FLAG_VIDEO", Page: "talking-head"}},
+			"face":         {{Capability: "FLAG_FACE_RECOGNITION", Page: "recognition"}},
+			"voice":        {{Capability: "FLAG_SPEAKER_RECOGNITION", Page: "recognition"}},
 		}
 		for id, actions := range expected {
 			b, err := os.ReadFile(fmt.Sprintf("../../../addons/%s/manifest.json", id))

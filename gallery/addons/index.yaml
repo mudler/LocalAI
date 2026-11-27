@@ -5240,6 +5240,191 @@
       "pt-BR": "Tenha uma conversa falada com um modelo: sua voz entra e a resposta é falada de volta."
       "zh-CN": "与模型进行语音对话：你说话输入，回答以语音读出。"
   hostOperations: {}
+- id: "talking-head"
+  name: Talking Head
+  description: "Talk to a face: type or speak, and a portrait answers in a lip-synced video clip."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:talking-head-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Talking Head"
+    description: "Talk to a face: type or speak, and a portrait answers in a lip-synced video clip."
+    mainPage: "talking-head"
+    icon: "ui/icon.png"
+    titles:
+      "de": "Sprechendes Gesicht"
+      "es": "Rostro parlante"
+      "fr": "Visage parlant"
+      "id": "Wajah bicara"
+      "it": "Volto parlante"
+      "ko": "말하는 얼굴"
+      "pt-BR": "Rosto falante"
+      "zh-CN": "会说话的头像"
+    descriptions:
+      "de": "Sprechen Sie mit einem Gesicht: Tippen oder sprechen Sie, und ein Porträt antwortet in einem lippensynchronen Videoclip."
+      "es": "Habla con un rostro: escribe o habla, y un retrato responde en un vídeo con los labios sincronizados."
+      "fr": "Parlez à un visage : écrivez ou parlez, et un portrait répond dans une vidéo synchronisée sur les lèvres."
+      "id": "Bicara dengan sebuah wajah: ketik atau ucapkan, dan potret menjawab dalam klip video dengan gerak bibir yang selaras."
+      "it": "Parla con un volto: scrivi o parla, e un ritratto risponde con un video in cui le labbra seguono la voce."
+      "ko": "얼굴과 대화하세요. 입력하거나 말하면 초상화가 입 모양이 맞는 영상으로 답합니다."
+      "pt-BR": "Converse com um rosto: digite ou fale, e um retrato responde em um vídeo com os lábios sincronizados."
+      "zh-CN": "与一张面孔对话：输入文字或说话，肖像会用口型同步的视频回答。"
+  hostOperations: {}
+- id: "talking-head"
+  name: Talking Head
+  description: "Talk to a face: type or speak, and a portrait answers in a lip-synced video clip."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:talking-head-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Talking Head"
+    description: "Talk to a face: type or speak, and a portrait answers in a lip-synced video clip."
+    mainPage: "talking-head"
+    icon: "ui/icon.png"
+    titles:
+      "de": "Sprechendes Gesicht"
+      "es": "Rostro parlante"
+      "fr": "Visage parlant"
+      "id": "Wajah bicara"
+      "it": "Volto parlante"
+      "ko": "말하는 얼굴"
+      "pt-BR": "Rosto falante"
+      "zh-CN": "会说话的头像"
+    descriptions:
+      "de": "Sprechen Sie mit einem Gesicht: Tippen oder sprechen Sie, und ein Porträt antwortet in einem lippensynchronen Videoclip."
+      "es": "Habla con un rostro: escribe o habla, y un retrato responde en un vídeo con los labios sincronizados."
+      "fr": "Parlez à un visage : écrivez ou parlez, et un portrait répond dans une vidéo synchronisée sur les lèvres."
+      "id": "Bicara dengan sebuah wajah: ketik atau ucapkan, dan potret menjawab dalam klip video dengan gerak bibir yang selaras."
+      "it": "Parla con un volto: scrivi o parla, e un ritratto risponde con un video in cui le labbra seguono la voce."
+      "ko": "얼굴과 대화하세요. 입력하거나 말하면 초상화가 입 모양이 맞는 영상으로 답합니다."
+      "pt-BR": "Converse com um rosto: digite ou fale, e um retrato responde em um vídeo com os lábios sincronizados."
+      "zh-CN": "与一张面孔对话：输入文字或说话，肖像会用口型同步的视频回答。"
+  hostOperations: {}
+- id: "talking-head"
+  name: Talking Head
+  description: "Talk to a face: type or speak, and a portrait answers in a lip-synced video clip."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:talking-head-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Talking Head"
+    description: "Talk to a face: type or speak, and a portrait answers in a lip-synced video clip."
+    mainPage: "talking-head"
+    icon: "ui/icon.png"
+    titles:
+      "de": "Sprechendes Gesicht"
+      "es": "Rostro parlante"
+      "fr": "Visage parlant"
+      "id": "Wajah bicara"
+      "it": "Volto parlante"
+      "ko": "말하는 얼굴"
+      "pt-BR": "Rosto falante"
+      "zh-CN": "会说话的头像"
+    descriptions:
+      "de": "Sprechen Sie mit einem Gesicht: Tippen oder sprechen Sie, und ein Porträt antwortet in einem lippensynchronen Videoclip."
+      "es": "Habla con un rostro: escribe o habla, y un retrato responde en un vídeo con los labios sincronizados."
+      "fr": "Parlez à un visage : écrivez ou parlez, et un portrait répond dans une vidéo synchronisée sur les lèvres."
+      "id": "Bicara dengan sebuah wajah: ketik atau ucapkan, dan potret menjawab dalam klip video dengan gerak bibir yang selaras."
+      "it": "Parla con un volto: scrivi o parla, e un ritratto risponde con un video in cui le labbra seguono la voce."
+      "ko": "얼굴과 대화하세요. 입력하거나 말하면 초상화가 입 모양이 맞는 영상으로 답합니다."
+      "pt-BR": "Converse com um rosto: digite ou fale, e um retrato responde em um vídeo com os lábios sincronizados."
+      "zh-CN": "与一张面孔对话：输入文字或说话，肖像会用口型同步的视频回答。"
+  hostOperations: {}
+- id: "talking-head"
+  name: Talking Head
+  description: "Talk to a face: type or speak, and a portrait answers in a lip-synced video clip."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:talking-head-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Talking Head"
+    description: "Talk to a face: type or speak, and a portrait answers in a lip-synced video clip."
+    mainPage: "talking-head"
+    icon: "ui/icon.png"
+    titles:
+      "de": "Sprechendes Gesicht"
+      "es": "Rostro parlante"
+      "fr": "Visage parlant"
+      "id": "Wajah bicara"
+      "it": "Volto parlante"
+      "ko": "말하는 얼굴"
+      "pt-BR": "Rosto falante"
+      "zh-CN": "会说话的头像"
+    descriptions:
+      "de": "Sprechen Sie mit einem Gesicht: Tippen oder sprechen Sie, und ein Porträt antwortet in einem lippensynchronen Videoclip."
+      "es": "Habla con un rostro: escribe o habla, y un retrato responde en un vídeo con los labios sincronizados."
+      "fr": "Parlez à un visage : écrivez ou parlez, et un portrait répond dans une vidéo synchronisée sur les lèvres."
+      "id": "Bicara dengan sebuah wajah: ketik atau ucapkan, dan potret menjawab dalam klip video dengan gerak bibir yang selaras."
+      "it": "Parla con un volto: scrivi o parla, e un ritratto risponde con un video in cui le labbra seguono la voce."
+      "ko": "얼굴과 대화하세요. 입력하거나 말하면 초상화가 입 모양이 맞는 영상으로 답합니다."
+      "pt-BR": "Converse com um rosto: digite ou fale, e um retrato responde em um vídeo com os lábios sincronizados."
+      "zh-CN": "与一张面孔对话：输入文字或说话，肖像会用口型同步的视频回答。"
+  hostOperations: {}
+- id: "talking-head"
+  name: Talking Head
+  description: "Talk to a face: type or speak, and a portrait answers in a lip-synced video clip."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:talking-head-development"
+  mutable: true
+  os: "windows"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Talking Head"
+    description: "Talk to a face: type or speak, and a portrait answers in a lip-synced video clip."
+    mainPage: "talking-head"
+    icon: "ui/icon.png"
+    titles:
+      "de": "Sprechendes Gesicht"
+      "es": "Rostro parlante"
+      "fr": "Visage parlant"
+      "id": "Wajah bicara"
+      "it": "Volto parlante"
+      "ko": "말하는 얼굴"
+      "pt-BR": "Rosto falante"
+      "zh-CN": "会说话的头像"
+    descriptions:
+      "de": "Sprechen Sie mit einem Gesicht: Tippen oder sprechen Sie, und ein Porträt antwortet in einem lippensynchronen Videoclip."
+      "es": "Habla con un rostro: escribe o habla, y un retrato responde en un vídeo con los labios sincronizados."
+      "fr": "Parlez à un visage : écrivez ou parlez, et un portrait répond dans une vidéo synchronisée sur les lèvres."
+      "id": "Bicara dengan sebuah wajah: ketik atau ucapkan, dan potret menjawab dalam klip video dengan gerak bibir yang selaras."
+      "it": "Parla con un volto: scrivi o parla, e un ritratto risponde con un video in cui le labbra seguono la voce."
+      "ko": "얼굴과 대화하세요. 입력하거나 말하면 초상화가 입 모양이 맞는 영상으로 답합니다."
+      "pt-BR": "Converse com um rosto: digite ou fale, e um retrato responde em um vídeo com os lábios sincronizados."
+      "zh-CN": "与一张面孔对话：输入文字或说话，肖像会用口型同步的视频回答。"
+  hostOperations: {}
 - id: "telegram"
   name: Telegram
   description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
