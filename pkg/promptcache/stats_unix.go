@@ -19,7 +19,7 @@ func (OSStats) Stat(path string) (FSStats, error) {
 		return FSStats{}, err
 	}
 	bsize := uint64(fs.Bsize)
-	fsType, network := fsTypeOf(&fs)
+	fsType, network := fsTypeOf(path, &fs)
 	return FSStats{
 		Free:    uint64(fs.Bavail) * bsize,
 		Total:   uint64(fs.Blocks) * bsize,

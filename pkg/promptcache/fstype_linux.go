@@ -4,14 +4,14 @@ package promptcache
 
 import (
 	"fmt"
+	"os"
 
 	"golang.org/x/sys/unix"
 )
 
 // networkMagic maps the statfs f_type of the network, cluster and FUSE
-// filesystems of Linux to a name. FUSE covers sshfs, s3fs, rclone and every
-// other FUSE filesystem: most of them are remote, and statfs cannot tell
-// the local ones apart.
+// filesystems of Linux to a name. FUSE is refined by fuseType: statfs gives
+// the same number to sshfs and to a local virtiofs or fuseblk mount.
 var networkMagic = map[uint32]string{
 	0x6969:     "nfs",
 	0x517b:     "smb",
@@ -47,9 +47,16 @@ var localMagic = map[uint32]string{
 // is a network one. The conversion to uint32 makes the magic numbers equal on
 // every architecture: the field is int64 on some and int32 or uint32 on
 // others.
-func fsTypeOf(fs *unix.Statfs_t) (string, bool) {
+func fsTypeOf(path string, fs *unix.Statfs_t) (string, bool) {
 	magic := uint32(fs.Type)
 	if name, ok := networkMagic[magic]; ok {
+		if name == "fuse" {
+			if mi, err := os.ReadFile("/proc/self/mountinfo"); err == nil {
+				if t := MountFSType(string(mi), path); t != "" {
+					return t, FuseIsNetwork(t)
+				}
+			}
+		}
 		return name, true
 	}
 	if name, ok := localMagic[magic]; ok {

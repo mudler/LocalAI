@@ -17,7 +17,7 @@ var networkTypes = map[string]bool{
 
 // fsTypeOf names the filesystem from f_fstypename and says if it is a
 // network one.
-func fsTypeOf(fs *unix.Statfs_t) (string, bool) {
+func fsTypeOf(_ string, fs *unix.Statfs_t) (string, bool) {
 	name := unix.ByteSliceToString(fs.Fstypename[:])
 	lower := strings.ToLower(name)
 	return name, networkTypes[lower] || strings.HasPrefix(lower, "osxfuse") || strings.HasPrefix(lower, "macfuse")

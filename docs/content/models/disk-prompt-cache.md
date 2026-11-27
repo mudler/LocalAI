@@ -29,7 +29,7 @@ Treat these files like stored chats. They contain what the users wrote, and the 
 
 The root must be on a local disk that the node can write. At start, each node checks its root:
 
-- On a network filesystem (NFS, SMB/CIFS, FUSE such as sshfs or s3fs, Ceph, 9p, AFS and similar), the cache is off on that node.
+- On a network filesystem (NFS, SMB/CIFS, a remote FUSE filesystem such as sshfs, s3fs or rclone, Ceph, 9p, AFS and similar), the cache is off on that node. A FUSE mount of a local disk (virtiofs, fuseblk, the file sharing of Docker Desktop) counts as local.
 - When the node cannot create the root or write a file in it, the cache is off on that node.
 
 In both cases the node logs one warning with the path, and Settings shows the reason for that node, for example "Off: network disk". To fix it, set `--prompt-cache-path` or `LOCALAI_PROMPT_CACHE_PATH` to a directory on a local disk. On Windows and on platforms other than Linux and macOS, the type of the filesystem is not known, and only the write check applies.
