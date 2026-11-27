@@ -984,19 +984,29 @@ func UsesLlamaSamplerDefaults(backend string) bool {
 // (concurrent slots). These are llama.cpp server flags; LocalAI injects them as
 // defaults, but a backend that strictly validates its options (e.g.
 // longcat-video) rejects an unknown one with "unknown model option(s)" at
-// LoadModel. Only the llama.cpp backend - and the empty/auto-detect case, which
-// resolves to llama.cpp from a GGUF file, mirroring how llamaCppDefaults is
-// registered - should receive them.
+// LoadModel.
+//
+// It follows IsLlamaCppBackend, so a PINNED GALLERY VARIANT gets them too: the
+// gallery ships one concrete backend per hardware capability
+// ("cuda12-llama-cpp", "vulkan-llama-cpp", "cpu-llama-cpp", ...) behind the
+// "llama-cpp" meta name, an operator may pin any of them in a model config, and
+// they run the same gRPC server with the same options. An exact-name check here
+// silently skipped every pinned deployment: it stayed at n_parallel=1 and
+// serialized concurrent requests while the meta name got the VRAM-scaled slots,
+// and it lost the cross-request prefix cache. Same class of bug as #10945.
+//
+// The "llama-cpp-quantization" release channel is the exception: it is
+// llama.cpp's quantizer, not the serving server, so it takes neither option.
 //
 // This is an allow-list on purpose (unlike UsesLlamaSamplerDefaults's
 // deny-list): these options are meaningful to no other backend, so a new
 // backend defaults to NOT getting them rather than breaking the same way.
 func UsesLlamaCppServingOptions(backend string) bool {
-	switch NormalizeBackendName(backend) {
-	case "", "llama-cpp":
-		return true
+	// The quantizer is llama.cpp's conversion CLI, not its serving server.
+	if strings.HasSuffix(NormalizeBackendName(backend), "-quantization") {
+		return false
 	}
-	return false
+	return IsLlamaCppBackend(backend)
 }
 
 // GetBackendCapability returns the capability info for a backend, or nil if unknown.

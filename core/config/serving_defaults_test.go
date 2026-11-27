@@ -41,5 +41,27 @@ var _ = Describe("Serving-policy config defaults", func() {
 			ApplyServingDefaults(cfg)
 			Expect(cfg.Options).To(ContainElement("cache_reuse:256"))
 		})
+		It("enables cache_reuse for a pinned llama.cpp variant", func() {
+			// The gallery ships one concrete backend per hardware capability
+			// behind the "llama-cpp" meta name, and an operator may pin any of
+			// them in a model config. They all run the same server, so a pinned
+			// name must get the same serving defaults as the meta name - the
+			// same family rule IsLlamaCppBackend already applies elsewhere.
+			for _, backend := range []string{"cpu-llama-cpp", "cuda12-llama-cpp", "metal-llama-cpp", "vulkan-llama-cpp", "rocm-llama-cpp", "cuda13-nvidia-l4t-arm64-llama-cpp", "llama-cpp-development"} {
+				cfg := &ModelConfig{Backend: backend}
+				ApplyServingDefaults(cfg)
+				Expect(cfg.Options).To(ContainElement("cache_reuse:256"), "backend %q", backend)
+			}
+		})
+		It("does not enable cache_reuse for the llama.cpp quantizer channel", func() {
+			// "llama-cpp-quantization" shares llama.cpp's name but ships the
+			// quantizer CLI, not the serving server: it takes neither
+			// cache_reuse nor parallel.
+			for _, backend := range []string{"llama-cpp-quantization", "cpu-llama-cpp-quantization", "metal-darwin-arm64-llama-cpp-quantization"} {
+				cfg := &ModelConfig{Backend: backend}
+				ApplyServingDefaults(cfg)
+				Expect(cfg.Options).ToNot(ContainElement(ContainSubstring("cache_reuse")), "backend %q", backend)
+			}
+		})
 	})
 })
