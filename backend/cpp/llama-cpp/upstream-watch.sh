@@ -27,6 +27,7 @@ probe() { # name, then a grep -E pattern and the files to search
 probe "#30970 --slot-attach (shared prefix; H2, victim choice)" 'slot_attach' "$D/common/common.h"
 probe "#32358 shared prefix across slots (H2, victim choice)" 'copy_prefix_to|shares_cells' "$D"/tools/server/*.cpp "$D"/tools/server/*.h
 probe "#10718 chunked prefill (H4, prefill_budget)" 'n_chunk_pp|prefill_budget|max_prefill' "$D/common/arg.cpp"
+probe "#32219 request priority (drop patches/0003)" 'int priority' "$D/tools/server/server-task.h"
 probe "#32520 quantized-KV kv_rows on CUDA (docs, q8_0 arm)" 'kv_rows' "$D"/ggml/src/ggml-cuda/fattn-vec*
 if grep -q "try to terminate only the largest active slot" "$D/tools/server/server-context.cpp" 2>/dev/null; then
     echo "absent   upstream preemption (H5, H6): the decode() TODO is still there"

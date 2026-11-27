@@ -657,6 +657,15 @@ static void add_rpc_devices(std::string servers) {
     }
 }
 
+// Request priority class (PredictOptions.Priority: -1 batch, 0 default,
+// 1 interactive) for the server's waiting order, where the pin carries
+// server_task::priority (patches/0003-server-request-priority.patch).
+#if LOCALAI_HAS_TASK_PRIORITY
+#define LOCALAI_SET_TASK_PRIORITY(task, request) ((task).priority = (request)->priority())
+#else
+#define LOCALAI_SET_TASK_PRIORITY(task, request) ((void) 0)
+#endif
+
 // Set by params_parse when the model asks for paged_kv:true together with an
 // option paged serving cannot run with; LoadModel fails with it.
 static std::string paged_load_error;
@@ -3560,6 +3569,7 @@ public:
                 task.params.oaicompat_cmpl_id         = completion_id;
                 // oaicompat_model is already populated by eval_llama_cmpl_schema
 
+                LOCALAI_SET_TASK_PRIORITY(task, request);
                 tasks.push_back(std::move(task));
             }
 
@@ -4167,6 +4177,7 @@ public:
                 task.params.oaicompat_cmpl_id         = completion_id;
                 // oaicompat_model is already populated by eval_llama_cmpl_schema
 
+                LOCALAI_SET_TASK_PRIORITY(task, request);
                 tasks.push_back(std::move(task));
             }
 
@@ -4345,6 +4356,7 @@ public:
 
                 task.params.res_type = TASK_RESPONSE_TYPE_NONE;
                 task.params.embd_normalize = embd_normalize;
+                LOCALAI_SET_TASK_PRIORITY(task, request);
                 tasks.push_back(std::move(task));
             }
 

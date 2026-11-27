@@ -1,0 +1,85 @@
+Backport of ggml-org/llama.cpp#32219 ("server: add request priority"),
+server sources only. server_task::priority (higher is served first) and the
+deferred-queue pick by priority. LocalAI sets the priority from
+PredictOptions.Priority. Drop this patch when the pin contains #32219.
+
+diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
+--- a/tools/server/server-context.cpp
++++ b/tools/server/server-context.cpp
+@@ -6009,6 +6009,7 @@ std::unique_ptr<server_res_generator> server_routes::handle_completions_impl(
+             task.apply_chat_session(chat_session);
+ 
+             task.id_slot = json_value(data, "id_slot", -1);
++            task.priority = json_value(data, "priority", 0);
+             sse_ping_interval = task.params.sse_ping_interval;
+ 
+             // OAI-compat
+diff --git a/tools/server/server-queue.cpp b/tools/server/server-queue.cpp
+--- a/tools/server/server-queue.cpp
++++ b/tools/server/server-queue.cpp
+@@ -89,25 +89,23 @@ int server_queue::get_new_id() {
+ 
+ void server_queue::pop_deferred_task(int id_slot) {
+     std::unique_lock<std::mutex> lock(mutex_tasks);
+-    if (!queue_tasks_deferred.empty()) {
+-        // try to find a task that uses the specified slot
+-        bool found = false;
+-        for (auto it = queue_tasks_deferred.begin(); it != queue_tasks_deferred.end(); ++it) {
+-            if (it->id_slot == id_slot) {
+-                QUE_DBG("pop deferred task (use slot %d), id_task = %d\n", id_slot, it->id);
+-                queue_tasks.emplace_front(std::move(*it));
+-                queue_tasks_deferred.erase(it);
+-                found = true;
+-                break;
+-            }
++    // pick the highest priority task that can use this slot, then prefer the one pinned to it, then the oldest
++    auto best = queue_tasks_deferred.end();
++    for (auto it = queue_tasks_deferred.begin(); it != queue_tasks_deferred.end(); ++it) {
++        if (it->id_slot != -1 && it->id_slot != id_slot) {
++            continue;
+         }
+-        // if not tasks found using the slot, just pop the first deferred task (default behavior)
+-        if (!found) {
+-            QUE_DBG("pop deferred task, id_task = %d\n", queue_tasks_deferred.front().id);
+-            queue_tasks.emplace_front(std::move(queue_tasks_deferred.front()));
+-            queue_tasks_deferred.pop_front();
++        if (best == queue_tasks_deferred.end() ||
++                it->priority > best->priority ||
++                (it->priority == best->priority && it->id_slot == id_slot && best->id_slot != id_slot)) {
++            best = it;
+         }
+     }
++    if (best != queue_tasks_deferred.end()) {
++        QUE_DBG("pop deferred task (slot %d), id_task = %d, priority = %d\n", id_slot, best->id, best->priority);
++        queue_tasks.emplace_front(std::move(*best));
++        queue_tasks_deferred.erase(best);
++    }
+     time_last_task = ggml_time_ms();
+     condition_tasks.notify_one();
+ }
+diff --git a/tools/server/server-queue.h b/tools/server/server-queue.h
+--- a/tools/server/server-queue.h
++++ b/tools/server/server-queue.h
+@@ -63,7 +63,8 @@ public:
+     int get_new_id();
+ 
+     // Call when the state of one slot is changed, it will move one task from deferred to main queue
+-    // prioritize tasks that use the specified slot (otherwise, pop the first deferred task)
++    // pick the highest priority task that can run on the specified slot (not pinned to another slot),
++    // then prefer one pinned to this slot, then the oldest
+     void pop_deferred_task(int id_slot);
+ 
+     // if sleeping, request exiting sleep state and wait until it is done
+diff --git a/tools/server/server-task.h b/tools/server/server-task.h
+--- a/tools/server/server-task.h
++++ b/tools/server/server-task.h
+@@ -188,6 +188,9 @@ struct server_task {
+     int id_target = -1;
+     int id_slot   = -1;
+ 
++    // higher value is served first when picking from the deferred queue
++    int priority  = 0;
++
+     // used by parallel sampling (multiple completions from same prompt)
+     int id_parent  = -1;
+     // temporary store of child tasks for scheduling
