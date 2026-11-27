@@ -374,6 +374,7 @@ var _ = Describe("triggersvc", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(r.svc.SetSkillsOff(ctx, alice, src.ID, []string{"noisy"})).To(Succeed())
 		Expect(r.svc.SetAddonsOff(ctx, alice, src.ID, []string{"office"})).To(Succeed())
+		Expect(r.svc.SetPluginsOff(ctx, alice, src.ID, []string{"inst-1"})).To(Succeed())
 		tr := r.schedule(studio.TriggerInput{Model: "none", SourceChatID: src.ID})
 		Expect(tr.Model).To(Equal("none"), "an explicit model wins over the source chat's")
 		tr, err = r.host.UpdateTrigger(ctx, alice, tr.ID, studio.TriggerInput{Name: "Nightly review", Prompt: "Go.", Kind: triggers.KindSchedule,
@@ -386,6 +387,7 @@ var _ = Describe("triggersvc", func() {
 		Expect(rec.Model).To(Equal("src-model"), "chat = %+v", rec)
 		Expect(rec.SkillsOff).To(Equal([]string{"noisy"}), "chat = %+v", rec)
 		Expect(rec.AddonsOff).To(Equal([]string{"office"}), "chat = %+v", rec)
+		Expect(rec.PluginsOff).To(Equal([]string{"inst-1"}), "a plugin switched off in the source chat stays off in its runs")
 		for _, n := range r.h.ToolNames(rec.ID) {
 			Expect(n).NotTo(HavePrefix("addon__"), "an unattended run with no agent got the add-on tool %s", n)
 		}

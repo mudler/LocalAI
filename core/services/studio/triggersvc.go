@@ -440,10 +440,18 @@ func (h *Triggers) startRun(ctx context.Context, t triggers.Trigger, run trigger
 			return "", err
 		}
 		// The run acts with the connection that the chat which proposed it
-		// had selected, as it does for the other switches.
-		if src, gerr := h.svc.getChatRaw(ctx, owner, t.SourceChatID); gerr == nil && len(src.Connections) > 0 {
-			if err := h.svc.d.Store.SetConnections(ctx, owner, rec.ID, src.Connections); err != nil {
-				return "", err
+		// had selected, and keeps off the plugins that chat switched off, as
+		// it does for the other switches.
+		if src, gerr := h.svc.getChatRaw(ctx, owner, t.SourceChatID); gerr == nil {
+			if len(src.Connections) > 0 {
+				if err := h.svc.d.Store.SetConnections(ctx, owner, rec.ID, src.Connections); err != nil {
+					return "", err
+				}
+			}
+			if len(src.PluginsOff) > 0 {
+				if err := h.svc.d.Store.SetPluginsOff(ctx, owner, rec.ID, src.PluginsOff); err != nil {
+					return "", err
+				}
 			}
 		}
 	}

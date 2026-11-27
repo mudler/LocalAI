@@ -102,7 +102,7 @@ The review link that `local-ai plugins install` and the LocalAI Assistant give f
 
 ## In a chat
 
-The plugins that contribute to a chat are the ones installed for everyone or for its user, enabled by that user, not switched off for the chat, and, in a chat with a saved agent, granted by the agent. A user whose `plugins` feature an administrator turned off gets no plugin in any chat, their own installs included, from the next turn on. The server reads this at each turn. A chat sees the stored copies of the plugins, read only, at `/workspace/shared-plugins/<digest>/`, the value of `CLAUDE_PLUGIN_ROOT`.
+The plugins that contribute to a chat are the ones installed for everyone or for its user, enabled by that user, not switched off for the chat, and, in a chat with a saved agent, granted by the agent. A trigger without an agent keeps off the plugins that its source chat switched off. A user whose `plugins` feature an administrator turned off gets no plugin in any chat, their own installs included, from the next turn on. The server reads this at each turn. A chat sees the stored copies of the plugins, read only, at `/workspace/shared-plugins/<digest>/`, the value of `CLAUDE_PLUGIN_ROOT`.
 
 Each user turns an install for everyone on for themselves; it starts off. A personal install starts on for its owner. Turning a plugin off keeps its settings. When an update adds code to an install for everyone, it stays off for each user until that user turns it on again with the explicit re-enable, which accepts the code.
 
