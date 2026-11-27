@@ -206,6 +206,8 @@ To limit this:
 
 ## Settings
 
+An administrator sets `plugins_user_installs` and `plugins_max_bytes` on the Settings page, under **Tools**, or through `/api/settings`. The other settings are set through `/api/settings` only.
+
 | Setting | Default | Meaning |
 |---|---|---|
 | `plugins_user_installs` | `true` | Users can install plugins that run no code for themselves. |

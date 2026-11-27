@@ -240,6 +240,14 @@ export const FIELDS = [
     desc: 'Let a chat list the user\'s saved agents and start one as a sub-agent. Each chat must still switch it on in its Tools menu, and the user needs the agents feature.',
     default: true, fallback: true, apply: 'live', custom: 'tools' },
   // The work folder of each chat (read at each turn, so live).
+  // Plugins in the Claude Code plugin format: read by the Plugins service at
+  // each request. The bounds are MinPluginMaxBytes and MaxPluginMaxBytes.
+  { key: 'plugins_user_installs', group: 'tools', was: 'chats', kind: 'bool', label: 'Users install plugins for themselves',
+    desc: 'Let users who have the plugins feature install plugins that run no code for themselves, from the Plugins tab of the Add-ons page. Off, only administrators install plugins. A plugin that runs code is always installed by an administrator, for everyone.',
+    default: true, fallback: true, apply: 'live' },
+  { key: 'plugins_max_bytes', group: 'tools', was: 'chats', kind: 'int', label: 'Largest plugin (bytes)',
+    desc: 'The most bytes the files of one plugin may take, from 1048576 to 209715200. A plugin over it is refused when it is reviewed or installed.',
+    default: 20971520, fallback: 20971520, emptyIsDefault: true, min: 1048576, max: 209715200, unit: 'bytes', apply: 'live' },
   { key: 'chats_work_folder', group: 'tools', was: 'chats', kind: 'bool', label: 'Work folder for helper files',
     desc: 'Tell the chats to put the scripts, logs and drafts they make in a work folder of each chat (Chats/<chat>/work in the user\'s files), so they do not mix with the user\'s own files. The Files pane of a chat lists them apart in either case.',
     default: true, fallback: true, apply: 'live' },
