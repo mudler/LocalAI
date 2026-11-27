@@ -150,7 +150,8 @@
             "options_spec_ngram_map_k4v_size_m": "ngram-map-k4v öneri boyutu",
             "options_spec_ngram_map_k4v_min_hits": "ngram-map-k4v en az isabet",
             "options_spec_lookup_cache_static": "Statik n-gram önbellek dosyası",
-            "options_spec_lookup_cache_dynamic": "Dinamik n-gram önbellek dosyası"
+            "options_spec_lookup_cache_dynamic": "Dinamik n-gram önbellek dosyası",
+            "options_grammar_engine": "Grammar motoru"
         },
         "choices": {
             "load_mode": {

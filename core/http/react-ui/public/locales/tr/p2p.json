@@ -39,7 +39,11 @@
   "ttl": {
     "600": "10 dk",
     "3600": "1 saat",
-    "86400": "1 gün"
+    "86400": "1 gün",
+    "hours_one": "{{count}} saat",
+    "hours_other": "{{count}} saat",
+    "minutes_one": "{{count}} dk",
+    "minutes_other": "{{count}} dk"
   },
   "share": {
     "open": "Bu örneği paylaş…",
@@ -161,7 +165,8 @@
       "noRelay": {
         "title": "Sıkı NAT arkasındaki cihazlar relay olmadan bağlanamaz.",
         "body": "Bu sunucunun relay'i yok. Ağların yaklaşık 10'da 3'ü doğrudan bağlantıları engeller. Bir relay ekle ya da kendin çalıştır.",
-        "add": "Relay ekle"
+        "add": "Relay ekle",
+        "userBody": "Bu sunucunun relay'i yok. Yaklaşık 10 ağdan 3'ü doğrudan bağlantıları engeller, bu yüzden telefonun ağının dışından bağlanamayabilir."
       },
       "openRelay": {
         "title": "Bu davet açık bir relay'i gösteriyor.",
@@ -178,8 +183,10 @@
       "punchOnly": {
         "title": "Bu davet yalnızca hole punching'in çalıştığı yerlerde çalışır.",
         "body": "Cihazlar genel bir relay üzerinden hole punching ile bağlanabilir. Yaklaşık 10 ağdan 3'ü bunu engeller. Her cihazın bağlanabilmesi için bir relay ekle ya da kendin çalıştır.",
-        "add": "Relay ekle"
-      }
+        "add": "Relay ekle",
+        "userBody": "Telefonun genel bir relay üzerinden hole punching ile bağlanır. Yaklaşık 10 ağdan 3'ü bunu engeller."
+      },
+      "askAdmin": "Yöneticinden bir relay eklemesini iste."
     },
     "connected": {
       "title": "{{label}} bağlandı",
@@ -232,7 +239,8 @@
       "seen": "Son görülme",
       "path": "Yol",
       "status": "Durum",
-      "actions": "İşlemler"
+      "actions": "İşlemler",
+      "owner": "Sahip"
     },
     "never": "Hiç",
     "status": {
@@ -258,7 +266,14 @@
       "remote": "Uzak örnek P2P anahtarını ve API anahtarını hemen kaybeder ve açık bağlantıları kapanır. Modelleriniz karşı tarafta çalışmayı bırakır. Diğer cihazlar etkilenmez. Yeniden bağlamak için yeni bir davet oluştur.",
       "other": "Düğüm P2P anahtarını hemen kaybeder ve açık bağlantıları kapanır. Diğer cihazlar etkilenmez. Yeniden bağlamak için yeni bir davet oluştur."
     },
-    "revoked": "{{label}} yetkisi kaldırıldı."
+    "revoked": "{{label}} yetkisi kaldırıldı.",
+    "owner": {
+      "filter": "Sahip",
+      "all": "Tüm sahipler",
+      "none": "Hesap yok"
+    },
+    "signsIn": "Oturum açar",
+    "signsInHint": "Bu cihaz web arayüzünde sahibi olarak oturum açar."
   },
   "invite": {
     "connectWith": "Şununla bağlan",
@@ -443,5 +458,84 @@
     "settings": "Mod ve relay'ler P2P ayarlarında",
     "workersNote": "P2P üzerinden katılan worker'lar Worker'lar sayfasında.",
     "workersLink": "Worker'lar'a git"
+  },
+  "my": {
+    "lede": "Eşleştirme bu telefonda senin adına oturum açar. Kaybedersen yetkisini buradan kaldır.",
+    "count_one": "{{count}} / {{max}} cihaz",
+    "count_other": "{{count}} / {{max}} cihaz",
+    "phone": "Telefon",
+    "revoked": "{{label}} yetkisi kaldırıldı.",
+    "renamed": "Adı {{label}} olarak değiştirildi.",
+    "revokeBody": "Telefon P2P anahtarını hemen kaybeder, açık bağlantıları kapanır ve oturumu kapatılır. Diğer cihazların etkilenmez. Yeniden kullanmak için onu yeniden eşleştir.",
+    "pair": {
+      "open": "Telefon eşleştir",
+      "title": "Telefon eşleştir",
+      "mint": "Davet oluştur",
+      "labelPlaceholder": "Telefonum",
+      "labelHint": "Bu telefonun listendeki adı."
+    },
+    "admin": {
+      "title": "Bu telefon bir yönetici oturumu alır.",
+      "body": "Yöneticisin, bu yüzden telefon tüm yetkilerinle oturum açar. Kilitli tut ve kaybedersen yetkisini buradan kaldır."
+    },
+    "blocked": {
+      "devices": "İzin verilen en fazla sayıda, {{max}} cihazın var. Başka birini eşleştirmek için birinin yetkisini kaldır.",
+      "pending": "İzin verilen en fazla sayıda, {{max}} bekleyen davetin var. Birini iptal et ya da süresi dolana kadar bekle."
+    },
+    "result": {
+      "title": "Bu kodu {{label}} ile tara",
+      "sub": "Tek kullanımlık · {{ttl}}",
+      "how": "LocalAI uygulamasında: Sunucu ekle'ye dokun, sonra bu kodu tara ya da bağlantıyı yapıştır. Telefon eşleşir eşleşmez senin adına oturum açar.",
+      "waiting": "Telefon bekleniyor… Daveti iptal et bu daveti durdurur.",
+      "signsIn": "Şu kişi olarak oturum açar",
+      "asYou": "Sen"
+    },
+    "paired": {
+      "title": "{{label}} eşleşti",
+      "sub": "Telefon senin adına oturum açtı.",
+      "body": "Onu Cihazlarım altında bulursun; orada adını değiştirebilir ya da yetkisini kaldırabilirsin. Bu telefonu sen eşleştirmediysen yetkisini hemen kaldır.",
+      "notMine": "Benim telefonum değil, yetkisini kaldır"
+    },
+    "fail": {
+      "needsAccount": {
+        "title": "Bunun için bir kullanıcı hesabı gerekiyor.",
+        "body": "Eşleşmiş bir telefon senin hesabınla oturum açar. Sunucunun API anahtarıyla değil, bir kullanıcı hesabıyla oturum aç."
+      },
+      "notShare": {
+        "title": "Bu sunucuda eşleştirme kapalı.",
+        "body": "Sunucu şu an P2P üzerinden paylaşım yapmıyor. Yöneticinden paylaşımı açmasını iste."
+      },
+      "ttl": {
+        "title": "Bu süre çok uzun.",
+        "body": "Yöneticin en fazla {{max}} süreli davetlere izin veriyor. Daha kısa bir süre seç."
+      },
+      "forbidden": {
+        "title": "Cihaz eşleştiremezsin.",
+        "body": "Hesabının kendi cihazlarını eşleştirme izni yok. Yöneticine sor."
+      },
+      "limit": {
+        "title": "Sınıra ulaşıldı.",
+        "devices": "İzin verilen en fazla sayıda, {{max}} cihazın var. Önce birinin yetkisini kaldır.",
+        "pending": "İzin verilen en fazla sayıda, {{pending}} bekleyen davetin var. Birini iptal et ya da süresi dolana kadar bekle.",
+        "rate": "Saatte {{mints}} davet oluşturabilirsin ve sunucu aynı anda bekleyen davetleri sınırlar. Daha sonra yeniden dene."
+      }
+    },
+    "invites": {
+      "title": "Bekleyen davetler",
+      "note": "Henüz hiçbir telefon bunları kullanmadı. Her biri bir kez çalışır."
+    },
+    "devices": {
+      "title": "Eşleşmiş telefonlar",
+      "seen": "Son görülme {{when}}",
+      "empty": {
+        "title": "Henüz eşleşmiş telefon yok",
+        "body": "Bu sunucuyu bir telefondan senin adına oturum açarak kullanmak için onu eşleştir."
+      }
+    },
+    "rename": {
+      "open": "Yeniden adlandır",
+      "title": "Telefonu yeniden adlandır",
+      "save": "Kaydet"
+    }
   }
 }

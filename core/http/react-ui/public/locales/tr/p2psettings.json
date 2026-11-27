@@ -13,7 +13,8 @@
     "label": "P2P ayar bölümleri",
     "network": "Ağ",
     "relays": "Relay'ler",
-    "identity": "Kimlik"
+    "identity": "Kimlik",
+    "users": "Kullanıcı eşleştirme"
   },
   "actions": {
     "save": "Kaydet",
@@ -287,5 +288,32 @@
     "confirmOnly": "Bunu yalnızca kimlik anahtarı sızdıysa yap.",
     "confirmCheck_one": "{{count}} eşleşmiş cihazın yeniden eşleşmesi gerektiğini anlıyorum",
     "confirmCheck_other": "{{count}} eşleşmiş cihazın yeniden eşleşmesi gerektiğini anlıyorum"
+  },
+  "users": {
+    "title": "Kullanıcı eşleştirme",
+    "lede": "Bir kullanıcı kendi telefonunu Cihazlarım'dan eşleştirdiğinde davetin neler taşıdığı ve her kullanıcının sınırları. Bir değişiklik sonraki davete uygulanır. Eşleşmiş telefonlar kalır.",
+    "loadError": "Kullanıcı eşleştirme ayarları yüklenemedi.",
+    "relays": {
+      "title": "Kullanıcı davetlerindeki relay'ler",
+      "desc": "Otomatik, bu sunucunun relay'lerini davete yazar; böylece ağının dışındaki bir telefon bağlanabilir. Hiçbiri, onları dışarıda bırakır: o zaman telefonun doğrudan bir bağlantıya ya da hole punching'e ihtiyacı olur.",
+      "auto": "Otomatik: bu sunucunun relay'leri",
+      "none": "Hiçbiri"
+    },
+    "open": {
+      "title": "Açık relay'lere izin ver",
+      "desc": "Senin kısıtlı bir relay'in kullanılamadığında davet açık bir relay'i adlandırabilir. Açık bir relay'i herkes kullanabilir ve hızı sınırlayabilir."
+    },
+    "lan": {
+      "title": "Yerel adresleri dışarıda bırak",
+      "desc": "Davet, bu sunucunun yerel ağındaki adreslerini taşımaz."
+    },
+    "limits": {
+      "title": "Her kullanıcının sınırları",
+      "desc": "Yöneticiler kendi telefonlarını eşleştirirken aynı sınırlara tabidir.",
+      "devices": "Cihazlar",
+      "pending": "Bekleyen davetler",
+      "ttl": "En uzun davet süresi",
+      "range": "{{min}} ile {{max}} arası"
+    }
   }
 }

@@ -210,7 +210,13 @@
     "sheet": {
       "account": "Hesap",
       "activity": "Etkinlik",
-      "apiKeys": "API anahtarları"
+      "apiKeys": "API anahtarları",
+      "defaultOn": "Kullanıcılar için varsayılan olarak açık",
+      "defaultOnHint": "Hemen kaydedilir. Erişimi bu özelliği belirlemeyen her kullanıcı için geçerlidir.",
+      "followsDefault": "Bu kullanıcı varsayılanı izliyor.",
+      "explicit": "Bu kullanıcı için ayarlandı: varsayılanın değişmesi ona uygulanmaz.",
+      "useDefault": "Varsayılanı kullan",
+      "useDefaultFor": "{{feature}} için varsayılanı kullan"
     },
     "empty": {
       "title": "Henüz kullanıcı yok",
@@ -239,7 +245,10 @@
       "deleted": "Kullanıcı silindi",
       "deleteFailed": "Kullanıcı silinemedi: {{message}}",
       "passwordReset": "{{name}} için şifre sıfırlandı",
-      "resetFailed": "Şifre sıfırlanamadı: {{message}}"
+      "resetFailed": "Şifre sıfırlanamadı: {{message}}",
+      "defaultOn": "Özellik artık kullanıcılar için varsayılan olarak açık.",
+      "defaultOff": "Özellik artık kullanıcılar için varsayılan olarak kapalı.",
+      "defaultFailed": "Varsayılan değiştirilemedi: {{message}}"
     },
     "reset": {
       "title": "Şifreyi sıfırla",
