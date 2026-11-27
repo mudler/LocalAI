@@ -57,6 +57,29 @@ func needsMediaMarkerProbe(mediaMarker string, modelAlreadyLoaded bool) bool {
 	return mediaMarker == "" || !modelAlreadyLoaded
 }
 
+// metadataProbeDue reports whether ModelInference reads the model metadata
+// from the backend after Load.
+//
+// Only llama.cpp backends answer the probe; for the others it reads nothing
+// and writes back what the config already holds, so it is skipped. A
+// reasoning slot that is still empty is probed until the probe fills it, as
+// before. The media marker is probed after a cold Load and while it is empty,
+// except on a running instance that answered the probe already: it answers
+// the same way for the rest of its life, so a text model, whose marker stays
+// empty, no longer pays a ModelMetadata round trip on every request.
+func metadataProbeDue(c *config.ModelConfig, loaded *model.Model) bool {
+	if !config.IsLlamaCppBackend(c.Backend) {
+		return false
+	}
+	if needsThinkingProbe(c) {
+		return true
+	}
+	if loaded != nil && loaded.MetadataProbed() {
+		return false
+	}
+	return needsMediaMarkerProbe(c.MediaMarker, loaded != nil)
+}
+
 // persistProbedReasoning writes the post-probe reasoning slots (and media
 // marker) from probed back into the loader's persisted config for modelName,
 // skipping any reasoning slot the probe was not actually allowed to fill.
@@ -163,7 +186,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	// re-probes MediaMarker even when a previous process's marker is cached on
 	// the config (#12246). Load itself may cache-hit; the flag must reflect the
 	// pre-Load state.
-	modelAlreadyLoaded := loader.CheckIsLoaded(c.ModelID()) != nil
+	loaded := loader.CheckIsLoaded(c.ModelID())
 	inferenceModel, err := loader.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(o, c.Name, c.Backend, err, map[string]any{"model_file": modelFile})
@@ -176,9 +199,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	// by custom chat templates so markers line up with what mtmd expects).
 	// Thinking slots are probed only while empty; the media marker is also
 	// re-probed after a cold Load because llama.cpp randomizes it per process.
-	shouldProbeThinking := needsThinkingProbe(c)
-	needsMarkerProbe := needsMediaMarkerProbe(c.MediaMarker, modelAlreadyLoaded)
-	if shouldProbeThinking || needsMarkerProbe {
+	if metadataProbeDue(c, loaded) {
 		modelOpts := grpcModelOpts(*c, o.SystemState.Model.ModelsPath)
 		// DetectThinkingSupportFromBackend only fills reasoning slots that are
 		// still nil, so a slot that already carries a value here was populated by
@@ -190,7 +211,9 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 		// fill.
 		persistDisableReasoning := c.ReasoningConfig.DisableReasoning == nil
 		persistDisableTagPrefill := c.ReasoningConfig.DisableReasoningTagPrefill == nil
-		config.DetectThinkingSupportFromBackend(ctx, c, inferenceModel, modelOpts)
+		if config.DetectThinkingSupportFromBackend(ctx, c, inferenceModel, modelOpts) && loaded != nil {
+			loaded.MarkMetadataProbed()
+		}
 		// Update the config in the loader so it persists for future requests
 		persistProbedReasoning(cl, c.Name, c, persistDisableReasoning, persistDisableTagPrefill)
 	}

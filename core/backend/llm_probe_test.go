@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/gpustack/gguf-parser-go/util/ptr"
 	. "github.com/onsi/ginkgo/v2"
@@ -132,5 +133,45 @@ var _ = Describe("persistProbedReasoning", func() {
 		cfg, ok := cl.GetModelConfig(modelName)
 		Expect(ok).To(BeTrue())
 		Expect(cfg.MediaMarker).To(Equal("<__media__>"))
+	})
+})
+
+var _ = Describe("metadataProbeDue", func() {
+	llama := func(marker string, tokenizerTemplate bool) *config.ModelConfig {
+		cfg := &config.ModelConfig{Backend: "llama-cpp", MediaMarker: marker}
+		cfg.TemplateConfig.UseTokenizerTemplate = tokenizerTemplate
+		return cfg
+	}
+	probed := func() *model.Model {
+		m := model.NewModel("m", "127.0.0.1:1", nil)
+		m.MarkMetadataProbed()
+		return m
+	}
+
+	It("never probes a backend that is not llama.cpp", func() {
+		for _, backend := range []string{"vllm", "transformers", "ik-llama-cpp", "mock-backend"} {
+			cfg := &config.ModelConfig{Backend: backend}
+			cfg.TemplateConfig.UseTokenizerTemplate = true
+			Expect(metadataProbeDue(cfg, nil)).To(BeFalse(), backend)
+		}
+	})
+
+	It("probes an empty media marker until the running instance answers", func() {
+		Expect(metadataProbeDue(llama("", false), nil)).To(BeTrue())
+		Expect(metadataProbeDue(llama("", false), model.NewModel("m", "127.0.0.1:1", nil))).To(BeTrue())
+		Expect(metadataProbeDue(llama("", false), probed())).To(BeFalse())
+	})
+
+	It("keeps the cold-load and cached-marker rules", func() {
+		Expect(metadataProbeDue(llama("<__media_x__>", false), nil)).To(BeTrue())
+		Expect(metadataProbeDue(llama("<__media_x__>", false), model.NewModel("m", "127.0.0.1:1", nil))).To(BeFalse())
+	})
+
+	It("probes empty reasoning slots until they are filled, even on an instance that answered", func() {
+		Expect(metadataProbeDue(llama("", true), probed())).To(BeTrue())
+		filled := llama("", true)
+		filled.ReasoningConfig.DisableReasoning = ptr.To(false)
+		filled.ReasoningConfig.DisableReasoningTagPrefill = ptr.To(true)
+		Expect(metadataProbeDue(filled, probed())).To(BeFalse())
 	})
 })

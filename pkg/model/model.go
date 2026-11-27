@@ -2,6 +2,7 @@ package model
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -21,7 +22,19 @@ type Model struct {
 	lastHealthCheck time.Time
 	healthMu        sync.Mutex
 	sync.Mutex
+
+	// metadataProbed records that this running instance answered the model
+	// metadata probe; it answers the same way for the rest of its life.
+	metadataProbed atomic.Bool
 }
+
+// MarkMetadataProbed records that this instance answered the model metadata
+// probe.
+func (m *Model) MarkMetadataProbed() { m.metadataProbed.Store(true) }
+
+// MetadataProbed reports whether this instance answered the model metadata
+// probe.
+func (m *Model) MetadataProbed() bool { return m.metadataProbed.Load() }
 
 func NewModel(ID, address string, process *process.Process) *Model {
 	return &Model{
