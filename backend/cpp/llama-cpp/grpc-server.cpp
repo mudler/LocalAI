@@ -1821,7 +1821,13 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     {
         const std::string v = llama_grpc::grammar_max_repetition(grammar_max_repetition_option, std::getenv("LLAMA_GRAMMAR_MAX_REPETITION"));
         if (!v.empty()) {
+#ifdef _WIN32
+            // MinGW and MSVC have no setenv. _putenv_s changes the C runtime
+            // environment that getenv in the patch reads.
+            _putenv_s("LLAMA_GRAMMAR_MAX_REPETITION", v.c_str());
+#else
             setenv("LLAMA_GRAMMAR_MAX_REPETITION", v.c_str(), 1);
+#endif
         }
     }
 
