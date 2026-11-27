@@ -2137,6 +2137,10 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	cfg.syncKnownUsecasesFromString()
 }
 
+// backendNameRe matches a backend name with no special characters, except '-'
+// and '_'. Validate runs for every request, so it is compiled once.
+var backendNameRe = regexp.MustCompile(`^[a-zA-Z0-9-_]+$`)
+
 func (c *ModelConfig) Validate() (bool, error) {
 	for _, operation := range c.ThreeDOperations() {
 		for _, parameter := range operation.Parameters {
@@ -2239,9 +2243,7 @@ func (c *ModelConfig) Validate() (bool, error) {
 	}
 
 	if c.Backend != "" {
-		// a regex that checks that is a string name with no special characters, except '-' and '_'
-		re := regexp.MustCompile(`^[a-zA-Z0-9-_]+$`)
-		if !re.MatchString(c.Backend) {
+		if !backendNameRe.MatchString(c.Backend) {
 			return false, fmt.Errorf("invalid backend name: %s", c.Backend)
 		}
 	}
