@@ -55,6 +55,15 @@ type FSStats struct {
 	Free   uint64 // bytes an unprivileged process may still write
 	Total  uint64
 	Device uint64 // id of the filesystem; two paths with the same id share it
+	// FSType names the type of the filesystem when the platform tells it,
+	// else it is empty.
+	FSType string
+	// Network is true when the filesystem is a network or FUSE filesystem
+	// (NFS, SMB, sshfs, s3fs, Ceph...). The disk tier is off on such a
+	// root: its files would cross the network on every load, and the
+	// locking and rename rules the cache needs may not hold. False when the
+	// type is local or unknown.
+	Network bool
 }
 
 // StatProvider reads the filesystem of a path. Tests use a fake.

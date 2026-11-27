@@ -3,6 +3,7 @@ package promptcache_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -194,5 +195,18 @@ var _ = Describe("the free-space watermarks", func() {
 			Skip("no filesystem stats on this platform")
 		}
 		Expect(s.Total).To(BeNumerically(">", 0))
+	})
+
+	It("names the type of a real filesystem and does not call a temporary directory remote", func() {
+		s, err := promptcache.OSStats{}.Stat(root)
+		if err != nil {
+			Skip("no filesystem stats on this platform")
+		}
+		if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+			Expect(s.FSType).ToNot(BeEmpty())
+		}
+		if s.FSType != "fuse" && s.FSType != "nfs" {
+			Expect(s.Network).To(BeFalse())
+		}
 	})
 })
