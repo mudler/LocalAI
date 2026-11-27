@@ -139,6 +139,33 @@ var _ = Describe("local-ai plugins validate", func() {
 		Expect(out.String()).To(ContainSubstring("All 1 plugins of team pass."))
 	})
 
+	It("fails an entry whose metadata.localai.runsCode differs from the checks", func() {
+		root := GinkgoT().TempDir()
+		writeTree(root, map[string]string{
+			".claude-plugin/marketplace.json": `{"name": "team", "owner": {"name": "o"}, "plugins": [
+				{"name": "text", "source": "./plugins/text", "metadata": {"localai": {"runsCode": false}}},
+				{"name": "hook", "source": "./plugins/hook", "metadata": {"localai": {"runsCode": false}}},
+				{"name": "said", "source": "./plugins/said", "metadata": {"localai": {"runsCode": true}}},
+				{"name": "plain", "source": "./plugins/plain"}
+			]}`,
+		})
+		hook := fixturePlugin("hook")
+		hook["hooks/hooks.json"] = `{"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/check.sh"}]}]}}`
+		hook["check.sh"] = "#!/bin/sh\nexit 0\n"
+		for name, files := range map[string]map[string]string{
+			"text": fixturePlugin("text"), "hook": hook, "said": fixturePlugin("said"), "plain": fixturePlugin("plain"),
+		} {
+			writeTree(filepath.Join(root, "plugins", name), files)
+		}
+		c := &PluginsValidateCMD{Marketplace: filepath.Join(root, ".claude-plugin", "marketplace.json"), output: out}
+		Expect(c.Run(nil)).To(MatchError("2 of 4 entries failed the checks"))
+		Expect(out.String()).To(SatisfyAll(
+			ContainSubstring("FAIL  hook@team: metadata.localai.runsCode is false, but the checks found code (hook-command)"),
+			ContainSubstring("FAIL  said@team: metadata.localai.runsCode is true, but the checks found no code"),
+			Not(ContainSubstring("FAIL  text@team")), Not(ContainSubstring("FAIL  plain@team")),
+		))
+	})
+
 	It("needs a folder or a marketplace, not both", func() {
 		Expect((&PluginsValidateCMD{output: out}).Run(nil)).To(MatchError(ContainSubstring("name a plugin folder")))
 		Expect((&PluginsValidateCMD{Dir: ".", Marketplace: "x", output: out}).Run(nil)).To(MatchError(ContainSubstring("not both")))

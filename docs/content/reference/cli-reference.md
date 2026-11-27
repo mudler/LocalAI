@@ -380,7 +380,7 @@ When two enabled sources list the same entry (same kind and id), your own source
 | `local-ai plugins update [<plugin>] [--check] [--yes]` | Without a plugin, list the installs with an update. With one, show the files that change and apply the update |
 | `local-ai plugins remove <plugin> [--yes]` | Remove an install |
 | `local-ai plugins enable <plugin> [--accept-code]`, `disable <plugin>` | Turn an install on or off for you |
-| `local-ai plugins validate <dir>`, `validate --marketplace <file> [--strict] [--max-bytes N]` | Run the checks of an install on a plugin folder, or on every plugin of a `marketplace.json`, with no server. Exits `1` when a plugin fails |
+| `local-ai plugins validate <dir>`, `validate --marketplace <file> [--strict] [--max-bytes N]` | Run the checks of an install on a plugin folder, or on every plugin of a `marketplace.json`, with no server. An entry that declares `metadata.localai.runsCode` fails when the checks find otherwise. Exits `1` when a plugin fails |
 
 A `<plugin>` is an install ID or `name@marketplace`. For a plugin that runs code, `install` prints the page of the web UI where an administrator reviews the code files and installs it, and exits `0`: only the administrator's browser session installs such a plugin. `update` does the same when the code of a plugin changes. When an install for everyone already exists, `install` prints its ID; turn it on with `enable`. An install that gained code needs `enable --accept-code`.
 

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -61,7 +62,7 @@ func (c *PluginsValidateCMD) Run(_ *cliContext.Context) error {
 	case c.Dir != "" && c.Marketplace != "":
 		return errors.New("name a plugin folder or pass --marketplace, not both")
 	case c.Dir != "":
-		if !c.check(c.Dir, filepath.Base(filepath.Clean(c.Dir)), claudeplugin.LoadOptions{}) {
+		if ok, _ := c.check(c.Dir, filepath.Base(filepath.Clean(c.Dir)), claudeplugin.LoadOptions{}); !ok {
 			return errors.New("the plugin failed the checks")
 		}
 		return nil
@@ -70,13 +71,13 @@ func (c *PluginsValidateCMD) Run(_ *cliContext.Context) error {
 }
 
 // check validates one plugin folder and prints the report. It returns false
-// when the plugin fails.
-func (c *PluginsValidateCMD) check(dir, label string, opts claudeplugin.LoadOptions) bool {
+// when the plugin fails, and the code reasons of a plugin that loaded.
+func (c *PluginsValidateCMD) check(dir, label string, opts claudeplugin.LoadOptions) (bool, []string) {
 	w := c.out()
 	v, err := plugins.CheckDir(dir, c.limits(), opts)
 	if err != nil {
 		_, _ = fmt.Fprintf(w, "FAIL  %s: %v\n", label, err)
-		return false
+		return false, nil
 	}
 	var size int64
 	for _, f := range v.Tree.Files {
@@ -112,7 +113,31 @@ func (c *PluginsValidateCMD) check(dir, label string, opts claudeplugin.LoadOpti
 	if !ok {
 		_, _ = fmt.Fprintf(w, "FAIL  %s: components were skipped (--strict)\n", label)
 	}
-	return ok
+	return ok, v.CodeReasons
+}
+
+// declaredRunsCode reads metadata.localai.runsCode of a marketplace entry,
+// the curated marketplace's claim that a reviewer checked. ok is false when
+// the entry does not declare it.
+func declaredRunsCode(e *claudeplugin.Entry) (runsCode, ok bool) {
+	var raw struct {
+		Metadata struct {
+			LocalAI struct {
+				RunsCode *bool `json:"runsCode"`
+			} `json:"localai"`
+		} `json:"metadata"`
+	}
+	if len(e.Raw) == 0 || json.Unmarshal(e.Raw, &raw) != nil || raw.Metadata.LocalAI.RunsCode == nil {
+		return false, false
+	}
+	return *raw.Metadata.LocalAI.RunsCode, true
+}
+
+func describeCode(reasons []string) string {
+	if len(reasons) == 0 {
+		return "no code"
+	}
+	return "code (" + strings.Join(reasons, ", ") + ")"
 }
 
 // marketplaceRoot is the folder that holds .claude-plugin/marketplace.json,
@@ -180,7 +205,16 @@ func (c *PluginsValidateCMD) validateMarketplace() error {
 			defer f.Done()
 			dir = f.Dir
 		}
-		if !c.check(dir, label, opts) {
+		ok, reasons := c.check(dir, label, opts)
+		if !ok {
+			failed++
+			continue
+		}
+		// A wrong claim would let users install code that the review
+		// called text-only, so it fails like a refused plugin.
+		if declared, has := declaredRunsCode(e); has && declared != (len(reasons) > 0) {
+			_, _ = fmt.Fprintf(w, "FAIL  %s: metadata.localai.runsCode is %t, but the checks found %s\n",
+				label, declared, describeCode(reasons))
 			failed++
 		}
 	}
