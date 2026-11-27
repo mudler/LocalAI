@@ -134,7 +134,7 @@ index 61b564162..da1192279 100644
      uint64_t n_files = 0;
      uint64_t size    = 0; // in bytes
 diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
-index e553c9982..d66dff734 100644
+index e553c9982..184e3b58f 100644
 --- a/tools/server/server-context.cpp
 +++ b/tools/server/server-context.cpp
 @@ -1162,6 +1162,16 @@ public:
@@ -224,7 +224,29 @@ index e553c9982..d66dff734 100644
                      } catch (const std::exception & err) {
                          slot->prompt_clear();
                          send_error(task, std::string("Unable to restore slot: ") + err.what(), ERROR_TYPE_INVALID_REQUEST);
-@@ -5178,6 +5212,12 @@ private:
+@@ -4367,6 +4401,21 @@ private:
+ 
+                 metrics_flush_idle();
+ 
++                // LocalAI: write the prompts worth keeping now, in the background, so an unload has
++                // little left to save; the idle slots go to the RAM cache first (no-op if already there)
++                if (prompt_cache && prompt_cache->disk) {
++                    for (auto & slot : slots) {
++                        if (!slot.is_processing() && slot.prompt.n_tokens() > 0 &&
++                                are_lora_equal(slot.prompt.lora, prompt_cache->lora_disk) &&
++                                prompt_cache->disk->wants_write_behind(slot.prompt.tokens)) {
++                            if (slot.prompt_save(*prompt_cache)) {
++                                prompt_cache->update();
++                            }
++                        }
++                    }
++                    prompt_cache->write_behind();
++                }
++
+                 return; // skip further processing
+ 
+             } else {
+@@ -5178,6 +5227,12 @@ private:
  
                          slot.prompt.tokens.keep_first(n_past);
  
@@ -238,7 +260,7 @@ index e553c9982..d66dff734 100644
                          if (slot.task->params.stream) {
                              if (slot.task->params.return_progress) {
 diff --git a/tools/server/server-slot-sched.cpp b/tools/server/server-slot-sched.cpp
-index c3c0c623c..e5988af14 100644
+index c3c0c623c..a76097d96 100644
 --- a/tools/server/server-slot-sched.cpp
 +++ b/tools/server/server-slot-sched.cpp
 @@ -66,12 +66,12 @@ server_prompt_reuse server_prompt::get_reuse(int32_t n_prefix, bool has_new_toke
@@ -693,7 +715,7 @@ index c3c0c623c..e5988af14 100644
      entry.size     = size_file;
      entry.t_used   = fs::last_write_time(path, ec);
      entry.n_tokens = tokens.size();
-@@ -411,15 +650,115 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
+@@ -411,15 +650,171 @@ bool server_prompt_cache_disk::save(const server_prompt_cache_state & state) {
      return true;
  }
  
@@ -718,23 +740,30 @@ index c3c0c623c..e5988af14 100644
 +    {
 +        std::lock_guard<std::mutex> lk(q_mtx);
 +
++        // a write-behind state shares its buffers with the RAM cache, it adds nothing here
 +        std::vector<uint64_t> sizes;
 +        for (const auto & cur : queue) {
-+            sizes.push_back(cur.size());
++            sizes.push_back(cur.wb ? 0 : cur.state.size());
 +        }
 +
 +        const long n_drop = prompt_cache_policy::queue_drops(sizes, size_new, opts.queue_limit);
 +        if (n_drop < 0) {
 +            n_dropped = 1;
 +        } else {
-+            for (long i = 0; i < n_drop; i++) {
-+                queue_bytes -= queue.front().size();
-+                queue.pop_front();
++            long dropped = 0;
++            for (auto it = queue.begin(); it != queue.end() && dropped < n_drop;) {
++                if (it->wb) {
++                    ++it;
++                    continue;
++                }
++                queue_bytes -= it->state.size();
++                it = queue.erase(it);
++                dropped++;
 +            }
-+            n_dropped = n_drop;
++            n_dropped = dropped;
 +
 +            queue_bytes += size_new;
-+            queue.push_back(std::move(state));
++            queue.push_back({ std::move(state), false });
 +        }
 +    }
 +    q_cv.notify_all();
@@ -748,26 +777,75 @@ index c3c0c623c..e5988af14 100644
 +    }
 +}
 +
++bool server_prompt_cache_disk::wants_write_behind(const server_tokens & tokens) const {
++    if (!tokens.get_persist() || tokens.size() < std::max<uint64_t>(opts.min_tokens, server_tokens::hash_block_size)) {
++        return false;
++    }
++    const uint64_t reused = prompt_cache_policy::reused_tokens(seen.counts(tokens.get_prefix_hashes()), server_tokens::hash_block_size, opts.min_reuse);
++    if (!prompt_cache_policy::likely_reused(reused, opts.min_tokens, server_tokens::hash_block_size)) {
++        return false;
++    }
++    return wb_done.count(make_name(compat, ns_of(tokens), tokens.get_hash(tokens.size()))) == 0;
++}
++
++bool server_prompt_cache_disk::write_behind(const server_prompt_cache_state & state) {
++    if (!writer.joinable() || !wants(state) || !wants_write_behind(state.prompt.tokens)) {
++        return false;
++    }
++
++    {
++        std::lock_guard<std::mutex> lk(q_mtx);
++        if (q_wb_pending || q_stop) {
++            return false;
++        }
++
++        // the writer gets its own prompt (the RAM entry can be moved into a slot meanwhile)
++        // and shares the state buffers, which never change after they are filled
++        server_prompt_cache_state snap;
++        snap.prompt = state.prompt.clone();
++        snap.data   = state.data;
++
++        queue.push_back({ std::move(snap), true });
++        q_wb_pending = true;
++    }
++    q_cv.notify_all();
++
++    const auto & tokens = state.prompt.tokens;
++    if (wb_done.size() > 4096) {
++        wb_done.clear();
++    }
++    wb_done.insert(make_name(compat, ns_of(tokens), tokens.get_hash(tokens.size())));
++
++    SRV_TRC(" - writing prompt with %zu tokens to disk in the background\n", tokens.size());
++
++    return true;
++}
++
 +void server_prompt_cache_disk::writer_loop() {
 +    while (true) {
-+        server_prompt_cache_state state;
++        queued item;
 +        {
 +            std::unique_lock<std::mutex> lk(q_mtx);
 +            q_cv.wait(lk, [this]() { return q_stop || !queue.empty(); });
 +            if (q_stop) {
 +                return;
 +            }
-+            state = std::move(queue.front());
++            item = std::move(queue.front());
 +            queue.pop_front();
-+            queue_bytes -= state.size();
++            if (!item.wb) {
++                queue_bytes -= item.state.size();
++            }
 +            q_busy = true;
 +        }
 +
-+        save(state);
++        save(item.state);
 +
 +        {
 +            std::lock_guard<std::mutex> lk(q_mtx);
 +            q_busy = false;
++            if (item.wb) {
++                q_wb_pending = false;
++            }
 +        }
 +        q_cv.notify_all();
 +    }
@@ -810,7 +888,7 @@ index c3c0c623c..e5988af14 100644
          // only the hashes are known here, so this is a lower bound
          const size_t n_prefix_cur = tokens.get_common_prefix_lower(it->hashes);
  
-@@ -434,29 +773,53 @@ server_prompt_cache_disk::entry_list::iterator server_prompt_cache_disk::find(co
+@@ -434,29 +829,53 @@ server_prompt_cache_disk::entry_list::iterator server_prompt_cache_disk::find(co
          }
      }
  
@@ -868,7 +946,7 @@ index c3c0c623c..e5988af14 100644
      server_prompt_cache_state res;
  
      const int64_t t_start = ggml_time_us();
-@@ -466,6 +829,7 @@ bool server_prompt_cache_disk::read(entry_list::iterator it, server_prompt_cache
+@@ -466,6 +885,7 @@ bool server_prompt_cache_disk::read(entry_list::iterator it, server_prompt_cache
  
          server_prompt_cache_disk_entry cur;
          cur.name = it->name;
@@ -876,7 +954,7 @@ index c3c0c623c..e5988af14 100644
          cur.size = it->size;
          const auto header = read_header(in, compat, cur);
  
-@@ -474,6 +838,9 @@ bool server_prompt_cache_disk::read(entry_list::iterator it, server_prompt_cache
+@@ -474,6 +894,9 @@ bool server_prompt_cache_disk::read(entry_list::iterator it, server_prompt_cache
  
          res.prompt.tokens = server_tokens::deserialize(tokens_data, has_mtmd);
  
@@ -886,7 +964,7 @@ index c3c0c623c..e5988af14 100644
          if (res.prompt.tokens.size() != it->n_tokens || res.prompt.tokens.get_hash(it->n_tokens) != it->hash) {
              throw std::runtime_error("the tokens do not match the hash");
          }
-@@ -755,20 +1122,43 @@ void server_prompt_cache::save_to_disk(const server_prompt_cache_state & state)
+@@ -755,20 +1178,58 @@ void server_prompt_cache::save_to_disk(const server_prompt_cache_state & state)
      disk->save(state);
  }
  
@@ -915,6 +993,21 @@ index c3c0c623c..e5988af14 100644
 +        if (disk->wants(*it) && disk->likely_reused(*it)) {
 +            save_to_disk(*it);
 +        }
++    }
++}
++
++void server_prompt_cache::write_behind() {
++    if (!disk) {
++        return;
++    }
++
++    // the most recently used entries first: the next start most likely needs them
++    for (auto it = states.rbegin(); it != states.rend(); ++it) {
++        if (!are_lora_equal(it->prompt.lora, lora_disk) || !disk->wants(*it) || !disk->wants_write_behind(it->prompt.tokens)) {
++            continue;
++        }
++        disk->write_behind(*it);
++        return; // one at a time
      }
  }
  
@@ -936,10 +1029,10 @@ index c3c0c623c..e5988af14 100644
      }
  
 diff --git a/tools/server/server-slot-sched.h b/tools/server/server-slot-sched.h
-index c70305279..56732357a 100644
+index c70305279..41eb9e87a 100644
 --- a/tools/server/server-slot-sched.h
 +++ b/tools/server/server-slot-sched.h
-@@ -4,11 +4,17 @@
+@@ -4,11 +4,18 @@
  #include "server-task.h"
  
  #include "file-lock.h"
@@ -954,10 +1047,39 @@ index c70305279..56732357a 100644
 +#include <mutex>
  #include <string>
 +#include <thread>
++#include <unordered_set>
  #include <vector>
  
  // which prompt goes to which slot: slot prompt state, prompt cache and slot selection
-@@ -87,6 +93,7 @@ struct server_prompt_cache_state {
+@@ -57,9 +64,25 @@ struct server_prompt {
+     server_prompt_reuse get_reuse(int32_t n_prefix, bool has_new_tokens, int32_t n_swa, llama_pos pos_min) const;
+ };
+ 
++// LocalAI: a state buffer that the RAM prompt cache shares with the disk writer thread, so a large
++// entry is written in the background without a copy. It is filled once (alloc, or a read from disk)
++// and only read afterwards, so sharing it is safe.
++struct server_state_buf {
++    std::shared_ptr<common_state_data> buf = std::make_shared<common_state_data>();
++
++    server_state_buf() = default;
++    server_state_buf(common_state_data && v) : buf(std::make_shared<common_state_data>(std::move(v))) {}
++
++    uint8_t *       data()       { return buf->data(); }
++    const uint8_t * data() const { return buf->data(); }
++    size_t size()  const { return buf->size(); }
++    bool   empty() const { return buf->empty(); }
++    void   resize(size_t n) { buf->resize(n); }
++};
++
+ struct server_prompt_data {
+-    common_state_data main;
+-    common_state_data drft;
++    server_state_buf main;
++    server_state_buf drft;
+ 
+     size_t size() const {
+         return main.size() + drft.size();
+@@ -87,6 +110,7 @@ struct server_prompt_cache_state {
  
  struct server_prompt_cache_disk_entry {
      std::string name;
@@ -965,7 +1087,7 @@ index c70305279..56732357a 100644
  
      size_t size = 0; // in bytes
      std::filesystem::file_time_type t_used;
-@@ -98,11 +105,29 @@ struct server_prompt_cache_disk_entry {
+@@ -98,11 +122,29 @@ struct server_prompt_cache_disk_entry {
      std::vector<server_tokens::prefix_hash> hashes;
  };
  
@@ -995,7 +1117,7 @@ index c70305279..56732357a 100644
      // the files as of the last operation, another server can change them at any time
      const std::list<server_prompt_cache_disk_entry> & get_entries() const { return entries; }
  
-@@ -116,36 +141,95 @@ struct server_prompt_cache_disk {
+@@ -116,36 +158,111 @@ struct server_prompt_cache_disk {
      // loads the saved prompt that shares the longest prefix with the tokens
      // n_prefix_min: the saved prompt must share more tokens than this
      // n_tokens_max: longer saved prompts are skipped
@@ -1006,6 +1128,14 @@ index c70305279..56732357a 100644
 +    // the oldest queued states are dropped when the queue is full, a drop is a later miss, never a stall
 +    // writes synchronously when there is no writer thread
 +    void enqueue(server_prompt_cache_state && state);
++
++    // LocalAI: writes a state that stays in the RAM cache, in the background: the writer gets its own
++    // prompt and shares the state buffers, so nothing large is copied. One such write at a time;
++    // returns false when one is still pending or the state was already handed over.
++    bool write_behind(const server_prompt_cache_state & state);
++
++    // LocalAI: the prompt is worth a background write and was not handed over yet (server thread)
++    bool wants_write_behind(const server_tokens & tokens) const;
 +
 +    // LocalAI: waits until the queued states are written, at most until deadline_us (ggml_time_us())
 +    // a write still running at the deadline is abandoned, its partial file removed
@@ -1077,9 +1207,14 @@ index c70305279..56732357a 100644
 +    // LocalAI: the write queue has a lock of its own, so the server thread never waits for the disk
 +    std::mutex                           q_mtx;
 +    std::condition_variable              q_cv;
-+    std::deque<server_prompt_cache_state> queue;
++    struct queued {
++        server_prompt_cache_state state;
++        bool wb = false; // write-behind: the buffers are shared with the RAM cache
++    };
++    std::deque<queued> queue;
 +    uint64_t                             queue_bytes = 0;
 +    bool                                 q_busy      = false;
++    bool                                 q_wb_pending = false; // a write-behind state is queued or being written
 +    bool                                 q_stop      = false;
 +    std::thread                          writer;
 +
@@ -1090,12 +1225,20 @@ index c70305279..56732357a 100644
 +    prompt_cache_policy::seen_counter<server_tokens::prefix_hash, prompt_cache_policy::sha_bucket> seen;
 +
 +    prompt_cache_policy::disk_level level = prompt_cache_policy::disk_level::ok;
++
++    // prompts already handed to the writer by write_behind (by file name), server thread only
++    std::unordered_set<std::string> wb_done;
  };
  
  // id of everything that makes a saved state unusable when it changes
-@@ -191,7 +275,10 @@ struct server_prompt_cache {
+@@ -190,8 +307,15 @@ struct server_prompt_cache {
+     // the lora config that the disk prompt cache is valid for
      std::vector<common_adapter_lora_info> lora_disk;
  
++    // LocalAI: hands the most recently used RAM entry that is worth keeping and not on disk yet to the
++    // writer thread, without a copy; call when the server is idle
++    void write_behind();
++
      // saves all the states to disk, they stay in the RAM
 -    void flush_to_disk();
 +    // LocalAI: the most recently used first, until deadline_us (ggml_time_us(), 0 = no deadline), once per cache

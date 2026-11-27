@@ -243,6 +243,22 @@ var _ = Describe("llama.cpp disk prompt cache", Ordered, func() {
 		Expect(hit.elapsed).To(BeNumerically("<", cold.elapsed*7/10), "the first token comes sooner than in the cold run")
 	})
 
+	It("writes a reused prefix in the background, before any unload", func() {
+		root := filepath.Join(workDir, "write-behind")
+		user := cacheSalt("user:w")
+		prefix := pagedPrompt(3, words)
+
+		b := startCacheBackend(binaryDir, root)
+		b.load(modelFile, ctxSize, options)
+		b.predict(prefix+" One.", user, false)
+		b.predict(prefix+" Two.", user, false)
+		// No Free(): the second turn makes the prefix worth keeping, and the
+		// backend writes it once it is idle.
+		Eventually(func() int { return cacheFiles(root)[user[:16]] }, 60*time.Second, 500*time.Millisecond).
+			Should(BeNumerically(">=", 1), "the reused prefix reaches disk while the model stays loaded")
+		b.stop()
+	})
+
 	It("writes nothing for zero-retention requests", func() {
 		root := filepath.Join(workDir, "zero-retention")
 		user := cacheSalt("user:z")
