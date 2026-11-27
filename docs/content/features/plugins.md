@@ -61,6 +61,7 @@ A chat keeps the plugins it switched off (`plugins_off`, install IDs, at most 20
 | Component | In a chat |
 |---|---|
 | Skills | The plugin layer of the chat's skills, named `<plugin>:<skill>`. See [Skills]({{% relref "/features/chats-and-agents/chats-skills#skills" %}}). |
+| MCP servers (`http`, `sse`) | One connector per server and user, owned by the plugin. See [Connectors of a plugin]({{% relref "/features/chat-apps/mcp-servers#connectors-of-a-plugin" %}}). A `ws` server is not supported; a `stdio` server comes in a later version. |
 
 ## Settings
 
@@ -81,6 +82,7 @@ Each setting applies at once. Plugins need a data path: the server fetches into 
 | Package files | Shared, immutable | The workspace store, one folder per digest. |
 | Marketplace refresh and removal of unused packages | One frontend at a time | An advisory lock taken for each pass. A marketplace refreshed less than 6 hours ago is skipped, so leadership need not stay on one frontend. |
 | Install, update or removal of one plugin | One at a time per plugin | A lock on the plugin ID across frontends, held for the length of the change. |
+| Connectors of plugins | Stateless per request | Rows of the connectors table. Turning a plugin on or off writes them; each turn makes them match the package again and writes nothing when they match, so any frontend can do it. MCP sessions stay per frontend, as for every connector. |
 | Install and update jobs | Per frontend | The job runs on the frontend that took the request and shows on every frontend's operations list. A restart fails the job; it is not resumed. |
 | Fetch scratch folders | Per frontend | Under the data path, removed when the fetch ends and at startup. |
 | Model tiers and limits | Shared | Runtime settings. |

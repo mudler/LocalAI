@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/plugins/fetch"
 	"github.com/mudler/LocalAI/core/services/plugins/store"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/internal"
 )
@@ -67,7 +68,7 @@ func (q pluginQueue) Enqueue(j plugins.Job) {
 
 // newPluginsService builds the Plugins service. It reads the settings of cfg
 // at each request. A nil queue runs the jobs at once.
-func newPluginsService(cfg *config.ApplicationConfig, db *gorm.DB, ws workspace.Store, queue plugins.Queue) (*plugins.Service, *fetch.Fetcher, error) {
+func newPluginsService(cfg *config.ApplicationConfig, db *gorm.DB, ws workspace.Store, queue plugins.Queue, conns plugins.ConnectorSync) (*plugins.Service, *fetch.Fetcher, error) {
 	dp := cfg.DataPath
 	st, err := pluginStoreFor(db, dp)
 	if err != nil {
@@ -97,6 +98,7 @@ func newPluginsService(cfg *config.ApplicationConfig, db *gorm.DB, ws workspace.
 		},
 		Official:     func() bool { return cfg.OfficialLibraries },
 		UserInstalls: func() bool { return !cfg.Plugins.DisableUserInstalls },
+		Connectors:   conns,
 	}
 	if ws != nil {
 		o.Workspace = content.Workspace{Files: ws, Actor: workspace.Actor{Principal: files.AdminPrincipal}}
@@ -124,7 +126,7 @@ func (a *Application) initPlugins() error {
 	if a.galleryService != nil {
 		queue = pluginQueue{a.galleryService}
 	}
-	svc, fetcher, err := newPluginsService(cfg, a.authDB, ws, queue)
+	svc, fetcher, err := newPluginsService(cfg, a.authDB, ws, queue, a.pluginConnectors())
 	if err != nil {
 		return err
 	}
@@ -150,4 +152,38 @@ func (l latePlugins) TurnView(ctx context.Context, principal string, chat plugin
 		return nil, nil
 	}
 	return svc.TurnView(ctx, principal, chat)
+}
+
+// pluginConnectors gives the Plugins service the MCP connectors of the
+// chats, for the connectors that plugins own, or nil when the chats have
+// none.
+func (a *Application) pluginConnectors() plugins.ConnectorSync {
+	if a.studioMCPConns == nil {
+		return nil
+	}
+	return pluginConnectorSync{a.studioMCPConns}
+}
+
+// pluginConnectorSync adapts the MCP connectors service to the Plugins
+// service.
+type pluginConnectorSync struct{ s *mcpconns.Service }
+
+func pluginServers(in []plugins.RemoteServer) []mcpconns.PluginServer {
+	out := make([]mcpconns.PluginServer, len(in))
+	for i, r := range in {
+		out[i] = mcpconns.PluginServer{Name: r.Name, URL: r.URL, Headers: r.Headers}
+	}
+	return out
+}
+
+func (p pluginConnectorSync) SyncPluginConnectors(ctx context.Context, principal, installID, plugin, digest string, servers []plugins.RemoteServer) error {
+	return p.s.SyncPlugin(ctx, principal, installID, plugin, digest, pluginServers(servers))
+}
+
+func (p pluginConnectorSync) DropPluginConnectors(ctx context.Context, principal, installID string, all bool) error {
+	return p.s.DropPlugin(ctx, principal, installID, all)
+}
+
+func (p pluginConnectorSync) ResyncPluginConnectors(ctx context.Context, installID, plugin, digest string, servers []plugins.RemoteServer) error {
+	return p.s.ResyncPlugin(ctx, installID, plugin, digest, pluginServers(servers))
 }

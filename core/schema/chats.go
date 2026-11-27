@@ -2853,6 +2853,11 @@ type ChatsMCPConnector struct {
 	Enabled    bool      `json:"enabled"`
 	Created    time.Time `json:"created"`
 	Updated    time.Time `json:"updated"`
+	// PluginInstall and PluginServer name the plugin install and the MCP
+	// server of a connector that a plugin owns. Such a connector is read
+	// only: a change answers 403. Absent for a connector you made.
+	PluginInstall string `json:"plugin_install,omitempty"`
+	PluginServer  string `json:"plugin_server,omitempty"`
 }
 
 // ChatsMCPConnectorWrite creates or replaces an MCP connector. token, headers and
@@ -2917,6 +2922,8 @@ type ChatsMCPConnectorSwitch struct {
 	Off    bool   `json:"off"`
 	Usable bool   `json:"usable"`
 	Reason string `json:"reason,omitempty"`
+	// PluginInstall is the plugin install that owns the connector.
+	PluginInstall string `json:"plugin_install,omitempty"`
 }
 
 // ChatsBuiltinGroup is a group of built-in tools of a chat, such as the web

@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/plugins"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 )
@@ -139,4 +140,34 @@ func (s *Service) expandPluginSkill(ctx context.Context, p string, rec session.C
 		return body
 	}
 	return claudeplugin.ExpandContent(body, pluginVars(ap, sk.PluginRoot, path.Dir(sk.GuestPath), rec.ID))
+}
+
+// pluginConnectorInstalls returns the installs of the plugins that
+// contribute to the chat and have remote MCP servers. With sync, it first
+// makes the user's connectors of each one match its package, so an update
+// or a connector that was not made at enable time is in step before the
+// turn uses it; the call writes nothing when they match.
+func (s *Service) pluginConnectorInstalls(ctx context.Context, p string, rec session.ChatRecord, sc *scope, sync bool) map[string]bool {
+	if s.d.Connectors == nil {
+		return nil
+	}
+	out := map[string]bool{}
+	for _, ap := range s.activePlugins(ctx, p, rec, sc) {
+		servers, _ := plugins.RemoteServers(ap.Model, ap.Digest)
+		if len(servers) == 0 {
+			continue
+		}
+		out[ap.InstallID] = true
+		if !sync || s.d.MCPConnectors == nil {
+			continue
+		}
+		list := make([]mcpconns.PluginServer, len(servers))
+		for i, r := range servers {
+			list[i] = mcpconns.PluginServer{Name: r.Name, URL: r.URL, Headers: r.Headers}
+		}
+		if err := s.d.MCPConnectors.SyncPlugin(ctx, p, ap.InstallID, ap.Name, ap.Digest, list); err != nil {
+			s.log.Warn("studio: connectors of a plugin", "chat", rec.ID, "install", ap.InstallID, "error", err)
+		}
+	}
+	return out
 }

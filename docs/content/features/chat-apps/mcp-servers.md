@@ -157,6 +157,15 @@ with `***` first. The API returns it as `output` in the answer of
 - **Per chat switches.** The tools panel of a chat lists the connectors and the
   model's MCP servers with a switch each. See [Chats]({{% relref "/features/chats-and-agents/chats-tools#mcp-tools" %}}).
 
+### Connectors of a plugin
+
+A [plugin]({{% relref "/features/plugins" %}}) can declare remote MCP servers. When you turn the plugin on, each `http` or `sse` server of it becomes one of your connectors, named `<plugin>:<server>`, and turning the plugin off removes them. The connector belongs to the plugin: the list shows `plugin_install` and `plugin_server`, and a change, a switch or a delete answers `403`; turn the plugin off instead. Plugin connectors do not count against your 20 connectors.
+
+- The address and the headers come from the plugin. `${CLAUDE_PLUGIN_ROOT}` expands, `${VAR:-default}` takes its default, and `${VAR}` never reads the server's environment: a server that needs a value nothing gives, or a `userConfig` value, gets no connector ("needs settings", in a later version). Headers are sealed like the headers you type.
+- A `ws` server gets no connector, and a `stdio` server runs in the Sandbox in a later version.
+- A chat gets the tools while the plugin is on for it: not switched off in the chat, and, for a chat with an agent, granted in the agent's `plugins` list. The connector needs no entry in `mcp_servers`. Unattended runs need `act.spend` for them, as for the other connectors.
+- After an update of the plugin, the connector follows the new package at the next turn of a chat; an address that changed moves with it. The same address rules apply: a plugin cannot reach a private address unless an administrator allows it.
+
 ### MCP Apps
 
 A connector can offer MCP Apps: tools that declare an interactive HTML page in

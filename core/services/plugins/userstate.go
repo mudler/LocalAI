@@ -61,5 +61,9 @@ func (s *Service) saveEnabled(ctx context.Context, a Actor, installID string, on
 		us.NeedsReenable = false
 	}
 	us.UpdatedAt = s.now()
-	return s.st.SaveUserState(ctx, us)
+	if err := s.st.SaveUserState(ctx, us); err != nil {
+		return err
+	}
+	s.syncConnectors(ctx, a.ID, installID, on)
+	return nil
 }

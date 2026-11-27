@@ -355,7 +355,9 @@ func (s *Service) updateJob(ctx context.Context, a Actor, t store.Token) error {
 		return err
 	}
 	runsCode := len(c.reasons) > 0
+	reenable := false
 	if err := s.st.InstallTx(ctx, func(tx store.Tx) error {
+		reenable = false
 		cur, err := tx.Installs(store.InstallFilter{ID: t.InstallID})
 		if err != nil {
 			return err
@@ -387,12 +389,14 @@ func (s *Service) updateJob(ctx context.Context, a Actor, t store.Token) error {
 			return err
 		}
 		if addsCodeReason(old.CodeReasons, c.reasons) {
+			reenable = true
 			return tx.MarkNeedsReenable(in.ID)
 		}
 		return nil
 	}); err != nil {
 		return err
 	}
+	s.followConnectors(ctx, t.InstallID, pkg, reenable)
 	return s.ensurePackageFiles(ctx, c)
 }
 
@@ -435,7 +439,9 @@ func (s *Service) Rollback(ctx context.Context, a Actor, installID string) error
 	if in.Scope == store.ScopeInstance && (prevRuns || in.RunsCode) && !a.HumanSurface {
 		return ErrNotHumanSurface
 	}
-	return s.st.InstallTx(ctx, func(tx store.Tx) error {
+	reenable := false
+	if err := s.st.InstallTx(ctx, func(tx store.Tx) error {
+		reenable = false
 		cur, err := tx.Installs(store.InstallFilter{ID: installID})
 		if err != nil || len(cur) == 0 {
 			return err
@@ -456,10 +462,15 @@ func (s *Service) Rollback(ctx context.Context, a Actor, installID string) error
 			return err
 		}
 		if addsCodeReason(curPkg.CodeReasons, prev.CodeReasons) {
+			reenable = true
 			return tx.MarkNeedsReenable(c.ID)
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	s.followConnectors(ctx, installID, prev, reenable)
+	return nil
 }
 
 // Remove deletes an install and its user states (spec 9.5). The package
@@ -477,12 +488,16 @@ func (s *Service) Remove(ctx context.Context, a Actor, installID string) error {
 		return err
 	}
 	defer release()
-	return s.st.InstallTx(ctx, func(tx store.Tx) error {
+	if err := s.st.InstallTx(ctx, func(tx store.Tx) error {
 		if err := tx.DeleteInstall(installID); errors.Is(err, store.ErrNotFound) {
 			return fmt.Errorf("%w: install %q", ErrNotFound, installID)
 		} else if err != nil {
 			return err
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	s.dropConnectors(ctx, installID)
+	return nil
 }

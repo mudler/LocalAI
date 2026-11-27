@@ -89,6 +89,31 @@ func Run(newStore NewStore) {
 		Expect(again.Secrets[0]).To(Equal(byte('s')), "a caller changed the stored connector")
 		Expect(again.Args[0]).To(Equal("a"), "a caller changed the stored connector")
 	})
+	It("keeps the plugin that owns a connector and lists the connectors of an install", func() {
+		s := newStore()
+		a := conn("p1", "u1", "fmt:docs")
+		a.PluginInstallID, a.PluginServer, a.PluginDigest = "in-1", "docs", "sha256:abc"
+		Expect(s.Put(ctx, a)).To(Succeed())
+		b := conn("p2", "u2", "fmt:docs")
+		b.PluginInstallID, b.PluginServer = "in-1", "docs"
+		Expect(s.Put(ctx, b)).To(Succeed())
+		Expect(s.Put(ctx, conn("own", "u1", "Mine"))).To(Succeed())
+		got, err := s.Get(ctx, "p1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.PluginInstallID).To(Equal("in-1"))
+		Expect(got.PluginServer).To(Equal("docs"))
+		Expect(got.PluginDigest).To(Equal("sha256:abc"))
+		list, err := s.ListPlugin(ctx, "in-1")
+		Expect(err).NotTo(HaveOccurred())
+		var ids []string
+		for _, c := range list {
+			ids = append(ids, c.ID)
+		}
+		Expect(ids).To(ConsistOf("p1", "p2"))
+		none, err := s.ListPlugin(ctx, "in-2")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(none).To(BeEmpty())
+	})
 	It("deletes a connector", func() {
 		s := newStore()
 		_ = s.Put(ctx, conn("c1", "u1", "Docs"))

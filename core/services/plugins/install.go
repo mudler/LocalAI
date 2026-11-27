@@ -195,11 +195,12 @@ func (s *Service) installJob(ctx context.Context, a Actor, t store.Token, scope 
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	var replaced, replacedIDs []string
 	if err := s.st.InstallTx(ctx, func(tx store.Tx) error {
+		replaced, replacedIDs = nil, nil
 		if err := tx.PutPackage(pkg); err != nil {
 			return err
 		}
-		var replaced []string
 		if scope == store.ScopeInstance {
 			users, err := tx.Installs(store.InstallFilter{PluginID: t.PluginID, Scope: store.ScopeUser})
 			if err != nil {
@@ -209,7 +210,7 @@ func (s *Service) installJob(ctx context.Context, a Actor, t store.Token, scope 
 				if err := tx.DeleteInstall(u.ID); err != nil {
 					return err
 				}
-				replaced = append(replaced, u.Owner)
+				replaced, replacedIDs = append(replaced, u.Owner), append(replacedIDs, u.ID)
 			}
 		}
 		if err := tx.CreateInstall(in); err != nil {
@@ -226,6 +227,18 @@ func (s *Service) installJob(ctx context.Context, a Actor, t store.Token, scope 
 		return nil
 	}); err != nil {
 		return err
+	}
+	// The connectors follow the installs: a replaced personal install loses
+	// its own, and each user the install is on for gets the new ones.
+	for _, id := range replacedIDs {
+		s.dropConnectors(ctx, id)
+	}
+	if scope == store.ScopeUser {
+		s.syncConnectors(ctx, a.ID, in.ID, true)
+	} else if !runsCode {
+		for _, owner := range replaced {
+			s.syncConnectors(ctx, owner, in.ID, true)
+		}
 	}
 	return s.ensurePackageFiles(ctx, c)
 }

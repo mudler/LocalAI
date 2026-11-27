@@ -103,6 +103,9 @@ type Options struct {
 	Queue Queue
 	// UserInstalls reports the plugins_user_installs setting. Nil means on.
 	UserInstalls func() bool
+	// Connectors keeps the MCP connectors that plugins own. Nil: plugins
+	// get no connectors.
+	Connectors ConnectorSync
 }
 
 // Service is the Plugins service. It keeps no state across requests.
@@ -119,6 +122,7 @@ type Service struct {
 	now          func() time.Time
 	queue        Queue
 	userInstalls func() bool
+	conns        ConnectorSync
 }
 
 // New returns a Service.
@@ -129,7 +133,7 @@ func New(o Options) (*Service, error) {
 	s := &Service{
 		st: o.Store, db: o.DB, fetcher: o.Fetcher, ws: o.Workspace, root: o.Root,
 		limits: o.Limits, official: o.Official, interval: o.RefreshInterval, now: o.Now,
-		queue: o.Queue, userInstalls: o.UserInstalls,
+		queue: o.Queue, userInstalls: o.UserInstalls, conns: o.Connectors,
 	}
 	if s.queue == nil {
 		s.queue = inlineQueue{}

@@ -369,7 +369,13 @@ func (s *Service) Create(ctx context.Context, user string, in Input) (Connector,
 	if err != nil {
 		return Connector{}, err
 	}
-	if len(mine) >= MaxPerUser {
+	made := 0
+	for _, c := range mine {
+		if c.PluginInstallID == "" {
+			made++ // a plugin's connectors do not count against the user's
+		}
+	}
+	if made >= MaxPerUser {
 		return Connector{}, bad("you can have at most %d connectors", MaxPerUser)
 	}
 	c, err := s.apply(ctx, user, Connector{ID: newID(), Owner: own}, in)
@@ -396,6 +402,9 @@ func (s *Service) Update(ctx context.Context, user, id string, in Input) (Connec
 	if err != nil {
 		return Connector{}, err
 	}
+	if old.PluginInstallID != "" {
+		return Connector{}, ErrPluginOwned
+	}
 	c, err := s.apply(ctx, user, old, in)
 	if err != nil {
 		return Connector{}, err
@@ -421,6 +430,9 @@ func (s *Service) SetEnabled(ctx context.Context, user, id string, on bool) (Con
 	c, err := s.owned(ctx, user, id)
 	if err != nil {
 		return Connector{}, err
+	}
+	if c.PluginInstallID != "" {
+		return Connector{}, ErrPluginOwned
 	}
 	c.Enabled = on
 	if on {
@@ -470,8 +482,12 @@ func (s *Service) List(ctx context.Context, user string) ([]Connector, error) {
 func (s *Service) Delete(ctx context.Context, user, id string) error {
 	s.wmu.Lock()
 	defer s.wmu.Unlock()
-	if _, err := s.owned(ctx, user, id); err != nil {
+	c, err := s.owned(ctx, user, id)
+	if err != nil {
 		return err
+	}
+	if c.PluginInstallID != "" {
+		return ErrPluginOwned
 	}
 	if err := s.o.Store.Delete(ctx, id); err != nil {
 		return err

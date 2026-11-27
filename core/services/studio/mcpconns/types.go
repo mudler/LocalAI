@@ -66,6 +66,12 @@ type Connector struct {
 	HasToken, HasHeaders, HasEnv bool
 	Enabled                      bool
 	Created, Updated             time.Time
+	// PluginInstallID and PluginServer name the plugin install and the MCP
+	// server of a connector that a plugin owns. The server keeps such a
+	// connector in step with the plugin; its owner cannot edit it.
+	// PluginDigest is the package it was made from. All three are empty for
+	// a connector the user made.
+	PluginInstallID, PluginServer, PluginDigest string
 }
 
 // Secrets is what is sealed.
@@ -84,6 +90,9 @@ type Store interface {
 	List(ctx context.Context, owner string) ([]Connector, error)
 	// Delete is not an error when the connector does not exist.
 	Delete(ctx context.Context, id string) error
+	// ListPlugin returns the connectors of every user that a plugin install
+	// owns.
+	ListPlugin(ctx context.Context, installID string) ([]Connector, error)
 }
 
 // ErrNameTaken is the error of a name another connector of the owner has. It

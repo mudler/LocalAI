@@ -109,3 +109,16 @@ func (s *jsonStore) Delete(_ context.Context, id string) error {
 	delete(s.all, id)
 	return s.save()
 }
+
+func (s *jsonStore) ListPlugin(_ context.Context, installID string) ([]Connector, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []Connector
+	for _, c := range s.all {
+		if installID != "" && c.PluginInstallID == installID {
+			out = append(out, c.clone())
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, nil
+}
