@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -183,6 +184,13 @@ type backendSupervisor struct {
 	// startTimeout bounds the readiness wait of startBackend. Overridden only
 	// by tests; zero means defaultStartTimeout.
 	startTimeout time.Duration
+	// shuttingDown is set when the worker starts to shut down: it refuses new
+	// installs and upgrades from then on. See shutdown.go.
+	shuttingDown atomic.Bool
+	// stoppingWait bounds how long a stop request waits for a process that
+	// another stop is already ending. Overridden only by tests; zero means
+	// defaultStoppingWait.
+	stoppingWait time.Duration
 }
 
 // defaultStartTimeout is how long startBackend waits for a new process to
@@ -1052,6 +1060,15 @@ func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) worke
 	}
 	if bp.stopping {
 		s.mu.Unlock()
+		// Another stop (the watchdog, a shutdown, an unload) is ending the
+		// process. The caller asked for the same end: wait for it, and
+		// acknowledge once the process exited, so a load job is released at
+		// once instead of after its stop window.
+		if s.waitStopped(bp) {
+			s.forgetOperation(req.OperationID)
+			reply.Terminated = true
+			return reply
+		}
 		reply.Error = fmt.Sprintf("process %s is already stopping", req.ProcessKey)
 		return reply
 	}

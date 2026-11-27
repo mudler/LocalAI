@@ -6,6 +6,7 @@ package workerregistry
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -37,8 +38,8 @@ type RegistrationClient struct {
 	JoinToken string
 	// Credential keeps the own credential of the node between runs, so that a
 	// restart needs no join token. Nil keeps it in memory only.
-	Credential CredentialStore
-	HTTPTimeout       time.Duration // used for registration calls; defaults to 10s
+	Credential  CredentialStore
+	HTTPTimeout time.Duration // used for registration calls; defaults to 10s
 	// HTTPClient, when set, carries every call instead of a client built from
 	// HTTPTimeout: a worker that joined over P2P reaches the frontend through
 	// the P2P layer, whatever host FrontendURL names.
@@ -418,20 +419,51 @@ func (c *RegistrationClient) Deregister(ctx context.Context, nodeID string) erro
 	return nil
 }
 
-// GracefulDeregister performs drain -> wait -> deregister in sequence.
-// This is the standard shutdown sequence for backend workers.
+// Defaults of the graceful shutdown of a worker.
+const (
+	// DefaultShutdownRequestWait is how long a worker that shuts down waits
+	// for the requests in flight on its replicas.
+	DefaultShutdownRequestWait = 30 * time.Second
+	// DefaultShutdownTimeout bounds drain, wait and deregistration together.
+	DefaultShutdownTimeout = 60 * time.Second
+)
+
+// ShutdownOptions controls GracefulShutdown.
+type ShutdownOptions struct {
+	// LoadsEnded tells the frontend that the worker stopped every load it
+	// ran and their processes exited, so it releases their jobs at once.
+	LoadsEnded bool
+	// RequestWait bounds the wait for the requests in flight. Zero means
+	// DefaultShutdownRequestWait.
+	RequestWait time.Duration
+	// Timeout bounds the whole sequence. Zero means DefaultShutdownTimeout.
+	Timeout time.Duration
+}
+
+// GracefulDeregister performs drain -> wait -> deregister in sequence with
+// the default windows. This is the standard shutdown sequence for workers.
 func (c *RegistrationClient) GracefulDeregister(nodeID string) {
+	c.GracefulShutdown(nodeID, ShutdownOptions{})
+}
+
+// GracefulShutdown drains the node, waits for the requests in flight on its
+// replicas (up to RequestWait), and deregisters it. The drain keeps the
+// replicas routable while the frontend places replacements; the
+// deregistration removes them.
+func (c *RegistrationClient) GracefulShutdown(nodeID string, opts ShutdownOptions) {
 	if c.FrontendURL == "" || nodeID == "" {
 		return
 	}
+	wait := cmp.Or(opts.RequestWait, DefaultShutdownRequestWait)
+	total := cmp.Or(opts.Timeout, DefaultShutdownTimeout)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), total)
 	defer cancel()
 
-	if err := c.Drain(ctx, nodeID); err != nil {
+	if err := c.drainForShutdown(ctx, nodeID, opts.LoadsEnded); err != nil {
 		xlog.Warn("Failed to set drain status", "error", err)
 	} else {
-		c.WaitForDrain(ctx, nodeID, 30*time.Second)
+		c.WaitForDrain(ctx, nodeID, wait)
 	}
 
 	if err := c.Deregister(ctx, nodeID); err != nil {
@@ -439,6 +471,29 @@ func (c *RegistrationClient) GracefulDeregister(nodeID string) {
 	} else {
 		xlog.Info("Deregistered from frontend")
 	}
+}
+
+// drainForShutdown drains the node and says that the worker shuts down.
+func (c *RegistrationClient) drainForShutdown(ctx context.Context, nodeID string, loadsEnded bool) error {
+	body, err := json.Marshal(map[string]bool{"shutdown": true, "loads_ended": loadsEnded})
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL()+"/api/node/"+nodeID+"/drain", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("creating drain request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	c.setAuth(req)
+	resp, err := c.httpClient().Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("drain failed with status %d", resp.StatusCode)
+	}
+	return nil
 }
 
 // SplitSync sends the split report of a node and returns the model-split

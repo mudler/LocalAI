@@ -81,6 +81,8 @@ type Config struct {
 	RegistrationRequireAuth bool     `env:"LOCALAI_REGISTRATION_REQUIRE_AUTH" default:"false" help:"Refuse to start the HTTP file-transfer server when no registration token is set (otherwise it fails open and serves read/write to models/staging/data unauthenticated)" group:"registration"`
 	DistributedRequireAuth  bool     `env:"LOCALAI_DISTRIBUTED_REQUIRE_AUTH" default:"false" help:"Umbrella switch implying both --nats-require-auth and --registration-require-auth" group:"distributed"`
 	HeartbeatInterval       string   `env:"LOCALAI_HEARTBEAT_INTERVAL" default:"10s" help:"Interval between heartbeats" group:"registration"`
+	ShutdownRequestWait     string   `env:"LOCALAI_SHUTDOWN_REQUEST_WAIT" default:"30s" help:"On SIGTERM, how long the worker waits for the requests in flight on its models before it deregisters. Loads in progress are aborted at once" group:"registration"`
+	ShutdownTimeout         string   `env:"LOCALAI_SHUTDOWN_TIMEOUT" default:"60s" help:"On SIGTERM, the bound of drain, wait for requests and deregistration together. Stopping the backends comes after it" group:"registration"`
 	NodeLabels              string   `env:"LOCALAI_NODE_LABELS" help:"Comma-separated key=value labels for this node (e.g. tier=fast,gpu=a100)" group:"registration"`
 	// MaxReplicasPerModel caps how many replicas of any one model can run on
 	// this worker concurrently. Default 1 = historical single-replica

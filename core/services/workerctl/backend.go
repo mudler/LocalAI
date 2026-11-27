@@ -66,7 +66,15 @@ type BackendInstallReply struct {
 	// model for the load deadline. The capability belongs to the worker, not to
 	// the transport.
 	ReportsOperations bool `json:"reports_operations,omitempty"`
+	// ShuttingDown is set on a refusal from a worker that shuts down. The
+	// install did not run and will not: the controller places the load on
+	// another node.
+	ShuttingDown bool `json:"shutting_down,omitempty"`
 }
+
+// ErrWorkerShuttingDownMsg is the error text of an install or upgrade that a
+// worker refused because it shuts down.
+const ErrWorkerShuttingDownMsg = "the worker is shutting down"
 
 // BackendUpgradeRequest is the payload for a backend.upgrade control request.
 // It is intentionally a strict subset of BackendInstallRequest: there is no

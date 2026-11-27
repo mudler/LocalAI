@@ -1913,6 +1913,13 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 			// A worker that predates operations: it cannot confirm a stop.
 			markLegacyWorker(ctx)
 		}
+		if reply.ShuttingDown {
+			// The worker shuts down: drain its node now, so placement skips it
+			// before the worker's own drain arrives, and answer with an error
+			// that a client retries (the next attempt loads elsewhere).
+			r.drainShuttingDownNode(node)
+			return "", fmt.Errorf("%w: node %s: %w", ErrNodeShuttingDown, node.Name, ErrNoAvailableNodes)
+		}
 		if !reply.Success {
 			return "", fmt.Errorf("worker replied with error: %s", reply.Error)
 		}
@@ -2658,6 +2665,32 @@ var ErrNoLoadInfo = errors.New("no load info")
 // 503 so clients treat it as a transient condition rather than a server bug
 // (which is what 500 would imply).
 var ErrNoAvailableNodes = errors.New("no available nodes")
+
+// ErrNodeShuttingDown is a load that a worker refused because it shuts down.
+// It wraps ErrNoAvailableNodes too, so the HTTP layer answers 503 with
+// Retry-After: the next attempt places the load on another node.
+var ErrNodeShuttingDown = errors.New("the node is shutting down")
+
+// nodeDrainer is the part of the registry that drains a node. The router's
+// own fakes need not implement it.
+type nodeDrainer interface {
+	DrainNode(ctx context.Context, nodeID string, opts DrainOptions) (DrainResult, error)
+}
+
+// drainShuttingDownNode marks a node whose worker refused a load because it
+// shuts down as draining. Its replicas keep serving until the worker
+// deregisters.
+func (r *SmartRouter) drainShuttingDownNode(node *BackendNode) {
+	d, ok := r.registry.(nodeDrainer)
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if _, err := d.DrainNode(ctx, node.ID, DrainOptions{}); err != nil {
+		xlog.Warn("Failed to drain a node whose worker shuts down", "node", node.Name, "error", err)
+	}
+}
 
 // evictLRUAndFreeNode finds the globally least-recently-used model with zero in-flight,
 // unloads it, and returns its node for reuse. If all models are busy, retries briefly.

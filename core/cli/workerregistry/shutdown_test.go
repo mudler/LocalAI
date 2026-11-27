@@ -2,9 +2,11 @@ package workerregistry
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -42,6 +44,48 @@ var _ = Describe("The shutdown of a worker", func() {
 			"GET /api/node/n1/models",
 			"POST /api/node/n1/deregister",
 		}))
+	})
+
+	It("tells the frontend that the worker shuts down and its loads ended", func() {
+		var (
+			mu   sync.Mutex
+			body map[string]any
+		)
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			defer mu.Unlock()
+			switch r.URL.Path {
+			case "/api/node/n1/drain":
+				Expect(r.Header.Get("Content-Type")).To(Equal("application/json"))
+				Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+			case "/api/node/n1/models":
+				_, _ = w.Write([]byte(`[]`))
+			}
+		}))
+		DeferCleanup(srv.Close)
+		c := &RegistrationClient{FrontendURL: srv.URL}
+		c.GracefulShutdown("n1", ShutdownOptions{LoadsEnded: true})
+		mu.Lock()
+		defer mu.Unlock()
+		Expect(body).To(Equal(map[string]any{"shutdown": true, "loads_ended": true}))
+	})
+
+	It("bounds the wait for requests in flight by the configured window", func() {
+		var deregistered bool
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/node/n1/models":
+				_, _ = w.Write([]byte(`[{"in_flight":3}]`))
+			case "/api/node/n1/deregister":
+				deregistered = true
+			}
+		}))
+		DeferCleanup(srv.Close)
+		c := &RegistrationClient{FrontendURL: srv.URL}
+		start := time.Now()
+		c.GracefulShutdown("n1", ShutdownOptions{RequestWait: 1500 * time.Millisecond, Timeout: 10 * time.Second})
+		Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second))
+		Expect(deregistered).To(BeTrue(), "the worker deregisters after the window even with requests left")
 	})
 
 	It("reports a refused drain and a refused deregistration", func() {

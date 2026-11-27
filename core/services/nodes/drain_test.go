@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 )
 
@@ -304,6 +305,20 @@ var _ = Describe("Node drain", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res.Node.ID).To(Equal(healthy.ID))
 			}
+		})
+
+		It("drains a node whose worker refuses a load because it shuts down", func() {
+			node := register("router-stopping")
+			blob, err := proto.Marshal(&pb.ModelOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(registry.UpsertModelLoadInfo(ctx, "m", "llama-cpp", blob)).To(Succeed())
+			router := newRouter()
+			unloader.installReply = &workerctl.BackendInstallReply{Success: false, ShuttingDown: true, Error: workerctl.ErrWorkerShuttingDownMsg}
+
+			_, err = router.ScheduleAndLoadModel(ctx, "m", nil)
+			Expect(err).To(MatchError(ErrNodeShuttingDown))
+			Expect(err).To(MatchError(ErrNoAvailableNodes), "a client retries it")
+			Expect(statusOf(node).Status).To(Equal(StatusDraining), "placement skips the node at once")
 		})
 
 		It("serves a draining replica when the rule matches no healthy node", func() {

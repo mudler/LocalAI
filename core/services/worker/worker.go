@@ -350,9 +350,20 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	<-sigCh
 
 	xlog.Info("Shutting down worker")
+	// Refuse new loads and abort the running ones first, while the routes
+	// still carry the frontend's stops: a load that the frontend is waiting
+	// for is then released in seconds, not after its stop window.
+	supervisor.beginShutdown()
+	if aborted := supervisor.abortLoadOperations(); len(aborted) > 0 {
+		xlog.Info("Aborted the loads in progress", "count", len(aborted))
+	}
 	shutdownCancel() // stop heartbeat loop immediately
 	<-splitDone
-	regClient.GracefulDeregister(nodeID)
+	regClient.GracefulShutdown(nodeID, workerregistry.ShutdownOptions{
+		LoadsEnded:  true,
+		RequestWait: parseShutdownWindow("LOCALAI_SHUTDOWN_REQUEST_WAIT", cfg.ShutdownRequestWait, workerregistry.DefaultShutdownRequestWait),
+		Timeout:     parseShutdownWindow("LOCALAI_SHUTDOWN_TIMEOUT", cfg.ShutdownTimeout, workerregistry.DefaultShutdownTimeout),
+	})
 	supervisor.stopAllBackends(false)
 	nodes.ShutdownFileTransferServer(httpServer)
 	return nil

@@ -514,6 +514,8 @@ This worker holds one route: the WebSocket tunnel to the frontend. Add `--nats-u
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Refuse to start the HTTP file-transfer server when the worker has no data plane token, that is, when it has neither a registration token nor a frontend that hands one over (it would otherwise fail open) |
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | Umbrella switch implying both `--registration-require-auth` and `--nats-require-auth` |
 | `--heartbeat-interval` | `LOCALAI_HEARTBEAT_INTERVAL` | `10s` | Interval between heartbeat pings |
+| `--shutdown-request-wait` | `LOCALAI_SHUTDOWN_REQUEST_WAIT` | `30s` | On `SIGTERM`, how long the worker waits for the requests in flight on its models before it deregisters. See [Worker shutdown](#worker-shutdown) |
+| `--shutdown-timeout` | `LOCALAI_SHUTDOWN_TIMEOUT` | `60s` | On `SIGTERM`, the bound of the drain, the wait for requests and the deregistration together. Stopping the backends comes after it |
 | `--routes` | `LOCALAI_WORKER_ROUTES` | *(derived)* | Routes this worker holds, comma separated: `nats`, `tunnel`, or both. When empty: `nats` when `--nats-url` is set (never with `--join`), and always `tunnel`. See [Workers and routes](#workers-and-routes) |
 | `--nats-url` | `LOCALAI_NATS_URL` | *(empty)* | NATS server URL. With it the worker holds the NATS route. With `--routes nats` and no URL, the worker uses the NATS address that the frontend hands over |
 | `--nats-jwt` | `LOCALAI_NATS_JWT` | *(empty)* | Optional override for the `nats_jwt` returned at registration |
@@ -833,7 +835,7 @@ Used by workers themselves (registration, heartbeat, etc.), exempt from global a
 |--------|------|-------------|
 | `POST` | `/api/node/register` | Register a new worker |
 | `POST` | `/api/node/:id/heartbeat` | Update heartbeat timestamp |
-| `POST` | `/api/node/:id/drain` | Drain self. A worker that shuts down sends `{"shutdown":true,"loads_ended":true}` once it stopped its loads: the frontend then releases their load jobs at once |
+| `POST` | `/api/node/:id/drain` | Drain self. The worker sends it when it shuts down, with `{"shutdown":true,"loads_ended":true}` once it stopped its loads (see [Worker shutdown](#worker-shutdown)) |
 | `GET` | `/api/node/:id/models` | Query own loaded models |
 | `POST` | `/api/node/:id/split` | Report the P2P host and the [model-split workers]({{% relref "/administration/p2p-model-split" %}}#distributed-mode) of the node; the answer says whether the node is a split server and lists the workers attached to it and the relays that admit it. A node that registered with the token is bound to the first peer it reports; another peer gets `409` until the node registers again |
 | `DELETE` | `/api/node/:id` | Deregister self |
@@ -1145,6 +1147,29 @@ Loads that run on the node when the drain starts are cancelled, because a model 
 1. `POST /api/nodes/:id/drain` (with `?timeout=` if the default does not fit).
 2. Poll `GET /api/nodes/:id` until `leaving_replicas` is `0`.
 3. Stop the worker. A worker that is stopped earlier is safe, but its models are removed when it goes, and a model that had no replacement yet is not served until one loads.
+
+### Worker shutdown
+
+A worker that gets `SIGTERM` (or a `node.stop` from the frontend) shuts down in this order:
+
+1. It refuses new backend installs and upgrades at once. A load sent to it fails with `the worker is shutting down`; the frontend marks the node `draining`, so placement skips it, and answers the request with `503` and `Retry-After`. The next attempt loads the model on another node.
+2. It aborts the loads in progress: it kills their backend processes and waits until they exited. A stop the frontend sends for a process that is already being stopped is acknowledged as soon as that process exited.
+3. It drains its node through `POST /api/node/:id/drain` with `{"shutdown":true,"loads_ended":true}`. The frontend cancels the load jobs of the node and, because the worker vouched that their processes exited, releases them at once instead of holding the model for the 150 second stop window. A request or the reconciler then loads the model on another node within seconds.
+4. Its loaded models keep serving the requests in flight for up to `--shutdown-request-wait` (`30s`). New requests go to other replicas when there are any. The reconciler starts the replacements of the [drain](#draining-a-node) in this window.
+5. It deregisters (`offline`): the frontend removes its replicas, and the reconciler places what is still missing.
+6. It stops its backends: each gets a bounded `Free()` call and is then stopped.
+
+Steps 3 to 5 are bounded by `--shutdown-timeout` (`60s`). The total shutdown time is about that bound plus the stop of the backends, which runs one backend after the other: up to 5 seconds of `Free()` for each, plus the time its process takes to exit.
+
+### Kubernetes
+
+LocalAI ships no manifests for the workers; these are the settings that fit the shutdown above.
+
+- **`terminationGracePeriodSeconds`**: cover the shutdown timeout plus the stop of the backends. With the defaults, use at least `90`; with several large backends per worker, `120`. A pod killed before the end loses the acknowledgement of its loads, and the frontend then holds those models for the stop window.
+- **`preStop`**: not needed. The worker handles `SIGTERM` itself (steps 1 to 6). Use a `preStop` hook that calls `POST /api/nodes/<node id>/drain` with an admin key only if you want the drain to start before the pod receives `SIGTERM`, for example to give replacements more time than `--shutdown-request-wait`. The hook time counts against `terminationGracePeriodSeconds`.
+- **Rolling updates** of GPU workers: `maxUnavailable: 1` and `maxSurge: 0`. A surge pod usually cannot get a GPU, and taking down more than one worker at a time can remove every replica of a model.
+- **PodDisruptionBudget**: `maxUnavailable: 1` on the worker pods, so a node drain of the cluster does not take several workers down at once.
+- **Redeploying on every image**: a rollout restarts each worker, and every model that worker held is loaded again somewhere. A load in progress is aborted and starts again on another node. When the CD redeploys workers on every build, a large model can be reloaded many times a day; pin the worker image, or roll out workers on a schedule.
 
 Where the state lives: the drain is the `status` and `drain_deadline` columns of the node in PostgreSQL, and the replica rows. Every frontend reads the same drain, and the reconciler pass that moves the replicas runs on one frontend at a time under its advisory lock. Nothing of a drain is kept in the memory of a frontend.
 
