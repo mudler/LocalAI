@@ -17610,9 +17610,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/p2p/device/session": {
+            "post": {
+                "description": "Served only on the P2P protocol /localai/http/1, and only to a paired device; the normal HTTP listener answers 404. The body carries the credential that the redeem of a sign-in invite returned, as JSON or as the form field \"credential\". The credential works only from the peer that redeemed the invite. When the device is an active sign-in device, the credential matches, the owner is active and still has the feature p2p_pair (admins always do), the answer sets the session cookie: a form post gets 303 to /, JSON gets 200 with the user. Every other case gets the same 403. After 5 wrong credentials from one peer in an hour the answer is 429.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Sign in with a device credential (over P2P only)",
+                "parameters": [
+                    {
+                        "description": "Device credential",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.DeviceSessionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.SessionUser"
+                        }
+                    },
+                    "303": {
+                        "description": "Redirect to / for a form post"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/p2p/devices": {
             "get": {
-                "description": "Lists the paired devices, revoked ones included, with how each one reaches the server now (path kind direct, hole_punched or relayed, the relay and its limits). Needs P2P mode share. Admin only.",
+                "description": "Lists the paired devices, revoked ones included, with how each one reaches the server now (path kind direct, hole_punched or relayed, the relay and its limits), the owner (owner_id, owner_name) and whether the device signs in as its owner (sign_in). owner keeps the devices of one user. Needs P2P mode share. Admin only.",
                 "produces": [
                     "application/json"
                 ],
@@ -17620,6 +17681,14 @@ const docTemplate = `{
                     "p2p"
                 ],
                 "summary": "List P2P devices",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Keep the devices of this user ID",
+                        "name": "owner",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -17873,6 +17942,315 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/p2p.OKResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/me": {
+            "get": {
+                "description": "Whether a device can pair now (available is true in P2P mode share; reason not_share otherwise), the limits of the user (max_devices, max_pending, max_ttl_seconds, max_mints_per_hour) and how many devices and pending invites the user has. Needs the feature p2p_pair and a user account (the API key of LOCALAI_API_KEY gets 409 with error type needs_account).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "My P2P pairing",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.MyPairing"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/me/devices": {
+            "get": {
+                "description": "Lists the devices the user paired, revoked ones included, with the path each one uses now and when it was last seen. Needs P2P mode share, the feature p2p_pair and a user account.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "List my P2P devices",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.DeviceList"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/me/devices/{id}": {
+            "delete": {
+                "description": "Revokes a device of the user: it leaves the allowlist, its connections close, the relays drop it and the web sessions it opened end. A device of another user gets 404. Needs P2P mode share, the feature p2p_pair and a user account.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Revoke one of my P2P devices",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Device ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RevokeResult"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "A device of another user gets 404. Needs P2P mode share, the feature p2p_pair and a user account.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Rename one of my P2P devices",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Device ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New label",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RenameDeviceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.OKResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/me/invites": {
+            "get": {
+                "description": "Lists the pending invites the user minted, without the links. Needs P2P mode share, the feature p2p_pair and a user account.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "List my pending P2P invites",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.InviteList"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates a one-time invite link for a device that signs in as the user once it pairs: the redeem gives it a credential for POST /api/p2p/device/session. The body takes label and ttl_seconds only; the kind (device, with sign-in), the relays, open relays and local addresses come from the setting p2p_user_pairing, and any other field is ignored. ttl_seconds above max_ttl_seconds gets 400. 429 with error type limit_reached when the user has max_pending pending invites or max_devices devices, minted 10 invites in the last hour, or the server has 20 pending sign-in invites. The link is shown once. Needs P2P mode share, the feature p2p_pair and a user account.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Pair one of my devices",
+                "parameters": [
+                    {
+                        "description": "Label and life of the invite",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.MyMintRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.MintResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/me/invites/{id}": {
+            "delete": {
+                "description": "Cancels a pending invite of the user and drops its relay pass. An invite of another user gets 404. Needs P2P mode share, the feature p2p_pair and a user account.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Cancel one of my P2P invites",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Invite ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.OKResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -18483,6 +18861,76 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/p2p.Status"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/user-pairing": {
+            "get": {
+                "description": "What an invite that a user mints for their own device carries (relays auto or none, allow_open_relay, omit_lan_addrs) and the limits of each user (max_devices, max_pending, max_ttl_seconds). It is kept in the auth database, so every frontend uses the same setting. 409 without authentication. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Read the P2P user pairing setting",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.UserPairingSettings"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "A field left out stays as it is. relays is auto or none; max_devices is 1 to 100, max_pending 1 to 20 and max_ttl_seconds 60 to 86400; any other value gets 400. A change applies to the next invite and the next redeem; devices and invites that exist stay. 409 without authentication. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Change the P2P user pairing setting",
+                "parameters": [
+                    {
+                        "description": "Fields to change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.SetUserPairingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.UserPairingSettings"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -29670,6 +30118,14 @@ const docTemplate = `{
                 }
             }
         },
+        "p2p.DeviceSessionRequest": {
+            "type": "object",
+            "properties": {
+                "credential": {
+                    "type": "string"
+                }
+            }
+        },
         "p2p.DeviceView": {
             "type": "object",
             "properties": {
@@ -29703,11 +30159,23 @@ const docTemplate = `{
                     "description": "Online is true while the device is connected.",
                     "type": "boolean"
                 },
+                "owner_id": {
+                    "description": "OwnerID is the user whose invite paired the device; empty for the\nAPI key of LOCALAI_API_KEY.",
+                    "type": "string"
+                },
+                "owner_name": {
+                    "description": "OwnerName is the display name of the owner, when known.",
+                    "type": "string"
+                },
                 "path": {
                     "$ref": "#/definitions/p2p.PathView"
                 },
                 "peer_id": {
                     "type": "string"
+                },
+                "sign_in": {
+                    "description": "SignIn is true when the device signs in as its owner.",
+                    "type": "boolean"
                 },
                 "status": {
                     "description": "Status is active or revoked.",
@@ -29867,6 +30335,46 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "p2p.MyMintRequest": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "ttl_seconds": {
+                    "description": "TTLSeconds is the life of the invite: 600 (or max_ttl_seconds, when\nshorter) when zero, at most max_ttl_seconds.",
+                    "type": "integer"
+                }
+            }
+        },
+        "p2p.MyPairing": {
+            "type": "object",
+            "properties": {
+                "available": {
+                    "description": "Available is true when the server is in mode share, so a device can\npair now.",
+                    "type": "boolean"
+                },
+                "devices": {
+                    "description": "Devices is the number of active devices of the user.",
+                    "type": "integer"
+                },
+                "limits": {
+                    "$ref": "#/definitions/p2p.UserPairingLimits"
+                },
+                "mode": {
+                    "description": "Mode is the P2P mode in effect.",
+                    "type": "string"
+                },
+                "pending_invites": {
+                    "description": "PendingInvites is the number of pending invites of the user.",
+                    "type": "integer"
+                },
+                "reason": {
+                    "description": "Reason says why not: not_share.",
+                    "type": "string"
                 }
             }
         },
@@ -30192,6 +30700,23 @@ const docTemplate = `{
                 }
             }
         },
+        "p2p.SessionUser": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
         "p2p.SetRelayLimitsRequest": {
             "type": "object",
             "properties": {
@@ -30206,6 +30731,29 @@ const docTemplate = `{
                 "rate_bps": {
                     "description": "RateBPS is the bandwidth of one circuit in each direction, in bytes\nper second.",
                     "type": "integer"
+                }
+            }
+        },
+        "p2p.SetUserPairingRequest": {
+            "type": "object",
+            "properties": {
+                "allow_open_relay": {
+                    "type": "boolean"
+                },
+                "max_devices": {
+                    "type": "integer"
+                },
+                "max_pending": {
+                    "type": "integer"
+                },
+                "max_ttl_seconds": {
+                    "type": "integer"
+                },
+                "omit_lan_addrs": {
+                    "type": "boolean"
+                },
+                "relays": {
+                    "type": "string"
                 }
             }
         },
@@ -30436,6 +30984,48 @@ const docTemplate = `{
                 "running": {
                     "description": "Running is true when the host runs.",
                     "type": "boolean"
+                }
+            }
+        },
+        "p2p.UserPairingLimits": {
+            "type": "object",
+            "properties": {
+                "max_devices": {
+                    "type": "integer"
+                },
+                "max_mints_per_hour": {
+                    "description": "MaxMintsPerHour is fixed in code.",
+                    "type": "integer"
+                },
+                "max_pending": {
+                    "type": "integer"
+                },
+                "max_ttl_seconds": {
+                    "type": "integer"
+                }
+            }
+        },
+        "p2p.UserPairingSettings": {
+            "type": "object",
+            "properties": {
+                "allow_open_relay": {
+                    "type": "boolean"
+                },
+                "max_devices": {
+                    "type": "integer"
+                },
+                "max_pending": {
+                    "type": "integer"
+                },
+                "max_ttl_seconds": {
+                    "type": "integer"
+                },
+                "omit_lan_addrs": {
+                    "type": "boolean"
+                },
+                "relays": {
+                    "description": "Relays is auto or none.",
+                    "type": "string"
                 }
             }
         },
