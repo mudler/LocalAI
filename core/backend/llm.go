@@ -259,14 +259,13 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 				tokenCallback(c.TemplateConfig.ReplyPrefix, tokenUsage)
 			}
 
-			ss := ""
+			var ss strings.Builder
 			var logprobs *schema.Logprobs
 			var allChatDeltas []*proto.ChatDelta
 
-			var partialRune []byte
+			var runes runeAssembler
 			err := inferenceModel.PredictStream(ctx, opts, func(reply *proto.Reply) {
 				msg := reply.Message
-				partialRune = append(partialRune, msg...)
 
 				tokenUsage.Prompt = int(reply.PromptTokens)
 				tokenUsage.Completion = int(reply.Tokens)
@@ -289,22 +288,10 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 					}
 				}
 
-				// Process complete runes and accumulate them
-				var completeRunes []byte
-				for len(partialRune) > 0 {
-					r, size := utf8.DecodeRune(partialRune)
-					if r == utf8.RuneError {
-						// incomplete rune, wait for more bytes
-						break
-					}
-					completeRunes = append(completeRunes, partialRune[:size]...)
-					partialRune = partialRune[size:]
-				}
-
-				// If we have complete runes, send them as a single token
-				if len(completeRunes) > 0 {
-					tokenCallback(string(completeRunes), tokenUsage)
-					ss += string(completeRunes)
+				// Send the complete runes as a single token
+				if token := runes.write(msg); token != "" {
+					tokenCallback(token, tokenUsage)
+					ss.WriteString(token)
 				}
 
 				if len(msg) == 0 {
@@ -318,7 +305,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 				xlog.Debug("[ChatDeltas] streaming completed, accumulated deltas from C++ autoparser", "total_deltas", len(allChatDeltas))
 			}
 			return LLMResponse{
-				Response:   ss,
+				Response:   ss.String(),
 				Usage:      tokenUsage,
 				Logprobs:   logprobs,
 				ChatDeltas: allChatDeltas,
@@ -483,6 +470,33 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	}
 
 	return fn, nil
+}
+
+// runeAssembler holds the bytes of a rune that a reply split, so that each
+// token passed on holds only complete runes.
+type runeAssembler struct {
+	pending []byte
+}
+
+// write adds msg and returns the complete runes at the start of what is
+// pending, up to the first byte that does not decode (an incomplete rune
+// waits for more bytes).
+func (a *runeAssembler) write(msg []byte) string {
+	a.pending = append(a.pending, msg...)
+	n := 0
+	for n < len(a.pending) {
+		r, size := utf8.DecodeRune(a.pending[n:])
+		if r == utf8.RuneError {
+			break
+		}
+		n += size
+	}
+	if n == 0 {
+		return ""
+	}
+	token := string(a.pending[:n])
+	a.pending = append(a.pending[:0], a.pending[n:]...)
+	return token
 }
 
 var cutstrings map[string]*regexp.Regexp = make(map[string]*regexp.Regexp)
