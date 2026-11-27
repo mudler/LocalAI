@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/p2pnet"
@@ -102,8 +101,12 @@ func (s *server) pendingInvites(ctx context.Context) int {
 // printInvitesOnSignal prints an INVITE_STATUS line for each invite when the
 // process gets SIGUSR1, so that a case can read the state of the store.
 func (s *server) printInvitesOnSignal(ctx context.Context) {
+	// Without a signal, signal.Notify would relay every signal.
+	if inviteStatusSignal == nil {
+		return
+	}
 	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, syscall.SIGUSR1)
+	signal.Notify(ch, inviteStatusSignal)
 	defer signal.Stop(ch)
 	for {
 		select {
