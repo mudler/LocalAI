@@ -1075,6 +1075,13 @@
       "done": "{{count}} içe aktarıldı. Kapalılar: aşağıda test edip aç.",
       "failed": "{{name}} içe aktarılmadı: {{error}}",
       "left": "İçe aktarılmayan sunucular bu tarayıcıda kalır."
+    },
+    "plugin": {
+      "tag": "Plugin: {{name}}",
+      "switch": "{{name}}, {{plugin}} plugin'iyle birlikte açılır ve kapanır",
+      "title": "{{name}} plugin'i tarafından yönetiliyor",
+      "body": "Bu bağlayıcıyı plugin oluşturdu ve plugin'i kapattığında kaldırır. Burada değiştiremezsin.",
+      "manage": "Plugin'i aç"
     }
   },
   "proposal": {

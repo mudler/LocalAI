@@ -314,7 +314,8 @@
       "context": "Bağlam",
       "skills": "Yetenekler ve ajanlar",
       "help": "Yardım",
-      "yours": "Senin olanlar"
+      "yours": "Senin olanlar",
+      "plugins": "Plugin'ler"
     },
     "model": {
       "label": "Modeli değiştir",
@@ -401,7 +402,9 @@
       "shared": "paylaşılan",
       "yours": "senin",
       "prompt": "prompt",
-      "tool": "araç"
+      "tool": "araç",
+      "plugin": "plugin",
+      "command": "komut"
     },
     "collides": "yalnızca /skill ile",
     "errors": {
@@ -518,12 +521,17 @@
       "shared": "Paylaşılan",
       "folder": "Çalışma alanı",
       "addon": "{{name}}",
-      "addonFrom": "{{name}} kaynaklı"
+      "addonFrom": "{{name}} kaynaklı",
+      "plugin": "Plugin"
     },
     "replacedBy": "{{name}} ile değiştirildi",
     "fallback_one": "Yerleşik {{skills}} kullanımda: {{name}} eklentisinin kendi yeteneği kapalı veya burada çalışmıyor.",
     "fallback_other": "Yerleşik {{skills}} kullanımda: {{name}} eklentisinin kendi yetenekleri kapalı veya burada çalışmıyor.",
-    "fromProject": "Projeden"
+    "fromProject": "Projeden",
+    "pluginGroup": "Plugin: {{name}}",
+    "pluginSwitch": "{{name}} bu sohbette kullanılsın",
+    "pluginOff": "Bu sohbette kapalı. Yetenekleri, komutları ve bağlayıcıları burada çalışmaz.",
+    "pluginNoSkills": "Bu plugin komutlar veya bağlayıcılar ekler, yetenek eklemez."
   },
   "agent": {
     "label": "Ajan",
@@ -840,7 +848,8 @@
   },
   "invoked": {
     "skill": "Yetenek: {{name}}",
-    "agent": "Ajan: {{name}}"
+    "agent": "Ajan: {{name}}",
+    "command": "Komut: {{name}}"
   },
   "marker": {
     "compacted": "Bağlam sıkıştırıldı: {{before}} token'dan {{after}} token'a",
@@ -1091,5 +1100,9 @@
     "message_one": "{{project}} içinde gösterilen {{count}} sohbet silinsin mi? Bu işlem geri alınamaz.",
     "message_other": "{{project}} içinde gösterilen {{count}} sohbet silinsin mi? Bu işlem geri alınamaz.",
     "confirm": "Gösterilenleri sil"
+  },
+  "plugins": {
+    "toolsGroup": "Plugin'ler",
+    "toolsDescribe": "Bu sohbetteki bağlayıcıları: {{names}}."
   }
 }

@@ -210,7 +210,8 @@
       "Notes": "Hafıza",
       "Connections": "Bağlantılar",
       "Effective": "Geçerli görünüm",
-      "Uses": "Neleri kullanabilir"
+      "Uses": "Neleri kullanabilir",
+      "Plugins": "Plugin'ler"
     },
     "grantsNoticeTitle": "Bazı mesajlaşma özellikleri kapanacak.",
     "grantsNotice": "Bu ajanın izin listesi yoktu, bu yüzden mesajlaşma bağlantılarında şunları açık tuttu: {{grants}}. Burada işaretleyene kadar çalışmayı bırakırlar.",
@@ -574,7 +575,14 @@
     },
     "sandboxProfile": "Sandbox profili",
     "sandboxProfileDefault": "Varsayılan",
-    "sandboxProfileHelp": "Gözetimsiz çalıştırmalar tarafından ve sohbetlerinin başlangıç profili olarak kullanılır."
+    "sandboxProfileHelp": "Gözetimsiz çalıştırmalar tarafından ve sohbetlerinin başlangıç profili olarak kullanılır.",
+    "countPlugins_one": "{{count}} plugin",
+    "countPlugins_other": "{{count}} plugin",
+    "pluginsHelp": "Bu ajanla yapılan bir sohbetin kullanabileceği plugin'ler. Liste kesindir: boş bir liste hiçbirine izin vermez. Bir plugin'in sohbet eden kişi için de açık olması gerekir.",
+    "pluginsNone": "Kurulu plugin yok. Eklentiler sayfasının Plugin'ler sekmesinden bir tane kur.",
+    "pluginOffForYou": "{{plugin}}, senin için kapalı",
+    "pluginGone": "Bu plugin artık kurulu değil.",
+    "pluginsLoadFailed": "Plugin'ler yüklenemedi."
   },
   "status": {
     "title": "Durum",
