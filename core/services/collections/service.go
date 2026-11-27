@@ -20,6 +20,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/tlsconf"
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/services/messaging"
 )
 
@@ -38,6 +39,9 @@ type Service struct {
 	// process, where a call can carry the privacy level of a search.
 	inProcess bool
 	private   privateQueries
+	// searches are the queries of the searches that run now; their embedding
+	// calls keep the default priority class (privacy.go).
+	searches privateQueries
 
 	root lagi.Backend
 
@@ -102,7 +106,7 @@ func New(appConfig *config.ApplicationConfig, bus messaging.Broadcaster, opts ..
 			next = http.DefaultTransport
 		}
 		c := *s.httpClient
-		c.Transport = privateTransport{next: next, queries: &s.private}
+		c.Transport = privateTransport{next: next, queries: &s.private, searches: &s.searches}
 		s.httpClient = &c
 		s.inProcess = true
 	}
@@ -259,6 +263,7 @@ func (s *Service) SearchForUser(ctx context.Context, userID, collection, query s
 		return nil, err
 	}
 	defer release()
+	defer s.searches.hold(query, privacy.Normal)()
 	b, err := s.Backend(userID)
 	if err != nil {
 		return nil, err

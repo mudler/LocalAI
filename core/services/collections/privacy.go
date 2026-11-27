@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/mudler/LocalAI/core/priority"
 	"github.com/mudler/LocalAI/core/privacy"
 )
 
@@ -76,7 +77,25 @@ func (q *privateQueries) levelOf(body []byte) privacy.Level {
 	return l
 }
 
+// carries reports whether body carries a held query.
+func (q *privateQueries) carries(body []byte) bool {
+	if q == nil {
+		return false
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for key := range q.m {
+		if key != "" && bytes.Contains(body, []byte(key)) {
+			return true
+		}
+	}
+	return false
+}
+
 func (q *privateQueries) empty() bool {
+	if q == nil {
+		return true
+	}
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	return len(q.m) == 0
@@ -92,15 +111,20 @@ func jsonText(s string) string {
 const maxPrivateBody = 16 << 20
 
 // privateTransport puts the privacy level of a held query on the calls that
-// carry it (see privateQueries).
+// carry it (see privateQueries). It also sets the priority class of each call:
+// a call that carries the query of a running search keeps the default class,
+// because a chat may wait on it; every other call indexes content, which no
+// one waits on token by token, and goes as batch work.
 type privateTransport struct {
 	next    http.RoundTripper
 	queries *privateQueries
+	// searches holds the queries of the searches that run now, at any level.
+	searches *privateQueries
 }
 
 func (t privateTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.Body == nil || t.queries.empty() {
-		return t.next.RoundTrip(req)
+	if req.Body == nil || (t.queries.empty() && t.searches.empty()) {
+		return t.next.RoundTrip(req.WithContext(priority.WithClass(req.Context(), priority.Batch)))
 	}
 	raw, err := io.ReadAll(io.LimitReader(req.Body, maxPrivateBody+1))
 	if err != nil {
@@ -110,6 +134,9 @@ func (t privateTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	ctx := req.Context()
 	if l := t.queries.levelOf(raw); l.Incognito() {
 		ctx = privacy.WithLevel(ctx, l)
+	}
+	if !t.searches.carries(raw) {
+		ctx = priority.WithClass(ctx, priority.Batch)
 	}
 	if len(raw) > maxPrivateBody {
 		// A body over the limit (a large ingest, say) is no search call. It
