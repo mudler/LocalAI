@@ -421,6 +421,15 @@ func (bcl *ModelConfigLoader) GetModelConfig(m string) (ModelConfig, bool) {
 	return v, exists
 }
 
+// HasModelConfig reports whether the loader holds a config named name, as
+// listed by GetModelConfigsByFilter, without copying any config.
+func (bcl *ModelConfigLoader) HasModelConfig(name string) bool {
+	bcl.Lock()
+	defer bcl.Unlock()
+	c, ok := bcl.configs[name]
+	return ok && c.Name == name
+}
+
 func (bcl *ModelConfigLoader) GetAllModelsConfigs() []ModelConfig {
 	bcl.Lock()
 	defer bcl.Unlock()

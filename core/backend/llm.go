@@ -99,6 +99,21 @@ func (t TokenUsage) ChatDeltaReasoningAndContent() (reasoning, content string) {
 	return reasoning, content
 }
 
+// modelListed reports whether galleryop.ListModels with SKIP_ALWAYS lists
+// modelName. That list holds the name of every loaded config, so a config of
+// that name answers it without building the list, which copies every config
+// for every request.
+func modelListed(cl *config.ModelConfigLoader, loader *model.ModelLoader, modelName string) (bool, error) {
+	if cl.HasModelConfig(modelName) {
+		return true, nil
+	}
+	modelNames, err := galleryop.ListModels(cl, loader, nil, galleryop.SKIP_ALWAYS)
+	if err != nil {
+		return false, err
+	}
+	return slices.Contains(modelNames, modelName), nil
+}
+
 // ModelInferenceFunc is a test-friendly indirection to call model inference logic.
 // Tests can override this variable to provide a stub implementation.
 var ModelInferenceFunc = ModelInference
@@ -108,15 +123,15 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 
 	// Check if the modelFile exists, if it doesn't try to load it from the gallery
 	if o.AutoloadGalleries { // experimental
-		modelNames, err := galleryop.ListModels(cl, loader, nil, galleryop.SKIP_ALWAYS)
-		if err != nil {
-			return nil, err
-		}
 		modelName := c.Name
 		if modelName == "" {
 			modelName = c.Model
 		}
-		if !slices.Contains(modelNames, modelName) {
+		listed, err := modelListed(cl, loader, modelName)
+		if err != nil {
+			return nil, err
+		}
+		if !listed {
 			utils.ResetDownloadTimers()
 			// if we failed to load the model, we try to download it
 			err := gallery.InstallModelFromGallery(ctx, o.Galleries, o.BackendGalleries, o.SystemState, loader, modelName, gallery.GalleryModel{}, utils.DisplayDownloadFunction, o.EnforcePredownloadScans, o.AutoloadBackendGalleries, o.RequireBackendIntegrity, gallery.WithArtifactMaterializer(o.ModelArtifactMaterializer))
