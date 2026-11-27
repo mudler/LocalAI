@@ -150,7 +150,15 @@
             "options_spec_ngram_map_k4v_min_hits": "ngram-map-k4v en az isabet",
             "options_spec_lookup_cache_static": "Statik n-gram önbellek dosyası",
             "options_spec_lookup_cache_dynamic": "Dinamik n-gram önbellek dosyası",
-            "options_grammar_engine": "Grammar motoru"
+            "options_grammar_engine": "Grammar motoru",
+            "options_prompt_cache_disk": "Disk prompt önbelleği",
+            "options_prompt_cache_disk_ttl_hours": "Disk önbelleği yaşam süresi (saat)",
+            "options_prompt_cache_disk_min_tokens": "Disk önbelleği en az token",
+            "options_prompt_cache_disk_quota_mib": "Kullanıcı başına disk önbelleği kotası (MiB)",
+            "options_prompt_cache_disk_max_size_mib": "Disk önbelleği boyut sınırı (MiB)",
+            "options_prompt_cache_disk_shared": "Paylaşılan disk önbelleği",
+            "options_prompt_cache_disk_low_free_mib": "Disk önbelleği düşük boş alan (MiB)",
+            "options_prompt_cache_disk_critical_free_mib": "Disk önbelleği kritik boş alan (MiB)"
         },
         "choices": {
             "load_mode": {
