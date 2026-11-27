@@ -13,7 +13,7 @@ import { remotes } from '@launcher/core/serversConfig'
 import { runServerTest, type HttpGet, type TestResult } from '@launcher/core/testClassify'
 import { remember, resetPermissions, type PermissionChoice } from '@launcher/core/webuiPolicy'
 import { WebuiModel, type WebuiEffect, type WebuiEvent } from '@launcher/core/webuiState'
-import type { RemoteStatusView, ServersView, UpdaterStatus, WebuiViewState, WindowSettingsView } from '@launcher/shared/types'
+import type { RemoteStatusView, ServersView, SwitchResult, UpdaterStatus, WebuiViewState, WindowSettingsView } from '@launcher/shared/types'
 import { MOBILE_BAR_HEIGHT } from '../mobileShell'
 import type { P2PPlugin, WebuiViewPlugin } from '../plugins/definitions'
 import { clientConfigIO, type FileApi } from './configIO'
@@ -343,6 +343,22 @@ export class ClientCore {
     if (open === this.keyboardOpen) return
     this.keyboardOpen = open
     this.sendLayout(this.model.state())
+  }
+
+  /**
+   * The person picks a server in the server list. A P2P server they signed
+   * out of in its WebUI gets its automatic sign-in back first. When its page
+   * was already on show (on its sign-in page), it reloads, so the sign-in
+   * runs without another tap; a server that was not on show loads anew and
+   * needs no reload.
+   */
+  async openServer(target: string): Promise<SwitchResult> {
+    const wasSignedOut = await this.tunnels.allowAutoSignIn(target)
+    const origin = remotes(this.store.get()).find((x) => x.id === target)?.url
+    const shown = origin !== undefined && this.model.viewOrigin === origin
+    const r = await this.servers.setDefaultServer(target)
+    if (wasSignedOut && shown && r.ok && this.model.viewOrigin === origin) this.webuiDispatch({ type: 'reload' })
+    return r
   }
 
   webuiState(): WebuiViewState {

@@ -140,6 +140,21 @@ class P2PPlugin : Plugin() {
         }
     }
 
+    /**
+     * The person opened a server from the server list: a sign-out in its
+     * WebUI no longer stops the automatic sign-in. The client core waits for
+     * this before it opens the server. `wasSignedOut` tells it whether the
+     * flag was set.
+     */
+    @PluginMethod
+    fun allowAutoSignIn(call: PluginCall) {
+        val peer = call.getString("peer").orEmpty()
+        background(call) {
+            val was = P2PRuntime.credentials?.allowAutoSignIn(peer) == true
+            call.resolve(JSObject().put("wasSignedOut", was))
+        }
+    }
+
     /** Deletes the device credentials of servers that are no longer saved (`peers`: the saved ones). */
     @PluginMethod
     fun retainCredentials(call: PluginCall) {

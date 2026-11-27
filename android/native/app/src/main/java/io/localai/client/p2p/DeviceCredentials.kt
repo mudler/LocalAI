@@ -86,12 +86,25 @@ class KeystoreCipher(private val alias: String = ALIAS) : CredentialCipher {
  * phone has another Keystore key and pairs again), named by the SHA-256 of
  * the peer ID and encrypted with [cipher]. A file that does not decrypt is
  * removed and reads as no credential.
+ *
+ * A server the person signed out of in the WebUI is "signed out": the app
+ * does not post its credential until the person opens it again from the
+ * server list ([allowAutoSignIn]) or pairs again ([save]). The flag is an
+ * empty file next to the credential (the same name plus [OFF_SUFFIX]), so a
+ * cold start keeps it, and a set in memory, so a failed write still holds
+ * for the life of the process.
  */
 class DeviceCredentials(private val dir: File, private val cipher: CredentialCipher) {
     /** Peers paired since the process started whose server view has not opened yet. */
     private val fresh: MutableSet<String> = Collections.synchronizedSet(HashSet())
 
-    /** Stores [credential] for [peer] and marks the peer fresh. Throws on a storage or Keystore error. */
+    /** Peers signed out of since the process started (the files hold the rest). */
+    private val off: MutableSet<String> = Collections.synchronizedSet(HashSet())
+
+    /**
+     * Stores [credential] for [peer] and marks the peer fresh. A new pairing
+     * turns automatic sign-in on again. Throws on a storage or Keystore error.
+     */
     @Synchronized
     fun save(peer: String, credential: String) {
         require(peer.isNotEmpty() && credential.isNotEmpty()) { "empty peer or credential" }
@@ -104,6 +117,7 @@ class DeviceCredentials(private val dir: File, private val cipher: CredentialCip
             tmp.delete()
             throw IOException("cannot store the credential")
         }
+        clearSignedOut(peer)
         fresh.add(peer)
     }
 
@@ -126,6 +140,46 @@ class DeviceCredentials(private val dir: File, private val cipher: CredentialCip
 
     fun has(peer: String): Boolean = peer.isNotEmpty() && fileOf(peer).isFile
 
+    /**
+     * The person signed out of [peer] in the WebUI: no automatic sign-in
+     * until [allowAutoSignIn] or [save]. Never throws; a flag that cannot be
+     * written holds until the process ends.
+     */
+    @Synchronized
+    fun signOut(peer: String) {
+        if (peer.isEmpty()) return
+        off.add(peer)
+        fresh.remove(peer)
+        try {
+            if (!dir.isDirectory && !dir.mkdirs()) return
+            offFileOf(peer).createNewFile()
+        } catch (_: IOException) {
+            // The flag in memory still holds.
+        } catch (_: SecurityException) {
+            // Same.
+        }
+    }
+
+    /** True after [signOut] of [peer], until [allowAutoSignIn], [save] or [delete]. */
+    fun signedOut(peer: String): Boolean = peer.isNotEmpty() && (peer in off || offFileOf(peer).isFile)
+
+    /**
+     * The person opened [peer] from the server list: automatic sign-in is on
+     * again. True when the server was signed out.
+     */
+    @Synchronized
+    fun allowAutoSignIn(peer: String): Boolean {
+        if (peer.isEmpty()) return false
+        val was = signedOut(peer)
+        clearSignedOut(peer)
+        return was
+    }
+
+    private fun clearSignedOut(peer: String) {
+        off.remove(peer)
+        offFileOf(peer).delete()
+    }
+
     /** True once for a peer saved since the process started: the first open after pairing. */
     fun takeFresh(peer: String): Boolean = fresh.remove(peer)
 
@@ -134,20 +188,28 @@ class DeviceCredentials(private val dir: File, private val cipher: CredentialCip
     fun delete(peer: String) {
         if (peer.isEmpty()) return
         fresh.remove(peer)
+        clearSignedOut(peer)
         fileOf(peer).delete()
     }
 
     /** Deletes every credential whose peer is not in [peers]: the saved servers. */
     @Synchronized
     fun retain(peers: Collection<String>) {
-        val keep = peers.filter { it.isNotEmpty() }.map { nameOf(it) }.toSet()
+        val names = peers.filter { it.isNotEmpty() }.map { nameOf(it) }
+        val keep = names.toSet() + names.map { it + OFF_SUFFIX }
         synchronized(fresh) { fresh.retainAll(peers.toSet()) }
+        synchronized(off) { off.retainAll(peers.toSet()) }
         dir.listFiles()?.forEach { f -> if (f.name !in keep) f.delete() }
     }
 
     private fun fileOf(peer: String) = File(dir, nameOf(peer))
 
+    private fun offFileOf(peer: String) = File(dir, nameOf(peer) + OFF_SUFFIX)
+
     companion object {
+        /** The suffix of the flag file of a signed-out server. */
+        const val OFF_SUFFIX = ".signed-out"
+
         fun nameOf(peer: String): String =
             MessageDigest.getInstance("SHA-256").digest(peer.toByteArray(Charsets.UTF_8))
                 .joinToString("") { b -> (b.toInt() and 0xff).toString(16).padStart(2, '0') }

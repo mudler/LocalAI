@@ -75,6 +75,10 @@ internal class WebuiViewClient(private val host: WebuiHost) : WebViewClient() {
     override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
         val origin = host.serverOrigin ?: return refusedResponse()
         val url = request.url.toString()
+        // The WebUI signs out with a fetch POST, then moves to its sign-in
+        // page: the one sign of an explicit sign-out the app can see without
+        // a JavaScript interface. The request goes on unchanged.
+        if (DeviceSignIn.isSignOutRequest(request.method, url, origin)) host.signOutRequested(view, origin)
         if (request.isForMainFrame) {
             // shouldOverrideUrlLoading already routed link and redirect
             // navigations; form posts do not pass through it, so check again.

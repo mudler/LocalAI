@@ -31,7 +31,7 @@ Native plugins (Kotlin package `io.localai.client`):
 |---|---|---|
 | `NativeHttp` | `http` | The HTTP request of the connection test (OkHttp, no redirects, no cookies, TLS reasons). |
 | `WebuiView` | `webui` | A second WebView that shows the server WebUI. It applies a Kotlin port of `launcher/src/core/webuiPolicy.ts`. Each server origin has its own WebView profile. |
-| `P2P` | `p2p` | Pairing, the forwarders, and the foreground service that keeps them open. It keeps the device credential of a sign-in invite out of the web layer, encrypted with an Android Keystore key, and `WebuiView` posts it to the server to sign in. |
+| `P2P` | `p2p` | Pairing, the forwarders, and the foreground service that keeps them open. It keeps the device credential of a sign-in invite out of the web layer, encrypted with an Android Keystore key, and `WebuiView` posts it to the server to sign in. A sign-out in the WebUI (its `POST /api/auth/logout`) stops this for that server until the person opens it again from the server list or pairs again. |
 | `Updater` | `update` | Download, checksum and signer check, install with `PackageInstaller`. |
 | `Scanner` | `scan` | The QR scanner (zxing-android-embedded). |
 | `AppLinks` | `links` | `localai://pair` links and shared text. |

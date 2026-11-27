@@ -480,13 +480,35 @@ class WebuiHost(
         if (WebuiPolicy.httpOrigin(url) != origin || p2pBlocked(origin)) return
         val peer = P2PGuard.forwardOf(origin, P2PRuntime.forwards)?.peer ?: return
         val store = P2PRuntime.credentials ?: return
-        when (deviceSignIn.onUrl(url, store.has(peer), SystemClock.elapsedRealtime())) {
+        when (deviceSignIn.onUrl(url, store.has(peer), SystemClock.elapsedRealtime(), store.signedOut(peer))) {
             DeviceSignIn.Action.NONE -> Unit
-            // Not from inside the callback: the navigation that called it is still being committed.
-            DeviceSignIn.Action.POST -> main.post { if (view === webView && serverOrigin == origin) postCredential(view, origin, peer) }
+            // Not from inside the callback: the navigation that called it is
+            // still being committed. Later, not at once: a sign-out request
+            // sent with this landing may still be on its way (see DeviceSignIn).
+            DeviceSignIn.Action.POST -> main.postDelayed({
+                if (view !== webView || serverOrigin != origin) return@postDelayed
+                val onSignIn = DeviceSignIn.pathOf(view.url ?: "")?.let { DeviceSignIn.isSignInPath(it) } == true
+                if (deviceSignIn.onPostDue(store.signedOut(peer), onSignIn)) postCredential(view, origin, peer)
+            }, DeviceSignIn.SIGN_OUT_GRACE_MS)
             DeviceSignIn.Action.LEAVE -> main.post {
                 if (view === webView && serverOrigin == origin) view.loadUrl(origin + DeviceSignIn.SIGN_IN_PATH)
             }
+        }
+    }
+
+    /**
+     * The page sent its sign-out request (seen by shouldInterceptRequest on a
+     * WebView thread). The flag is set on the UI thread, before the landing on
+     * the sign-in page that follows the answer, and before a post that
+     * [urlChanged] put off ([DeviceSignIn.SIGN_OUT_GRACE_MS]) is due.
+     */
+    internal fun signOutRequested(view: WebView, origin: String) {
+        main.post {
+            if (view !== webView || serverOrigin != origin) return@post
+            val peer = P2PGuard.forwardOf(origin, P2PRuntime.forwards)?.peer ?: return@post
+            val store = P2PRuntime.credentials ?: return@post
+            // A server without a credential has no automatic sign-in to stop.
+            if (store.has(peer)) store.signOut(peer)
         }
     }
 
@@ -498,7 +520,7 @@ class WebuiHost(
     private fun signInOnOpen(wv: WebView, origin: String): Boolean {
         val peer = P2PGuard.forwardOf(origin, P2PRuntime.forwards)?.peer ?: return false
         val store = P2PRuntime.credentials ?: return false
-        if (!deviceSignIn.onOpen(store.takeFresh(peer), store.has(peer), SystemClock.elapsedRealtime())) return false
+        if (!deviceSignIn.onOpen(store.takeFresh(peer), store.has(peer), SystemClock.elapsedRealtime(), store.signedOut(peer))) return false
         return postCredential(wv, origin, peer)
     }
 

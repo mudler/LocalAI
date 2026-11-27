@@ -106,6 +106,85 @@ class DeviceCredentialsTest {
     }
 
     @Test
+    fun aSignOutIsKeptAcrossARestart() {
+        val (s, dir) = store()
+        s.save(peerA, "credential-a")
+        s.save(peerB, "credential-b")
+        assertFalse(s.signedOut(peerA))
+        s.signOut(peerA)
+        assertTrue(s.signedOut(peerA))
+        assertFalse(s.signedOut(peerB))
+        // The credential stays: a sign-out stops the automatic sign-in only.
+        assertEquals("credential-a", s.load(peerA))
+        // A cold start of the app: a new store on the same folder.
+        val again = DeviceCredentials(dir, FakeCipher())
+        assertTrue(again.signedOut(peerA))
+        assertFalse(again.signedOut(peerB))
+    }
+
+    @Test
+    fun aSignOutEndsTheFirstOpenPost() {
+        val (s, _) = store()
+        s.save(peerA, "credential-a")
+        s.signOut(peerA)
+        assertFalse(s.takeFresh(peerA))
+    }
+
+    @Test
+    fun anOpenFromTheListTurnsTheSignInOnAgain() {
+        val (s, dir) = store()
+        s.save(peerA, "credential-a")
+        assertFalse(s.allowAutoSignIn(peerA))
+        s.signOut(peerA)
+        assertTrue(s.allowAutoSignIn(peerA))
+        assertFalse(s.signedOut(peerA))
+        assertFalse(DeviceCredentials(dir, FakeCipher()).signedOut(peerA))
+        assertEquals(listOf(DeviceCredentials.nameOf(peerA)), dir.listFiles()!!.map { it.name })
+    }
+
+    @Test
+    fun aNewPairingTurnsTheSignInOnAgain() {
+        val (s, _) = store()
+        s.save(peerA, "credential-a")
+        s.signOut(peerA)
+        s.save(peerA, "credential-a2")
+        assertFalse(s.signedOut(peerA))
+        assertTrue(s.takeFresh(peerA))
+    }
+
+    @Test
+    fun removingAServerDeletesItsSignOutToo() {
+        val (s, dir) = store()
+        s.save(peerA, "credential-a")
+        s.save(peerB, "credential-b")
+        s.signOut(peerA)
+        s.signOut(peerB)
+        s.delete(peerA)
+        assertFalse(s.signedOut(peerA))
+        // retain keeps the flag of a saved server and drops the others.
+        s.retain(listOf(peerB))
+        assertTrue(s.signedOut(peerB))
+        assertEquals(
+            setOf(DeviceCredentials.nameOf(peerB), DeviceCredentials.nameOf(peerB) + DeviceCredentials.OFF_SUFFIX),
+            dir.listFiles()!!.map { it.name }.toSet(),
+        )
+        s.retain(emptyList())
+        assertFalse(s.signedOut(peerB))
+        assertEquals(0, dir.listFiles()!!.size)
+    }
+
+    @Test
+    fun aSignOutHoldsInMemoryWhenTheFolderCannotBeWritten() {
+        // The folder path is a file: the flag file cannot be made.
+        val blocker = File(tmp.root, "blocked").apply { writeText("x") }
+        val s = DeviceCredentials(blocker, FakeCipher())
+        s.signOut(peerA)
+        assertTrue(s.signedOut(peerA))
+        assertTrue(s.allowAutoSignIn(peerA))
+        assertFalse(s.signedOut(peerA))
+    }
+
+    @Test
     fun aCredentialThatDoesNotDecryptIsRemoved() {
         val cipher = FakeCipher()
         val (s, dir) = store(cipher)

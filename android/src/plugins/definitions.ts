@@ -70,6 +70,12 @@ export interface P2PPlugin {
   pair(o: { link: string; name: string; allowOpenRelay: boolean }): Promise<{ ok: true; json: string } | P2PPairFailure>
   /** Deletes the stored device credential of a server (by its peer ID): the server was removed. */
   forgetCredential(o: { peer: string }): Promise<void>
+  /**
+   * The person opened the server (by its peer ID) from the server list: a
+   * sign-out in its WebUI no longer stops the automatic sign-in.
+   * `wasSignedOut` is true when it did.
+   */
+  allowAutoSignIn(o: { peer: string }): Promise<{ wasSignedOut: boolean }>
   /** Deletes every stored device credential whose server is not in `peers` (the saved servers). */
   retainCredentials(o: { peers: string[] }): Promise<void>
   freePort(o: { host: string }): Promise<{ port: number }>

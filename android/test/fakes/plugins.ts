@@ -137,6 +137,8 @@ export interface FakeP2P extends P2PPlugin {
   /** The state lines `statuses` answers. */
   lines: { id: string; line: string }[]
   keep: boolean
+  /** Peers signed out of in their WebUI: `allowAutoSignIn` takes a peer out and answers whether it was in. */
+  signedOut: Set<string>
   /** Makes `setForwards` reject with this message. */
   failSetForwards?: string
   /** The forward lists sent, in order. */
@@ -160,6 +162,7 @@ export function fakeP2P(libraryVersion?: string): FakeP2P {
     ports: [],
     lines: [],
     keep: false,
+    signedOut: new Set(),
     forwardLists: () => calls.filter((c) => c.name === 'setForwards').map((c) => (c.args[0] as { forwards: P2PForwardInput[] }).forwards),
     async version() {
       calls.push({ name: 'version', args: [] })
@@ -178,6 +181,10 @@ export function fakeP2P(libraryVersion?: string): FakeP2P {
     },
     async forgetCredential(o) {
       calls.push({ name: 'forgetCredential', args: [o] })
+    },
+    async allowAutoSignIn(o) {
+      calls.push({ name: 'allowAutoSignIn', args: [o] })
+      return { wasSignedOut: f.signedOut.delete(o.peer) }
     },
     async retainCredentials(o) {
       calls.push({ name: 'retainCredentials', args: [o] })

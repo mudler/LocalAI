@@ -99,10 +99,18 @@ export interface AndroidTunnels extends P2PTunnels {
   refresh(): Promise<void>
   keepInBackground(): boolean
   setKeepInBackground(on: boolean): Promise<void>
+  /**
+   * The person opens the saved server `id` from the server list: turns its
+   * automatic sign-in on again after a sign-out in its WebUI. True when it
+   * was off. Never throws; a server that is not over P2P answers false.
+   */
+  allowAutoSignIn(id: string): Promise<boolean>
   close(): Promise<void>
 }
 
 const INIT_TIMEOUT_MS = 10_000
+/** How long opening a server waits for the plugin to turn its automatic sign-in on again. */
+const ALLOW_SIGN_IN_TIMEOUT_MS = 2_000
 
 function message(e: unknown): string {
   return e instanceof Error ? e.message : typeof e === 'object' && e !== null && 'message' in e ? String((e as { message: unknown }).message) : String(e)
@@ -369,6 +377,18 @@ export function androidP2PTunnels(o: AndroidTunnelsOptions): AndroidTunnels {
       if (!available) return
       await plugin.setKeepInBackground({ on })
       setKeep(on)
+    },
+
+    async allowAutoSignIn(id) {
+      if (!available) return false
+      const peer = remotes(o.store()).find((r) => r.id === id)?.p2p?.peer
+      if (!peer) return false
+      try {
+        return (await withTimeout(plugin.allowAutoSignIn({ peer }), ALLOW_SIGN_IN_TIMEOUT_MS)).wasSignedOut === true
+      } catch (e) {
+        log(`servers: could not turn the automatic sign-in on again: ${message(e)}`, 'warn')
+        return false
+      }
     },
 
     async close() {

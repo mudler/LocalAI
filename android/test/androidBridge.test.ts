@@ -189,3 +189,17 @@ describe('createAndroidBridge', () => {
     expect(p.opened).toEqual(['https://github.com/mudler/LocalAI/releases/tag/v5.1.0', 'https://github.com/mudler/LocalAI/releases'])
   })
 })
+
+describe('the server list on Android', () => {
+  it('opens a server through the client core, which turns its automatic sign-in on again', async () => {
+    const files = {
+      [CONFIG_FILE]: JSON.stringify({
+        remotes: [{ id: 'srv_00000001', name: 'Studio', url: 'http://127.0.0.2:41001', p2p: { peer: '12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGm', port: 41001, addrs: [], relays: [], host: '127.0.0.2' } }],
+        default_target: 'srv_00000001',
+      }),
+    }
+    const { bridge, p } = await rig(fakePlatform({ p2pVersion: P2P_LIBRARY_VERSION, files }))
+    await bridge.setDefaultServer('srv_00000001')
+    expect(p.p2p.calls.filter((c) => c.name === 'allowAutoSignIn').map((c) => c.args[0])).toEqual([{ peer: '12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGm' }])
+  })
+})

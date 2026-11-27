@@ -531,3 +531,96 @@ describe('the WebUI view of a server over P2P (loopback squatting)', () => {
     expect(webuiCalls(p, 'show')).toHaveLength(2)
   })
 })
+
+// A sign-out in the WebUI stops the automatic sign-in of a server (Kotlin
+// keeps the flag); only an open from the server list turns it on again.
+describe('automatic sign-in after a sign-out', () => {
+  const urlA = 'http://127.0.0.2:41001'
+  const urlB = 'http://127.0.0.3:41001'
+  const files = {
+    [CONFIG_FILE]: JSON.stringify({
+      remotes: [
+        { id: 'srv_00000001', name: 'Studio', url: urlA, p2p: { peer: PEER, port: 41001, addrs: [], relays: [], host: '127.0.0.2' } },
+        { id: 'srv_00000002', name: 'Office', url: urlB, p2p: { peer: PEER2, port: 41001, addrs: [], relays: [], host: '127.0.0.3' } },
+      ],
+      default_target: 'srv_00000001',
+    }),
+  }
+  const webuiCalls = (p: FakePlatform, name: string) => p.webui.calls.filter((c) => c.name === name)
+  const listening = () => {
+    const p = withP2P({ files, answers: { [urlA]: 'ok', [urlB]: 'ok' } })
+    p.p2p.lines = [
+      { id: 'srv_00000001', line: '{"state":"up","path":"direct"}' },
+      { id: 'srv_00000002', line: '{"state":"up","path":"direct"}' },
+    ]
+    return p
+  }
+
+  it('a cold start opens the default server without turning the sign-in on again', async () => {
+    const p = listening()
+    p.p2p.signedOut.add(PEER)
+    await start(p)
+    expect(webuiCalls(p, 'show')).toHaveLength(1)
+    expect(called(p, 'allowAutoSignIn')).toEqual([])
+    expect(p.p2p.signedOut.has(PEER)).toBe(true)
+  })
+
+  it('an open from the list turns it on before the server opens', async () => {
+    const p = listening()
+    p.p2p.signedOut.add(PEER2)
+    const { core } = await start(p)
+    p.webui.emit('loaded')
+    await flush()
+    const allow = p.p2p.allowAutoSignIn.bind(p.p2p)
+    let showsBefore = -1
+    p.p2p.allowAutoSignIn = async (o) => {
+      showsBefore = webuiCalls(p, 'show').length
+      return allow(o)
+    }
+    const r = await core.openServer('srv_00000002')
+    await flush()
+    expect(r.ok).toBe(true)
+    expect(called(p, 'allowAutoSignIn').map((c) => c.args[0])).toEqual([{ peer: PEER2 }])
+    expect(p.p2p.signedOut.has(PEER2)).toBe(false)
+    // Only the start's show of the default came before it.
+    expect(showsBefore).toBe(1)
+    expect(webuiCalls(p, 'show').map((c) => (c.args[0] as { origin: string }).origin)).toEqual([urlA, urlB])
+    // A new page loads: no reload on top of it.
+    expect(webuiCalls(p, 'reload')).toEqual([])
+  })
+
+  it('reloads the page on show when it was signed out, so the sign-in runs', async () => {
+    const p = listening()
+    p.p2p.signedOut.add(PEER)
+    const { core } = await start(p)
+    p.webui.emit('loaded')
+    await flush()
+    await core.openServer('srv_00000001')
+    await flush()
+    expect(called(p, 'allowAutoSignIn').map((c) => c.args[0])).toEqual([{ peer: PEER }])
+    expect(webuiCalls(p, 'reload')).toHaveLength(1)
+  })
+
+  it('does not reload the page on show when it was not signed out', async () => {
+    const p = listening()
+    const { core } = await start(p)
+    p.webui.emit('loaded')
+    await flush()
+    await core.openServer('srv_00000001')
+    await flush()
+    expect(called(p, 'allowAutoSignIn')).toHaveLength(1)
+    expect(webuiCalls(p, 'reload')).toEqual([])
+  })
+
+  it('still opens the server when the plugin fails', async () => {
+    const p = listening()
+    const { core } = await start(p)
+    p.webui.emit('loaded')
+    await flush()
+    p.p2p.allowAutoSignIn = async () => Promise.reject(new Error('boom'))
+    const r = await core.openServer('srv_00000002')
+    await flush()
+    expect(r.ok).toBe(true)
+    expect(webuiCalls(p, 'show').map((c) => (c.args[0] as { origin: string }).origin)).toEqual([urlA, urlB])
+  })
+})

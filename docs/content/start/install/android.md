@@ -86,7 +86,7 @@ A P2P invite can also sign you in. When the server gives a sign-in invite, the s
 
 When the server's sign-in page shows later, for example because the session ended, the app uses the credential again, one time. If the server refuses it, for example because the device was revoked, the app shows the sign-in page and does not try again until you open the server again. Sign in by hand then, or ask for a new invite.
 
-If you sign out, the sign-in page shows and the app signs you in again with the credential. To stop this, remove the server from the app. When you remove a server, the app deletes its credential. A server that does not give a credential works as before: you sign in on its page.
+If you sign out in the server's page, the app stops the automatic sign-in for that server. The sign-in page shows, and the app does not use the credential, also after you close and open the app again. Sign in by hand, or open the server again from the server list: the app then signs you in with the credential again. A new pairing with the server also turns the automatic sign-in on again. When you remove a server, the app deletes its credential. A server that does not give a credential works as before: you sign in on its page.
 
 If an identity provider page opens in your browser instead, the provider moved to another address without a redirect. The sign-in does not complete in the app then: use a password or an API key on that server. Passkeys and security keys of the identity provider do not work in the app; choose another sign-in method of the provider.
 

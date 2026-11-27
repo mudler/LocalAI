@@ -134,7 +134,8 @@ export function createAndroidBridge(core: ClientCore, deps: AndroidBridgeDeps): 
     addServerByInvite: (input) => core.servers.addServerByInvite(input),
     updateServer: (input) => core.servers.updateServer(input),
     removeServer: (id) => core.servers.removeServer(id),
-    setDefaultServer: (target) => core.servers.setDefaultServer(target),
+    // The server list: an explicit open, which turns the automatic sign-in on again.
+    setDefaultServer: (target) => core.openServer(target),
     cancelSwitch: () => core.servers.cancelSwitch(),
     retryRemote: () => core.servers.retryRemote(),
     getWebui: async () => core.webuiState(),
