@@ -37,10 +37,49 @@ type inviteRecord struct {
 	CodeHash string `json:"code_hash"`
 }
 
+// deviceRecord is a device as the file keeps it: Device leaves the
+// credential hash out of its JSON, and the file must keep it.
+type deviceRecord struct {
+	Device
+	CredentialHash string `json:"credential_hash,omitempty"`
+}
+
 type jsonFile struct {
+	Version int
+	Invites map[string]inviteRecord
+	Devices map[string]Device
+}
+
+// diskFile is the layout of the file.
+type diskFile struct {
 	Version int                     `json:"version"`
 	Invites map[string]inviteRecord `json:"invites"`
-	Devices map[string]Device       `json:"devices"`
+	Devices map[string]deviceRecord `json:"devices"`
+}
+
+func (f jsonFile) MarshalJSON() ([]byte, error) {
+	d := diskFile{Version: f.Version, Invites: f.Invites, Devices: make(map[string]deviceRecord, len(f.Devices))}
+	for id, dev := range f.Devices {
+		d.Devices[id] = deviceRecord{Device: dev, CredentialHash: dev.CredentialHash}
+	}
+	return json.Marshal(d)
+}
+
+func (f *jsonFile) UnmarshalJSON(b []byte) error {
+	var d diskFile
+	if err := json.Unmarshal(b, &d); err != nil {
+		return err
+	}
+	f.Version, f.Invites, f.Devices = d.Version, d.Invites, nil
+	if d.Devices != nil {
+		f.Devices = make(map[string]Device, len(d.Devices))
+		for id, r := range d.Devices {
+			dev := r.Device
+			dev.CredentialHash = r.CredentialHash
+			f.Devices[id] = dev
+		}
+	}
+	return nil
 }
 
 // jsonStore keeps everything in one file (mode 0600, rewritten atomically).
@@ -168,6 +207,19 @@ func (s *jsonStore) GetInvite(_ context.Context, id string) (Invite, error) {
 }
 
 func (s *jsonStore) ListInvites(_ context.Context) ([]Invite, error) {
+	return s.listInvites(func(Invite) bool { return true })
+}
+
+func (s *jsonStore) ListInvitesByOwner(_ context.Context, ownerID string) ([]Invite, error) {
+	return s.listInvites(func(i Invite) bool { return i.OwnerID == ownerID })
+}
+
+func (s *jsonStore) CountPendingInvitesByOwner(_ context.Context, ownerID string, now time.Time) (int, error) {
+	list, err := s.listInvites(func(i Invite) bool { return i.OwnerID == ownerID && i.Status(now) == InvitePending })
+	return len(list), err
+}
+
+func (s *jsonStore) listInvites(keep func(Invite) bool) ([]Invite, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	f, err := s.load()
@@ -176,7 +228,9 @@ func (s *jsonStore) ListInvites(_ context.Context) ([]Invite, error) {
 	}
 	out := make([]Invite, 0, len(f.Invites))
 	for _, r := range f.Invites {
-		out = append(out, r.Invite)
+		if keep(r.Invite) {
+			out = append(out, r.Invite)
+		}
 	}
 	slices.SortFunc(out, func(a, b Invite) int { return newestFirst(a.CreatedAt, b.CreatedAt, a.ID, b.ID) })
 	return out, nil
@@ -226,10 +280,17 @@ func (s *jsonStore) Redeem(ctx context.Context, p RedeemParams) (Invite, Device,
 	if found.Status(now) != InvitePending {
 		return Invite{}, Device{}, ErrInviteInvalid
 	}
+	owned := 0
 	for _, d := range f.Devices {
 		if d.PeerID == p.Peer.String() && d.RevokedAt == nil {
 			return Invite{}, Device{}, ErrPeerPaired
 		}
+		if d.OwnerID == found.OwnerID && d.RevokedAt == nil && d.SignIn {
+			owned++
+		}
+	}
+	if found.SignIn && p.MaxDevicesForOwner > 0 && owned >= p.MaxDevicesForOwner {
+		return Invite{}, Device{}, ErrDeviceLimit
 	}
 	found.UsedAt, found.UsedByPeer, found.DeviceID = &now, p.Peer.String(), p.DeviceID
 	label := p.Label
@@ -240,6 +301,10 @@ func (s *jsonStore) Redeem(ctx context.Context, p RedeemParams) (Invite, Device,
 		ID: p.DeviceID, OwnerID: found.OwnerID, Kind: found.Kind, Label: label,
 		PeerID: p.Peer.String(), InviteID: found.ID, Scope: found.Scope, CreatedAt: now,
 		NodeID: found.Scope.Labels[NodeLabel], OmitLANAddrs: found.OmitLANAddrs,
+		SignIn: found.SignIn,
+	}
+	if found.SignIn {
+		dev.CredentialHash = p.CredentialHash
 	}
 	if p.Issue != nil {
 		keyID, err := p.Issue(ctx, Tx{}, found.Invite, dev)
@@ -272,6 +337,35 @@ func (s *jsonStore) GetDevice(_ context.Context, id string) (Device, error) {
 }
 
 func (s *jsonStore) ListDevices(_ context.Context) ([]Device, error) {
+	return s.listDevices(func(Device) bool { return true })
+}
+
+func (s *jsonStore) ListDevicesByOwner(_ context.Context, ownerID string) ([]Device, error) {
+	return s.listDevices(func(d Device) bool { return d.OwnerID == ownerID })
+}
+
+func (s *jsonStore) CountActiveDevicesByOwner(_ context.Context, ownerID string) (int, error) {
+	list, err := s.listDevices(func(d Device) bool { return d.OwnerID == ownerID && d.RevokedAt == nil })
+	return len(list), err
+}
+
+func (s *jsonStore) SetDeviceCredential(_ context.Context, id, hash string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	f, err := s.load()
+	if err != nil {
+		return err
+	}
+	d, ok := f.Devices[id]
+	if !ok {
+		return ErrNotFound
+	}
+	d.CredentialHash = hash
+	f.Devices[id] = d
+	return s.save(f)
+}
+
+func (s *jsonStore) listDevices(keep func(Device) bool) ([]Device, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	f, err := s.load()
@@ -280,7 +374,9 @@ func (s *jsonStore) ListDevices(_ context.Context) ([]Device, error) {
 	}
 	out := make([]Device, 0, len(f.Devices))
 	for _, d := range f.Devices {
-		out = append(out, d)
+		if keep(d) {
+			out = append(out, d)
+		}
 	}
 	slices.SortFunc(out, func(a, b Device) int { return newestFirst(a.CreatedAt, b.CreatedAt, a.ID, b.ID) })
 	return out, nil
@@ -349,7 +445,7 @@ func (s *jsonStore) RevokeDevice(_ context.Context, id, by string, now time.Time
 		return d, nil
 	}
 	t := now.UTC()
-	d.RevokedAt, d.RevokedBy = &t, by
+	d.RevokedAt, d.RevokedBy, d.CredentialHash = &t, by, ""
 	f.Devices[id] = d
 	return d, s.save(f)
 }

@@ -79,6 +79,10 @@ type Invite struct {
 	CreatedBy    string     `json:"created_by"`
 	CanceledAt   *time.Time `json:"canceled_at,omitempty"`
 	CreatedAt    time.Time  `json:"created_at"`
+	// SignIn marks a device invite whose device gets a credential at redeem
+	// time, to sign in as the owner. The kind stays KindDevice, so that an
+	// app that does not know the flag still pairs the device.
+	SignIn bool `json:"sign_in,omitempty"`
 }
 
 // Status returns the state of the invite at now.
@@ -138,6 +142,13 @@ type Device struct {
 	// OmitLANAddrs is OmitLANAddrs of the invite of the device: the routes
 	// of the device leave out the local network addresses of the server.
 	OmitLANAddrs bool `json:"omit_lan_addrs,omitempty"`
+	// SignIn is SignIn of the invite of the device: the device holds a
+	// credential to sign in as its owner.
+	SignIn bool `json:"sign_in,omitempty"`
+	// CredentialHash is the keyed hash of the sign-in credential of the
+	// device; empty when it has none or was revoked. It is never part of a
+	// JSON view.
+	CredentialHash string `json:"-"`
 }
 
 // NodeLabel is the scope label of a split invite that names the backend node
@@ -170,6 +181,12 @@ var (
 	ErrNotPending = errors.New("p2ppair: the invite is not pending")
 	// ErrNoKeyIssuer means a remote invite was asked for with no key issuer.
 	ErrNoKeyIssuer = errors.New("p2ppair: no client key issuer is configured")
+	// ErrDeviceLimit means the owner of a sign-in invite already has as many
+	// active sign-in devices as allowed.
+	ErrDeviceLimit = errors.New("p2ppair: the owner has too many devices")
+	// ErrCredentialInvalid is the one error for a device credential that is
+	// wrong, or whose device is unknown, revoked or has no sign-in.
+	ErrCredentialInvalid = errors.New("p2ppair: the device credential is not valid")
 )
 
 // parsePeer validates a peer ID string.

@@ -33,6 +33,17 @@ type RedeemParams struct {
 	DeviceID string
 	// Issue is optional; see IssueFunc.
 	Issue IssueFunc
+	// CredentialHash is the keyed hash of the sign-in credential of the new
+	// device. It is written with the device row, so a failed redeem leaves
+	// no credential behind. The store keeps it only when the invite has
+	// SignIn; a device of any other invite gets no credential.
+	CredentialHash string
+	// MaxDevicesForOwner limits the active sign-in devices of the owner of a
+	// sign-in invite; zero means no limit. The store counts them in the
+	// redeem transaction and returns ErrDeviceLimit when the owner already
+	// has that many; the invite then stays unused. An invite without SignIn
+	// is not limited, and devices without SignIn do not count.
+	MaxDevicesForOwner int
 }
 
 // Store keeps invites and devices. Both implementations pass the same tests.
@@ -43,6 +54,11 @@ type Store interface {
 	GetInvite(ctx context.Context, id string) (Invite, error)
 	// ListInvites returns all invites, newest first.
 	ListInvites(ctx context.Context) ([]Invite, error)
+	// ListInvitesByOwner returns the invites of one owner, newest first.
+	ListInvitesByOwner(ctx context.Context, ownerID string) ([]Invite, error)
+	// CountPendingInvitesByOwner counts the invites of one owner that are
+	// pending at now.
+	CountPendingInvitesByOwner(ctx context.Context, ownerID string, now time.Time) (int, error)
 	// CancelInvite cancels a pending invite. It returns ErrNotFound for an
 	// unknown ID and ErrNotPending for an invite that was used, canceled or
 	// has expired.
@@ -60,6 +76,16 @@ type Store interface {
 	GetDevice(ctx context.Context, id string) (Device, error)
 	// ListDevices returns all devices, revoked ones included, newest first.
 	ListDevices(ctx context.Context) ([]Device, error)
+	// ListDevicesByOwner returns the devices of one owner, revoked ones
+	// included, newest first.
+	ListDevicesByOwner(ctx context.Context, ownerID string) ([]Device, error)
+	// CountActiveDevicesByOwner counts the devices of one owner that are not
+	// revoked.
+	CountActiveDevicesByOwner(ctx context.Context, ownerID string) (int, error)
+	// SetDeviceCredential sets the keyed hash of the sign-in credential of a
+	// device; an empty hash clears it. It returns ErrNotFound for an unknown
+	// ID.
+	SetDeviceCredential(ctx context.Context, id, hash string) error
 	// RenameDevice sets the label of a device.
 	RenameDevice(ctx context.Context, id, label string) error
 	// SetDeviceAllowSlowPath sets whether the server may use the device
@@ -69,7 +95,8 @@ type Store interface {
 	// server with an empty node, and stores note as the reason (empty clears
 	// it). It returns ErrNotFound for an unknown ID.
 	SetDeviceNode(ctx context.Context, id, node, note string) error
-	// RevokeDevice sets revoked_at and revoked_by. Revoking a revoked device
+	// RevokeDevice sets revoked_at and revoked_by and clears the credential
+	// hash, in one update. Revoking a revoked device
 	// changes nothing and succeeds. It returns the device as it is stored.
 	RevokeDevice(ctx context.Context, id, by string, now time.Time) (Device, error)
 	// TouchDevice records when and by which path an active device was seen.

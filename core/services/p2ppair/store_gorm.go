@@ -31,6 +31,8 @@ type inviteRow struct {
 	CreatedBy    string `gorm:"size:64"`
 	CanceledAt   *time.Time
 	CreatedAt    time.Time
+	// SignIn marks an invite whose device gets a sign-in credential.
+	SignIn bool `gorm:"not null;default:false"`
 }
 
 // TableName is the table of the invites.
@@ -60,6 +62,11 @@ type deviceRow struct {
 	NodeNote string `gorm:"size:255"`
 	// OmitLANAddrs comes from the invite: the routes leave LAN addresses out.
 	OmitLANAddrs bool `gorm:"not null;default:false"`
+	// SignIn comes from the invite: the device holds a sign-in credential.
+	SignIn bool `gorm:"not null;default:false"`
+	// CredentialHash is the keyed hash of the sign-in credential; NULL when
+	// the device has none.
+	CredentialHash *string `gorm:"size:64"`
 }
 
 // TableName is the table of the devices.
@@ -108,6 +115,7 @@ func (r inviteRow) invite() Invite {
 		PassRelayID: r.PassRelayID, ExpiresAt: r.ExpiresAt, UsedAt: r.UsedAt,
 		UsedByPeer: r.UsedByPeer, DeviceID: r.DeviceID, CreatedBy: r.CreatedBy,
 		CanceledAt: r.CanceledAt, CreatedAt: r.CreatedAt, OmitLANAddrs: r.OmitLANAddrs,
+		SignIn: r.SignIn,
 	}
 	_ = json.Unmarshal([]byte(r.Scope), &inv.Scope)
 	_ = json.Unmarshal([]byte(r.RelayIDs), &inv.RelayIDs)
@@ -121,6 +129,10 @@ func (r deviceRow) device() Device {
 		CreatedAt: r.CreatedAt, LastSeenAt: r.LastSeenAt, LastPath: r.LastPath,
 		RevokedAt: r.RevokedAt, RevokedBy: r.RevokedBy, AllowSlowPath: r.AllowSlowPath,
 		NodeID: r.NodeID, NodeNote: r.NodeNote, OmitLANAddrs: r.OmitLANAddrs,
+		SignIn: r.SignIn,
+	}
+	if r.CredentialHash != nil {
+		d.CredentialHash = *r.CredentialHash
 	}
 	_ = json.Unmarshal([]byte(r.Scope), &d.Scope)
 	return d
@@ -133,8 +145,16 @@ func deviceToRow(d Device) deviceRow {
 		Scope: marshalJSON(d.Scope), CreatedAt: d.CreatedAt, LastSeenAt: d.LastSeenAt,
 		LastPath: d.LastPath, RevokedAt: d.RevokedAt, RevokedBy: d.RevokedBy,
 		AllowSlowPath: d.AllowSlowPath, NodeID: d.NodeID, NodeNote: d.NodeNote,
-		OmitLANAddrs: d.OmitLANAddrs,
+		OmitLANAddrs: d.OmitLANAddrs, SignIn: d.SignIn, CredentialHash: nullable(d.CredentialHash),
 	}
+}
+
+// nullable maps an empty string to NULL.
+func nullable(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 func (s *gormStore) CreateInvite(ctx context.Context, inv Invite, code string) error {
@@ -143,6 +163,7 @@ func (s *gormStore) CreateInvite(ctx context.Context, inv Invite, code string) e
 		CodeHash: hashCode(code, s.secret), Scope: marshalJSON(inv.Scope),
 		RelayIDs: marshalJSON(inv.RelayIDs), PassRelayID: inv.PassRelayID, OmitLANAddrs: inv.OmitLANAddrs,
 		ExpiresAt: inv.ExpiresAt.UTC(), CreatedBy: inv.CreatedBy, CreatedAt: inv.CreatedAt.UTC(),
+		SignIn: inv.SignIn,
 	}
 	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
 		return fmt.Errorf("p2ppair: create invite: %w", err)
@@ -162,8 +183,24 @@ func (s *gormStore) GetInvite(ctx context.Context, id string) (Invite, error) {
 }
 
 func (s *gormStore) ListInvites(ctx context.Context) ([]Invite, error) {
+	return s.listInvites(s.db.WithContext(ctx))
+}
+
+func (s *gormStore) ListInvitesByOwner(ctx context.Context, ownerID string) ([]Invite, error) {
+	return s.listInvites(s.db.WithContext(ctx).Where("owner_id = ?", ownerID))
+}
+
+func (s *gormStore) CountPendingInvitesByOwner(ctx context.Context, ownerID string, now time.Time) (int, error) {
+	var n int64
+	err := s.db.WithContext(ctx).Model(&inviteRow{}).
+		Where("owner_id = ? AND used_at IS NULL AND canceled_at IS NULL AND expires_at > ?", ownerID, now.UTC()).
+		Count(&n).Error
+	return int(n), err
+}
+
+func (s *gormStore) listInvites(q *gorm.DB) ([]Invite, error) {
 	var rows []inviteRow
-	if err := s.db.WithContext(ctx).Order("created_at DESC, id").Find(&rows).Error; err != nil {
+	if err := q.Order("created_at DESC, id").Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	out := make([]Invite, len(rows))
@@ -228,6 +265,10 @@ func (s *gormStore) Redeem(ctx context.Context, p RedeemParams) (Invite, Device,
 			ID: p.DeviceID, OwnerID: inv.OwnerID, Kind: inv.Kind, Label: label,
 			PeerID: p.Peer.String(), InviteID: inv.ID, Scope: inv.Scope, CreatedAt: now,
 			NodeID: inv.Scope.Labels[NodeLabel], OmitLANAddrs: inv.OmitLANAddrs,
+			SignIn: inv.SignIn,
+		}
+		if inv.SignIn {
+			dev.CredentialHash = p.CredentialHash
 		}
 		var active int64
 		if err := tx.Model(&deviceRow{}).Where("peer_id = ? AND revoked_at IS NULL", dev.PeerID).Count(&active).Error; err != nil {
@@ -235,6 +276,20 @@ func (s *gormStore) Redeem(ctx context.Context, p RedeemParams) (Invite, Device,
 		}
 		if active > 0 {
 			return ErrPeerPaired
+		}
+		if inv.SignIn && p.MaxDevicesForOwner > 0 {
+			// Two redeems of different invites of one owner at once may both
+			// pass this count on PostgreSQL; the pending invite limit bounds
+			// the excess.
+			var owned int64
+			if err := tx.Model(&deviceRow{}).
+				Where("owner_id = ? AND revoked_at IS NULL AND sign_in = ?", inv.OwnerID, true).
+				Count(&owned).Error; err != nil {
+				return err
+			}
+			if owned >= int64(p.MaxDevicesForOwner) {
+				return ErrDeviceLimit
+			}
 		}
 		if p.Issue != nil {
 			keyID, err := p.Issue(ctx, Tx{DB: tx}, inv, dev)
@@ -271,8 +326,36 @@ func (s *gormStore) GetDevice(ctx context.Context, id string) (Device, error) {
 }
 
 func (s *gormStore) ListDevices(ctx context.Context) ([]Device, error) {
+	return s.listDevices(s.db.WithContext(ctx))
+}
+
+func (s *gormStore) ListDevicesByOwner(ctx context.Context, ownerID string) ([]Device, error) {
+	return s.listDevices(s.db.WithContext(ctx).Where("owner_id = ?", ownerID))
+}
+
+func (s *gormStore) CountActiveDevicesByOwner(ctx context.Context, ownerID string) (int, error) {
+	var n int64
+	err := s.db.WithContext(ctx).Model(&deviceRow{}).
+		Where("owner_id = ? AND revoked_at IS NULL", ownerID).Count(&n).Error
+	return int(n), err
+}
+
+func (s *gormStore) SetDeviceCredential(ctx context.Context, id, hash string) error {
+	var n int64
+	if err := s.db.WithContext(ctx).Model(&deviceRow{}).Where("id = ?", id).Count(&n).Error; err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	// Update with a map: GORM skips a nil pointer in a struct update.
+	return s.db.WithContext(ctx).Model(&deviceRow{}).Where("id = ?", id).
+		Updates(map[string]any{"credential_hash": nullable(hash)}).Error
+}
+
+func (s *gormStore) listDevices(q *gorm.DB) ([]Device, error) {
 	var rows []deviceRow
-	if err := s.db.WithContext(ctx).Order("created_at DESC, id").Find(&rows).Error; err != nil {
+	if err := q.Order("created_at DESC, id").Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	out := make([]Device, len(rows))
@@ -324,7 +407,7 @@ func (s *gormStore) RevokeDevice(ctx context.Context, id, by string, now time.Ti
 	now = now.UTC()
 	res := s.db.WithContext(ctx).Model(&deviceRow{}).
 		Where("id = ? AND revoked_at IS NULL", id).
-		Updates(map[string]any{"revoked_at": now, "revoked_by": by})
+		Updates(map[string]any{"revoked_at": now, "revoked_by": by, "credential_hash": nil})
 	if res.Error != nil {
 		return Device{}, res.Error
 	}

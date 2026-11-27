@@ -304,6 +304,155 @@ func storeContract(newStore func() p2ppair.Store) {
 		got, _ := s.GetDevice(ctx, "d1")
 		Expect(got.ClientKeyID).To(Equal("key-1"))
 	})
+
+	It("keeps the sign-in flag of an invite on the device", func() {
+		inv := invite("a", time.Hour)
+		inv.SignIn = true
+		Expect(s.CreateInvite(ctx, inv, testCode)).To(Succeed())
+		got, err := s.GetInvite(ctx, "a")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.SignIn).To(BeTrue())
+		_, dev, err := s.Redeem(ctx, redeemParams(testCode, "d1"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(dev.SignIn).To(BeTrue())
+		d, _ := s.GetDevice(ctx, "d1")
+		Expect(d.SignIn).To(BeTrue())
+	})
+
+	It("stores the credential hash of a sign-in device and clears it on revoke", func() {
+		Expect(s.CreateInvite(ctx, invite("plain", time.Hour), "PPPPPPPPP2")).To(Succeed())
+		plain := redeemParams("PPPPPPPPP2", "d0")
+		plain.CredentialHash = "ignored"
+		_, dev, err := s.Redeem(ctx, plain)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(dev.CredentialHash).To(BeEmpty(), "an invite without sign-in gives no credential")
+		d, _ := s.GetDevice(ctx, "d0")
+		Expect(d.CredentialHash).To(BeEmpty())
+
+		inv := invite("a", time.Hour)
+		inv.SignIn = true
+		Expect(s.CreateInvite(ctx, inv, testCode)).To(Succeed())
+		rp := redeemParams(testCode, "d1")
+		rp.CredentialHash = "hash-1"
+		_, dev, err = s.Redeem(ctx, rp)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(dev.CredentialHash).To(Equal("hash-1"))
+		d, _ = s.GetDevice(ctx, "d1")
+		Expect(d.CredentialHash).To(Equal("hash-1"))
+		devs, _ := s.ListDevicesByOwner(ctx, "owner")
+		Expect(devs).To(HaveLen(2))
+		hashes := map[string]string{}
+		for _, d := range devs {
+			hashes[d.ID] = d.CredentialHash
+		}
+		Expect(hashes).To(Equal(map[string]string{"d0": "", "d1": "hash-1"}))
+
+		Expect(s.SetDeviceCredential(ctx, "d1", "hash-2")).To(Succeed())
+		d, _ = s.GetDevice(ctx, "d1")
+		Expect(d.CredentialHash).To(Equal("hash-2"))
+		Expect(s.SetDeviceCredential(ctx, "nope", "x")).To(MatchError(p2ppair.ErrNotFound))
+
+		got, err := s.RevokeDevice(ctx, "d1", "admin", t0.Add(time.Hour))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.CredentialHash).To(BeEmpty())
+		d, _ = s.GetDevice(ctx, "d1")
+		Expect(d.CredentialHash).To(BeEmpty(), "a revoked device keeps no credential")
+	})
+
+	It("lists and counts the invites and devices of one owner", func() {
+		mine := func(id, owner string, created time.Duration) p2ppair.Invite {
+			inv := invite(id, time.Hour)
+			inv.OwnerID = owner
+			inv.CreatedAt = t0.Add(created)
+			return inv
+		}
+		Expect(s.CreateInvite(ctx, mine("a1", "alice", 0), "AAAAAAAAA2")).To(Succeed())
+		Expect(s.CreateInvite(ctx, mine("a2", "alice", time.Minute), "AAAAAAAAA3")).To(Succeed())
+		Expect(s.CreateInvite(ctx, mine("a3", "alice", 2*time.Minute), "AAAAAAAAA4")).To(Succeed())
+		Expect(s.CreateInvite(ctx, mine("b1", "bob", 0), "BBBBBBBBB2")).To(Succeed())
+		expired := mine("a4", "alice", 0)
+		expired.ExpiresAt = t0.Add(time.Second)
+		Expect(s.CreateInvite(ctx, expired, "AAAAAAAAA5")).To(Succeed())
+		Expect(s.CancelInvite(ctx, "a3", t0)).To(Succeed())
+
+		invs, err := s.ListInvitesByOwner(ctx, "alice")
+		Expect(err).NotTo(HaveOccurred())
+		ids := make([]string, len(invs))
+		for i, inv := range invs {
+			ids[i] = inv.ID
+		}
+		Expect(ids).To(Equal([]string{"a3", "a2", "a1", "a4"}))
+		invs, _ = s.ListInvitesByOwner(ctx, "nobody")
+		Expect(invs).To(BeEmpty())
+
+		_, _, err = s.Redeem(ctx, redeemParams("AAAAAAAAA2", "d1"))
+		Expect(err).NotTo(HaveOccurred())
+		n, err := s.CountPendingInvitesByOwner(ctx, "alice", t0.Add(time.Minute))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(1), "only a2 is pending: a1 was used, a3 canceled, a4 expired")
+		n, _ = s.CountPendingInvitesByOwner(ctx, "bob", t0.Add(time.Minute))
+		Expect(n).To(Equal(1))
+
+		_, _, err = s.Redeem(ctx, redeemParams("AAAAAAAAA3", "d2"))
+		Expect(err).NotTo(HaveOccurred())
+		_, _, err = s.Redeem(ctx, redeemParams("BBBBBBBBB2", "d3"))
+		Expect(err).NotTo(HaveOccurred())
+		_, err = s.RevokeDevice(ctx, "d1", "alice", t0)
+		Expect(err).NotTo(HaveOccurred())
+
+		devs, err := s.ListDevicesByOwner(ctx, "alice")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(devs).To(HaveLen(2), "revoked devices are listed too")
+		for _, d := range devs {
+			Expect(d.OwnerID).To(Equal("alice"))
+		}
+		n, err = s.CountActiveDevicesByOwner(ctx, "alice")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(1))
+		n, _ = s.CountActiveDevicesByOwner(ctx, "bob")
+		Expect(n).To(Equal(1))
+		n, _ = s.CountActiveDevicesByOwner(ctx, "nobody")
+		Expect(n).To(BeZero())
+	})
+
+	It("refuses a sign-in redeem over the device limit of the owner and keeps the invite unused", func() {
+		signIn := func(id string) p2ppair.Invite {
+			inv := invite(id, time.Hour)
+			inv.SignIn = true
+			return inv
+		}
+		Expect(s.CreateInvite(ctx, signIn("a"), "AAAAAAAAA2")).To(Succeed())
+		Expect(s.CreateInvite(ctx, signIn("b"), "BBBBBBBBB2")).To(Succeed())
+		Expect(s.CreateInvite(ctx, signIn("c"), "CCCCCCCCC2")).To(Succeed())
+		Expect(s.CreateInvite(ctx, invite("w", time.Hour), "WWWWWWWWW2")).To(Succeed())
+		worker := redeemParams("WWWWWWWWW2", "dw")
+		worker.MaxDevicesForOwner = 1
+		_, _, err := s.Redeem(ctx, worker)
+		Expect(err).NotTo(HaveOccurred(), "an invite without sign-in has no limit")
+		first := redeemParams("AAAAAAAAA2", "d1")
+		first.MaxDevicesForOwner = 1
+		_, _, err = s.Redeem(ctx, first)
+		Expect(err).NotTo(HaveOccurred(), "a device without sign-in does not count")
+
+		second := redeemParams("BBBBBBBBB2", "d2")
+		second.MaxDevicesForOwner = 1
+		second.CredentialHash = "hash"
+		_, _, err = s.Redeem(ctx, second)
+		Expect(err).To(MatchError(p2ppair.ErrDeviceLimit))
+		got, _ := s.GetInvite(ctx, "b")
+		Expect(got.UsedAt).To(BeNil(), "the invite is not spent by a refused redeem")
+		_, err = s.GetDevice(ctx, "d2")
+		Expect(err).To(MatchError(p2ppair.ErrNotFound))
+
+		_, err = s.RevokeDevice(ctx, "d1", "owner", t0)
+		Expect(err).NotTo(HaveOccurred())
+		_, _, err = s.Redeem(ctx, second)
+		Expect(err).NotTo(HaveOccurred(), "a revoked device does not count")
+
+		third := redeemParams("CCCCCCCCC2", "d3")
+		_, _, err = s.Redeem(ctx, third)
+		Expect(err).NotTo(HaveOccurred(), "zero means no limit")
+	})
 }
 
 var _ = Describe("stores", func() {
@@ -330,6 +479,43 @@ var _ = Describe("stores", func() {
 	})
 
 	Describe("JSON file", func() {
+		It("keeps the credential hash on disk and loads a file without the new fields", func() {
+			dir := filepath.Join(GinkgoT().TempDir(), "pair")
+			Expect(os.MkdirAll(dir, 0o700)).To(Succeed())
+			old := `{"version":1,"invites":{"a":{"id":"a","owner_id":"owner","kind":"device","label":"phone",` +
+				`"scope":{},"expires_at":"2026-11-16T13:00:00Z","created_by":"admin","created_at":"2026-11-16T12:00:00Z",` +
+				`"code_hash":"x"}},"devices":{"d0":{"id":"d0","owner_id":"owner","kind":"device","label":"old",` +
+				`"peer_id":"p","invite_id":"z","scope":{},"created_at":"2026-11-16T12:00:00Z"}}}`
+			path := filepath.Join(dir, p2ppair.JSONFileName)
+			Expect(os.WriteFile(path, []byte(old), 0o600)).To(Succeed())
+
+			s, err := p2ppair.NewJSONStore(dir, "secret")
+			Expect(err).NotTo(HaveOccurred())
+			d, err := s.GetDevice(context.Background(), "d0")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(d.SignIn).To(BeFalse())
+			Expect(d.CredentialHash).To(BeEmpty())
+			inv, err := s.GetInvite(context.Background(), "a")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(inv.SignIn).To(BeFalse())
+
+			b := invite("b", time.Hour)
+			b.SignIn = true
+			Expect(s.CreateInvite(context.Background(), b, testCode)).To(Succeed())
+			rp := redeemParams(testCode, "d1")
+			rp.CredentialHash = "stored-hash"
+			_, _, err = s.Redeem(context.Background(), rp)
+			Expect(err).NotTo(HaveOccurred())
+			raw, _ := os.ReadFile(path)
+			Expect(string(raw)).To(ContainSubstring("stored-hash"))
+
+			again, err := p2ppair.NewJSONStore(dir, "secret")
+			Expect(err).NotTo(HaveOccurred())
+			d, err = again.GetDevice(context.Background(), "d1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(d.CredentialHash).To(Equal("stored-hash"), "the hash survives a restart")
+		})
+
 		It("is private, survives a restart and holds no plaintext code", func() {
 			dir := filepath.Join(GinkgoT().TempDir(), "pair")
 			s, err := p2ppair.NewJSONStore(dir, "secret")
@@ -382,6 +568,38 @@ var _ = Describe("stores", func() {
 			Expect(ins("2", false)).NotTo(Succeed())
 			Expect(ins("3", true)).To(Succeed())
 			Expect(ins("4", true)).To(Succeed())
+		})
+		It("add the new columns to tables made before them, and old rows still load", func() {
+			db := openSQLite()
+			Expect(db.Exec(`CREATE TABLE p2p_devices (id text PRIMARY KEY, owner_id text, kind text NOT NULL,
+				label text, peer_id text NOT NULL, client_key_id text, invite_id text, scope text,
+				created_at datetime, last_seen_at datetime, last_path text, revoked_at datetime, revoked_by text,
+				allow_slow_path numeric NOT NULL DEFAULT false, node_id text, node_note text,
+				omit_lan_addrs numeric NOT NULL DEFAULT false)`).Error).To(Succeed())
+			Expect(db.Exec(`CREATE TABLE p2p_invites (id text PRIMARY KEY, owner_id text, kind text NOT NULL,
+				label text, code_hash text NOT NULL UNIQUE, scope text, relay_ids text, pass_relay_id text,
+				omit_lan_addrs numeric NOT NULL DEFAULT false, expires_at datetime, used_at datetime,
+				used_by_peer text, device_id text, created_by text, canceled_at datetime, created_at datetime)`).Error).To(Succeed())
+			Expect(db.Exec(`INSERT INTO p2p_devices (id, owner_id, kind, peer_id, scope, created_at)
+				VALUES ('d0', 'owner', 'device', 'p', '{}', '2026-11-16 12:00:00')`).Error).To(Succeed())
+			Expect(db.Exec(`INSERT INTO p2p_invites (id, owner_id, kind, code_hash, scope, relay_ids, expires_at, created_at)
+				VALUES ('i0', 'owner', 'device', 'h', '{}', 'null', '2026-11-16 13:00:00', '2026-11-16 12:00:00')`).Error).To(Succeed())
+
+			s, err := p2ppair.NewGormStore(db, "secret")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(db.Migrator().HasColumn("p2p_devices", "sign_in")).To(BeTrue())
+			Expect(db.Migrator().HasColumn("p2p_devices", "credential_hash")).To(BeTrue())
+			Expect(db.Migrator().HasColumn("p2p_invites", "sign_in")).To(BeTrue())
+			d, err := s.GetDevice(context.Background(), "d0")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(d.SignIn).To(BeFalse())
+			Expect(d.CredentialHash).To(BeEmpty())
+			inv, err := s.GetInvite(context.Background(), "i0")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(inv.SignIn).To(BeFalse())
+			n, err := s.CountActiveDevicesByOwner(context.Background(), "owner")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(n).To(Equal(1))
 		})
 	})
 })
