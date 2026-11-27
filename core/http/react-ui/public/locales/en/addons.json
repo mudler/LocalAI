@@ -1390,6 +1390,11 @@
       "fetch_failed": "LocalAI could not read the plugin or the marketplace. The server log has the cause.",
       "plugins_unavailable": "Plugins are not available on this server.",
       "rate_limited": "Too many plugin reviews right now. Wait a moment and try again."
+    },
+    "job": {
+      "installed": "{{name}} is installed.",
+      "updated": "{{name}} is updated.",
+      "unknown": "{{name}} is not in the list yet. The change may still run, or it failed: your notifications say how it ended."
     }
   }
 }

@@ -1390,6 +1390,11 @@
       "fetch_failed": "LocalAI plugin'i veya pazar yerini okuyamadı. Nedeni sunucu günlüğünde.",
       "plugins_unavailable": "Bu sunucuda plugin'ler kullanılamıyor.",
       "rate_limited": "Şu anda çok fazla plugin incelemesi var. Biraz bekleyip tekrar dene."
+    },
+    "job": {
+      "installed": "{{name}} kuruldu.",
+      "updated": "{{name}} güncellendi.",
+      "unknown": "{{name}} henüz listede yok. Değişiklik hâlâ sürüyor olabilir ya da başarısız oldu: nasıl bittiğini bildirimlerin söyler."
     }
   }
 }

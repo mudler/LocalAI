@@ -59,7 +59,7 @@ type pluginQueue struct{ g *galleryop.GalleryService }
 
 func (q pluginQueue) Enqueue(j plugins.Job) {
 	q.g.EnqueuePluginOp(galleryop.PluginOp{
-		ID: j.ID, PluginID: j.PluginID, Update: j.Update,
+		ID: j.ID, PluginID: j.PluginID, Update: j.Update, By: j.By,
 		Run: func(ctx context.Context, progress func(*galleryop.OpStatus)) error {
 			progress(&galleryop.OpStatus{Message: "installing", Phase: "installing", Cancellable: true})
 			return j.Run(ctx)

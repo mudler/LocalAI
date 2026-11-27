@@ -31,6 +31,9 @@ type PluginOp struct {
 	PluginID string
 	// Update is an update of an installed plugin, not an install.
 	Update bool
+	// By is the user who started the change; the end of the change is told
+	// to them.
+	By string
 	// Context is the operation context; CancelFunc cancels it.
 	// EnqueuePluginOp makes them when Context is nil.
 	Context    context.Context
@@ -114,5 +117,30 @@ func (g *GalleryService) runPluginOp(op PluginOp, abandon func()) {
 	default:
 		g.UpdateStatus(op.ID, &OpStatus{Processed: true, Progress: 100, Message: MessageCompleted, GalleryElementName: op.PluginID, Upgrade: op.Update})
 	}
+	g.announcePluginOp(op, err)
 	g.removeCancellation(op.ID)
+}
+
+// announcePluginOp is announceOp for a plugin install or update: the person
+// who started it learns how it ended, which a user cannot read from the
+// operations list.
+func (g *GalleryService) announcePluginOp(op PluginOp, err error) {
+	g.Lock()
+	cb := g.OnOpFinished
+	st := g.statuses[op.ID]
+	g.Unlock()
+	if cb == nil || op.ID == "" {
+		return
+	}
+	res := OpResult{ID: op.ID, Name: op.PluginID, Plugin: true, Upgrade: op.Update, By: op.By}
+	switch {
+	case st != nil && st.Cancelled:
+		res.Outcome = OpCancelled
+	case err == nil:
+		res.Outcome = OpCompleted
+	default:
+		res.Outcome = OpFailed
+		res.Err = err.Error()
+	}
+	go cb(res)
 }

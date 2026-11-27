@@ -143,7 +143,7 @@ function resultText(t, p, n) {
 
 // The end of an install, removal or upgrade of a model or backend. The reason
 // of a failure stays the server's own words (the body).
-const OP_KINDS = ['model', 'backend', 'addon']
+const OP_KINDS = ['model', 'backend', 'addon', 'plugin']
 const OP_ACTIONS = ['install', 'delete', 'upgrade']
 
 function opText(t, n, p) {

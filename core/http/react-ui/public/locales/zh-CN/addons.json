@@ -1390,6 +1390,11 @@
       "fetch_failed": "LocalAI 无法读取该插件或市场。原因见服务器日志。",
       "plugins_unavailable": "此服务器不提供插件功能。",
       "rate_limited": "当前插件审核过多。请稍候再试。"
+    },
+    "job": {
+      "installed": "{{name}} 已安装。",
+      "updated": "{{name}} 已更新。",
+      "unknown": "{{name}} 还不在列表中。更改可能仍在进行,或已失败:你的通知会说明结果。"
     }
   }
 }

@@ -46,6 +46,18 @@ var _ = Describe("plugin changes in the operation queue", func() {
 		}))
 	})
 
+	It("reports the end of a change with the person who started it", func() {
+		got := make(chan galleryop.OpResult, 1)
+		svc.SetOnOpFinished(func(r galleryop.OpResult) { got <- r })
+		svc.EnqueuePluginOp(galleryop.PluginOp{ID: "p3", PluginID: "fmt@tools", By: "alice", Run: func(context.Context, func(*galleryop.OpStatus)) error {
+			return errors.New("digest mismatch")
+		}})
+		var r galleryop.OpResult
+		Eventually(got).Should(Receive(&r))
+		Expect(r).To(SatisfyAll(HaveField("ID", "p3"), HaveField("Name", "fmt@tools"), HaveField("Plugin", true),
+			HaveField("By", "alice"), HaveField("Outcome", galleryop.OpFailed), HaveField("Err", ContainSubstring("digest mismatch"))))
+	})
+
 	It("drops a change cancelled while queued without running it", func() {
 		release := make(chan struct{})
 		var mu sync.Mutex

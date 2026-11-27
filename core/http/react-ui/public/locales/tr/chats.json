@@ -348,7 +348,8 @@
         "kind": {
           "model": "Model",
           "backend": "Backend",
-          "addon": "Eklenti"
+          "addon": "Eklenti",
+          "plugin": "Plugin"
         },
         "done": {
           "install": "{{kind}} {{name}} kuruldu",

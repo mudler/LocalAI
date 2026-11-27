@@ -1068,6 +1068,9 @@ type OpResult struct {
 	Upgrade  bool
 	// Addon is an add-on install or upgrade; Backend is false then.
 	Addon bool
+	// Plugin is a plugin install or update; By is the user who started it.
+	Plugin bool
+	By     string
 	// NeedsApproval is a failed add-on install that waits for the
 	// administrator to review its host access again.
 	NeedsApproval bool

@@ -71,6 +71,19 @@ var _ = Describe("the model notifications", func() {
 		Expect(list(f, "admin")).To(BeEmpty())
 	})
 
+	It("tells the end of a plugin install to the person who started it", func() {
+		f := newFrontend(memStore(), nil, "admin")
+		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-p", Name: "fmt@team", Plugin: true, By: "alice", Outcome: galleryop.OpFailed, Err: "digest mismatch"})).To(Succeed())
+		Expect(list(f, "admin")).To(BeEmpty(), "a user's install is not the administrators' news")
+		got := list(f, "alice")
+		Expect(got).To(HaveLen(1))
+		Expect(got[0].Params).To(HaveKeyWithValue("kind", "plugin"))
+		Expect(got[0].Link).To(Equal(LinkPlugins))
+		Expect(got[0].Code).To(Equal(CodeOpFailed))
+		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-p2", Name: "fmt@team", Plugin: true, By: "alice", Upgrade: true, Outcome: galleryop.OpCompleted})).To(Succeed())
+		Expect(list(f, "alice")).To(HaveLen(2), "a plugin update is told too")
+	})
+
 	It("tells a backend upgrade as its operation", func() {
 		f := newFrontend(memStore(), nil, "admin")
 		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-b", Name: "llama-cpp", Backend: true, Upgrade: true, Outcome: galleryop.OpFailed, Err: "x"})).To(Succeed())

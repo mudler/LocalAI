@@ -786,7 +786,8 @@
         "kind": {
           "model": "模型",
           "backend": "后端",
-          "addon": "附加组件"
+          "addon": "附加组件",
+          "plugin": "插件"
         },
         "done": {
           "install": "{{kind}} {{name}} 已安装",

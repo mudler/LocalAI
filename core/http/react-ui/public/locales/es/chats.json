@@ -786,7 +786,8 @@
         "kind": {
           "model": "Modelo",
           "backend": "Backend",
-          "addon": "Complemento"
+          "addon": "Complemento",
+          "plugin": "Plugin"
         },
         "done": {
           "install": "{{kind}} {{name}} instalado",

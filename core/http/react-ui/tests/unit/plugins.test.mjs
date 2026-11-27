@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createPluginsApi, PluginsError } from '../../src/utils/pluginsApi.js'
 import {
   addedReasons, cardAction, categoriesOf, configForm, configPayload, contributions, diffLines, errorKey, groupInstalls,
-  hookHandlerText, installChip, installRights, mcpServerText, marketplaceChip, pluginOps, resolveView, reviewTarget, scopeChoices, shortSha, skippedKey, textOnly, updateReady,
+  hookHandlerText, installChip, jobLanded, installRights, mcpServerText, marketplaceChip, pluginOps, resolveView, reviewTarget, scopeChoices, shortSha, skippedKey, textOnly, updateReady,
 } from '../../src/components/plugins/pluginState.js'
 import { resolveTab, visibleTabs } from '../../src/components/addons/addonState.js'
 
@@ -206,4 +206,13 @@ test('plugins: the review shows the arguments of a command hook, the URL of an h
   assert.equal(hookHandlerText({ type: 'prompt' }), 'prompt')
   assert.equal(mcpServerText({ url: 'https://api.example.com/mcp', headersHelper: './bin/token.sh' }), 'https://api.example.com/mcp · headersHelper: ./bin/token.sh')
   assert.equal(mcpServerText({ command: 'node', args: ['s.js'] }), 'node s.js')
+})
+
+test('plugins: a queued install has landed when the plugin shows in the list, an update when its commit changed', () => {
+  const list = [{ plugin: 'fmt@team', sha: 'b' }]
+  assert.equal(jobLanded(list, 'fmt@team'), true)
+  assert.equal(jobLanded(list, 'lint@team'), false)
+  assert.equal(jobLanded(list, 'fmt@team', 'a'), true)
+  assert.equal(jobLanded(list, 'fmt@team', 'b'), false)
+  assert.equal(jobLanded(null, 'fmt@team'), false)
 })

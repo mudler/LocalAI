@@ -232,3 +232,12 @@ export function mcpServerText(s) {
   const base = s.url || [s.command, ...(s.args || [])].filter(Boolean).join(' ')
   return s.headersHelper ? `${base} · headersHelper: ${s.headersHelper}` : base
 }
+
+// Whether a queued install or update shows in the installs list: an install
+// of the plugin, at another commit than before for an update. A user cannot
+// read the operations list, so the Plugins tab watches the list instead.
+// before is the commit of the install before an update, or '' for an
+// install.
+export function jobLanded(list, plugin, before = '') {
+  return (Array.isArray(list) ? list : []).some((i) => i && i.plugin === plugin && (!before || (i.sha && i.sha !== before)))
+}

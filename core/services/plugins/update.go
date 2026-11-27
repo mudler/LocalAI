@@ -353,7 +353,7 @@ func (s *Service) Update(ctx context.Context, a Actor, installID, secret string,
 		return "", err
 	}
 	id := newJobID()
-	s.queue.Enqueue(Job{ID: id, PluginID: t.PluginID, Update: true, Run: func(ctx context.Context) error {
+	s.queue.Enqueue(Job{ID: id, PluginID: t.PluginID, Update: true, By: a.ID, Run: func(ctx context.Context) error {
 		return s.updateJob(ctx, a, t)
 	}})
 	return id, nil

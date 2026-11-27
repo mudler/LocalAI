@@ -33,6 +33,8 @@ type Job struct {
 	ID       string
 	PluginID string
 	Update   bool
+	// By is the user who asked for the change.
+	By string
 	// Run does the change. A cancelled context before Run writes nothing.
 	Run func(ctx context.Context) error
 }
@@ -178,7 +180,7 @@ func (s *Service) Install(ctx context.Context, a Actor, secret, scope string) (s
 		return "", err
 	}
 	id := newJobID()
-	s.queue.Enqueue(Job{ID: id, PluginID: t.PluginID, Run: func(ctx context.Context) error {
+	s.queue.Enqueue(Job{ID: id, PluginID: t.PluginID, By: a.ID, Run: func(ctx context.Context) error {
 		return s.installJob(ctx, a, t, scope)
 	}})
 	return id, nil

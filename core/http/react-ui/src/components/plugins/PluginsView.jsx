@@ -11,8 +11,13 @@ import InstalledView from './InstalledView'
 import InstallReview from './InstallReview'
 import MarketplacesView from './MarketplacesView'
 import UpdateReview from './UpdateReview'
-import { pluginOps, resolveView, reviewTarget, VIEWS } from './pluginState'
+import { jobLanded, pluginOps, resolveView, reviewTarget, VIEWS } from './pluginState'
 import './plugins.css'
+
+// How a user's install or update is watched: the installs list is read every
+// WATCH_EVERY ms, WATCH_TRIES times, until the change shows.
+const WATCH_EVERY = 2000
+const WATCH_TRIES = 45
 
 // The Plugins tab of the Add-ons page: plugins compatible with the Claude
 // Code plugin format. Three views: Browse the marketplaces, the Installed
@@ -72,11 +77,40 @@ export default function PluginsView({ api = pluginsApi }) {
   }), [setParams])
 
   const changed = useCallback(() => { setModels({}); setReload((n) => n + 1) }, [])
-  const queued = (name) => (job) => {
+  // A user cannot read the operations list, so the end of their own install
+  // or update would go unseen: read the installs list until the change shows,
+  // and past the wait point to the notifications, which tell how it ended.
+  const watch = useCallback((plugin, name, before) => {
+    let tries = 0
+    const tick = async () => {
+      if (!mounted.current) return
+      tries += 1
+      let list = null
+      try { list = await api.installs() } catch { list = null }
+      if (!mounted.current) return
+      if (list && jobLanded(list, plugin, before)) {
+        addToast?.(t(before ? 'plugins.job.updated' : 'plugins.job.installed', { name }), 'success')
+        changed()
+        return
+      }
+      if (tries >= WATCH_TRIES) {
+        addToast?.(t('plugins.job.unknown', { name }), 'warning')
+        changed()
+        return
+      }
+      setTimeout(tick, WATCH_EVERY)
+    }
+    setTimeout(tick, WATCH_EVERY)
+  }, [api, addToast, t, changed])
+  // update: the commit the install had, or null for an install. An update
+  // whose old commit is not known is not watched: any row would match.
+  const queued = (name, update = null) => (job) => {
     addToast?.(t('plugins.queued', { name }), 'info')
     if (job?.plugin) seen.current.add(job.plugin)
+    if (!isAdmin && job?.plugin && update !== '') watch(job.plugin, name, update || '')
     changed()
   }
+  const shaOf = (plugin) => (installs.status === 'ready' ? (installs.data.find((i) => i.plugin === plugin)?.sha || '') : '')
 
   const count = installs.status === 'ready' ? installs.data.length : 0
   return (
@@ -117,7 +151,7 @@ export default function PluginsView({ api = pluginsApi }) {
       {updating && (
         <UpdateReview
           install={updating} api={api}
-          onQueued={(job) => { const name = updating.name || updating.plugin; setUpdating(null); queued(name)(job) }}
+          onQueued={(job) => { const name = updating.name || updating.plugin; const before = shaOf(updating.plugin); setUpdating(null); queued(name, before)(job) }}
           onClose={() => setUpdating(null)}
         />
       )}

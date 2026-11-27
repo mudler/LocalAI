@@ -55,6 +55,7 @@ const (
 	LinkPage     = "/app/updates"
 	LinkModels   = "/app/models"
 	LinkAddons   = "/app/addons"
+	LinkPlugins  = "/app/addons?tab=plugins"
 )
 
 // Families of the automatic update.
@@ -290,13 +291,15 @@ func (e *Emitter) Operation(ctx context.Context, op galleryop.OpResult) error {
 	if op.InRun {
 		return nil
 	}
-	if op.Upgrade && !op.Backend && !op.Addon && op.Outcome != galleryop.OpCancelled {
+	if op.Upgrade && !op.Backend && !op.Addon && !op.Plugin && op.Outcome != galleryop.OpCancelled {
 		return nil
 	}
 	kind, link := "model", LinkModels
 	switch {
 	case op.Addon:
 		kind, link = "addon", LinkAddons
+	case op.Plugin:
+		kind, link = "plugin", LinkPlugins
 	case op.Backend:
 		kind, link = "backend", LinkPage
 	}
@@ -338,7 +341,27 @@ func (e *Emitter) Operation(ctx context.Context, op galleryop.OpResult) error {
 	default:
 		return nil
 	}
+	if op.Plugin && op.By != "" {
+		// Any user may install a plugin for themselves, and only
+		// administrators read the operations list: the person who started
+		// the change is the one to tell.
+		return e.upsertOne(ctx, op.By, n)
+	}
 	return e.upsertAll(ctx, n, notify.ModeOnce)
+}
+
+// upsertOne writes the item for one principal.
+func (e *Emitter) upsertOne(ctx context.Context, principal string, n notify.Notification) error {
+	if e == nil || e.Inbox == nil {
+		return nil
+	}
+	svc := e.Inbox()
+	if svc == nil {
+		return nil
+	}
+	n.Principal = principal
+	_, _, err := svc.Upsert(ctx, n, notify.ModeOnce)
+	return err
 }
 
 // versions is "name from to to", "name to" or "name".

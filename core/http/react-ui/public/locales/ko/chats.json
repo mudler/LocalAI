@@ -786,7 +786,8 @@
         "kind": {
           "model": "모델",
           "backend": "백엔드",
-          "addon": "애드온"
+          "addon": "애드온",
+          "plugin": "플러그인"
         },
         "done": {
           "install": "{{kind}} {{name}} 설치됨",

@@ -1390,6 +1390,11 @@
       "fetch_failed": "LocalAI no pudo leer el plugin o el marketplace. El registro del servidor indica la causa.",
       "plugins_unavailable": "Los plugins no están disponibles en este servidor.",
       "rate_limited": "Demasiadas revisiones de plugins ahora mismo. Espera un momento y vuelve a intentarlo."
+    },
+    "job": {
+      "installed": "{{name}} está instalado.",
+      "updated": "{{name}} está actualizado.",
+      "unknown": "{{name}} aún no está en la lista. El cambio puede seguir en curso o haber fallado: tus notificaciones dicen cómo terminó."
     }
   }
 }
