@@ -205,19 +205,22 @@ the model's backend is `llama-cpp` (or a build of it, or no backend at all),
 the **Interactive** tab has a **Runtime tuning** section with the badge
 `llama.cpp`.
 
-- **Quick setup.** Two choices: the **Batch** (Balanced, Long prompts or
-  **Custom**) and the **Concurrency** (Default, 8, 16 or 32+ streams). Each
-  setup says what it does and how much more or less memory it needs than the
-  current values. The figure is an estimate of the KV cache and the compute
-  buffers, beside the weights, from the model file. The section also shows the
-  current KV cache and compute buffer sizes. Nothing changes until you pick a
-  setup.
+- **Quick setup.** Two choices at the top of the section: the **Batch**
+  (Balanced, Long prompts or **Custom**) and the **Concurrency** (Default, 8,
+  16 or 32+ streams). The chosen setup has one line that says what it is for.
+  Each other setup shows how much more (+) or less (−) memory it needs than
+  the current values; a setup with about the same memory shows no figure. The
+  figure is an estimate of the KV cache and the compute buffers, beside the
+  weights, from the model file. **Memory now** shows the current KV cache and
+  compute buffer sizes. **Compare setups** opens a table with what each setup
+  changes and who it suits. Nothing changes until you pick a setup.
 
-  ![The Quick setup on a discrete 24 GB GPU: Balanced and 16 streams are current; Long prompts needs about 256 MB more memory and 32+ streams about 2.1 GB less, for its 8-bit KV cache.](../../images/engine-settings/quick-setup.png)
+  ![The Quick setup on a discrete 24 GB GPU: Balanced and 16 streams are chosen; Long prompts shows +256 MB and 32+ streams −960 MB, for its 8-bit KV cache.](../../images/engine-settings/quick-setup.png)
 
   **Memory type.** The values of a setup depend on how the GPU reaches its
-  memory. LocalAI detects it and says so in one line above the choices, and you
-  can pick another type in the list next to it (the browser keeps your choice):
+  memory. LocalAI detects it and says so in one line next to the Quick setup
+  title, and you can pick another type in the list next to it (the browser
+  keeps your choice):
 
   - **Unified memory**: the GPU shares the system memory. DGX Spark (GB10),
     Jetson and Thor, Apple silicon, AMD APUs such as Strix Halo, and Intel
@@ -273,8 +276,9 @@ the **Interactive** tab has a **Runtime tuning** section with the badge
   edit writes the main name in its place. A test reads the option names that
   `backend/cpp/llama-cpp/grpc-server.cpp` parses and fails when one has no
   field, so a new option is not missed. The full list with defaults is in
-  [Model configuration]({{%relref "/models/model-configuration" %}}). Each field shows its `llama-server` flag
-  and the server's description. An empty field, or **Default**, keeps the
+  [Model configuration]({{%relref "/models/model-configuration" %}}). Each field shows the server's
+  description. Turn on **Show llama.cpp flags** in the section head to see the
+  `llama-server` flag of each field; the browser keeps the choice. An empty field, or **Default**, keeps the
   setting out of the file. A value that does not fit the type or the range is
   marked, and **Save** stays off until you correct it.
 - **Drafting (speculative decoding).** See [Drafting](#drafting).
