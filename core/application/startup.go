@@ -732,6 +732,17 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		xlog.Warn("failed to read runtime_settings.json", "error", err)
 		return
 	}
+	if options.Distributed.Enabled {
+		// The cluster store owns the memory settings in distributed mode. A
+		// copy in this frontend's file would make it differ from the others
+		// until the cluster document is applied, and for every setting the
+		// document does not hold.
+		var memory config.RuntimeSettings
+		memory, settings = config.SplitMemorySettings(settings)
+		if keys := memory.SetKeys(); len(keys) > 0 {
+			xlog.Warn("Ignoring the memory settings in runtime_settings.json: in distributed mode they are cluster settings. Change them in Settings.", "keys", keys)
+		}
+	}
 	options.ApplyRuntimeSettingsAtStartup(&settings)
 	xlog.Debug("Runtime settings loaded from runtime_settings.json")
 }

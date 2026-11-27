@@ -114,6 +114,29 @@ var _ = Describe("Cluster memory settings", func() {
 		Expect(*mem.MaxActiveBackends).To(Equal(2))
 	})
 
+	It("adds the env keys a partial document lacks, and the first writer of a key wins", func() {
+		a := start(config.SetMaxActiveBackends(2))
+		_, rev := a.svc.Memory()
+
+		b := start(config.SetMaxActiveBackends(5), config.DisableModelSwap)
+
+		mem, brev := b.svc.Memory()
+		Expect(brev).To(BeNumerically(">", rev), "b stored the key the document lacked")
+		Expect(*mem.MaxActiveBackends).To(Equal(2), "a wrote the limit first")
+		Expect(*mem.ModelSwap).To(BeFalse())
+		Expect(a.modelSwap()).To(BeFalse(), "a applies the merged document")
+	})
+
+	It("stores nothing when the env adds no key", func() {
+		a := start(config.SetMaxActiveBackends(2))
+		_, rev := a.svc.Memory()
+
+		b := start(config.SetMaxActiveBackends(3))
+
+		_, brev := b.svc.Memory()
+		Expect(brev).To(Equal(rev))
+	})
+
 	It("merges concurrent partial updates without losing one", func() {
 		a := start()
 		b := start()

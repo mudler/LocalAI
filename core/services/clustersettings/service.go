@@ -242,44 +242,51 @@ func entry(doc config.RuntimeSettings, rev int64, by string) (Entry, error) {
 	return Entry{Key: MemoryKey, Value: string(b), Revision: rev, UpdatedBy: by, UpdatedAt: time.Now().UTC()}, nil
 }
 
-// Seed stores env (the memory settings that this frontend's env or flags
-// set) when the store holds no document yet, and reports whether it did.
-// When a document exists it wins: a key whose env value differs is logged
-// once, at this call, and the stored value applies.
+// Seed merges env (the memory settings that this frontend's env or flags
+// set) into the stored document and reports whether it stored a new
+// revision. The first writer of a key wins: env only adds the keys the
+// document does not hold yet, so an empty store takes all of env and a
+// partial one takes the missing keys. A key whose env value differs from the
+// stored one is logged, and the stored value applies.
 func (s *Service) Seed(ctx context.Context, env config.RuntimeSettings, by string) (bool, error) {
 	env, _ = config.SplitMemorySettings(env)
-	cur, ok, err := s.read(ctx)
-	if err != nil {
-		return false, err
-	}
-	if !ok {
-		if env.IsEmpty() {
+	for range maxCASAttempts {
+		cur, ok, err := s.read(ctx)
+		if err != nil {
+			return false, err
+		}
+		var stored config.RuntimeSettings
+		if ok {
+			if stored, err = decode(cur); err != nil {
+				return false, fmt.Errorf("clustersettings: reading the stored document: %w", err)
+			}
+		}
+		if diff := differing(env, stored); len(diff) > 0 {
+			xlog.Warn("The memory settings of the cluster differ from this frontend's environment; the cluster value applies. Change them in Settings, not in the environment.", "keys", diff)
+		}
+		merged := env
+		merged.MergeNonNil(stored)
+		if len(merged.SetKeys()) == len(stored.SetKeys()) {
+			if ok {
+				s.applyEntry(cur)
+			}
 			return false, nil
 		}
-		next, err := entry(env, 1, by)
+		next, err := entry(merged, cur.Revision+1, by)
 		if err != nil {
 			return false, err
 		}
 		err = s.m.Set(ctx, next)
-		if err == nil {
-			s.applyEntry(next)
-			return true, nil
+		if errors.Is(err, errConflict) {
+			continue // another frontend wrote first: merge with its document
 		}
-		if !errors.Is(err, errConflict) {
+		if err != nil {
 			return false, err
 		}
-		// Another frontend seeded first: compare with its document.
-		if cur, _, err = s.read(ctx); err != nil {
-			return false, err
-		}
+		s.applyEntry(next)
+		return true, nil
 	}
-	if stored, err := decode(cur); err == nil {
-		if diff := differing(env, stored); len(diff) > 0 {
-			xlog.Warn("The memory settings of the cluster differ from this frontend's environment; the cluster value applies. Change them in Settings, not in the environment.", "keys", diff)
-		}
-	}
-	s.applyEntry(cur)
-	return false, nil
+	return false, fmt.Errorf("clustersettings: too many concurrent updates, retry")
 }
 
 // differing lists the keys env sets to a value other than the stored one.

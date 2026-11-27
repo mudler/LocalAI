@@ -42,7 +42,7 @@ func (a *Application) StartClusterSettings(ctx context.Context, bus messaging.Br
 	svc, err := clustersettings.New(ctx, clustersettings.Options{
 		Bus:   bus,
 		Store: store,
-		Apply: a.applyClusterMemorySettings,
+		Apply: a.applyClusterMemoryDocument,
 	})
 	if err != nil {
 		return err
@@ -54,7 +54,11 @@ func (a *Application) StartClusterSettings(ctx context.Context, bus messaging.Br
 	if seeded, err := svc.Seed(ctx, config.EnvMemorySettings(envCfg), "env"); err != nil {
 		xlog.Warn("could not seed the cluster memory settings from the environment", "error", err)
 	} else if seeded {
-		xlog.Info("Stored this frontend's memory settings from the environment as the cluster settings")
+		xlog.Info("Stored this frontend's memory settings from the environment in the cluster settings")
+	}
+	if _, rev := svc.Memory(); rev == 0 {
+		// No document yet: run the defaults, as every other frontend does.
+		a.applyClusterMemoryDocument(config.RuntimeSettings{})
 	}
 	a.clusterSettings = svc
 	if a.distributed != nil && a.distributed.Registry != nil {
@@ -83,8 +87,16 @@ func (a *Application) stopClusterSettings() {
 	}
 }
 
-// applyClusterMemorySettings puts a memory settings document of the cluster
-// into effect on this frontend, like a POST /api/settings of those keys.
+// applyClusterMemoryDocument puts the memory settings document of the
+// cluster into effect on this frontend. A setting the document does not hold
+// takes its default, not the value of this frontend's file or env, so every
+// frontend runs the same settings.
+func (a *Application) applyClusterMemoryDocument(doc config.RuntimeSettings) {
+	a.applyClusterMemorySettings(config.MemorySettingsWithDefaults(doc))
+}
+
+// applyClusterMemorySettings puts memory settings into effect on this
+// frontend, like a POST /api/settings of those keys.
 func (a *Application) applyClusterMemorySettings(rs config.RuntimeSettings) {
 	cfg := a.ApplicationConfig()
 	watchdogChanged := cfg.ApplyRuntimeSettings(&rs)

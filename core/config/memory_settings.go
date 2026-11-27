@@ -77,7 +77,7 @@ func EnvMemorySettings(o *ApplicationConfig) RuntimeSettings {
 	baseline := DefaultRuntimeBaseline()
 	var out RuntimeSettings
 	for _, f := range runtimeSettingsFields {
-		if f.snapshotOnly || !slices.ContainsFunc(f.jsonNames, func(n string) bool { return slices.Contains(MemorySettingKeys, n) }) {
+		if f.snapshotOnly || !isMemoryRow(f) {
 			continue
 		}
 		if f.envSet(o, baseline) {
@@ -115,4 +115,26 @@ func ValidateMemorySettings(s RuntimeSettings) error {
 		}
 	}
 	return nil
+}
+
+// isMemoryRow reports whether a registry row owns a memory setting.
+func isMemoryRow(f fieldSpec) bool {
+	return slices.ContainsFunc(f.jsonNames, func(n string) bool { return slices.Contains(MemorySettingKeys, n) })
+}
+
+// MemorySettingsWithDefaults returns the memory settings of doc with every
+// one that doc does not set taken from an option-less run. In distributed
+// mode a frontend applies the cluster document through it, so a setting
+// the document lacks has the same value on every frontend, not the value of
+// one frontend's file or env.
+func MemorySettingsWithDefaults(doc RuntimeSettings) RuntimeSettings {
+	mem, _ := SplitMemorySettings(doc)
+	baseline := DefaultRuntimeBaseline()
+	for _, f := range runtimeSettingsFields {
+		if f.snapshotOnly || !isMemoryRow(f) || f.isSet(&mem) {
+			continue
+		}
+		f.snapshot(baseline, &mem)
+	}
+	return mem
 }
