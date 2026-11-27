@@ -175,8 +175,12 @@ type BackendNode struct {
 	APIKeyID        string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
 	AuthUserID      string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
 	LastHeartbeat   time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	// DrainDeadline is set while the node drains: the time at which the
+	// replicas still on it are removed even if no replacement is loaded yet.
+	// Nil when the node does not drain, or drains at once (see DrainNode).
+	DrainDeadline *time.Time `gorm:"column:drain_deadline" json:"drain_deadline,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
 const (
@@ -425,6 +429,18 @@ type NodeWithExtras struct {
 	// tunnel), if it is live: what the health monitor judges the node by. The
 	// registry does not fill it; the node endpoints do, in distributed mode.
 	RouteState []RouteState `json:"route_state,omitempty"`
+	// LeavingReplicas is, on a draining node, the number of loaded replicas
+	// still on it: they serve until a replacement loads elsewhere, the model no
+	// longer needs them, or the drain deadline passes. Zero on any other node.
+	LeavingReplicas int `json:"leaving_replicas,omitempty"`
+}
+
+// leavingReplicas is the LeavingReplicas of a node with loaded replicas.
+func leavingReplicas(status string, loaded int) int {
+	if status == StatusDraining {
+		return loaded
+	}
+	return 0
 }
 
 // PendingBackendOp is a durable intent for a backend lifecycle operation
@@ -581,6 +597,10 @@ type NodeRegistry struct {
 
 	// loadHist feeds NodeWithExtras.LoadHistory.
 	loadHist loadHistory
+
+	// drainTimeout is the default deadline of a drain that names none. Zero
+	// means DefaultDrainTimeout. See drain.go.
+	drainTimeout atomic.Int64
 }
 
 // AddReplicaRemovedHook registers a callback invoked after a replica row for
@@ -891,8 +911,10 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 		}
 		// The worker's limits and its memory kind are the worker's to report:
 		// write them even when empty or false, which Updates(struct) skips.
+		// A worker that registers again ends any drain of its node: it
+		// restarted, so it holds no replica to wait for.
 		if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", node.ID).
-			Updates(map[string]any{ColLimitsWorker: node.LimitsWorker, "unified_memory": node.UnifiedMemory}).Error; err != nil {
+			Updates(map[string]any{ColLimitsWorker: node.LimitsWorker, "unified_memory": node.UnifiedMemory, "drain_deadline": nil}).Error; err != nil {
 			return fmt.Errorf("recording the worker limits of node %s: %w", node.Name, err)
 		}
 		node.LimitsOverride = existing.LimitsOverride
@@ -1021,8 +1043,13 @@ func (r *NodeRegistry) ApproveNode(ctx context.Context, nodeID string) error {
 
 // setStatus updates a node's status column in the database.
 func (r *NodeRegistry) setStatus(ctx context.Context, nodeID, status string) error {
+	updates := map[string]any{"status": status}
+	if status != StatusDraining {
+		// A node that leaves the draining state is no longer drained.
+		updates["drain_deadline"] = nil
+	}
 	result := r.db.WithContext(ctx).Model(&BackendNode{}).
-		Where("id = ?", nodeID).Update("status", status)
+		Where("id = ?", nodeID).Updates(updates)
 	if result.Error != nil {
 		return fmt.Errorf("setting node %s to %s: %w", nodeID, status, result.Error)
 	}
@@ -1596,11 +1623,12 @@ func (r *NodeRegistry) GetWithExtras(ctx context.Context, nodeID string) (*NodeW
 	}
 
 	return &NodeWithExtras{
-		BackendNode:   *node,
-		ModelCount:    int(modelCount),
-		InFlightCount: inFlight.Total,
-		Labels:        labels,
-		LoadHistory:   r.loadHist.snapshot(nodeID),
+		BackendNode:     *node,
+		ModelCount:      int(modelCount),
+		InFlightCount:   inFlight.Total,
+		Labels:          labels,
+		LoadHistory:     r.loadHist.snapshot(nodeID),
+		LeavingReplicas: leavingReplicas(node.Status, int(modelCount)),
 	}, nil
 }
 
@@ -1680,45 +1708,33 @@ func (r *NodeRegistry) GetByName(ctx context.Context, name string) (*BackendNode
 // force a full model reload on every brief NATS hiccup. Stale rows are reaped
 // by the per-model health probe (on by default; see HealthMonitor) and by
 // MarkOffline when the heartbeat really has gone away.
+//
+// A draining node stays draining: the drain is an operator decision that a
+// transient route error must not undo, and the health monitor would otherwise
+// promote the node back to healthy on its next live beat.
 func (r *NodeRegistry) MarkUnhealthy(ctx context.Context, nodeID string) error {
-	return r.setStatus(ctx, nodeID, StatusUnhealthy)
+	result := r.db.WithContext(ctx).Model(&BackendNode{}).
+		Where("id = ? AND status <> ?", nodeID, StatusDraining).
+		Updates(map[string]any{"status": StatusUnhealthy, "drain_deadline": nil})
+	if result.Error != nil {
+		return fmt.Errorf("setting node %s to %s: %w", nodeID, StatusUnhealthy, result.Error)
+	}
+	if result.RowsAffected > 0 {
+		return nil
+	}
+	var n int64
+	if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).Count(&n).Error; err != nil {
+		return fmt.Errorf("checking node %s: %w", nodeID, err)
+	}
+	if n == 0 {
+		return fmt.Errorf("node %s not found", nodeID)
+	}
+	return nil
 }
 
 // MarkHealthy sets a node status to healthy.
 func (r *NodeRegistry) MarkHealthy(ctx context.Context, nodeID string) error {
 	return r.setStatus(ctx, nodeID, StatusHealthy)
-}
-
-// MarkDraining sets a node status to draining (no new requests) and clears its
-// model records. Routing already filters out non-healthy nodes, so removing
-// the rows on drain doesn't change new-request behavior — but it does stop the
-// Models UI from showing the node's models as "running" while the box has been
-// taken out of rotation, and it prevents stale rows from being selected if
-// (re)scheduling logic gets relaxed elsewhere. In-flight requests already hold
-// their gRPC client through Route() and will finish normally; the only
-// observable effect is that the per-call IncrementInFlight bookkeeping logs a
-// non-fatal warning, which is acceptable for a drain.
-func (r *NodeRegistry) MarkDraining(ctx context.Context, nodeID string) error {
-	var removedModels []string
-	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := transitionStatus(tx, nodeID, StatusHealthy, StatusDraining); err != nil {
-			return err
-		}
-		removedModels = r.nodeModelNames(ctx, tx, nodeID)
-		return tx.Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error
-	}); err != nil {
-		return err
-	}
-	for _, m := range removedModels {
-		r.fireReplicaRemoved(m, nodeID, -1)
-	}
-	return nil
-}
-
-// ResumeNode transitions a draining node back to healthy without allowing
-// pending approval or a concurrent health-state change to be overwritten.
-func (r *NodeRegistry) ResumeNode(ctx context.Context, nodeID string) error {
-	return transitionStatus(r.db.WithContext(ctx), nodeID, StatusDraining, StatusHealthy)
 }
 
 // FindStaleNodes returns nodes that haven't sent a heartbeat within the given threshold.
@@ -2139,12 +2155,14 @@ func (r *NodeRegistry) RemoveAllNodeModelReplicas(ctx context.Context, nodeID, m
 	return nil
 }
 
-// FindNodesWithModel returns nodes that have the given model loaded.
+// FindNodesWithModel returns nodes that have the given model loaded. A
+// draining node counts: its replicas still run until they leave, so an unload
+// or a file upgrade of the model must reach them too.
 func (r *NodeRegistry) FindNodesWithModel(ctx context.Context, modelName string) ([]BackendNode, error) {
 	var nodes []BackendNode
 	if err := r.db.WithContext(ctx).Joins("JOIN node_models ON node_models.node_id = backend_nodes.id").
-		Where("node_models.model_name = ? AND node_models.state = ? AND backend_nodes.status = ?",
-			modelName, "loaded", StatusHealthy).
+		Where("node_models.model_name = ? AND node_models.state = ? AND backend_nodes.status IN ?",
+			modelName, "loaded", []string{StatusHealthy, StatusDraining}).
 		Where("NOT EXISTS (SELECT 1 FROM model_config_states WHERE model_config_states.model_name = node_models.model_name) OR node_models.config_revision = (SELECT config_revision FROM model_config_states WHERE model_config_states.model_name = node_models.model_name)").
 		Order("node_models.in_flight ASC").
 		Find(&nodes).Error; err != nil {
@@ -2191,6 +2209,19 @@ type RoutePreference struct {
 // matching replica elsewhere — the selector-mismatch fall-through path used to
 // trigger an eviction-busy loop when both sides had the model loaded.
 func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName string, candidateNodeIDs []string, pref *RoutePreference) (*BackendNode, *NodeModel, error) {
+	return r.findAndLockReplica(ctx, modelName, StatusHealthy, candidateNodeIDs, nil, pref)
+}
+
+// FindAndLockDrainingReplica is the fallback of FindAndLockNodeWithModel for a
+// model with no loaded replica on a healthy node: it locks the least busy
+// loaded replica on a draining node that matches selector. A draining node
+// keeps serving the replicas it has until a replacement loads elsewhere, so a
+// drain never leaves a model with no replica while a request waits.
+func (r *NodeRegistry) FindAndLockDrainingReplica(ctx context.Context, modelName string, selector map[string]string) (*BackendNode, *NodeModel, error) {
+	return r.findAndLockReplica(ctx, modelName, StatusDraining, nil, selector, nil)
+}
+
+func (r *NodeRegistry) findAndLockReplica(ctx context.Context, modelName, nodeStatus string, candidateNodeIDs []string, selector map[string]string, pref *RoutePreference) (*BackendNode, *NodeModel, error) {
 	var nm NodeModel
 	var node BackendNode
 
@@ -2232,7 +2263,8 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 		base := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 			Where("node_models.model_name = ? AND node_models.state = ? AND backend_nodes.status = ?",
-				modelName, "loaded", StatusHealthy)
+				modelName, "loaded", nodeStatus).
+			Scopes(onNodesMatching(selector))
 		if hasCurrentRevision {
 			base = base.Where("node_models.config_revision = ?", currentState.ConfigRevision)
 		}
@@ -2268,7 +2300,7 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 			return err
 		}
 
-		if err := tx.Where("id = ? AND status = ?", nm.NodeID, StatusHealthy).
+		if err := tx.Where("id = ? AND status = ?", nm.NodeID, nodeStatus).
 			First(&node).Error; err != nil {
 			return err
 		}
@@ -3180,11 +3212,12 @@ func (r *NodeRegistry) ListWithExtras(ctx context.Context) ([]NodeWithExtras, er
 	result := make([]NodeWithExtras, len(nodes))
 	for i, n := range nodes {
 		result[i] = NodeWithExtras{
-			BackendNode:   n,
-			ModelCount:    countMap[n.ID],
-			InFlightCount: inFlightMap[n.ID],
-			Labels:        labelsMap[n.ID],
-			LoadHistory:   r.loadHist.snapshot(n.ID),
+			BackendNode:     n,
+			ModelCount:      countMap[n.ID],
+			InFlightCount:   inFlightMap[n.ID],
+			Labels:          labelsMap[n.ID],
+			LoadHistory:     r.loadHist.snapshot(n.ID),
+			LeavingReplicas: leavingReplicas(n.Status, countMap[n.ID]),
 		}
 	}
 	return result, nil

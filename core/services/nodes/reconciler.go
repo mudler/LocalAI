@@ -525,6 +525,11 @@ const maxPendingBackendOpAttempts = 10
 // without this sweep they would leak forever and keep the UI op spinning.
 const stalePendingBackendOpGrace = 15 * time.Minute
 
+// servingNodeStatuses are the node states whose loaded replicas serve
+// requests: a draining node serves its replicas until they leave, so the
+// liveness passes check them too and a dead one is not routed to.
+var servingNodeStatuses = []string{StatusHealthy, StatusDraining}
+
 // probeFailuresBeforeReap is how many CONSECUTIVE failed liveness probes a
 // replica must accumulate before its row is deleted. The probe is a 1s gRPC
 // HealthCheck, and a backend that is merely busy cannot answer it: single
@@ -558,8 +563,8 @@ func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 	cutoff := time.Now().Add(-rc.probeStaleAfter)
 	err := currentModelRevision(rc.registry.db.WithContext(ctx)).
 		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
-		Where("node_models.state = ? AND backend_nodes.status = ? AND node_models.updated_at < ? AND node_models.address != ''",
-			"loaded", StatusHealthy, cutoff).
+		Where("node_models.state = ? AND backend_nodes.status IN ? AND node_models.updated_at < ? AND node_models.address != ''",
+			"loaded", servingNodeStatuses, cutoff).
 		Find(&stale).Error
 	if err != nil {
 		xlog.Warn("Reconciler: failed to list loaded models for probe", "error", err)
@@ -646,8 +651,8 @@ func (rc *ReplicaReconciler) sweepLeakedInFlight(ctx context.Context) {
 	cutoff := time.Now().Add(-inFlightLeakIdleAfter)
 	err := currentModelRevision(rc.registry.db.WithContext(ctx)).
 		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
-		Where("node_models.state = ? AND backend_nodes.status = ? AND node_models.in_flight > 0 AND node_models.last_used < ? AND node_models.address != ''",
-			"loaded", StatusHealthy, cutoff).
+		Where("node_models.state = ? AND backend_nodes.status IN ? AND node_models.in_flight > 0 AND node_models.last_used < ? AND node_models.address != ''",
+			"loaded", servingNodeStatuses, cutoff).
 		Find(&suspects).Error
 	if err != nil {
 		xlog.Warn("Reconciler: failed to list rows for in-flight leak sweep", "error", err)
@@ -746,8 +751,8 @@ func (rc *ReplicaReconciler) reconcileNodeProcesses(ctx context.Context) {
 	cutoff := time.Now().Add(-rc.probeStaleAfter)
 	err := currentModelRevision(rc.registry.db.WithContext(ctx)).
 		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
-		Where("node_models.state = ? AND backend_nodes.status = ? AND backend_nodes.node_type = ? AND node_models.updated_at < ?",
-			"loaded", StatusHealthy, NodeTypeBackend, cutoff).
+		Where("node_models.state = ? AND backend_nodes.status IN ? AND backend_nodes.node_type = ? AND node_models.updated_at < ?",
+			"loaded", servingNodeStatuses, NodeTypeBackend, cutoff).
 		Find(&stale).Error
 	if err != nil {
 		xlog.Warn("Reconciler: failed to list loaded models for worker reconciliation", "error", err)
@@ -919,6 +924,10 @@ func (rc *ReplicaReconciler) reconcile(ctx context.Context) {
 		rc.reconcileModel(ctx, cfg)
 	}
 
+	// Replicas on draining nodes leave once they are replaced, idle, or past
+	// the drain deadline: see reconciler_drain.go.
+	rc.reconcileDraining(ctx)
+
 	// The cluster memory settings: see reconciler_sweeps.go.
 	rc.sweepIdle(ctx)
 	rc.sweepMemoryPressure(ctx)
@@ -1042,8 +1051,12 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 	// routes the model by the same selector, so a replica elsewhere serves no
 	// request of this rule and must not hold its floor. Such a replica is left
 	// alone here: it is neither counted, trimmed nor moved.
+	//
+	// A replica on a draining node is leaving, so it does not count either:
+	// the floor places its replacement while it still serves (see
+	// reconciler_drain.go).
 	selector := parseSelector(cfg.NodeSelector)
-	current, err := rc.registry.CountLoadedReplicasMatching(ctx, target, selector)
+	current, err := rc.registry.CountStayingReplicas(ctx, target, selector)
 	if err != nil {
 		xlog.Warn("Reconciler: failed to count replicas", "model", target, "error", err)
 		return
@@ -1348,7 +1361,7 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 	cutoff := time.Now().Add(-rc.idleDelay())
 	var idleModels []NodeModel
 	currentModelRevision(rc.registry.db.WithContext(ctx)).
-		Scopes(onNodesMatching(selector)).
+		Scopes(onNodesMatching(selector), notOnDrainingNodes).
 		Where("node_models.model_name = ? AND node_models.state = ? AND node_models.in_flight = 0 AND node_models.last_used < ?",
 			cfg.Target(), "loaded", cutoff).
 		Order("replica_index DESC, last_used ASC").
@@ -1362,7 +1375,7 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 	// remains.
 	var idleLoaded int64
 	currentModelRevision(rc.registry.db.WithContext(ctx).Model(&NodeModel{})).
-		Scopes(onNodesMatching(selector)).
+		Scopes(onNodesMatching(selector), notOnDrainingNodes).
 		Where("node_models.model_name = ? AND node_models.state = ? AND node_models.in_flight = 0", cfg.Target(), "loaded").
 		Count(&idleLoaded)
 
@@ -1400,7 +1413,7 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 func (rc *ReplicaReconciler) allReplicasBusy(ctx context.Context, modelName string, selector map[string]string) bool {
 	var idleCount int64
 	currentModelRevision(rc.registry.db.WithContext(ctx).Model(&NodeModel{})).
-		Scopes(onNodesMatching(selector)).
+		Scopes(onNodesMatching(selector), notOnDrainingNodes).
 		Where("node_models.model_name = ? AND node_models.state = ? AND node_models.in_flight = 0", modelName, "loaded").
 		Count(&idleCount)
 	return idleCount == 0

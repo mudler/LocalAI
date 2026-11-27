@@ -634,7 +634,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(fetched.Status).To(Equal(StatusPending))
 		})
 
-		It("distinguishes a missing node from an expected-status mismatch", func() {
+		It("reports a missing node and drains a node that became unhealthy at once", func() {
 			err := registry.MarkDraining(context.Background(), "missing")
 			Expect(errors.Is(err, ErrNodeNotFound)).To(BeTrue())
 
@@ -647,19 +647,20 @@ var _ = Describe("NodeRegistry", func() {
 			removedHooks := 0
 			registry.AddReplicaRemovedHook(func(string, string, int) { removedHooks++ })
 
-			// Simulate a health update landing after the caller observed healthy
-			// but before its conditional drain reaches persistence.
+			// A health update lands after the caller observed healthy. The node
+			// is not reachable any more, so the drain removes its replicas at
+			// once instead of waiting for them.
 			Expect(registry.MarkUnhealthy(context.Background(), node.ID)).To(Succeed())
 
 			err = registry.MarkDraining(context.Background(), node.ID)
-			Expect(errors.Is(err, ErrNodeStatusConflict)).To(BeTrue())
+			Expect(err).ToNot(HaveOccurred())
 			fetched, getErr := registry.Get(context.Background(), node.ID)
 			Expect(getErr).ToNot(HaveOccurred())
-			Expect(fetched.Status).To(Equal(StatusUnhealthy))
+			Expect(fetched.Status).To(Equal(StatusDraining))
 			models, modelsErr := registry.GetNodeModels(context.Background(), node.ID)
 			Expect(modelsErr).ToNot(HaveOccurred())
-			Expect(models).To(HaveLen(1))
-			Expect(removedHooks).To(BeZero())
+			Expect(models).To(BeEmpty())
+			Expect(removedHooks).To(Equal(1))
 		})
 	})
 

@@ -218,7 +218,11 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 		// Draining nodes are operator-managed; pending nodes have never been
 		// approved. Turning a pending node offline would let a later
 		// re-registration or recovery promote it to healthy without approval.
-		if node.Status == StatusDraining || node.Status == StatusPending {
+		if node.Status == StatusDraining {
+			hm.checkDrainingNode(ctx, &node, judge, now)
+			continue
+		}
+		if node.Status == StatusPending {
 			continue
 		}
 
@@ -423,5 +427,36 @@ func (hm *HealthMonitor) forgetRouteState(seen map[string]struct{}) {
 		if _, ok := seen[id]; !ok {
 			delete(hm.downLogged, id)
 		}
+	}
+}
+
+// drainingReleaser removes the replicas of a draining node. NodeRegistry
+// implements it; the monitor's test fakes need not.
+type drainingReleaser interface {
+	ReleaseDrainingNode(ctx context.Context, nodeID string) ([]NodeModel, error)
+}
+
+// checkDrainingNode removes the replicas of a draining node that stopped
+// answering: no route that carries work is live and its heartbeat is stale.
+// A draining node keeps its replicas routable while it serves them, so a
+// node that died during its drain would otherwise be routed to until the
+// drain deadline. The node stays draining; its status is the operator's.
+func (hm *HealthMonitor) checkDrainingNode(ctx context.Context, node *BackendNode, judge RouteJudge, now time.Time) {
+	rel, ok := hm.registry.(drainingReleaser)
+	if !ok {
+		return
+	}
+	states := judge.States(ctx, node, now)
+	fresh := states[0].Live()
+	if fresh || slices.ContainsFunc(carryingRoutes(states), RouteState.Live) {
+		return
+	}
+	removed, err := rel.ReleaseDrainingNode(ctx, node.ID)
+	if err != nil {
+		xlog.Warn("Failed to release the replicas of a draining node that stopped answering", "node", node.Name, "error", err)
+		return
+	}
+	if len(removed) > 0 {
+		xlog.Warn("Draining node stopped answering; removed its replicas", "node", node.Name, "replicas", len(removed))
 	}
 }
