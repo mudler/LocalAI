@@ -567,6 +567,16 @@ func (f *fakeClient) SetP2PRelayLimits(_ context.Context, id string, req SetP2PR
 	return &P2PRelayLimitsInfo{CanChange: true}, nil
 }
 
+func (f *fakeClient) GetP2PUserPairing(_ context.Context) (*P2PUserPairingInfo, error) {
+	f.record("GetP2PUserPairing", nil)
+	return &P2PUserPairingInfo{Relays: "auto", MaxDevices: 5}, nil
+}
+
+func (f *fakeClient) SetP2PUserPairing(_ context.Context, req SetP2PUserPairingRequest) (*P2PUserPairingInfo, error) {
+	f.record("SetP2PUserPairing", req)
+	return &P2PUserPairingInfo{Relays: "auto", MaxDevices: 5}, nil
+}
+
 func (f *fakeClient) RevokeP2PDevice(_ context.Context, id string) error {
 	f.record("RevokeP2PDevice", id)
 	return nil

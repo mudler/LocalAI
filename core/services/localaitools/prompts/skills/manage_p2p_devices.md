@@ -1,5 +1,5 @@
 ---
-description: Revoke P2P devices and invites, edit federation groups.
+description: Revoke P2P devices and invites, set how users pair their phones, edit federation groups.
 ---
 # Skill: Manage P2P Devices, Invites And Federation
 
@@ -8,6 +8,11 @@ description: Revoke P2P devices and invites, edit federation groups.
 3. To revoke a device or cancel an invite, name it by label and ID, say that a revoked device must pair again with a new invite, and ask for confirmation under safety rule 1.
 4. Call `revoke_p2p_device` or `cancel_p2p_invite` with the ID, only after the confirmation, then list again to show the new state.
 5. On an error that names the P2P mode, tell the person; do not retry.
+
+Users who pair their own phones (the device signs in as its owner):
+
+- A device with `sign_in` true signs in as `owner_name`. Revoking it also ends its sessions.
+- Call `get_p2p_user_pairing` to show the relays, open relays, local addresses and the limits of each user. To change them, say the new values, confirm under safety rule 1, then call `set_p2p_user_pairing` with only the fields that change. Which users may pair is the permission "Pair own devices (P2P)" on the Users page, not this setting.
 
 Federation groups (one model name served by this server and other LocalAI instances):
 

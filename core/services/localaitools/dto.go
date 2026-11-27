@@ -824,6 +824,10 @@ type P2PDeviceInfo struct {
 	// Models and AllModels say what a remote device may use.
 	Models    []string `json:"models,omitempty"`
 	AllModels bool     `json:"all_models,omitempty"`
+	// OwnerName is the user whose invite paired the device.
+	OwnerName string `json:"owner_name,omitempty"`
+	// SignIn is true when the device signs in as its owner.
+	SignIn bool `json:"sign_in,omitempty"`
 }
 
 // P2PInviteInfo is the LLM-facing view of one invite. The link is never part
@@ -923,6 +927,29 @@ type SetP2PRelayLimitsRequest struct {
 	CircuitBytes   *int64 `json:"circuit_bytes,omitempty" jsonschema:"data one circuit may carry in each direction, in bytes (0 removes the limit; a value above the relay ceiling is refused)"`
 	CircuitSeconds *int64 `json:"circuit_seconds,omitempty" jsonschema:"time one circuit may stay open, in seconds (0 removes the limit)"`
 	RateBPS        *int64 `json:"rate_bps,omitempty" jsonschema:"bandwidth of one circuit in each direction, in bytes per second (0 removes the limit)"`
+}
+
+// P2PUserPairingInfo is the setting p2p_user_pairing: what an invite that a
+// user mints for their own device carries, and the limits of each user.
+type P2PUserPairingInfo struct {
+	// Relays is auto or none.
+	Relays         string `json:"relays"`
+	AllowOpenRelay bool   `json:"allow_open_relay"`
+	OmitLANAddrs   bool   `json:"omit_lan_addrs"`
+	MaxDevices     int    `json:"max_devices"`
+	MaxPending     int    `json:"max_pending"`
+	MaxTTLSeconds  int    `json:"max_ttl_seconds"`
+}
+
+// SetP2PUserPairingRequest is the input of set_p2p_user_pairing. A field
+// that is left out stays as it is.
+type SetP2PUserPairingRequest struct {
+	Relays         *string `json:"relays,omitempty" jsonschema:"auto (the server's relays) or none"`
+	AllowOpenRelay *bool   `json:"allow_open_relay,omitempty" jsonschema:"let the invites of users name an open relay"`
+	OmitLANAddrs   *bool   `json:"omit_lan_addrs,omitempty" jsonschema:"keep the local network addresses of the server out of the invites of users"`
+	MaxDevices     *int    `json:"max_devices,omitempty" jsonschema:"active devices one user may pair, 1 to 100"`
+	MaxPending     *int    `json:"max_pending,omitempty" jsonschema:"pending invites one user may have, 1 to 20"`
+	MaxTTLSeconds  *int    `json:"max_ttl_seconds,omitempty" jsonschema:"longest life of an invite of a user, in seconds, 60 to 86400"`
 }
 
 // P2PRelayInfo is the LLM-facing view of one relay.

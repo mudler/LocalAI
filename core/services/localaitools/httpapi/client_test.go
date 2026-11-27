@@ -1102,6 +1102,30 @@ var _ = Describe("P2P", func() {
 		Expect(c.CancelP2PInvite(context.Background(), "i1")).To(Succeed())
 		Expect(paths).To(Equal([]string{"/api/p2p/devices/d 1", "/api/p2p/invites/i1"}))
 	})
+
+	It("reads and changes the user pairing setting with GET and PUT /api/p2p/user-pairing", func() {
+		var sent map[string]any
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			Expect(r.URL.Path).To(Equal("/api/p2p/user-pairing"))
+			if r.Method == http.MethodPut {
+				Expect(json.NewDecoder(r.Body).Decode(&sent)).To(Succeed())
+			} else {
+				Expect(r.Method).To(Equal(http.MethodGet))
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"relays": "none", "allow_open_relay": false, "omit_lan_addrs": true, "max_devices": 3, "max_pending": 2, "max_ttl_seconds": 600})
+		}))
+		DeferCleanup(srv.Close)
+		c := New(srv.URL, "")
+		want := &localaitools.P2PUserPairingInfo{Relays: "none", OmitLANAddrs: true, MaxDevices: 3, MaxPending: 2, MaxTTLSeconds: 600}
+		info, err := c.GetP2PUserPairing(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(info).To(Equal(want))
+		n := 3
+		info, err = c.SetP2PUserPairing(context.Background(), localaitools.SetP2PUserPairingRequest{MaxDevices: &n})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(info).To(Equal(want))
+		Expect(sent).To(Equal(map[string]any{"max_devices": float64(3)}), "a field left out is not sent")
+	})
 })
 
 var _ = Describe("Federation", func() {

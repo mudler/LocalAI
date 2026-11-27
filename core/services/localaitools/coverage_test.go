@@ -68,6 +68,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolListFederation:            "GET /api/federation",
 	ToolListP2PSplitWorkers:       "GET /api/p2p/split-workers",
 	ToolGetP2PRelayLimits:         "GET /api/p2p/relays/:id/limits",
+	ToolGetP2PUserPairing:         "GET /api/p2p/user-pairing",
 
 	// Mutating tools.
 	ToolInstallModel:             "POST /models/apply",
@@ -109,6 +110,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolSetP2PSplitNode:          "PATCH /api/p2p/split-workers/:id (node_id)",
 	ToolSetNodeSplitServer:       "PUT /api/nodes/:id/split-server",
 	ToolSetP2PRelayLimits:        "PUT /api/p2p/relays/:id/limits",
+	ToolSetP2PUserPairing:        "PUT /api/p2p/user-pairing",
 	ToolSetCarrierWeights:        "PUT /api/cluster/settings (carrier_weights)",
 	// chats_egress_allow_private is deliberately not a tool (uiOnly): see
 	// adminRoutesWithoutTool.

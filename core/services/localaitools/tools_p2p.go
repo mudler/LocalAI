@@ -66,6 +66,17 @@ func registerP2PTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
+		Name:        ToolGetP2PUserPairing,
+		Description: "Read how users pair their own phones over P2P (setting p2p_user_pairing): the relays of their invites (auto or none), open relays, local addresses, and the limits of each user (devices, pending invites, life of an invite).",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
+		info, err := client.GetP2PUserPairing(ctx)
+		if err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(info), nil, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolListP2PSplitWorkers,
 		Description: "List the model-split workers (llama.cpp RPC and MLX) that lend their memory to models on this server or on the backend node each is attached to (node_id, node_name), with their state (online, offline, slow, limited, refused), path and memory.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
@@ -143,6 +154,16 @@ func registerP2PTools(s *mcp.Server, client LocalAIClient, opts Options) {
 			return errorResult(err), nil, nil
 		}
 		return jsonResult(map[string]any{"id": args.ID, "canceled": true}), nil, nil
+	})
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        ToolSetP2PUserPairing,
+		Description: "Change how users pair their own phones over P2P (setting p2p_user_pairing); a field left out stays. A change applies to the next invite and the next pairing; devices that exist stay. Which users may pair is the permission p2p_pair, not this setting. Requires user confirmation per safety rule 1.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args SetP2PUserPairingRequest) (*mcp.CallToolResult, any, error) {
+		info, err := client.SetP2PUserPairing(ctx, args)
+		if err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(info), nil, nil
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name: ToolSetP2PRelayLimits,

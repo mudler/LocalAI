@@ -92,6 +92,7 @@ const (
 	ToolSetP2PSplitNode       = "set_p2p_split_node"
 	ToolSetNodeSplitServer    = "set_node_split_server"
 	ToolSetP2PRelayLimits     = "set_p2p_relay_limits"
+	ToolSetP2PUserPairing     = "set_p2p_user_pairing"
 	// ToolSetCarrierWeights changes the carrier weights of a distributed cluster.
 	ToolSetCarrierWeights = "set_carrier_weights"
 
@@ -114,6 +115,9 @@ const (
 	ToolListP2PInvites    = "list_p2p_invites"
 	ToolListP2PRelays     = "list_p2p_relays"
 	ToolGetP2PRelayLimits = "get_p2p_relay_limits"
+	// ToolGetP2PUserPairing reads p2p_user_pairing; set_p2p_user_pairing is
+	// in the mutating block above.
+	ToolGetP2PUserPairing = "get_p2p_user_pairing"
 	// ToolListP2PSplitWorkers lists the model-split workers;
 	// set_p2p_split_slow_path and set_p2p_split_node are in the mutating
 	// block above.
@@ -173,5 +177,6 @@ var mutatingToolNames = []string{
 	ToolSetP2PSplitNode,
 	ToolSetNodeSplitServer,
 	ToolSetP2PRelayLimits,
+	ToolSetP2PUserPairing,
 	ToolSetCarrierWeights,
 }

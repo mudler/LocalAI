@@ -114,6 +114,7 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolListFederation,
 	ToolListP2PSplitWorkers,
 	ToolGetP2PRelayLimits,
+	ToolGetP2PUserPairing,
 	// The read-only flavour keeps the client tools that only analyse or list.
 	ToolTranscribeAudio, ToolDescribeImage, ToolDetect, ToolRerank,
 	ToolVoice, ToolFace, ToolVoiceProfile, ToolListModels, ToolProjects,
@@ -230,6 +231,8 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolListP2PRelays, map[string]any{}, "ListP2PRelays"},
 		{ToolGetP2PRelayLimits, map[string]any{"id": "r1"}, "GetP2PRelayLimits"},
 		{ToolSetP2PRelayLimits, map[string]any{"id": "r1", "rate_bps": 65536}, "SetP2PRelayLimits"},
+		{ToolGetP2PUserPairing, map[string]any{}, "GetP2PUserPairing"},
+		{ToolSetP2PUserPairing, map[string]any{"max_devices": 3}, "SetP2PUserPairing"},
 		{ToolRevokeP2PDevice, map[string]any{"id": "d1"}, "RevokeP2PDevice"},
 		{ToolCancelP2PInvite, map[string]any{"id": "i1"}, "CancelP2PInvite"},
 		{ToolListFederation, map[string]any{}, "GetFederation"},

@@ -1380,6 +1380,22 @@ func (c *Client) SetP2PRelayLimits(ctx context.Context, id string, req localaito
 	return &info, nil
 }
 
+func (c *Client) GetP2PUserPairing(ctx context.Context) (*localaitools.P2PUserPairingInfo, error) {
+	var out localaitools.P2PUserPairingInfo
+	if err := c.do(ctx, http.MethodGet, routeP2PUserPairing, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) SetP2PUserPairing(ctx context.Context, req localaitools.SetP2PUserPairingRequest) (*localaitools.P2PUserPairingInfo, error) {
+	var out localaitools.P2PUserPairingInfo
+	if err := c.do(ctx, http.MethodPut, routeP2PUserPairing, req, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *Client) RevokeP2PDevice(ctx context.Context, id string) error {
 	return c.do(ctx, http.MethodDelete, routeP2PDevices+"/"+url.PathEscape(id), nil, nil)
 }
