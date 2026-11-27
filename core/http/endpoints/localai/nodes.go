@@ -1052,14 +1052,11 @@ func SelfDrainNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 func drainNode(c echo.Context, registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, self SelfDrainRequest) error {
 	ctx := c.Request().Context()
 	id := c.Param("id")
-	opts := nodes.DrainOptions{Force: c.QueryParam("force") == "true"}
-	if t := c.QueryParam("timeout"); t != "" {
-		d, err := time.ParseDuration(t)
-		if err != nil || d <= 0 {
-			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "timeout must be a positive duration such as 10m"))
-		}
-		opts.Timeout = d
+	timeout, err := nodes.ParseDrainTimeout(c.QueryParam("timeout"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, err.Error()))
 	}
+	opts := nodes.DrainOptions{Force: c.QueryParam("force") == "true", Timeout: timeout}
 	// Loads that run on the node are cancelled: a load must not land on a
 	// node that leaves. A replica that serves is not touched here.
 	cancelNodeLoads(ctx, registry, unloader, id)

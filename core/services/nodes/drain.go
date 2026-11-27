@@ -47,6 +47,22 @@ type DrainResult struct {
 	PreviousStatus string
 }
 
+// ErrInvalidDrainTimeout is a drain timeout that is not a positive duration.
+var ErrInvalidDrainTimeout = errors.New("timeout must be a positive duration such as 10m")
+
+// ParseDrainTimeout reads the deadline a drain request names, such as 10m.
+// An empty value is zero: the registry default applies.
+func ParseDrainTimeout(value string) (time.Duration, error) {
+	if value == "" {
+		return 0, nil
+	}
+	d, err := time.ParseDuration(value)
+	if err != nil || d <= 0 {
+		return 0, ErrInvalidDrainTimeout
+	}
+	return d, nil
+}
+
 // SetDrainTimeout sets the default drain deadline. Zero or less restores
 // DefaultDrainTimeout.
 func (r *NodeRegistry) SetDrainTimeout(d time.Duration) {

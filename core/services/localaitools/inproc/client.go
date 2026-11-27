@@ -1073,14 +1073,11 @@ func (c *Client) DrainNode(ctx context.Context, req localaitools.DrainNodeReques
 	default:
 		return nil, errors.New("action must be drain or resume")
 	}
-	opts := nodes.DrainOptions{Force: req.Force}
-	if req.Timeout != "" {
-		d, err := time.ParseDuration(req.Timeout)
-		if err != nil || d <= 0 {
-			return nil, errors.New("timeout must be a positive duration such as 10m")
-		}
-		opts.Timeout = d
+	timeout, err := nodes.ParseDrainTimeout(req.Timeout)
+	if err != nil {
+		return nil, err
 	}
+	opts := nodes.DrainOptions{Force: req.Force, Timeout: timeout}
 	cancels := nodes.LoadCancelService{Registry: c.NodeRegistry}
 	if err := cancels.CancelNodeLoads(ctx, req.NodeID); err != nil {
 		xlog.Warn("Failed to cancel the loads placed on a node", "node", req.NodeID, "error", err)
