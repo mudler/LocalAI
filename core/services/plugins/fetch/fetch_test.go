@@ -3,6 +3,7 @@ package fetch_test
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -222,6 +223,48 @@ var _ = Describe("Fetcher", func() {
 			Entry("a local path", "/srv/a.git"),
 			Entry("credentials in the URL", "https://user:secret@example.test/a.git"),
 		)
+
+		Describe("private addresses", func() {
+			refusing := func(on bool, answer string) *fetch.Fetcher {
+				f, err := fetch.New(fetch.Options{ScratchRoot: root, RefusePrivate: func() bool { return on }})
+				Expect(err).NotTo(HaveOccurred())
+				f.SetLookup(func(context.Context, string) ([]net.IPAddr, error) {
+					return []net.IPAddr{{IP: net.ParseIP(answer)}}, nil
+				})
+				return f
+			}
+			const sha = "0123456789abcdef0123456789abcdef01234567"
+
+			DescribeTable("refuses a git location on a private network",
+				func(u, answer string) {
+					_, err := refusing(true, answer).FetchPlugin(ctx, fetch.MarketplaceSource{}, nil, urlEntry("p", u), sha)
+					Expect(errors.Is(err, fetch.ErrPrivateURL)).To(BeTrue(), "%v", err)
+					Expect(errors.Is(err, fetch.ErrRefusedURL)).To(BeTrue(), "%v", err)
+					Expect(scratchEntries(root)).To(BeEmpty())
+					_, err = refusing(true, answer).ResolveRef(ctx, u, "")
+					Expect(errors.Is(err, fetch.ErrPrivateURL)).To(BeTrue(), "%v", err)
+				},
+				Entry("a private literal address", "https://10.0.0.5/a.git", "10.0.0.5"),
+				Entry("localhost", "https://localhost/a.git", "127.0.0.1"),
+				Entry("a name that resolves to a private address", "https://git.example.test/a.git", "192.168.1.10"),
+			)
+
+			It("refuses a marketplace.json URL on a private network", func() {
+				_, _, err := refusing(true, "10.1.2.3").FetchMarketplace(ctx, fetch.KindURL, "https://intranet.example.test/marketplace.json", "")
+				Expect(errors.Is(err, fetch.ErrPrivateURL)).To(BeTrue(), "%v", err)
+			})
+
+			It("lets a private address through when the administrator allows it", func() {
+				srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+				DeferCleanup(srv.Close)
+				_, _, err := refusing(true, "127.0.0.1").FetchMarketplace(ctx, fetch.KindURL, srv.URL+"/marketplace.json", "")
+				Expect(errors.Is(err, fetch.ErrPrivateURL)).To(BeTrue(), "%v", err)
+				// Allowed: the request goes out (and fails on the test certificate).
+				_, _, err = refusing(false, "127.0.0.1").FetchMarketplace(ctx, fetch.KindURL, srv.URL+"/marketplace.json", "")
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, fetch.ErrPrivateURL)).To(BeFalse(), "%v", err)
+			})
+		})
 
 		It("refuses a pin that is not a full SHA", func() {
 			_, err := f.FetchPlugin(ctx, fetch.MarketplaceSource{}, nil, urlEntry("p", "https://example.test/a.git"), "abc123")

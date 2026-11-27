@@ -15,12 +15,17 @@ func (f *Fetcher) fetchURL(ctx context.Context, raw string) ([]byte, error) {
 	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
 		return nil, fmt.Errorf("%w: %s", ErrRefusedURL, redact(raw))
 	}
+	if f.refusesPrivate() {
+		if err := f.checkPublicHost(ctx, raw, u.Hostname()); err != nil {
+			return nil, err
+		}
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
-	resp, err := f.http.Do(req)
+	resp, err := f.httpClient().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch marketplace.json: %w", err)
 	}

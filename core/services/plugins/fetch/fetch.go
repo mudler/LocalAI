@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -70,6 +71,10 @@ type Options struct {
 	// AllowFileURLs lets tests use file:// repositories. Never set it in a
 	// server.
 	AllowFileURLs bool
+	// RefusePrivate reports whether locations on private or internal
+	// networks are refused (see checkSource). Nil allows them: the CLI
+	// validates plugins of the networks of its user.
+	RefusePrivate func() bool
 }
 
 // Fetcher fetches marketplaces and plugins. It keeps no state between calls.
@@ -80,6 +85,10 @@ type Fetcher struct {
 	timeout    time.Duration
 	http       *http.Client
 	allowFile  bool
+	// refusePrivate and publicHTTP: see private.go.
+	refusePrivate func() bool
+	publicHTTP    *http.Client
+	lookup        func(ctx context.Context, host string) ([]net.IPAddr, error)
 	// wrapGit lets tests watch the git commands.
 	wrapGit func(claudeplugin.GitFunc) claudeplugin.GitFunc
 }
@@ -96,7 +105,8 @@ func New(o Options) (*Fetcher, error) {
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		return nil, err
 	}
-	f := &Fetcher{root: root, lim: o.Limits, maxScratch: o.MaxScratchBytes, timeout: o.GitTimeout, allowFile: o.AllowFileURLs}
+	f := &Fetcher{root: root, lim: o.Limits, maxScratch: o.MaxScratchBytes, timeout: o.GitTimeout, allowFile: o.AllowFileURLs,
+		refusePrivate: o.RefusePrivate, lookup: net.DefaultResolver.LookupIPAddr}
 	if f.lim == (content.Limits{}) {
 		f.lim = content.DefaultLimits()
 	}
@@ -123,6 +133,7 @@ func New(o Options) (*Fetcher, error) {
 		return nil
 	}
 	f.http = &client
+	f.publicHTTP = publicClient(client)
 	return f, nil
 }
 
@@ -233,7 +244,7 @@ func (f *Fetcher) FetchPlugin(ctx context.Context, src MarketplaceSource, m *cla
 			return nil, fmt.Errorf("fetch: source path: %w", err)
 		}
 	}
-	if err := f.CheckGitURL(entry.Source.GitURL()); err != nil {
+	if err := f.checkSource(ctx, entry.Source.GitURL()); err != nil {
 		return nil, err
 	}
 
@@ -307,7 +318,7 @@ func relativePath(m *claudeplugin.Marketplace, p string) (string, error) {
 // ResolveRef returns the commit that ref (or the default branch, when ref
 // is empty) of a git repository points at, without a checkout.
 func (f *Fetcher) ResolveRef(ctx context.Context, gitURL, ref string) (string, error) {
-	if err := f.CheckGitURL(gitURL); err != nil {
+	if err := f.checkSource(ctx, gitURL); err != nil {
 		return "", err
 	}
 	ctx, cancel := context.WithTimeout(ctx, f.timeout)
@@ -328,7 +339,7 @@ func (f *Fetcher) FetchMarketplace(ctx context.Context, kind, location, ref stri
 	if err != nil {
 		return nil, "", err
 	}
-	if err := f.CheckGitURL(gitURL); err != nil {
+	if err := f.checkSource(ctx, gitURL); err != nil {
 		return nil, "", err
 	}
 	if strings.HasPrefix(ref, "-") || strings.ContainsAny(ref, "\x00\n") {

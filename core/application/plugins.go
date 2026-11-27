@@ -78,7 +78,13 @@ func newPluginsService(cfg *config.ApplicationConfig, db *gorm.DB, ws workspace.
 	// the tree check applies the configured one.
 	copyLimits := content.DefaultLimits()
 	copyLimits.MaxTotalBytes = config.MaxPluginMaxBytes
-	fetcher, err := fetch.New(fetch.Options{ScratchRoot: filepath.Join(dp, "plugins", "scratch"), Limits: copyLimits})
+	// The switch of the MCP connectors for private addresses also covers the
+	// plugin and marketplace locations: both make the server connect to an
+	// address that a user or a marketplace chose.
+	fetcher, err := fetch.New(fetch.Options{
+		ScratchRoot: filepath.Join(dp, "plugins", "scratch"), Limits: copyLimits,
+		RefusePrivate: func() bool { return !cfg.MCPConnectorsAllowPrivate },
+	})
 	if err != nil {
 		return nil, nil, err
 	}
