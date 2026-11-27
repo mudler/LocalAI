@@ -5,6 +5,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
@@ -291,18 +293,62 @@ func HasParallelOption(opts []string) bool { return hasParallelOption(opts) }
 // reported info instead). It is a package var so tests can inject a
 // deterministic device — detection does a live nvidia-smi call.
 var localGPU = func() GPU {
-	vendor, _ := xsysinfo.DetectGPUVendor()
-	// Use the SMALLEST device's VRAM, not the summed total: the parallel-slot
-	// tier and the batch headroom guard both reason about what fits on a single
-	// card, and per-device compute buffers can't be split across GPUs. Summing
-	// two 16 GiB cards into "32 GiB" is what over-provisioned multi-GPU hosts
-	// into OOM (issue #10485).
-	vram, _ := xsysinfo.MinPerGPUVRAM()
+	vendor, vram := localGPUProbe.get()
 	return GPU{
 		Vendor:            vendor,
 		ComputeCapability: xsysinfo.NVIDIAComputeCapability(),
-		VRAM:              vram,
+		VRAM:              budgetedVRAM(vram),
 	}
+}
+
+// probeLocalGPU finds the GPU vendor and the physical VRAM of the smallest
+// device. Use the SMALLEST device's VRAM, not the summed total: the
+// parallel-slot tier and the batch headroom guard both reason about what fits
+// on a single card, and per-device compute buffers can't be split across GPUs.
+// Summing two 16 GiB cards into "32 GiB" is what over-provisioned multi-GPU
+// hosts into OOM (issue #10485).
+func probeLocalGPU() (string, uint64) {
+	vendor, _ := xsysinfo.DetectGPUVendor()
+	return vendor, xsysinfo.MinPerGPUTotalVRAM()
+}
+
+// localGPUProbeTTL is how long a GPU probe result is reused. SetDefaults runs
+// for every request, and a probe can run nvidia-smi or another vendor tool and
+// scan sysfs. The devices do not change while the process runs; the result
+// expires anyway so that a GPU whose driver was not ready at the first probe
+// is found later.
+const localGPUProbeTTL = 30 * time.Second
+
+var localGPUProbe = &gpuProbeCache{probe: probeLocalGPU, ttl: localGPUProbeTTL}
+
+type gpuProbeCache struct {
+	probe func() (vendor string, vram uint64)
+	ttl   time.Duration
+
+	mu     sync.Mutex
+	at     time.Time
+	vendor string
+	vram   uint64
+}
+
+func (c *gpuProbeCache) get() (string, uint64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.at.IsZero() || time.Since(c.at) >= c.ttl {
+		c.vendor, c.vram = c.probe()
+		c.at = time.Now()
+	}
+	return c.vendor, c.vram
+}
+
+// budgetedVRAM applies the process VRAM budget, which runtime settings can
+// change, to a physical VRAM figure, as xsysinfo.MinPerGPUVRAM does.
+func budgetedVRAM(v uint64) uint64 {
+	if v == 0 {
+		return 0
+	}
+	capped, _ := xsysinfo.DefaultVRAMBudget().Apply(v, v)
+	return capped
 }
 
 // LocalGPU exposes the locally-detected device descriptor to other packages

@@ -77,8 +77,8 @@ func (c *ModelConfig) AutoContextTarget(architecture string) int {
 // one card, and a multi-GPU host is bounded by its smallest card. This mirrors
 // localGPU's use of MinPerGPUVRAM in hardware_defaults.go.
 var perDeviceVRAM = func() uint64 {
-	v, _ := xsysinfo.MinPerGPUVRAM()
-	return v
+	_, v := localGPUProbe.get()
+	return budgetedVRAM(v)
 }
 
 // contextFitRAMBudgetPercent is the share of total system memory that the model

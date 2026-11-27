@@ -170,13 +170,23 @@ func totalVRAM(infos []GPUMemoryInfo, cards []*gpu.GraphicsCard) uint64 {
 // Unified-memory devices (GB10, Apple) report system RAM as their single
 // device's VRAM, so they are unaffected.
 func MinPerGPUVRAM() (uint64, error) {
+	v := MinPerGPUTotalVRAM()
+	if v == 0 {
+		return 0, nil
+	}
+	capped, _ := DefaultVRAMBudget().Apply(v, v)
+	return capped, nil
+}
+
+// MinPerGPUTotalVRAM is MinPerGPUVRAM before the VRAM budget: the physical
+// VRAM of the smallest GPU, which does not change while the process runs.
+func MinPerGPUTotalVRAM() uint64 {
 	// Prefer per-device binary detection (nvidia-smi/rocm-smi report true
 	// per-card VRAM); ghw's per-card memory can reflect NUMA node RAM on some
 	// hosts, which is why TotalAvailableVRAM treats it as a sum.
 	if infos := GetGPUMemoryUsage(); len(infos) > 0 {
 		if v := minNonZeroVRAM(infos); v > 0 {
-			capped, _ := DefaultVRAMBudget().Apply(v, v)
-			return capped, nil
+			return v
 		}
 	}
 
@@ -193,13 +203,10 @@ func MinPerGPUVRAM() (uint64, error) {
 				}
 			}
 		}
-		if min > 0 {
-			capped, _ := DefaultVRAMBudget().Apply(min, min)
-			return capped, nil
-		}
+		return min
 	}
 
-	return 0, nil
+	return 0
 }
 
 // minNonZeroVRAM returns the smallest non-zero TotalVRAM across the given GPUs,
