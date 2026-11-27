@@ -130,7 +130,7 @@ var _ = Describe("the token client", func() {
 			s.Body = `{"access_token":"` + strings.Repeat("a", contract.MaxCredentialBytes) + `","token_type":"bearer"}`
 		})
 		_, err = c.Refresh(ctx, srv.Descriptor(contract.OAuthClientAuthBasic), creds, srv.Issue())
-		Expect(err).NotTo(HaveOccurred(), "4096 bytes fit")
+		Expect(err).NotTo(HaveOccurred(), "a token of the cap fits")
 	})
 
 	It("keeps only granted scopes that a request accepts", func() {
