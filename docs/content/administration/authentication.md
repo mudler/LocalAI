@@ -255,6 +255,32 @@ There are two roles:
 
 The **first user** to sign in is automatically assigned the admin role. Additional users can be promoted to admin via the admin user management API or by setting `LOCALAI_ADMIN_EMAIL` to their email address.
 
+### Feature defaults
+
+Each feature has a default: the value a user gets when their permissions do not name the feature. Most defaults are fixed. API features such as chat and images are on, and agent and general features such as saved agents and add-ons are off.
+
+An administrator can change the default of a feature that is marked configurable. Today only **Pair own devices (P2P)** (`p2p_pair`) is configurable. Its built-in default is off.
+
+```bash
+# See every feature, the default in force and whether it is configurable
+curl http://localhost:8080/api/auth/admin/features \
+  -H "Authorization: Bearer <admin-key>"
+
+# Turn the default of p2p_pair on for every user
+curl -X PUT http://localhost:8080/api/auth/admin/features/p2p_pair/default \
+  -H "Authorization: Bearer <admin-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": true}'
+```
+
+In the response of `GET /api/auth/admin/features`, `default` is the default in force and `configurable` tells whether the `PUT` accepts the feature. The `PUT` answers `400` for a feature that is not configurable and `404` for an unknown feature.
+
+These rules apply:
+
+- A value in a user's permissions wins over the default. If you turned a feature off for one user, that user stays without it when you turn the default on.
+- Administrators always have every feature.
+- The default is stored in the auth database (table `feature_defaults`, with the time of the change and the administrator who made it), so it survives a restart. Each frontend keeps a copy for up to 30 seconds. The frontend that took the change applies it at once; in [distributed mode]({{%relref "/administration/distributed-mode" %}}) the other frontends apply it within 30 seconds.
+
 ### Registration Modes
 
 | Mode | Description |
@@ -456,6 +482,8 @@ In the web UI, the **API keys** tab of the Account page and **Administration →
 | `DELETE` | `/api/auth/api-keys/:id` | Revoke API key | Yes |
 | `GET` | `/api/auth/usage` | User's own usage stats | Yes |
 | `GET` | `/api/auth/usage/sources` | User's own per-API-key / per-source breakdown | Yes |
+| `GET` | `/api/auth/admin/features` | List the features, the default in force and whether it is configurable | Admin |
+| `PUT` | `/api/auth/admin/features/:feature/default` | Change the default of a configurable feature (`{"enabled": bool}`) | Admin |
 | `GET` | `/api/auth/admin/users` | List all users, with `lastActiveAt` and `apiKeyCount` | Admin |
 | `PUT` | `/api/auth/admin/users/:id/role` | Change user role | Admin |
 | `DELETE` | `/api/auth/admin/users/:id` | Delete user | Admin |

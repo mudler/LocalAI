@@ -148,6 +148,87 @@ func revokeAPIKeyHandler(db *gorm.DB, onRevoke func(ctx context.Context, ownerID
 	}
 }
 
+// AdminFeaturesHandler lists the features an administrator can grant, with
+// the default in force for each one and whether that default is configurable,
+// and the names of the installed models. Mount it behind the admin check.
+//
+// @Summary List the features and their defaults (admin)
+// @Description Returns the agent, general and API features with their labels, the default a user gets when their permissions do not name the feature (an administrator's override, or the built-in default), and a configurable flag that tells whether PUT /api/auth/admin/features/{feature}/default accepts the feature. Also returns the names of the installed models.
+// @Tags auth
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Failure 403 {object} map[string]interface{}
+// @Router /api/auth/admin/features [get]
+func AdminFeaturesHandler(db *gorm.DB, listModels func() []string) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		modelNames := []string{}
+		if listModels != nil {
+			if names := listModels(); names != nil {
+				modelNames = names
+			}
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"agent_features":   auth.EffectiveFeatureMetas(db, auth.AgentFeatureMetas()),
+			"general_features": auth.EffectiveFeatureMetas(db, auth.GeneralFeatureMetas()),
+			"api_features":     auth.EffectiveFeatureMetas(db, auth.APIFeatureMetas()),
+			"models":           modelNames,
+		})
+	}
+}
+
+// featureDefaultRequest is the body of PUT /api/auth/admin/features/{feature}/default.
+type featureDefaultRequest struct {
+	Enabled *bool `json:"enabled"`
+}
+
+// AdminSetFeatureDefaultHandler changes the default of a feature for every
+// user whose permissions do not name it. Only a feature whose metadata is
+// marked configurable accepts it. Mount it behind the admin check.
+//
+// @Summary Change the default of a feature (admin)
+// @Description Sets the default of a feature for every user whose permissions do not name it. An explicit value in a user's permissions still wins, and administrators always have every feature. Only features reported as configurable by GET /api/auth/admin/features accept a default; others answer 400. The default is stored in the auth database, so every frontend applies it within 30 seconds.
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param feature path string true "Feature key, for example p2p_pair"
+// @Param request body featureDefaultRequest true "The new default"
+// @Success 200 {object} auth.FeatureMeta
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]interface{}
+// @Failure 404 {object} map[string]string
+// @Router /api/auth/admin/features/{feature}/default [put]
+func AdminSetFeatureDefaultHandler(db *gorm.DB) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		feature := c.Param("feature")
+		var body featureDefaultRequest
+		if err := c.Bind(&body); err != nil || body.Enabled == nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "body must be {\"enabled\": true|false}"})
+		}
+		by := ""
+		if u := auth.GetUser(c); u != nil {
+			by = u.ID
+		}
+		err := auth.SetFeatureDefault(db, feature, *body.Enabled, by)
+		switch {
+		case errors.Is(err, auth.ErrUnknownFeature):
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "unknown feature: " + feature})
+		case errors.Is(err, auth.ErrFeatureDefaultNotConfigurable):
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "the default of feature " + feature + " is not configurable"})
+		case err != nil:
+			xlog.Error("Failed to store a feature default", "feature", feature, "error", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to store the feature default"})
+		}
+		for _, metas := range [][]auth.FeatureMeta{auth.AgentFeatureMetas(), auth.GeneralFeatureMetas(), auth.APIFeatureMetas()} {
+			for _, m := range auth.EffectiveFeatureMetas(db, metas) {
+				if m.Key == feature {
+					return c.JSON(http.StatusOK, m)
+				}
+			}
+		}
+		return c.JSON(http.StatusOK, map[string]any{"key": feature, "default": *body.Enabled, "configurable": true})
+	}
+}
+
 // AdminListUsersHandler answers GET /api/auth/admin/users. Mount it behind the
 // admin check: besides the account it carries two admin-only fields, when the
 // person was last active (lastActiveAt, null until they made an authenticated
@@ -916,25 +997,21 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 	adminMw := auth.RequireAdmin()
 
 	// GET /api/auth/admin/features - returns feature metadata and available models
-	e.GET("/api/auth/admin/features", func(c echo.Context) error {
-		// Get available models
-		modelNames := []string{}
-		if app.ModelConfigLoader() != nil && app.ModelLoader() != nil {
-			names, err := galleryop.ListModels(
-				app.ModelConfigLoader(), app.ModelLoader(), nil, galleryop.SKIP_IF_CONFIGURED,
-			)
-			if err == nil {
-				modelNames = names
-			}
+	e.GET("/api/auth/admin/features", AdminFeaturesHandler(db, func() []string {
+		if app.ModelConfigLoader() == nil || app.ModelLoader() == nil {
+			return nil
 		}
+		names, err := galleryop.ListModels(
+			app.ModelConfigLoader(), app.ModelLoader(), nil, galleryop.SKIP_IF_CONFIGURED,
+		)
+		if err != nil {
+			return nil
+		}
+		return names
+	}), adminMw)
 
-		return c.JSON(http.StatusOK, map[string]any{
-			"agent_features":   auth.AgentFeatureMetas(),
-			"general_features": auth.GeneralFeatureMetas(),
-			"api_features":     auth.APIFeatureMetas(),
-			"models":           modelNames,
-		})
-	}, adminMw)
+	// PUT /api/auth/admin/features/:feature/default - change the default of a feature
+	e.PUT("/api/auth/admin/features/:feature/default", AdminSetFeatureDefaultHandler(db), adminMw)
 
 	// GET /api/auth/admin/users - list all users
 	e.GET("/api/auth/admin/users", AdminListUsersHandler(db), adminMw)
