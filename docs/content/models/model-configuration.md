@@ -498,6 +498,9 @@ Speculative decoding speeds up text generation by predicting multiple tokens ahe
 
 There are two approaches:
 
+The model editor sets up drafting without these flags: see
+[Drafting]({{%relref "/models/engine-settings#drafting" %}}).
+
 #### Draft Model Speculative Decoding
 
 Uses a smaller, faster model from the same model family to draft candidate tokens, which the main model then verifies. Requires a separate GGUF file for the draft model.
@@ -557,9 +560,9 @@ These are set via the `options:` array in the model configuration (format: `key:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `spec_type` / `speculative_type` | string | `none` | Speculative decoding type, or comma-separated list to chain multiple (see table below) |
-| `spec_n_max` / `draft_max` | int | 16 | Maximum number of tokens to draft per step |
+| `spec_n_max` / `draft_max` | int | 3 | Maximum number of tokens to draft per step |
 | `spec_n_min` / `draft_min` | int | 0 | Minimum draft tokens required to use speculation |
-| `spec_p_min` / `draft_p_min` | float | 0.75 | Minimum probability threshold for greedy acceptance |
+| `spec_p_min` / `draft_p_min` | float | 0 | Minimum probability threshold for greedy acceptance |
 | `spec_p_split` | float | 0.1 | Split probability for tree-based branching |
 
 **Draft-model options** (apply when `spec_type=draft`, i.e. a `draft_model` is configured)

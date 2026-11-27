@@ -162,6 +162,55 @@ var backendSampling = es.Combined{
 	},
 }
 
+// drafting is the Drafting section of the editor: one choice of how tokens
+// are drafted, with the few fields each choice needs. The other flags of the
+// speculative group stay under it as more options.
+var drafting = &es.Drafting{
+	Group:    GroupSpeculative,
+	TypeKey:  "spec_type",
+	ModelKey: "draft_model",
+	// LocalAI turns MTP on for a model with an MTP head when the file names
+	// no kind (core/config ApplyMTPDefaults), so Off must say none.
+	OffType: "none",
+	// spec_max_streams is read by builds with paged serving and ignored by
+	// the others, so it is a plain option here.
+	Streams: &es.DraftStreams{
+		Option:  "spec_max_streams",
+		Default: "4 in builds with paged serving",
+		Doc:     "Pause drafting while more than this many requests generate, and resume when the load drops. 0 never pauses.",
+	},
+	Modes: []es.DraftMode{
+		{
+			ID: "off", Label: "Off",
+			Doc: "No drafting. Every token comes from the model alone.",
+		},
+		{
+			ID: "ngram", Label: "N-gram",
+			Doc:    "Propose the tokens that followed the same words earlier in the context. No extra model and no extra memory.",
+			Note:   "Best for output that repeats its input, such as code edits or long quotes. On normal chat it gains little and can cost a few percent.",
+			Types:  []string{"ngram-mod", "ngram-simple", "ngram-map-k", "ngram-map-k4v", "ngram-cache"},
+			Fields: []string{"spec_ngram_mod_n_min", "spec_ngram_mod_n_max", "spec_ngram_mod_n_match"},
+		},
+		{
+			ID: "model", Label: "Draft model",
+			Doc:    "A small model with the same vocabulary proposes tokens, and the model checks them in one step.",
+			Note:   "The draft model is loaded beside the model and uses its own memory.",
+			Model:  true,
+			Fields: []string{"spec_n_min", "spec_n_max", "spec_p_min"},
+		},
+		{
+			ID: "mtp", Label: "MTP",
+			Doc:   "The model's own multi-token prediction head proposes the next tokens. No second model to load.",
+			Types: []string{"draft-mtp"},
+			Needs: es.NeedsMTPHead, Auto: true,
+			// The values LocalAI applies to a model with an MTP head
+			// (core/config mtpSpecOptions); a test keeps them equal.
+			Set:    map[string]any{"spec_n_max": 6, "spec_p_min": 0.75},
+			Fields: []string{"spec_n_max", "spec_p_min"},
+		},
+	},
+}
+
 // allLayers is a short value that means every layer: llama.cpp clamps -ngl
 // to the model's layer count, and no shipped model has 999 layers.
 const allLayers = 999
@@ -242,7 +291,9 @@ func Engine() *es.Engine {
 		},
 		Groups: []es.Group{GroupMemory, GroupSpeed, GroupServing, GroupPlacement, GroupSampling, GroupTemplate, GroupSpeculative, GroupAdvanced},
 		// Drawn closed: rarely used, and some of them turn other features off.
-		Collapsed: []es.Group{GroupSpeculative, GroupAdvanced},
+		// The speculative group is the Drafting section, drawn open with its
+		// rarely used flags folded inside it.
+		Collapsed: []es.Group{GroupAdvanced},
 		Flags:     flags,
 		Combined:  []es.Combined{loadMode, backendSampling},
 		Presets:   append(append([]es.Preset{}, profiles...), presets...),
@@ -270,5 +321,6 @@ func Engine() *es.Engine {
 			Build:     Option,
 			Recognise: ParseOption,
 		},
+		Drafting: drafting,
 	}
 }

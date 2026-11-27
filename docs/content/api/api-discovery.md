@@ -306,6 +306,8 @@ curl -X POST http://localhost:8080/api/models/vram-estimate \
 
 Optional parameters: `gpu_layers` (number of layers to offload, 0 = all), `kv_quant_bits` (KV cache quantization, 0 = fp16), `cache_type_k` and `cache_type_v` (llama.cpp KV cache types such as `f16`, `q8_0` or `q4_0`; empty uses the model's config), `batch` (logical batch; absent uses the model's config, `0` uses LocalAI's default for the host) and `ubatch` (physical batch, capped by `batch`; absent uses the model's config, `0` follows `batch`).
 
+For a local GGUF model the response also has `architecture` (`general.architecture`), `vocab_size` (the tokens of the vocabulary) and `mtp_layers` (the layers of an embedded multi-token prediction head, absent without one). The model editor reads them to offer MTP and to check that a draft model fits.
+
 The response has a `runtime` object with the memory that these settings cost beside the weights: `kv_cache_bytes` (the KV cache at the context size and cache types) and `compute_bytes` (the compute buffers of the physical batch), with the values it used. Both are estimates. `approximate: true` means the model layout was not read from a GGUF header, so the KV cache is a rule of thumb per token.
 
 ## Integration guide

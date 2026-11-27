@@ -473,7 +473,7 @@ var _ = Describe("the llama.cpp engine", func() {
 
 	It("lists its capabilities, combined load mode and presets in the schema", func() {
 		s := engine.Schema()
-		Expect(s.Capabilities).To(ConsistOf(es.CapabilityCommandLine, es.CapabilityTensorPlacement))
+		Expect(s.Capabilities).To(ConsistOf(es.CapabilityCommandLine, es.CapabilityTensorPlacement, es.CapabilityDrafting))
 		Expect(s.Binary).To(Equal("llama-server"))
 		Expect(s.Example).To(HavePrefix("llama-server "))
 		Expect(s.Placement.Option).To(Equal("-ot"))
@@ -615,5 +615,56 @@ var _ = Describe("the llama.cpp engine", func() {
 			_, err := engine.BuildCommand(c)
 			Expect(err).To(HaveOccurred(), "%v", c)
 		}
+	})
+
+	Describe("the drafting section", func() {
+		It("offers Off, N-gram, Draft model and MTP over spec_type and draft_model", func() {
+			d := engine.Schema().Drafting
+			Expect(d).ToNot(BeNil())
+			Expect(d.Group).To(Equal(lc.GroupSpeculative))
+			Expect(d.TypeKey).To(Equal("spec_type"))
+			Expect(d.ModelKey).To(Equal("draft_model"))
+			Expect(d.OffType).To(Equal("none"))
+			var ids []string
+			for _, m := range d.Modes {
+				ids = append(ids, m.ID)
+			}
+			Expect(ids).To(Equal([]string{"off", "ngram", "model", "mtp"}))
+			Expect(d.Modes[1].Types[0]).To(Equal("ngram-mod"))
+			Expect(d.Modes[2].Model).To(BeTrue())
+			Expect(d.Modes[3].Types).To(Equal([]string{"draft-mtp"}))
+			Expect(d.Modes[3].Needs).To(Equal(es.NeedsMTPHead))
+			Expect(d.Modes[3].Auto).To(BeTrue())
+		})
+
+		It("writes spec_max_streams as a plain option that builds without paged serving ignore", func() {
+			d := engine.Schema().Drafting
+			Expect(d.Streams.Option).To(Equal("spec_max_streams"))
+			res, err := engine.BuildCommand(es.Config{"options": []any{"spec_type:ngram-mod", "spec_max_streams:2"}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Command).To(Equal("llama-server --spec-type ngram-mod"))
+			Expect(res.Warnings).To(ConsistOf(ContainSubstring(`"spec_max_streams" is read by LocalAI`)))
+		})
+
+		It("maps a draft model file to -md and back", func() {
+			res, err := engine.BuildCommand(es.Config{"draft_model": "small.gguf"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Command).To(Equal("llama-server -md small.gguf"))
+			for _, flag := range []string{"-md", "--model-draft", "--spec-draft-model"} {
+				r, err := engine.ParseCommand("llama-server " + flag + " small.gguf")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(r.Fields).To(Equal(es.Config{"draft_model": "small.gguf"}), flag)
+			}
+		})
+
+		It("states the draft defaults of the pinned llama.cpp", func() {
+			defaults := map[string]string{}
+			for _, f := range engine.Schema().Flags {
+				defaults[f.Key] = f.Default
+			}
+			Expect(defaults["spec_n_max"]).To(Equal("3"))
+			Expect(defaults["spec_n_min"]).To(Equal("0"))
+			Expect(defaults["spec_p_min"]).To(Equal("0"))
+		})
 	})
 })
