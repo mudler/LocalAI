@@ -3,6 +3,7 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -15,7 +16,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"reflect"
 	goruntime "runtime"
 	"strings"
 	"sync"
@@ -355,7 +355,7 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	if e := json.Unmarshal(b, &disk); e != nil {
 		return nil, failed(StageReceiptMismatch, "receipt.json in "+pkgName+" is not a valid receipt")
 	}
-	if !reflect.DeepEqual(disk, pkg) {
+	if !receiptMatches(b, pkg) {
 		return nil, failed(StageReceiptMismatch, "receipt.json in "+pkgName+" differs from the receipt in the journal")
 	}
 	// An add-on that runs in WSL 2 is a Linux program that wsl.exe starts.
@@ -1022,4 +1022,26 @@ func (s *Supervisor) HostDataDir(id string) string {
 // relativeSafe reports an addon ID that is one plain path element.
 func relativeSafe(id string) bool {
 	return id != "" && id != "." && id != ".." && !strings.ContainsAny(id, `/\`)
+}
+
+// receiptMatches reports whether receipt.json (b) holds the same receipt as
+// pkg. It compares the JSON encodings of the two receipts, not the structs:
+// the JSON leaves out an empty list, which decodes to nil, so a receipt that
+// was never decoded from JSON can hold []string{} where the disk has nil.
+// Both sides are encoded again, so fields that the receipt type no longer has
+// are ignored, as a decode ignores them.
+func receiptMatches(b []byte, pkg packages.PackageReceipt) bool {
+	var disk packages.PackageReceipt
+	if json.Unmarshal(b, &disk) != nil {
+		return false
+	}
+	want, e := json.Marshal(pkg)
+	if e != nil {
+		return false
+	}
+	got, e := json.Marshal(disk)
+	if e != nil {
+		return false
+	}
+	return bytes.Equal(got, want)
 }

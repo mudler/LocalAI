@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	goruntime "runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -417,5 +418,84 @@ var _ = Describe("The cause of a candidate that did not start", func() {
 		Expect(text).NotTo(ContainSubstring("hunter2"))
 		Expect(text).NotTo(ContainSubstring("abc123"))
 		Expect(len([]rune(text))).To(BeNumerically("<", 600))
+	})
+})
+
+var _ = Describe("Upgrade of a running add-on whose manifest has an empty list", func() {
+	It("starts the new generation", func() {
+		// The manifest of a shipped add-on with "sorts": [], made runnable
+		// here: the fixture binary stands in for its executable.
+		shipped, e := os.ReadFile("../../../addons/pirateface-search/manifest.json")
+		Expect(e).NotTo(HaveOccurred())
+		manifestFor := func(version string) []byte {
+			var raw map[string]any
+			Expect(json.Unmarshal(shipped, &raw)).To(Succeed())
+			raw["id"], raw["version"], raw["executable"] = "sample", version, "fixture"
+			raw["os"], raw["arch"] = goruntime.GOOS, goruntime.GOARCH
+			b, e := json.Marshal(raw)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(string(b)).To(ContainSubstring(`"sorts":[]`))
+			return b
+		}
+		cfg, c, installer := fixture()
+		installer.Host = contract.HostCompatibility{Host: contract.HostVersion, API: contract.HostAPIVersion, Protocol: contract.HostProtocolVersion, SDK: contract.HostSDKVersion, DataFormat: contract.HostDataFormatVersion, FeatureLevel: contract.HostFeatureLevel, OS: goruntime.GOOS, Arch: goruntime.GOARCH}
+		dir := GinkgoT().TempDir()
+		binary, e := os.ReadFile(func() string {
+			p := filepath.Join(GinkgoT().TempDir(), "fixture")
+			out, e := exec.Command("go", "build", "-o", p, "../../../tests/addons/fixture/cmd").CombinedOutput()
+			Expect(e).NotTo(HaveOccurred(), string(out))
+			return p
+		}())
+		Expect(e).NotTo(HaveOccurred())
+		Expect(os.WriteFile(filepath.Join(dir, "fixture"), binary, 0500)).To(Succeed())
+		manifest, e := contract.ParseManifest(manifestFor("1.0.0"))
+		Expect(e).NotTo(HaveOccurred())
+		// Generation 1 is journaled as a restarted owner loads it: decoded
+		// from JSON, so it matches its receipt.json either way. Only the
+		// upgrade takes the receipt that Commit returns.
+		b, e := json.Marshal(packages.PackageReceipt{Directory: dir, Manifest: manifest})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(os.WriteFile(filepath.Join(dir, "receipt.json"), b, 0400)).To(Succeed())
+		var receipt packages.PackageReceipt
+		Expect(json.Unmarshal(b, &receipt)).To(Succeed())
+		m, e := NewManager(ctx, cfg, c, installer, admin)
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(m.Close)
+		m.journal.Addons["sample"] = Status{AddonID: "sample", Installed: true, DesiredEnabled: true, Generation: 1, Generations: []Generation{{Number: 1, Receipt: receipt}}}
+		s, e := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(cfg.Root, "runtime"), Limits: contract.DefaultLimits(), ReadyTimeout: 2 * time.Second, StableHealth: time.Second})
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(s.Close(ctx)).To(Succeed()) })
+		Expect(m.AttachRuntime(ctx, s)).To(Succeed())
+		old, e := m.Runtime(ctx, "sample")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(old.Generation).To(Equal(uint64(1)))
+
+		var archive bytes.Buffer
+		tw := tar.NewWriter(&archive)
+		for name, data := range map[string][]byte{"manifest.json": manifestFor("2.0.0"), "fixture": binary} {
+			Expect(tw.WriteHeader(&tar.Header{Name: name, Mode: 0755, Size: int64(len(data))})).To(Succeed())
+			_, e = tw.Write(data)
+			Expect(e).NotTo(HaveOccurred())
+		}
+		Expect(tw.Close()).To(Succeed())
+		artifact := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(archive.Bytes()) }))
+		DeferCleanup(artifact.Close)
+		release := catalog.Release{ID: "sample", Name: "Sample", Version: "2.0.0", Artifact: artifact.URL + "/package.tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(archive.Bytes())), OS: manifest.OS, Arch: manifest.Arch}
+		library := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_ = catalog.WriteIndex(w, []catalog.Release{release})
+		}))
+		DeferCleanup(library.Close)
+		Expect(c.Sources.Save(ctx, actor, catalog.Source{ID: "test", Removed: true})).To(Succeed())
+		Expect(c.Sources.Save(ctx, actor, catalog.Source{ID: "upgrade", Name: "Upgrade", URL: library.URL, Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
+		_, e = c.Sources.Refresh(ctx, "upgrade")
+		Expect(e).NotTo(HaveOccurred())
+
+		_, e = m.Submit(ctx, actor, LifecycleCommand{OperationID: "upgrade-empty-list", AddonID: "sample", Action: "upgrade", SourceID: "upgrade", Version: "2.0.0"})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(m.journal.Addons["sample"].Generation).To(Equal(uint64(2)))
+		now, e := m.Runtime(ctx, "sample")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(now.Generation).To(Equal(uint64(2)))
+		Expect(now.PID).NotTo(Equal(old.PID))
 	})
 })

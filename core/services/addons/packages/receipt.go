@@ -71,6 +71,21 @@ func (s StagedPackage) Receipt() PackageReceipt {
 	return s.state.receipt
 }
 
+// EncodeReceipt returns the bytes of receipt.json for r and the receipt that
+// those bytes decode to. The two receipts can differ: an empty list or map of
+// the manifest is left out of the JSON and decodes to nil.
+func EncodeReceipt(r PackageReceipt) ([]byte, PackageReceipt, error) {
+	b, e := json.Marshal(r)
+	if e != nil {
+		return nil, PackageReceipt{}, e
+	}
+	var out PackageReceipt
+	if e = json.Unmarshal(b, &out); e != nil {
+		return nil, PackageReceipt{}, e
+	}
+	return b, out, nil
+}
+
 func (i *Installer) Commit(ctx context.Context, s StagedPackage) (PackageReceipt, error) {
 	if s.state == nil {
 		return PackageReceipt{}, ErrPackage
@@ -92,7 +107,9 @@ func (i *Installer) Commit(ctx context.Context, s StagedPackage) (PackageReceipt
 	}
 	receipt := st.receipt
 	receipt.Directory = dest
-	b, e := json.Marshal(receipt)
+	// The caller journals the receipt and the supervisor compares it with
+	// receipt.json before a launch, so return the receipt as it is on disk.
+	b, receipt, e := EncodeReceipt(receipt)
 	if e != nil {
 		return PackageReceipt{}, e
 	}
