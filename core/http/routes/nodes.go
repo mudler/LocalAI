@@ -50,7 +50,7 @@ func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, r
 
 	node := e.Group("/api/node", readyMw, nodeCredentialAuth(registry, options...))
 	node.POST("/:id/heartbeat", localai.HeartbeatEndpoint(registry, options...))
-	node.POST("/:id/drain", localai.DrainNodeEndpoint(registry, nil))
+	node.POST("/:id/drain", localai.SelfDrainNodeEndpoint(registry))
 	node.POST("/:id/resume", localai.ResumeNodeEndpoint(registry))
 	node.POST("/:id/deregister", localai.DeactivateNodeEndpoint(registry))
 	node.GET("/:id/models", localai.GetNodeModelsEndpoint(registry))

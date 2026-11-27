@@ -310,6 +310,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// Bound durable heartbeat writes: a beat that only carries a fresher
 	// timestamp is what turned backend_nodes into a 460 MB six-row table.
 	registry.SetHeartbeatCheckpoint(cfg.Distributed.NodeHeartbeatCheckpointOrDefault())
+	// The default deadline of a node drain (see nodes.DrainNode).
+	registry.SetDrainTimeout(cfg.Distributed.DrainTimeoutOrDefault())
 
 	// Measure the vacuum horizon. The 42 days it stayed open went unnoticed
 	// because no gauge reported it until models started failing to load.

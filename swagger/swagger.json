@@ -17029,6 +17029,57 @@
                 }
             }
         },
+        "/api/nodes/{id}/drain": {
+            "post": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Drain a node",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Remove the node's replicas at once instead of waiting for replacements",
+                        "name": "force",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Drain deadline as a Go duration (default: the --drain-timeout setting, 10m)",
+                        "name": "timeout",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.DrainNodeResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/nodes/{id}/limits": {
             "get": {
                 "tags": [
@@ -17214,6 +17265,48 @@
                     },
                     "404": {
                         "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/nodes/{id}/resume": {
+            "post": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Resume a draining node",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -28227,6 +28320,30 @@
                     "items": {
                         "$ref": "#/definitions/localai.ReplicaView"
                     }
+                }
+            }
+        },
+        "localai.DrainNodeResponse": {
+            "type": "object",
+            "properties": {
+                "drain_deadline": {
+                    "description": "DrainDeadline is when the replicas still on the node are removed even\nif no replacement loaded. Absent for an immediate drain.",
+                    "type": "string"
+                },
+                "immediate": {
+                    "description": "Immediate is true when the replicas were removed at once: the drain was\nforced, or the node was not reachable.",
+                    "type": "boolean"
+                },
+                "leaving_replicas": {
+                    "description": "LeavingReplicas is the number of loaded replicas still on the node.",
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Status is the status of the node after the request: draining.",
+                    "type": "string"
                 }
             }
         },

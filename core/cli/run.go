@@ -255,6 +255,7 @@ type RunCMD struct {
 	ModelLoadTimeout             string `env:"LOCALAI_NATS_MODEL_LOAD_TIMEOUT" help:"Fixed gRPC deadline for the remote LoadModel call sent to a worker node once its backend is installed and model files are staged. Unset (the default), the deadline is derived from the checkpoint size instead: 5m plus 20s per GiB, capped at 6h, so multi-tens-of-GB diffusion/video checkpoints get the minutes they need without a fixed cliff. Set this only to pin a specific budget; the value is used verbatim, including when it is shorter than the derived one." group:"distributed"`
 	ModelLoadWait                string `env:"LOCALAI_MODEL_LOAD_WAIT" help:"How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with 503, a Retry-After header and live staging progress (default 60s). The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to 0 to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front." group:"distributed"`
 	ModelLoadStall               string `env:"LOCALAI_MODEL_LOAD_STALL" help:"How long a running cold load of a model may make no progress (no new phase, file or bytes) before a request starts a load of the same model on another node that matches the model's rule, instead of waiting for it (default 5m). Set to 0 to always wait for the running load." group:"distributed"`
+	DrainTimeout                 string `env:"LOCALAI_DRAIN_TIMEOUT" help:"How long a drained worker node keeps the replicas it serves while their replacements load on other nodes (default 10m). After it, the replicas left on the node are removed. A drain request can set its own deadline with ?timeout=." group:"distributed"`
 	StaleNodeThreshold           string `env:"LOCALAI_STALE_NODE_THRESHOLD" help:"How long a worker node may go without a durable heartbeat before the health monitor marks it offline (default 5m). Because a beat that only carries a fresher timestamp is held back by --node-heartbeat-checkpoint, this must stay comfortably wider than that interval; raise both together. Dead-node detection through the per-model gRPC health check and through request-time failure is unaffected by this knob." group:"distributed"`
 	NodeHeartbeatCheckpoint      string `env:"LOCALAI_NODE_HEARTBEAT_CHECKPOINT" help:"Minimum gap between durable heartbeat writes for a worker node (default 60s). A beat that only carries a fresher timestamp is dropped until this interval elapses; every field is compared against the value last written, so a node's first beat, a changed total VRAM/total disk/GPU vendor, and a free VRAM/RAM/disk reading that has moved more than 256 MiB from the written value all still write immediately, and a node that is not active is never suppressed. Set below the worker heartbeat interval to write on every beat." group:"distributed"`
 	ModelConfigResyncInterval    string `env:"LOCALAI_MODEL_CONFIG_RESYNC_INTERVAL" help:"How often each frontend compares its model configs with the shared models directory (default 30s). Frontends normally learn about a model install, edit or removal from a message on NATS; this pass catches a change whose message a frontend missed, for example during a NATS reconnect, so an old config is served for at most this long. A pass reads only the config files and skips the parse when none of them changed." group:"distributed"`
@@ -592,6 +593,13 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 			return err
 		}
 		opts = append(opts, config.WithModelLoadStall(d))
+	}
+	if r.DrainTimeout != "" {
+		d, err := parseDistributedDuration("LOCALAI_DRAIN_TIMEOUT", r.DrainTimeout)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithDrainTimeout(d))
 	}
 	if r.StaleNodeThreshold != "" {
 		d, err := parseDistributedDuration("LOCALAI_STALE_NODE_THRESHOLD", r.StaleNodeThreshold)

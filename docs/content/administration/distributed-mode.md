@@ -142,6 +142,7 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | *(env only)* | `LOCALAI_MODEL_LOAD_WAIT` | `60s` | How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with `503`, a `Retry-After` header and live staging progress. The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to `0` to wait as long as the load takes: only safe when no ingress or load balancer with an idle timeout sits in front. See [Requests for a model that is still loading](#requests-for-a-model-that-is-still-loading). |
 | `--node-heartbeat-checkpoint` | `LOCALAI_NODE_HEARTBEAT_CHECKPOINT` | `60s` | Minimum gap between **durable** heartbeat writes for a worker node. A beat that only carries a fresher timestamp is kept in memory until this interval elapses instead of being written to PostgreSQL; every reported field is compared against the value last written rather than merely tested for presence, so a node's first beat, a changed total VRAM / total disk / GPU vendor, and a free VRAM / RAM / disk reading that has moved more than 256 MiB from the written value all still write immediately, and a node that is not active is never suppressed. Set it below the worker's `--heartbeat-interval` to restore a write per beat. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
 | `--stale-node-threshold` | `LOCALAI_STALE_NODE_THRESHOLD` | `5m` | How long a node may go without a **durable** heartbeat before the health monitor marks it `offline`. Because `--node-heartbeat-checkpoint` holds back a beat that only carries a fresher timestamp, this has to stay comfortably wider than that interval: raising the checkpoint without raising this marks healthy, beating nodes offline. Neither the per-model gRPC health check nor request-time failure reads `last_heartbeat`, so neither is affected by this knob. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
+| `--drain-timeout` | `LOCALAI_DRAIN_TIMEOUT` | `10m` | How long a [drained](#draining-a-node) worker keeps the models it serves while their replacements load on other nodes. After it, what is left on the node is removed. A drain request can set its own deadline with `?timeout=`. |
 | `--model-config-resync-interval` | `LOCALAI_MODEL_CONFIG_RESYNC_INTERVAL` | `30s` | How often each frontend compares its model configs with the shared models directory, to apply a change whose NATS message it missed. A frontend that missed a message serves the old config for at most this long. See [Model configs across frontends](#model-configs-across-frontends). |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
 
@@ -832,7 +833,7 @@ Used by workers themselves (registration, heartbeat, etc.), exempt from global a
 |--------|------|-------------|
 | `POST` | `/api/node/register` | Register a new worker |
 | `POST` | `/api/node/:id/heartbeat` | Update heartbeat timestamp |
-| `POST` | `/api/node/:id/drain` | Mark self as draining |
+| `POST` | `/api/node/:id/drain` | Drain self. A worker that shuts down sends `{"shutdown":true,"loads_ended":true}` once it stopped its loads: the frontend then releases their load jobs at once |
 | `GET` | `/api/node/:id/models` | Query own loaded models |
 | `POST` | `/api/node/:id/split` | Report the P2P host and the [model-split workers]({{% relref "/administration/p2p-model-split" %}}#distributed-mode) of the node; the answer says whether the node is a split server and lists the workers attached to it and the relays that admit it. A node that registered with the token is bound to the first peer it reports; another peer gets `409` until the node registers again |
 | `DELETE` | `/api/node/:id` | Deregister self |
@@ -850,7 +851,8 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `GET` | `/api/nodes/:id/models` | List models loaded on a worker |
 | `GET` | `/api/nodes/models` | List loaded model replicas on healthy workers |
 | `DELETE` | `/api/nodes/:id` | Admin-delete a worker |
-| `POST` | `/api/nodes/:id/drain` | Admin-drain a worker |
+| `POST` | `/api/nodes/:id/drain` | [Drain](#draining-a-node) a worker. `?force=true` removes its models at once; `?timeout=15m` sets the deadline. Answers with `status`, `immediate`, `drain_deadline` and `leaving_replicas` |
+| `POST` | `/api/nodes/:id/resume` | Cancel the drain of a worker: it is `healthy` again and its models stay |
 | `POST` | `/api/nodes/:id/approve` | Approve a pending worker node |
 | `POST` | `/api/nodes/:id/backends/install` | Install a backend on a worker |
 | `POST` | `/api/nodes/:id/backends/upgrade` | Update (force-reinstall) a backend on a worker. Answers 202 with a job ID; the worker stops the running processes of the backend first. Answers 404 `not_installed` or 409 `no_update` at once when there is nothing to do, and 409 `stale` when the optional `expected_to` is no longer the available build (see [Starting an upgrade]({{% relref "/models/backends#checking-for-backend-updates" %}})) |
@@ -1114,7 +1116,37 @@ To skip manual approval and let nodes join immediately, set `--auto-approve-node
 | `healthy` | Node is active and responding to heartbeats |
 | `unhealthy` | The HealthMonitor found no live route to the node: it heartbeats, but neither NATS nor its tunnel is live (see [Node health and routes](#node-health-and-routes)), or it missed heartbeats while auto-offline is off. Status only: nothing of the node is deleted, and it becomes `healthy` again when a route is live |
 | `offline` | Node is temporarily offline (graceful shutdown or stale heartbeat). The node row is preserved so re-registration restores the previous approval status without requiring re-approval |
-| `draining` | Node is shutting down gracefully - no new requests are routed to it, existing in-flight requests are allowed to complete |
+| `draining` | Nothing new is placed on the node. Its loaded models keep serving until replacements load on other nodes, then leave. See [Draining a node](#draining-a-node) |
+
+## Draining a node
+
+Drain a node before you take it out of service: maintenance, a GPU lease, a new image. A drain does not drop the models of the node. It replaces them first:
+
+1. The node gets the status `draining` at once. No new model is placed on it, by a request or by the reconciler.
+2. Its loaded models keep serving. A request goes to a replica on a healthy node first, and to the draining node only when no healthy node has the model.
+3. The reconciler does not count a replica on a draining node. A model with a scheduling rule gets replicas on other matching nodes up to its `min_replicas` (or one per matching node with `spread_all`), with the usual placement rules (node selector, memory fit, model limits). A model with no rule gets one replacement when the replica on the draining node is its last one and the model is in use: it is pinned, a request runs on it, or it served a request within the idle window. A model that is not in use is not replaced.
+4. A replica leaves the draining node, and its backend is stopped, when the model has enough replicas on other nodes, once the requests that run on it finish. An idle replica that no model needs leaves on the next reconciler pass.
+5. At the drain deadline (`--drain-timeout`, default `10m`, or `?timeout=` of the request) whatever is still on the node is removed, also when no replacement could be placed.
+
+A drain is never a window with zero replicas for a model that has a replacement: the old replica serves until the new one is loaded.
+
+Loads that run on the node when the drain starts are cancelled, because a model must not land on a node that leaves.
+
+**Force.** `POST /api/nodes/:id/drain?force=true` takes the models of the node out of routing at once, as drain did before this change. The reconciler then places replacements for the rules on its next pass. Use it when the node must stop serving now.
+
+**A node that does not answer.** An `unhealthy` or `offline` node drains at once: there is nothing on it to wait for. A draining node that stops answering (no live route and a stale heartbeat) loses its models at once too, so requests are not sent to it until the deadline.
+
+**Resume.** `POST /api/nodes/:id/resume` (or **Resume** on the Nodes page) cancels the drain. The node is `healthy` again and the models still on it stay. A worker that registers again (it restarted) also ends the drain of its node.
+
+**Status.** `GET /api/nodes` and `GET /api/nodes/:id` show `status: draining`, `drain_deadline` and `leaving_replicas`, the number of loaded models still on the node. The Nodes page shows **Draining**, the count and the deadline. The assistant tool `drain_node` (actions `drain` and `resume`) does the same as the API.
+
+**Recommended sequence for external tools** (a GPU lease tool, a maintenance script, a cluster autoscaler):
+
+1. `POST /api/nodes/:id/drain` (with `?timeout=` if the default does not fit).
+2. Poll `GET /api/nodes/:id` until `leaving_replicas` is `0`.
+3. Stop the worker. A worker that is stopped earlier is safe, but its models are removed when it goes, and a model that had no replacement yet is not served until one loads.
+
+Where the state lives: the drain is the `status` and `drain_deadline` columns of the node in PostgreSQL, and the replica rows. Every frontend reads the same drain, and the reconciler pass that moves the replicas runs on one frontend at a time under its advisory lock. Nothing of a drain is kept in the memory of a frontend.
 
 ### Node health and routes
 

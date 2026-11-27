@@ -986,27 +986,127 @@ func ListAllNodeModelsEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	}
 }
 
-// DrainNodeEndpoint sets a node to draining status (no new requests).
+// DrainNodeResponse is the state of a drain: the node takes no new replicas,
+// and its replicas leave once replaced, idle, or past the deadline.
+type DrainNodeResponse struct {
+	Message string `json:"message"`
+	// Status is the status of the node after the request: draining.
+	Status string `json:"status"`
+	// Immediate is true when the replicas were removed at once: the drain was
+	// forced, or the node was not reachable.
+	Immediate bool `json:"immediate"`
+	// DrainDeadline is when the replicas still on the node are removed even
+	// if no replacement loaded. Absent for an immediate drain.
+	DrainDeadline *time.Time `json:"drain_deadline,omitempty"`
+	// LeavingReplicas is the number of loaded replicas still on the node.
+	LeavingReplicas int `json:"leaving_replicas"`
+}
+
+// SelfDrainRequest is the optional body of a drain that a worker sends for
+// its own node when it shuts down.
+type SelfDrainRequest struct {
+	// Shutdown says that the worker shuts down.
+	Shutdown bool `json:"shutdown,omitempty"`
+	// LoadsEnded says that the worker stopped every load operation it ran
+	// and their processes exited. The frontend then releases the load jobs
+	// of the node at once instead of holding them for the stop window.
+	LoadsEnded bool `json:"loads_ended,omitempty"`
+}
+
+// DrainNodeEndpoint drains a node: nothing new is placed on it, and its loaded
+// replicas keep serving while the reconciler places replacements on other
+// nodes. A replica leaves when its replacement loaded, when it is idle and not
+// needed, or at the drain deadline. force=true removes the replicas at once.
+// A node that is unhealthy or offline is drained at once: there is nothing to
+// wait for.
+// @Summary Drain a node
+// @Tags Nodes
+// @Param id path string true "Node ID"
+// @Param force query bool false "Remove the node's replicas at once instead of waiting for replacements"
+// @Param timeout query string false "Drain deadline as a Go duration (default: the --drain-timeout setting, 10m)"
+// @Success 200 {object} DrainNodeResponse
+// @Failure 404 {object} map[string]any
+// @Failure 409 {object} map[string]any
+// @Router /api/nodes/{id}/drain [post]
 func DrainNodeEndpoint(registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		ctx := c.Request().Context()
-		id := c.Param("id")
-		cancelNodeLoads(ctx, registry, unloader, id)
-		if err := registry.MarkDraining(ctx, id); err != nil {
-			if errors.Is(err, nodes.ErrNodeNotFound) {
-				return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
-			}
-			if errors.Is(err, nodes.ErrNodeStatusConflict) {
-				return c.JSON(http.StatusConflict, nodeError(http.StatusConflict, "node must be healthy to drain"))
-			}
-			xlog.Error("Failed to drain node", "id", id, "error", err)
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to drain node"))
-		}
-		return c.JSON(http.StatusOK, map[string]string{"message": "node set to draining"})
+		return drainNode(c, registry, unloader, SelfDrainRequest{})
 	}
 }
 
-// ResumeNodeEndpoint sets a draining node back to healthy status.
+// SelfDrainNodeEndpoint is the drain a worker sends for its own node. It takes
+// an optional SelfDrainRequest body: a worker that shuts down reports that its
+// loads ended, so their jobs release in seconds.
+func SelfDrainNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		var body SelfDrainRequest
+		if c.Request().ContentLength != 0 {
+			if err := c.Bind(&body); err != nil {
+				return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "invalid request body"))
+			}
+		}
+		return drainNode(c, registry, nil, body)
+	}
+}
+
+func drainNode(c echo.Context, registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, self SelfDrainRequest) error {
+	ctx := c.Request().Context()
+	id := c.Param("id")
+	opts := nodes.DrainOptions{Force: c.QueryParam("force") == "true"}
+	if t := c.QueryParam("timeout"); t != "" {
+		d, err := time.ParseDuration(t)
+		if err != nil || d <= 0 {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "timeout must be a positive duration such as 10m"))
+		}
+		opts.Timeout = d
+	}
+	// Loads that run on the node are cancelled: a load must not land on a
+	// node that leaves. A replica that serves is not touched here.
+	cancelNodeLoads(ctx, registry, unloader, id)
+	if self.LoadsEnded {
+		// The worker stopped every load and saw the processes exit, which is
+		// the acknowledgement the stop window waits for.
+		if n, err := registry.ConfirmNodeLoadOps(ctx, id); err != nil {
+			xlog.Warn("Failed to release the loads of a worker that shuts down", "node", id, "error", err)
+		} else if n > 0 {
+			xlog.Info("Released the loads of a worker that shuts down", "node", id, "loads", n)
+		}
+	}
+	res, err := registry.DrainNode(ctx, id, opts)
+	if err != nil {
+		if errors.Is(err, nodes.ErrNodeNotFound) {
+			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+		}
+		if errors.Is(err, nodes.ErrNodeStatusConflict) {
+			return c.JSON(http.StatusConflict, nodeError(http.StatusConflict, "a pending node cannot drain"))
+		}
+		xlog.Error("Failed to drain node", "id", id, "error", err)
+		return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to drain node"))
+	}
+	if self.Shutdown {
+		xlog.Info("Worker is shutting down; its node drains", "node", id, "immediate", res.Immediate)
+	}
+	out := DrainNodeResponse{
+		Message:       "node set to draining",
+		Status:        nodes.StatusDraining,
+		Immediate:     res.Immediate,
+		DrainDeadline: res.Deadline,
+	}
+	if node, err := registry.GetWithExtras(ctx, id); err == nil {
+		out.LeavingReplicas = node.LeavingReplicas
+	}
+	return c.JSON(http.StatusOK, out)
+}
+
+// ResumeNodeEndpoint sets a draining node back to healthy status and cancels
+// its drain: replicas still on it stay and count again.
+// @Summary Resume a draining node
+// @Tags Nodes
+// @Param id path string true "Node ID"
+// @Success 200 {object} map[string]string
+// @Failure 404 {object} map[string]any
+// @Failure 409 {object} map[string]any
+// @Router /api/nodes/{id}/resume [post]
 func ResumeNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()

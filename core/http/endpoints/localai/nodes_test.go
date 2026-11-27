@@ -590,6 +590,114 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(request(DrainNodeEndpoint(registry, nil), "missing").Code).To(Equal(http.StatusNotFound))
 			Expect(request(ResumeNodeEndpoint(registry), "missing").Code).To(Equal(http.StatusNotFound))
 		})
+
+		drainWith := func(handler echo.HandlerFunc, id, query, body string) (*httptest.ResponseRecorder, DrainNodeResponse) {
+			e := echo.New()
+			var req *http.Request
+			if body != "" {
+				req = httptest.NewRequest(http.MethodPost, "/api/nodes/"+id+"/drain"+query, strings.NewReader(body))
+				req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			} else {
+				req = httptest.NewRequest(http.MethodPost, "/api/nodes/"+id+"/drain"+query, nil)
+			}
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetParamNames("id")
+			c.SetParamValues(id)
+			Expect(handler(c)).To(Succeed())
+			var out DrainNodeResponse
+			if rec.Code == http.StatusOK {
+				Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed())
+			}
+			return rec, out
+		}
+
+		It("keeps the replicas of a drained node and reports the drain", func() {
+			ctx := context.Background()
+			Expect(registry.Register(ctx, &nodes.BackendNode{ID: "keep", Name: "keep", Address: "10.0.0.12:50051"}, true)).To(Succeed())
+			Expect(registry.SetNodeModel(ctx, "keep", "m", 0, "loaded", "10.0.0.12:6000", 0)).To(Succeed())
+
+			rec, out := drainWith(DrainNodeEndpoint(registry, nil), "keep", "?timeout=15m", "")
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(out.Status).To(Equal(nodes.StatusDraining))
+			Expect(out.Immediate).To(BeFalse())
+			Expect(out.LeavingReplicas).To(Equal(1))
+			Expect(out.DrainDeadline).ToNot(BeNil())
+			Expect(*out.DrainDeadline).To(BeTemporally("~", time.Now().Add(15*time.Minute), 10*time.Second))
+
+			models, err := registry.GetNodeModels(ctx, "keep")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(models).To(HaveLen(1))
+
+			node, err := registry.GetWithExtras(ctx, "keep")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.LeavingReplicas).To(Equal(1))
+		})
+
+		It("removes the replicas at once with force=true", func() {
+			ctx := context.Background()
+			Expect(registry.Register(ctx, &nodes.BackendNode{ID: "forced", Name: "forced", Address: "10.0.0.13:50051"}, true)).To(Succeed())
+			Expect(registry.SetNodeModel(ctx, "forced", "m", 0, "loaded", "10.0.0.13:6000", 0)).To(Succeed())
+
+			rec, out := drainWith(DrainNodeEndpoint(registry, nil), "forced", "?force=true", "")
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(out.Immediate).To(BeTrue())
+			Expect(out.LeavingReplicas).To(BeZero())
+			models, err := registry.GetNodeModels(ctx, "forced")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(models).To(BeEmpty())
+		})
+
+		It("drains an unhealthy node at once instead of refusing it", func() {
+			ctx := context.Background()
+			Expect(registry.Register(ctx, &nodes.BackendNode{ID: "sick", Name: "sick", Address: "10.0.0.14:50051"}, true)).To(Succeed())
+			Expect(registry.SetNodeModel(ctx, "sick", "m", 0, "loaded", "10.0.0.14:6000", 0)).To(Succeed())
+			Expect(registry.MarkUnhealthy(ctx, "sick")).To(Succeed())
+
+			rec, out := drainWith(DrainNodeEndpoint(registry, nil), "sick", "", "")
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(out.Immediate).To(BeTrue())
+			models, err := registry.GetNodeModels(ctx, "sick")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(models).To(BeEmpty())
+		})
+
+		It("rejects a timeout it cannot parse", func() {
+			Expect(registry.Register(context.Background(), &nodes.BackendNode{ID: "badtimeout", Name: "badtimeout", Address: "10.0.0.15:50051"}, true)).To(Succeed())
+			rec, _ := drainWith(DrainNodeEndpoint(registry, nil), "badtimeout", "?timeout=soon", "")
+			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		})
+
+		It("releases the loads of a worker that shuts down and reports them ended", func() {
+			ctx := context.Background()
+			Expect(registry.Register(ctx, &nodes.BackendNode{ID: "stopping", Name: "stopping", Address: "10.0.0.16:50051"}, true)).To(Succeed())
+			job, claimed, err := registry.ClaimLoadJobOn(ctx, "big-model", "stopping", "frontend-a")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(claimed).To(BeTrue())
+
+			rec, _ := drainWith(SelfDrainNodeEndpoint(registry), "stopping", "", `{"shutdown":true,"loads_ended":true}`)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			got, err := registry.GetLoadJobByRef(ctx, job.Ref())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got.State).To(Equal(nodes.LoadJobStateFailed))
+			Expect(got.OpConfirmed).To(BeTrue(), "the worker vouched that the load ended: no stop window")
+			Expect(got.StopDeadline).ToNot(BeNil())
+			Expect(*got.StopDeadline).To(BeTemporally("<", time.Now().Add(30*time.Second)))
+		})
+
+		It("keeps the stop window when a worker drains without vouching for its loads", func() {
+			ctx := context.Background()
+			Expect(registry.Register(ctx, &nodes.BackendNode{ID: "selfdrain", Name: "selfdrain", Address: "10.0.0.17:50051"}, true)).To(Succeed())
+			job, _, err := registry.ClaimLoadJobOn(ctx, "big-model", "selfdrain", "frontend-a")
+			Expect(err).ToNot(HaveOccurred())
+
+			rec, _ := drainWith(SelfDrainNodeEndpoint(registry), "selfdrain", "", "")
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			got, err := registry.GetLoadJobByRef(ctx, job.Ref())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got.OpConfirmed).To(BeFalse())
+		})
 	})
 
 	Describe("GetNodeModelsEndpoint", func() {

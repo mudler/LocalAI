@@ -94,7 +94,7 @@ type DistributedConfig struct {
 	MCPToolTimeout          time.Duration // MCP tool execution timeout (default 360s)
 	MCPDiscoveryTimeout     time.Duration // MCP discovery timeout (default 60s)
 	WorkerWaitTimeout       time.Duration // Max wait for healthy worker at startup (default 5m)
-	DrainTimeout            time.Duration // Time to wait for in-flight requests during drain (default 30s)
+	DrainTimeout            time.Duration // Deadline of a node drain before the replicas left on the node are removed (default 10m)
 	HealthCheckInterval     time.Duration // Health monitor check interval (default 15s)
 	StaleNodeThreshold      time.Duration // Time before a node is considered stale (default 5m)
 	NodeHeartbeatCheckpoint time.Duration // Minimum gap between durable heartbeat writes (default 60s, 0 = every beat)
@@ -443,6 +443,13 @@ func WithStaleNodeThreshold(d time.Duration) AppOption {
 	}
 }
 
+// WithDrainTimeout sets the default deadline of a node drain.
+func WithDrainTimeout(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.DrainTimeout = d
+	}
+}
+
 // WithNodeHeartbeatCheckpoint bounds durable heartbeat writes. A zero d is
 // deliberately not special-cased into "unbounded": NodeHeartbeatCheckpointOrDefault
 // reads zero as unset, and an operator who wants a write per beat sets a value
@@ -570,7 +577,9 @@ const (
 	DefaultMCPToolTimeout      = 360 * time.Second
 	DefaultMCPDiscoveryTimeout = 60 * time.Second
 	DefaultWorkerWaitTimeout   = 5 * time.Minute
-	DefaultDrainTimeout        = 30 * time.Second
+	// DefaultDrainTimeout is the deadline of a node drain. It matches
+	// nodes.DefaultDrainTimeout.
+	DefaultDrainTimeout        = 10 * time.Minute
 	DefaultHealthCheckInterval = 15 * time.Second
 	// A beat that only refreshes the timestamp is now dropped until the
 	// checkpoint interval elapses, so the persisted column is up to one
@@ -675,7 +684,7 @@ func (c DistributedConfig) WorkerWaitTimeoutOrDefault() time.Duration {
 	return cmp.Or(c.WorkerWaitTimeout, DefaultWorkerWaitTimeout)
 }
 
-// DrainTimeoutOrDefault returns the configured timeout or the default.
+// DrainTimeoutOrDefault returns the configured drain deadline or the default.
 func (c DistributedConfig) DrainTimeoutOrDefault() time.Duration {
 	return cmp.Or(c.DrainTimeout, DefaultDrainTimeout)
 }

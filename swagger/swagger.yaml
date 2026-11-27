@@ -3852,6 +3852,28 @@ definitions:
           $ref: '#/definitions/localai.ReplicaView'
         type: array
     type: object
+  localai.DrainNodeResponse:
+    properties:
+      drain_deadline:
+        description: |-
+          DrainDeadline is when the replicas still on the node are removed even
+          if no replacement loaded. Absent for an immediate drain.
+        type: string
+      immediate:
+        description: |-
+          Immediate is true when the replicas were removed at once: the drain was
+          forced, or the node was not reachable.
+        type: boolean
+      leaving_replicas:
+        description: LeavingReplicas is the number of loaded replicas still on the
+          node.
+        type: integer
+      message:
+        type: string
+      status:
+        description: 'Status is the status of the node after the request: draining.'
+        type: string
+    type: object
   localai.EngineCommandPreviewRequest:
     properties:
       config:
@@ -31068,6 +31090,41 @@ paths:
       summary: Issue a motion WebSocket ticket (30 seconds, single use)
       tags:
       - motion
+  /api/nodes/{id}/drain:
+    post:
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Remove the node's replicas at once instead of waiting for replacements
+        in: query
+        name: force
+        type: boolean
+      - description: 'Drain deadline as a Go duration (default: the --drain-timeout
+          setting, 10m)'
+        in: query
+        name: timeout
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.DrainNodeResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Drain a node
+      tags:
+      - Nodes
   /api/nodes/{id}/limits:
     delete:
       parameters:
@@ -31198,6 +31255,34 @@ paths:
             additionalProperties: true
             type: object
       summary: Update a node's max replicas per model
+      tags:
+      - Nodes
+  /api/nodes/{id}/resume:
+    post:
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Resume a draining node
       tags:
       - Nodes
   /api/nodes/{id}/split-server:
