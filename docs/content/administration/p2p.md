@@ -301,9 +301,12 @@ or 60 from all peers in a minute, it answers 429.
 While an invite is pending, a machine that is not paired may connect, but it may
 call only the redeem route. Every other request gets 403.
 
-The routes route has the lists of an invite link without the code and the pass:
-the direct addresses (public ones, then local network ones), the gated relays,
-and up to two public relays for hole punching (`hints`). A paired device asks
+The routes route has the lists of an invite link minted now with `"relays":
+"auto"`, without the code and the pass: the direct addresses (public ones, then
+local network ones), every gated relay of this server, also when the invite of
+the device named fewer or none, and up to two public relays for hole punching
+(`hints`). The local network addresses are left out when the invite of the
+device was created with `"omit_lan_addrs": true`. A paired device asks
 for them while it is connected, so it still finds this server after a relay
 reservation moves or an address changes. The Android app and the desktop
 launcher (through `local-ai p2p forward`) ask when a connection opens and every

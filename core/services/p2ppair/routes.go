@@ -23,16 +23,40 @@ type Routes struct {
 	Hints []peer.AddrInfo
 }
 
-// Routes returns the current routes to the server. They reveal nothing a
-// paired device did not get in its invite, except the changes since.
-func (s *Service) Routes(ctx context.Context) (Routes, error) {
+// Routes returns the current routes to the server for the device of peer p.
+// They are those of a link minted now with relays "auto": the direct
+// addresses, every gated relay the server knows and the hints. That is more
+// than the device's invite named when the invite chose its relays or named
+// none: the server's gated relays are not secret from a paired device. The
+// local network addresses are left out when the invite of the device left
+// them out (MintRequest.OmitLANAddrs).
+func (s *Service) Routes(ctx context.Context, p peer.ID) (Routes, error) {
+	omitLAN, err := s.omitsLANAddrs(ctx, p)
+	if err != nil {
+		return Routes{}, err
+	}
 	relays, err := s.selectRelays(ctx, MintRequest{Relays: RelayAuto})
 	if err != nil {
 		return Routes{}, err
 	}
 	var r Routes
-	r.Addrs, _ = s.directAddrs(false)
+	r.Addrs, _ = s.directAddrs(omitLAN)
 	r.Relays, _ = relayInfos(relays)
 	r.Hints = s.relayHints(ctx, r.Relays)
 	return r, nil
+}
+
+// omitsLANAddrs reports whether the active device of p was paired with an
+// invite that left the local network addresses out.
+func (s *Service) omitsLANAddrs(ctx context.Context, p peer.ID) (bool, error) {
+	devs, err := s.st.ListDevices(ctx)
+	if err != nil {
+		return false, err
+	}
+	for _, d := range devs {
+		if d.PeerID == p.String() && d.Status() == DeviceActive {
+			return d.OmitLANAddrs, nil
+		}
+	}
+	return false, nil
 }

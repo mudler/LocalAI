@@ -386,7 +386,7 @@ func serviceSpecs(newStore func() p2ppair.Store) {
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				r, err := svc.Routes(ctx)
+				r, err := svc.Routes(ctx, newPeer())
 				Expect(err).NotTo(HaveOccurred())
 				Expect(r.Addrs).To(Equal([]ma.Multiaddr{addrs[0], lan}))
 				var relayIDs []peer.ID
@@ -399,10 +399,33 @@ func serviceSpecs(newStore func() p2ppair.Store) {
 				Expect(reg.registers).To(BeEmpty(), "no pass is registered")
 			})
 
+			It("leaves out the local network addresses when the invite of the device left them out", func() {
+				lan, err := ma.NewMultiaddr("/ip4/192.168.1.5/tcp/4001")
+				Expect(err).NotTo(HaveOccurred())
+				svc, err = p2ppair.NewService(newStore(), p2ppair.Config{
+					ServerPeer: server, Addrs: func() []ma.Multiaddr { return addrs },
+					LANAddrs: func() []ma.Multiaddr { return []ma.Multiaddr{lan} },
+					Relays:   relays, Registrar: reg, Issuer: iss, Now: clk.Now,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				private, plain := newPeer(), newPeer()
+				_, err = redeem(mint(p2ppair.MintRequest{OmitLANAddrs: true}), private)
+				Expect(err).NotTo(HaveOccurred())
+				_, err = redeem(mint(p2ppair.MintRequest{}), plain)
+				Expect(err).NotTo(HaveOccurred())
+
+				r, err := svc.Routes(ctx, private)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(r.Addrs).To(Equal([]ma.Multiaddr{addrs[0]}))
+				r, err = svc.Routes(ctx, plain)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(r.Addrs).To(Equal([]ma.Multiaddr{addrs[0], lan}))
+			})
+
 			It("is empty when the server has no route to give", func() {
 				s, err := p2ppair.NewService(newStore(), p2ppair.Config{ServerPeer: server})
 				Expect(err).NotTo(HaveOccurred())
-				r, err := s.Routes(ctx)
+				r, err := s.Routes(ctx, newPeer())
 				Expect(err).NotTo(HaveOccurred())
 				Expect(r.Addrs).To(BeEmpty())
 				Expect(r.Relays).To(BeEmpty())

@@ -499,7 +499,7 @@ func RedeemEndpoint(svc Service) echo.HandlerFunc {
 // did not arrive over P2P gets 404.
 //
 //	@Summary	Current routes to this server (over P2P only)
-//	@Description	Served only on the P2P protocol /localai/http/1, and only to a paired device; the normal HTTP listener answers 404 and a peer that is not paired gets 403. The answer has the lists of an invite link without the code and the pass: the direct addresses, the gated relays and up to two public relay hints. A device calls it while connected and stores the lists in place of the ones of its invite.
+//	@Description	Served only on the P2P protocol /localai/http/1, and only to a paired device; the normal HTTP listener answers 404 and a peer that is not paired gets 403. The answer has the lists of an invite link minted now with relays auto, without the code and the pass: the direct addresses, every gated relay of the server and up to two public relay hints. The local network addresses are left out when the invite of the device set omit_lan_addrs. A device calls it while connected and stores the lists in place of the ones of its invite.
 //	@Tags		p2p
 //	@Produce	json
 //	@Success	200	{object}	Routes

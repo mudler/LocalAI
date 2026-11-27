@@ -488,7 +488,7 @@ func (s p2pService) Routes(ctx context.Context, from string) (p2papi.Routes, err
 	if !rt.paired(p) {
 		return p2papi.Routes{}, fmt.Errorf("%w: this peer is not paired", p2papi.ErrForbidden)
 	}
-	r, err := rt.pair.Routes(ctx)
+	r, err := rt.pair.Routes(ctx, p)
 	if err != nil {
 		return p2papi.Routes{}, err
 	}

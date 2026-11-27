@@ -67,14 +67,18 @@ type Invite struct {
 	RelayIDs []string `json:"relay_ids,omitempty"`
 	// PassRelayID is the relay where a pass for this invite was registered;
 	// empty when no pass was registered.
-	PassRelayID string     `json:"pass_relay_id,omitempty"`
-	ExpiresAt   time.Time  `json:"expires_at"`
-	UsedAt      *time.Time `json:"used_at,omitempty"`
-	UsedByPeer  string     `json:"used_by_peer,omitempty"`
-	DeviceID    string     `json:"device_id,omitempty"`
-	CreatedBy   string     `json:"created_by"`
-	CanceledAt  *time.Time `json:"canceled_at,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
+	PassRelayID string `json:"pass_relay_id,omitempty"`
+	// OmitLANAddrs is the choice of the invite to keep the local network
+	// addresses of the server out of the link. The device that redeems the
+	// invite keeps it, so that its routes leave them out too.
+	OmitLANAddrs bool       `json:"omit_lan_addrs,omitempty"`
+	ExpiresAt    time.Time  `json:"expires_at"`
+	UsedAt       *time.Time `json:"used_at,omitempty"`
+	UsedByPeer   string     `json:"used_by_peer,omitempty"`
+	DeviceID     string     `json:"device_id,omitempty"`
+	CreatedBy    string     `json:"created_by"`
+	CanceledAt   *time.Time `json:"canceled_at,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
 }
 
 // Status returns the state of the invite at now.
@@ -131,6 +135,9 @@ type Device struct {
 	// example because its node stopped being a split server. Attaching the
 	// device clears it.
 	NodeNote string `json:"node_note,omitempty"`
+	// OmitLANAddrs is OmitLANAddrs of the invite of the device: the routes
+	// of the device leave out the local network addresses of the server.
+	OmitLANAddrs bool `json:"omit_lan_addrs,omitempty"`
 }
 
 // NodeLabel is the scope label of a split invite that names the backend node

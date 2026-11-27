@@ -22,13 +22,15 @@ type inviteRow struct {
 	Scope       string `gorm:"type:text"`
 	RelayIDs    string `gorm:"type:text"`
 	PassRelayID string `gorm:"size:64"`
-	ExpiresAt   time.Time
-	UsedAt      *time.Time
-	UsedByPeer  string `gorm:"size:128"`
-	DeviceID    string `gorm:"size:64"`
-	CreatedBy   string `gorm:"size:64"`
-	CanceledAt  *time.Time
-	CreatedAt   time.Time
+	// OmitLANAddrs is the invite's choice to leave LAN addresses out.
+	OmitLANAddrs bool `gorm:"not null;default:false"`
+	ExpiresAt    time.Time
+	UsedAt       *time.Time
+	UsedByPeer   string `gorm:"size:128"`
+	DeviceID     string `gorm:"size:64"`
+	CreatedBy    string `gorm:"size:64"`
+	CanceledAt   *time.Time
+	CreatedAt    time.Time
 }
 
 // TableName is the table of the invites.
@@ -56,6 +58,8 @@ type deviceRow struct {
 	NodeID string `gorm:"size:64"`
 	// NodeNote is why a split device was detached from its node.
 	NodeNote string `gorm:"size:255"`
+	// OmitLANAddrs comes from the invite: the routes leave LAN addresses out.
+	OmitLANAddrs bool `gorm:"not null;default:false"`
 }
 
 // TableName is the table of the devices.
@@ -103,7 +107,7 @@ func (r inviteRow) invite() Invite {
 		ID: r.ID, OwnerID: r.OwnerID, Kind: Kind(r.Kind), Label: r.Label,
 		PassRelayID: r.PassRelayID, ExpiresAt: r.ExpiresAt, UsedAt: r.UsedAt,
 		UsedByPeer: r.UsedByPeer, DeviceID: r.DeviceID, CreatedBy: r.CreatedBy,
-		CanceledAt: r.CanceledAt, CreatedAt: r.CreatedAt,
+		CanceledAt: r.CanceledAt, CreatedAt: r.CreatedAt, OmitLANAddrs: r.OmitLANAddrs,
 	}
 	_ = json.Unmarshal([]byte(r.Scope), &inv.Scope)
 	_ = json.Unmarshal([]byte(r.RelayIDs), &inv.RelayIDs)
@@ -116,7 +120,7 @@ func (r deviceRow) device() Device {
 		PeerID: r.PeerID, ClientKeyID: r.ClientKeyID, InviteID: r.InviteID,
 		CreatedAt: r.CreatedAt, LastSeenAt: r.LastSeenAt, LastPath: r.LastPath,
 		RevokedAt: r.RevokedAt, RevokedBy: r.RevokedBy, AllowSlowPath: r.AllowSlowPath,
-		NodeID: r.NodeID, NodeNote: r.NodeNote,
+		NodeID: r.NodeID, NodeNote: r.NodeNote, OmitLANAddrs: r.OmitLANAddrs,
 	}
 	_ = json.Unmarshal([]byte(r.Scope), &d.Scope)
 	return d
@@ -129,6 +133,7 @@ func deviceToRow(d Device) deviceRow {
 		Scope: marshalJSON(d.Scope), CreatedAt: d.CreatedAt, LastSeenAt: d.LastSeenAt,
 		LastPath: d.LastPath, RevokedAt: d.RevokedAt, RevokedBy: d.RevokedBy,
 		AllowSlowPath: d.AllowSlowPath, NodeID: d.NodeID, NodeNote: d.NodeNote,
+		OmitLANAddrs: d.OmitLANAddrs,
 	}
 }
 
@@ -136,7 +141,7 @@ func (s *gormStore) CreateInvite(ctx context.Context, inv Invite, code string) e
 	row := inviteRow{
 		ID: inv.ID, OwnerID: inv.OwnerID, Kind: string(inv.Kind), Label: inv.Label,
 		CodeHash: hashCode(code, s.secret), Scope: marshalJSON(inv.Scope),
-		RelayIDs: marshalJSON(inv.RelayIDs), PassRelayID: inv.PassRelayID,
+		RelayIDs: marshalJSON(inv.RelayIDs), PassRelayID: inv.PassRelayID, OmitLANAddrs: inv.OmitLANAddrs,
 		ExpiresAt: inv.ExpiresAt.UTC(), CreatedBy: inv.CreatedBy, CreatedAt: inv.CreatedAt.UTC(),
 	}
 	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
@@ -222,7 +227,7 @@ func (s *gormStore) Redeem(ctx context.Context, p RedeemParams) (Invite, Device,
 		dev = Device{
 			ID: p.DeviceID, OwnerID: inv.OwnerID, Kind: inv.Kind, Label: label,
 			PeerID: p.Peer.String(), InviteID: inv.ID, Scope: inv.Scope, CreatedAt: now,
-			NodeID: inv.Scope.Labels[NodeLabel],
+			NodeID: inv.Scope.Labels[NodeLabel], OmitLANAddrs: inv.OmitLANAddrs,
 		}
 		var active int64
 		if err := tx.Model(&deviceRow{}).Where("peer_id = ? AND revoked_at IS NULL", dev.PeerID).Count(&active).Error; err != nil {

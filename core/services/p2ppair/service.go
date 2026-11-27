@@ -195,6 +195,7 @@ func (s *Service) Mint(ctx context.Context, req MintRequest) (*Minted, error) {
 	inv := Invite{
 		ID: uuid.NewString(), OwnerID: req.OwnerID, Kind: req.Kind, Label: req.Label,
 		Scope: req.Scope, ExpiresAt: now.Add(ttl).Truncate(time.Second), CreatedBy: req.CreatedBy, CreatedAt: now,
+		OmitLANAddrs: req.OmitLANAddrs,
 	}
 	for _, r := range relays {
 		inv.RelayIDs = append(inv.RelayIDs, r.ID)

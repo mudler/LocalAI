@@ -239,7 +239,7 @@ func (s *jsonStore) Redeem(ctx context.Context, p RedeemParams) (Invite, Device,
 	dev := Device{
 		ID: p.DeviceID, OwnerID: found.OwnerID, Kind: found.Kind, Label: label,
 		PeerID: p.Peer.String(), InviteID: found.ID, Scope: found.Scope, CreatedAt: now,
-		NodeID: found.Scope.Labels[NodeLabel],
+		NodeID: found.Scope.Labels[NodeLabel], OmitLANAddrs: found.OmitLANAddrs,
 	}
 	if p.Issue != nil {
 		keyID, err := p.Issue(ctx, Tx{}, found.Invite, dev)
