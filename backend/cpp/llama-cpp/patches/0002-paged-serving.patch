@@ -84,7 +84,19 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
          other.init_sampler();
      }
  };
-@@ -1941,6 +1967,277 @@ private:
+@@ -1558,6 +1584,11 @@ private:
+ 
+         if (ctx_dft) {
+             ctx_dft_seq_rm_type = common_context_can_seq_rm(ctx_dft);
++            // LocalAI paged serving: the draft must hold every cell the target pool can hand out
++            if (params_base.paged_serving && llama_n_ctx(ctx_dft) < llama_n_ctx(ctx_tgt)) {
++                SRV_WRN("paged serving: the draft context (%u) is smaller than the target context (%u), the draft fills up first\n",
++                        llama_n_ctx(ctx_dft), llama_n_ctx(ctx_tgt));
++            }
+         }
+ 
+         if (spec) {
+@@ -1941,6 +1972,279 @@ private:
          return res;
      }
  
@@ -176,7 +188,9 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +
 +    // a slot whose state is only its text tokens and its sampler can be rebuilt by decoding them again
 +    bool paged_resumable(const server_slot & slot) const {
-+        return slot.task->type == SERVER_TASK_TYPE_COMPLETION && (!slot.can_speculate() || !ctx_dft) && !slot.task->tokens.has_mtmd &&
++        // a draft model or MTP head is rebuilt too: the recompute batches go through
++        // common_speculative_process() like any other target batch
++        return slot.task->type == SERVER_TASK_TYPE_COMPLETION && !slot.task->tokens.has_mtmd &&
 +               !slot.prompt.tokens.has_mtmd && !slot.task->is_parent() && !slot.task->is_child() &&
 +               slot.task->n_tokens_shared == 0 && slot.inp_embd.empty() && !lora_all_alora(slot.lora) &&
 +               // recurrent and hybrid memory: the full removal of prompt_clear() works, and the
@@ -353,7 +367,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 +            slot.paged_resume.clear();
 +            slot.state = SLOT_STATE_GENERATING;
 +            if (slot.can_speculate()) {
-+                // n-gram drafting keeps no model state: rebuild its tables from the tokens
++                // n-gram tables are rebuilt from the tokens; the draft KV was rebuilt by the recompute
 +                common_speculative_begin(spec.get(), slot.id, slot.prompt.tokens.get_text_tokens());
 +            }
 +        }
@@ -362,7 +376,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
      std::vector<common_adapter_lora_info> construct_lora_list(const std::map<int, float> & config) const {
          std::vector<common_adapter_lora_info> output = params_base.lora_adapters; // copy
          for (size_t i = 0; i < output.size(); ++i) {
-@@ -3299,7 +3596,15 @@ private:
+@@ -3299,7 +3603,15 @@ private:
  
                      // the task is not deferred past this point
                      if (plan.update_cache && prompt_cache) {
@@ -379,7 +393,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      }
  
                      if (task.is_parent()) {
-@@ -4071,6 +4376,24 @@ private:
+@@ -4071,6 +4383,24 @@ private:
          // start populating the batch for this iteration
          batch.clear();
  
@@ -404,7 +418,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
          // track if given slot can be batched with slots already in the batch
          auto & slot_batched = batch.slot_batched;
  
-@@ -4102,7 +4425,7 @@ private:
+@@ -4102,7 +4432,7 @@ private:
                  const bool use_ckpt_tgt = ctx_tgt_seq_rm_type == COMMON_CONTEXT_SEQ_RM_TYPE_FULL;
                  const bool use_ckpt_dft = ctx_dft_seq_rm_type == COMMON_CONTEXT_SEQ_RM_TYPE_FULL;
  
@@ -413,7 +427,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
  
                  if (n_draft_max > 0) {
                      GGML_ASSERT(slot.can_speculate());
-@@ -4216,12 +4539,17 @@ private:
+@@ -4216,12 +4546,17 @@ private:
          auto & alora_scale       = batch.alora_scale;
          auto & alora_disabled_id = batch.alora_disabled_id;
  
@@ -432,7 +446,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      return; // batch is full, skip remaining slots
                  }
  
-@@ -4248,6 +4576,19 @@ private:
+@@ -4248,6 +4583,19 @@ private:
  
                  // this slot still has a prompt to be processed
                  if (slot.state == SLOT_STATE_PROCESSING_PROMPT || slot.state == SLOT_STATE_STARTED) {
@@ -452,7 +466,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                      const auto & input_tokens = slot.task->tokens;
  
                      // used to determine the number of tokens added to the batch for the current slot
-@@ -4436,6 +4777,12 @@ private:
+@@ -4436,6 +4784,12 @@ private:
                                  n_past = 0;
                              }
  
@@ -465,7 +479,7 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
                              llama_pos pos_next = slot.prompt.tokens.pos_next(n_past);
  
                              // number of cached tokens shared with the new prompt, before any checkpoint is restored
-@@ -4694,7 +5041,8 @@ private:
+@@ -4694,7 +5048,8 @@ private:
                      const int32_t n_decision_first = slot.task->type == SERVER_TASK_TYPE_DECISION ? slot.task->decision.pos_first() : -1;
  
                      // add prompt tokens for processing in the current batch

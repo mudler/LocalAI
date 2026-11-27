@@ -60,8 +60,11 @@ Line numbers drift with every bump. Find each hook by the grep anchor.
 | H10 | `paged_fill_order`, `fill_slot` | With `paged_order`, the prompt fill visits waiting and prefilling slots by the same key, parents before children; `paged_admit` uses the key instead of the task id. `prefill_cap` limits one request's prompt tokens per step while others read prompts. |
 | H11 | `paged_trim_idle`; `cache_idle_slots()` after a launch | When the pool is short, the least recently used idle slot is saved to the RAM prompt cache once and trimmed from the tail, only as much as needed (at least `paged_min_trim`). With `paged_lazy_save`, the save-and-clear of idle slots after each launch is skipped. |
 
-A slot that cannot be resumed (a draft model or MTP, a multimodal
-prompt, a score parent or child, aLoRA) is
+Draft models and MTP resume too: the recompute batches go through
+`common_speculative_process()` like any target batch, so the draft KV is
+rebuilt with the target's; at load a draft context smaller than the target
+context is logged, as the draft would fill up first. A slot that cannot be
+resumed (a multimodal prompt, a score parent or child, aLoRA) is
 preempted only when no resumable slot is left. It fails with the retryable
 error "KV pool full, preempted; retry the request" (HTTP 503 class). Each
 such abort logs `aborts = N`; each recompute logs `preemptions = N`; each
@@ -144,8 +147,9 @@ follow-up.
 
 ## Known limits
 
-- Draft-model speculative decoding and MTP are not resumable (n-gram
-  drafting is). Multimodal prompts, score forks and aLoRA are not resumable.
+- Multimodal prompts, score forks and aLoRA are not resumable: the resume
+  buffer keeps text tokens only. A RAM stash of the sequence state would
+  cover them; it is not part of this change.
   Admission and the prefill budget work for them; preemption aborts them only
   as a last resort.
 - Shared cells are counted once only for prompt copies between slots
