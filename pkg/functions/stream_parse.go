@@ -120,12 +120,34 @@ func (o *StreamOutput) MayHoldPartialToolCall(config FunctionsConfig) bool {
 // MayHoldFunctionCall reports whether CleanupLLMResult followed by
 // ParseFunctionCall can find a tool call in the output. It answers yes for
 // every config that can match text without a '<', '{' or '[': replacement
-// rules, response regexes, JSON match regexes, a custom XML format and the
-// markers a backend detected.
+// rules, response regexes, JSON match regexes, a custom XML format, and
+// backend markers that can match without one (markersMatchWithoutTrigger).
 func (o *StreamOutput) MayHoldFunctionCall(config FunctionsConfig) bool {
 	return o.MayHoldPartialToolCall(config) ||
 		len(config.ReplaceFunctionResults) > 0 ||
 		len(config.ResponseRegex) > 0 ||
 		len(config.JSONRegexMatch) > 0 ||
-		config.ToolFormatMarkers != nil
+		markersMatchWithoutTrigger(config.ToolFormatMarkers)
+}
+
+// markersMatchWithoutTrigger reports whether the parser built from a
+// backend's tool-format markers can find a call in output that has no '<',
+// '{' or '['. A call needs its start marker (the section, per-call or
+// function-name prefix), and a JSON call needs an object, so it can only when
+// a start marker lacks those bytes, or a tag format has no start marker.
+func markersMatchWithoutTrigger(m *ToolFormatMarkers) bool {
+	if m == nil {
+		return false
+	}
+	hasStart := false
+	for _, start := range []string{m.SectionStart, m.PerCallStart, m.FuncNamePrefix} {
+		if start == "" {
+			continue
+		}
+		hasStart = true
+		if !strings.ContainsAny(start, toolCallTriggers) {
+			return true
+		}
+	}
+	return !hasStart && m.FormatType != "json_native"
 }

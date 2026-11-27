@@ -17,6 +17,7 @@ var _ = Describe("StreamOutput", func() {
 		for _, preset := range getAllXMLFormats() {
 			configs = append(configs, FunctionsConfig{XMLFormatPreset: preset.name})
 		}
+		configs = append(configs, markerConfigs()...)
 		for run := range 400 {
 			cfg := configs[run%len(configs)]
 			var o StreamOutput
@@ -50,9 +51,14 @@ var _ = Describe("StreamOutput", func() {
 			{ResponseRegex: []string{`(?P<name>\w+)`}},
 			{JSONRegexMatch: []string{`(.*)`}},
 			{XMLFormat: &XMLToolCallFormat{ToolStart: "call:"}},
-			{ToolFormatMarkers: &ToolFormatMarkers{}},
+			{ToolFormatMarkers: &ToolFormatMarkers{FormatType: "tag_with_json"}},
+			{ToolFormatMarkers: &ToolFormatMarkers{FormatType: "tag_with_json", FuncNamePrefix: "functions.", FuncNameSuffix: ":"}},
+			{ToolFormatMarkers: &ToolFormatMarkers{FormatType: "json_native", SectionStart: "<tool_call>", FuncNamePrefix: "call "}},
 		} {
 			Expect(o.MayHoldFunctionCall(cfg)).To(BeTrue(), fmt.Sprintf("%+v", cfg))
+		}
+		for _, cfg := range markerConfigs() {
+			Expect(o.MayHoldFunctionCall(cfg)).To(BeFalse(), fmt.Sprintf("%+v", *cfg.ToolFormatMarkers))
 		}
 		Expect(o.MayHoldPartialToolCall(FunctionsConfig{ResponseRegex: []string{`x`}})).To(BeFalse())
 		o.Write(" then {")
@@ -65,7 +71,12 @@ var _ = Describe("StreamOutput", func() {
 // stream did, with the StreamOutput gate, on a prose answer to a request that
 // offered tools.
 func BenchmarkStreamFunctionCallParse(b *testing.B) {
-	cfg := FunctionsConfig{}
+	for name, cfg := range map[string]FunctionsConfig{"default": {}, "markers": markerConfigs()[0]} {
+		b.Run(name, func(b *testing.B) { benchmarkStreamFunctionCallParse(b, cfg) })
+	}
+}
+
+func benchmarkStreamFunctionCallParse(b *testing.B, cfg FunctionsConfig) {
 	tokens := proseTokens(512)
 	b.Run("every-token", func(b *testing.B) {
 		b.ReportAllocs()
@@ -91,4 +102,19 @@ func BenchmarkStreamFunctionCallParse(b *testing.B) {
 		}
 		b.ReportMetric(float64(b.Elapsed().Nanoseconds())/float64(b.N*len(tokens)), "ns/token")
 	})
+}
+
+// markerConfigs are tool-format markers of the kind the llama.cpp autoparser
+// reports, each with a '<', '{' or '[' in every start marker.
+func markerConfigs() []FunctionsConfig {
+	return []FunctionsConfig{
+		{ToolFormatMarkers: &ToolFormatMarkers{FormatType: "json_native", SectionStart: "<tool_call>", SectionEnd: "</tool_call>", NameField: "name", ArgsField: "arguments"}},
+		{ToolFormatMarkers: &ToolFormatMarkers{FormatType: "json_native", SectionStart: "[TOOL_CALLS]", SectionEnd: "</s>"}},
+		{ToolFormatMarkers: &ToolFormatMarkers{FormatType: "tag_with_json", SectionStart: "<|tool_calls_section_begin|>", SectionEnd: "<|tool_calls_section_end|>",
+			PerCallStart: "<|tool_call_begin|>", PerCallEnd: "<|tool_call_end|>", FuncNameSuffix: "<|tool_call_argument_begin|>"}},
+		{ToolFormatMarkers: &ToolFormatMarkers{FormatType: "tag_with_json", FuncNamePrefix: "<function=", FuncNameSuffix: ">", FuncClose: "</function>"}},
+		{ToolFormatMarkers: &ToolFormatMarkers{FormatType: "tag_with_tagged", SectionStart: "<tool_call>", SectionEnd: "</tool_call>",
+			FuncNamePrefix: "<function=", FuncNameSuffix: ">", FuncClose: "</function>",
+			ArgNamePrefix: "<parameter=", ArgNameSuffix: ">", ArgValueSuffix: "</parameter>"}},
+	}
 }
