@@ -229,6 +229,8 @@ type Application struct {
 	studioConnectorsStop  context.CancelFunc
 	bindingCapsStop       context.CancelFunc // stops the one-time permissions migration of the connector bindings
 	bindingCapsDone       chan struct{}      // closed when that migration returned
+	pluginsStop           context.CancelFunc // stops the refresh loop of the Plugins service
+	pluginsDone           chan struct{}      // closed when that loop returned
 	studioProvider        *provider.Provider
 	studioService         *studio.Service
 	studioWorkerSub       messaging.Subscription // the chat start subscription of a chat worker; nil otherwise
@@ -813,6 +815,13 @@ func (a *Application) Shutdown() error {
 		if a.bindingCapsStop != nil {
 			a.bindingCapsStop()
 			<-a.bindingCapsDone
+		}
+		// The refresh loop of the plugins fetches into DataPath and writes
+		// the package files: it ends before Shutdown returns, for the same
+		// reason.
+		if a.pluginsStop != nil {
+			a.pluginsStop()
+			<-a.pluginsDone
 		}
 		if a.studioConnectors != nil {
 			a.studioConnectors.Close()

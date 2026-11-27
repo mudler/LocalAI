@@ -144,7 +144,13 @@ func (a *Application) initPlugins() error {
 	if err := svc.Seed(cfg.Context); err != nil {
 		xlog.Warn("plugins: seed the default marketplaces", "error", err)
 	}
-	go svc.Run(cfg.Context)
+	ctx, cancel := context.WithCancel(cfg.Context)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		svc.Run(ctx)
+	}()
+	a.pluginsStop, a.pluginsDone = cancel, done
 	a.pluginsService.Store(svc)
 	return nil
 }
