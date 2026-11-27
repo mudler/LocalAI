@@ -91,8 +91,11 @@ const (
 	ToolSetP2PSplitSlowPath   = "set_p2p_split_slow_path"
 	ToolSetP2PSplitNode       = "set_p2p_split_node"
 	ToolSetNodeSplitServer    = "set_node_split_server"
-	ToolSetP2PRelayLimits     = "set_p2p_relay_limits"
-	ToolSetP2PUserPairing     = "set_p2p_user_pairing"
+	// ToolDrainNode drains a node or resumes a draining one (an action
+	// parameter).
+	ToolDrainNode         = "drain_node"
+	ToolSetP2PRelayLimits = "set_p2p_relay_limits"
+	ToolSetP2PUserPairing = "set_p2p_user_pairing"
 	// ToolSetCarrierWeights changes the carrier weights of a distributed cluster.
 	ToolSetCarrierWeights = "set_carrier_weights"
 
@@ -176,6 +179,7 @@ var mutatingToolNames = []string{
 	ToolSetP2PSplitSlowPath,
 	ToolSetP2PSplitNode,
 	ToolSetNodeSplitServer,
+	ToolDrainNode,
 	ToolSetP2PRelayLimits,
 	ToolSetP2PUserPairing,
 	ToolSetCarrierWeights,

@@ -294,6 +294,40 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 		})
 	})
 
+	Describe("DrainNode", func() {
+		It("posts drain with force and timeout, and resume", func() {
+			var paths []string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.Method).To(Equal(http.MethodPost))
+				paths = append(paths, r.URL.RequestURI())
+				switch r.URL.Path {
+				case "/api/nodes/n1/drain":
+					_, _ = w.Write([]byte(`{"status":"draining","immediate":false,"drain_deadline":"2030-01-01T00:00:00Z","leaving_replicas":2}`))
+				case "/api/nodes/n1/resume":
+					_, _ = w.Write([]byte(`{"message":"node resumed"}`))
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer srv.Close()
+			c := New(srv.URL, "")
+
+			r, err := c.DrainNode(ctx, localaitools.DrainNodeRequest{NodeID: "n1", Action: "drain", Force: true, Timeout: "5m"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r.Status).To(Equal("draining"))
+			Expect(r.LeavingReplicas).To(Equal(2))
+			Expect(r.DrainDeadline).To(Equal("2030-01-01T00:00:00Z"))
+
+			r, err = c.DrainNode(ctx, localaitools.DrainNodeRequest{NodeID: "n1", Action: "resume"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r.Status).To(Equal("healthy"))
+			Expect(paths).To(Equal([]string{"/api/nodes/n1/drain?force=true&timeout=5m", "/api/nodes/n1/resume"}))
+
+			_, err = c.DrainNode(ctx, localaitools.DrainNodeRequest{NodeID: "n1", Action: "stop"})
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
 	Describe("ListNodes", func() {
 		It("carries the live state of each route of a node", func() {
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

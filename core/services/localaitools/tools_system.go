@@ -61,6 +61,23 @@ func registerSystemTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
+		Name:        ToolDrainNode,
+		Description: "Drain a backend node (action drain) or resume a draining one (action resume). A drain places nothing new on the node; its loaded models keep serving while replacements load on other nodes, and each leaves once replaced, idle and not needed, or at the deadline (timeout). force removes the node's models at once. An unhealthy or offline node drains at once. Resume cancels the drain. Only meaningful in distributed mode. Requires user confirmation per safety rule 1.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args DrainNodeRequest) (*mcp.CallToolResult, any, error) {
+		if args.NodeID == "" {
+			return errorResultf("node_id is required"), nil, nil
+		}
+		if args.Action != DrainActionDrain && args.Action != DrainActionResume {
+			return errorResultf("action must be drain or resume"), nil, nil
+		}
+		r, err := client.DrainNode(ctx, args)
+		if err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(r), nil, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolSetModelMemoryPolicy,
 		Description: "Change Settings > Models in memory: models kept loaded, model swap, eviction order and retries, idle unload, the memory reclaimer and the GPU memory budget. Only the given fields change. In distributed mode the values apply to every frontend and, per node, to every worker. Requires user confirmation per safety rule 1.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args ModelMemoryPolicy) (*mcp.CallToolResult, any, error) {

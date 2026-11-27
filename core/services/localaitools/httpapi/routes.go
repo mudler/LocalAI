@@ -108,6 +108,10 @@ func routeToggleModelPinned(name, action string) string {
 	return fmt.Sprintf("/models/toggle-pinned/%s/%s", url.PathEscape(name), url.PathEscape(action))
 }
 
+func routeNodeDrain(id, action string) string {
+	return "/api/nodes/" + url.PathEscape(id) + "/" + action
+}
+
 func routeNodeSplitServer(id string) string {
 	return "/api/nodes/" + url.PathEscape(id) + "/split-server"
 }

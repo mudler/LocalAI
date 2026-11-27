@@ -17,6 +17,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/backend"
@@ -51,6 +52,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/vram"
+	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 )
 
@@ -1047,6 +1049,55 @@ func (c *Client) DeleteScheduling(ctx context.Context, modelName string) error {
 		return errors.New("model scheduling is only available in distributed mode")
 	}
 	return c.NodeRegistry.DeleteModelScheduling(ctx, modelName)
+}
+
+// DrainNode drains a node or resumes it, as POST /api/nodes/:id/drain and
+// /resume do. The loads that run on the node are cancelled first; their stop
+// is retried by the reconciler, since this client holds no command sender.
+func (c *Client) DrainNode(ctx context.Context, req localaitools.DrainNodeRequest) (*localaitools.NodeDrain, error) {
+	if req.NodeID == "" {
+		return nil, errors.New("node_id is required")
+	}
+	if c.NodeRegistry == nil {
+		return nil, errors.New("draining a node is only available in distributed mode")
+	}
+	out := &localaitools.NodeDrain{NodeID: req.NodeID}
+	switch req.Action {
+	case localaitools.DrainActionResume:
+		if err := c.NodeRegistry.ResumeNode(ctx, req.NodeID); err != nil {
+			return nil, err
+		}
+		out.Status = nodes.StatusHealthy
+		return out, nil
+	case localaitools.DrainActionDrain:
+	default:
+		return nil, errors.New("action must be drain or resume")
+	}
+	opts := nodes.DrainOptions{Force: req.Force}
+	if req.Timeout != "" {
+		d, err := time.ParseDuration(req.Timeout)
+		if err != nil || d <= 0 {
+			return nil, errors.New("timeout must be a positive duration such as 10m")
+		}
+		opts.Timeout = d
+	}
+	cancels := nodes.LoadCancelService{Registry: c.NodeRegistry}
+	if err := cancels.CancelNodeLoads(ctx, req.NodeID); err != nil {
+		xlog.Warn("Failed to cancel the loads placed on a node", "node", req.NodeID, "error", err)
+	}
+	res, err := c.NodeRegistry.DrainNode(ctx, req.NodeID, opts)
+	if err != nil {
+		return nil, err
+	}
+	out.Status = nodes.StatusDraining
+	out.Immediate = res.Immediate
+	if res.Deadline != nil {
+		out.DrainDeadline = res.Deadline.UTC().Format(time.RFC3339)
+	}
+	if n, err := c.NodeRegistry.GetWithExtras(ctx, req.NodeID); err == nil {
+		out.LeavingReplicas = n.LeavingReplicas
+	}
+	return out, nil
 }
 
 func (c *Client) SetNodeSplitServer(ctx context.Context, nodeID string, on bool) (*localaitools.NodeSplitServer, error) {

@@ -371,6 +371,11 @@ func (f *fakeClient) DeleteScheduling(_ context.Context, modelName string) error
 	return nil
 }
 
+func (f *fakeClient) DrainNode(_ context.Context, req DrainNodeRequest) (*NodeDrain, error) {
+	f.record("DrainNode", req)
+	return &NodeDrain{NodeID: req.NodeID, Status: "draining"}, nil
+}
+
 func (f *fakeClient) SetNodeLimits(_ context.Context, req SetNodeLimitsRequest) (*NodeLimits, error) {
 	f.record("SetNodeLimits", req)
 	return &NodeLimits{NodeID: req.NodeID}, nil

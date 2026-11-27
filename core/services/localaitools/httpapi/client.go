@@ -774,6 +774,9 @@ func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 		PeerID      string                        `json:"peer_id"`
 		SplitServer bool                          `json:"split_server"`
 		RouteState  []localaitools.NodeRouteState `json:"route_state"`
+		// The drain of the node, when it drains.
+		DrainDeadline   string `json:"drain_deadline"`
+		LeavingReplicas int    `json:"leaving_replicas"`
 	}
 	if err := c.do(ctx, http.MethodGet, routeNodes, nil, &raw); err != nil {
 		// Treat 404/disabled as "no nodes" to keep parity with single-process.
@@ -785,14 +788,17 @@ func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 	out := make([]localaitools.Node, 0, len(raw))
 	for _, n := range raw {
 		out = append(out, localaitools.Node{
-			ID:          n.ID,
-			Address:     n.Address,
-			HTTPAddress: n.HTTPAddress,
-			Healthy:     n.Status == "healthy",
-			Route:       localaitools.NodeRoute(strings.Split(n.Attached, ","), n.PeerID),
-			PeerID:      n.PeerID,
-			SplitServer: n.SplitServer,
-			Routes:      n.RouteState,
+			ID:              n.ID,
+			Address:         n.Address,
+			HTTPAddress:     n.HTTPAddress,
+			Healthy:         n.Status == "healthy",
+			Route:           localaitools.NodeRoute(strings.Split(n.Attached, ","), n.PeerID),
+			PeerID:          n.PeerID,
+			SplitServer:     n.SplitServer,
+			Routes:          n.RouteState,
+			Status:          n.Status,
+			DrainDeadline:   n.DrainDeadline,
+			LeavingReplicas: n.LeavingReplicas,
 		})
 	}
 	return out, nil
@@ -839,6 +845,48 @@ func (c *Client) DeleteScheduling(ctx context.Context, modelName string) error {
 		return errors.New("model_name is required")
 	}
 	return c.do(ctx, http.MethodDelete, routeModelScheduling(modelName), nil, nil)
+}
+
+// DrainNode sends POST /api/nodes/:id/drain (with force and timeout) or
+// POST /api/nodes/:id/resume.
+func (c *Client) DrainNode(ctx context.Context, req localaitools.DrainNodeRequest) (*localaitools.NodeDrain, error) {
+	if req.NodeID == "" {
+		return nil, errors.New("node_id is required")
+	}
+	out := &localaitools.NodeDrain{NodeID: req.NodeID}
+	switch req.Action {
+	case localaitools.DrainActionResume:
+		if err := c.do(ctx, http.MethodPost, routeNodeDrain(req.NodeID, "resume"), nil, nil); err != nil {
+			return nil, err
+		}
+		out.Status = "healthy"
+		return out, nil
+	case localaitools.DrainActionDrain:
+	default:
+		return nil, errors.New("action must be drain or resume")
+	}
+	q := url.Values{}
+	if req.Force {
+		q.Set("force", "true")
+	}
+	if req.Timeout != "" {
+		q.Set("timeout", req.Timeout)
+	}
+	path := routeNodeDrain(req.NodeID, "drain")
+	if len(q) > 0 {
+		path += "?" + q.Encode()
+	}
+	var raw struct {
+		Status          string `json:"status"`
+		Immediate       bool   `json:"immediate"`
+		DrainDeadline   string `json:"drain_deadline"`
+		LeavingReplicas int    `json:"leaving_replicas"`
+	}
+	if err := c.do(ctx, http.MethodPost, path, nil, &raw); err != nil {
+		return nil, err
+	}
+	out.Status, out.Immediate, out.DrainDeadline, out.LeavingReplicas = raw.Status, raw.Immediate, raw.DrainDeadline, raw.LeavingReplicas
+	return out, nil
 }
 
 func (c *Client) SetNodeSplitServer(ctx context.Context, nodeID string, on bool) (*localaitools.NodeSplitServer, error) {

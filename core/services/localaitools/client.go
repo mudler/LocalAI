@@ -137,6 +137,10 @@ type LocalAIClient interface {
 	// with Reset clears all of them, and returns the effective limits.
 	// Only meaningful in distributed mode.
 	SetNodeLimits(ctx context.Context, req SetNodeLimitsRequest) (*NodeLimits, error)
+	// DrainNode drains a node (action drain) or resumes a draining one
+	// (action resume). A drain keeps the node's replicas serving until
+	// replacements load elsewhere, unless Force.
+	DrainNode(ctx context.Context, req DrainNodeRequest) (*NodeDrain, error)
 	// SetModelMemoryPolicy changes the memory settings (Settings > Models in
 	// memory). In distributed mode they apply to every frontend and node.
 	SetModelMemoryPolicy(ctx context.Context, req ModelMemoryPolicy) error

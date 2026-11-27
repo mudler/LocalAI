@@ -109,6 +109,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolSetP2PSplitSlowPath:      "PATCH /api/p2p/split-workers/:id",
 	ToolSetP2PSplitNode:          "PATCH /api/p2p/split-workers/:id (node_id)",
 	ToolSetNodeSplitServer:       "PUT /api/nodes/:id/split-server",
+	ToolDrainNode:                "POST /api/nodes/:id/drain (action drain), POST /api/nodes/:id/resume (action resume)",
 	ToolSetP2PRelayLimits:        "PUT /api/p2p/relays/:id/limits",
 	ToolSetP2PUserPairing:        "PUT /api/p2p/user-pairing",
 	ToolSetCarrierWeights:        "PUT /api/cluster/settings (carrier_weights)",

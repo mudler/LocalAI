@@ -176,6 +176,13 @@ type Node struct {
 	PeerID string `json:"peer_id,omitempty"`
 	// SplitServer is true when the node may serve model-split workers.
 	SplitServer bool `json:"split_server,omitempty"`
+	// Status is the node status: healthy, unhealthy, offline, draining or
+	// pending.
+	Status string `json:"status,omitempty"`
+	// DrainDeadline and LeavingReplicas describe a drain: when the replicas
+	// left on the node are removed, and how many are still on it.
+	DrainDeadline   string `json:"drain_deadline,omitempty"`
+	LeavingReplicas int    `json:"leaving_replicas,omitempty"`
 	// Routes says, for each route of the node, if it is live: what the health
 	// monitor judges the node by. A node stays healthy while one route that
 	// carries work (nats or tunnel) is live.
@@ -190,6 +197,37 @@ type NodeRouteState struct {
 	Transport string `json:"transport,omitempty"`
 	State     string `json:"state"`
 	Reason    string `json:"reason,omitempty"`
+}
+
+// DrainNodeRequest is the input of drain_node.
+type DrainNodeRequest struct {
+	NodeID string `json:"node_id" jsonschema:"backend node ID from list_nodes"`
+	Action string `json:"action" jsonschema:"drain or resume"`
+	// Force removes the node's replicas at once instead of waiting for
+	// their replacements.
+	Force bool `json:"force,omitempty" jsonschema:"drain only: remove the node's replicas at once instead of waiting until replacements load on other nodes"`
+	// Timeout is the drain deadline as a duration such as 10m. Empty uses
+	// the server default.
+	Timeout string `json:"timeout,omitempty" jsonschema:"drain only: deadline as a duration such as 10m, after which the replicas left on the node are removed; empty uses the server default"`
+}
+
+// The actions of drain_node.
+const (
+	DrainActionDrain  = "drain"
+	DrainActionResume = "resume"
+)
+
+// NodeDrain is the result of drain_node.
+type NodeDrain struct {
+	NodeID string `json:"node_id"`
+	// Status is the node status after the action: draining or healthy.
+	Status string `json:"status"`
+	// Immediate is true when the replicas were removed at once.
+	Immediate bool `json:"immediate,omitempty"`
+	// DrainDeadline is when the replicas left on the node are removed.
+	DrainDeadline string `json:"drain_deadline,omitempty"`
+	// LeavingReplicas is the number of loaded replicas still on the node.
+	LeavingReplicas int `json:"leaving_replicas"`
 }
 
 // NodeSplitServer is the result of set_node_split_server.
