@@ -214,4 +214,14 @@ var _ = Describe("Digest", func() {
 		t4, _ := content.Check(tree(map[string]string{"skills/a/SKILL.md": "b", "bin/x": "+xx"}), content.DefaultLimits())
 		Expect(content.Digest(t4)).NotTo(Equal(content.Digest(t1)))
 	})
+
+	It("differs when the effective manifest differs", func() {
+		t, _ := content.Check(tree(map[string]string{"skills/a/SKILL.md": "a"}), content.DefaultLimits())
+		bare := content.Digest(t)
+		t.Manifest = sum("one")
+		one := content.Digest(t)
+		t.Manifest = sum("two")
+		Expect(one).NotTo(Equal(bare))
+		Expect(content.Digest(t)).NotTo(Equal(one))
+	})
 })

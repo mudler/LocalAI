@@ -347,9 +347,22 @@ digest, so a chat does not learn which user installed what.
 ### 7.2 Content digest
 
 The digest is SHA-256 over the sorted list of lines
-`<path>\0<mode>\0<sha256-of-content>\n`, where `mode` is `0644` or `0755`. Two
-commits with the same plugin files give one package. The source SHA tells where
-the files came from. The digest tells what they are.
+`<path>\0<mode>\0<sha256-of-content>\n`, where `mode` is `0644` or `0755`,
+followed by the line `\0manifest\0<sha256>\n`. That hash is over the effective
+manifest: the `plugins.Model`, the code reasons, the code files, the LSP servers
+and the output styles, after `claudeplugin.Load` merged the marketplace entry.
+Two commits with the same plugin files and the same effective manifest give one
+package. The source SHA tells where the files came from. The digest tells what
+they are and what they contribute.
+
+The manifest line exists because a marketplace entry can add components (with
+no `plugin.json` it is the whole manifest). Two entries in two marketplaces can
+point at the same files and contribute different MCP servers or hooks. Without
+the line they would share one package row, and every later install would get
+the model of the first entry that was installed, not the one its own preview
+showed. With the line each entry gets its own package, and the install job,
+which computes the digest again, refuses an entry that changed after the
+review.
 
 ### 7.3 Write once
 

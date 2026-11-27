@@ -69,6 +69,11 @@ type File struct {
 type Tree struct {
 	Files []File
 	Size  int64
+	// Manifest is the SHA-256 (hex) of the effective manifest: what the
+	// plugin contributes once the marketplace entry is merged in. Two
+	// entries can point at the same files and add different components, so
+	// the digest must name both. Empty for a bare tree.
+	Manifest string
 }
 
 // ErrRefused is the error of a tree or a path that breaks a rule. A

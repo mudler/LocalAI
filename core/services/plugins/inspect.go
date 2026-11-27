@@ -2,8 +2,12 @@ package plugins
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/mudler/nib/plugin/claudeplugin"
@@ -26,7 +30,8 @@ type Preview struct {
 	Description   string `json:"description,omitempty"`
 	MarketplaceID string `json:"marketplace"`
 	Entry         string `json:"entry"`
-	// SHA is the full commit the files come from; Digest names the files.
+	// SHA is the full commit the files come from; Digest names the files
+	// and the effective manifest.
 	SHA         string       `json:"sha"`
 	Digest      string       `json:"digest"`
 	SizeBytes   int64        `json:"sizeBytes"`
@@ -154,7 +159,6 @@ func CheckDir(dir string, lim content.Limits, opts claudeplugin.LoadOptions) (Ch
 	if v.Tree, err = content.Check(dir, lim); err != nil {
 		return Checked{}, err
 	}
-	v.Digest = content.Digest(v.Tree)
 	if v.Plugin, err = claudeplugin.Load(dir, opts); err != nil {
 		return Checked{}, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
@@ -164,7 +168,45 @@ func CheckDir(dir string, lim content.Limits, opts claudeplugin.LoadOptions) (Ch
 	v.CodeReasons = CodeReasons(v.Plugin)
 	v.CodeFiles = content.CodeFiles(v.Tree, v.Plugin)
 	v.Model = ModelOf(v.Plugin)
+	if v.Tree.Manifest, err = manifestHash(v); err != nil {
+		return Checked{}, err
+	}
+	v.Digest = content.Digest(v.Tree)
 	return v, nil
+}
+
+// manifestHash returns the SHA-256 of what the plugin contributes: the
+// model, the code reasons and the code files. The marketplace entry is part
+// of the manifest (claudeplugin.Load merges it), so the package row of one
+// entry never serves an install of another entry with the same files. The
+// install job computes it again and refuses a digest other than the
+// reviewed one, which also catches an entry that changed after the review.
+func manifestHash(v Checked) (string, error) {
+	b, err := json.Marshal(struct {
+		Model       Model                             `json:"model"`
+		CodeReasons []string                          `json:"codeReasons"`
+		CodeFiles   []string                          `json:"codeFiles"`
+		LSP         map[string]claudeplugin.LSPServer `json:"lsp,omitempty"`
+		Styles      []string                          `json:"outputStyles,omitempty"`
+	}{v.Model, v.CodeReasons, v.CodeFiles, v.Plugin.LSPServers, relPaths(v.Plugin.Root, v.Plugin.OutputStyles)})
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:]), nil
+}
+
+// relPaths makes absolute paths under root relative, so that the hash does
+// not depend on the scratch folder of the fetch.
+func relPaths(root string, paths []string) []string {
+	out := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if r, err := filepath.Rel(root, p); err == nil {
+			p = filepath.ToSlash(r)
+		}
+		out = append(out, p)
+	}
+	return out
 }
 
 // writePackage stores the files of c in the workspace store, once per

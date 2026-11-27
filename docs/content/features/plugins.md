@@ -72,7 +72,7 @@ CI checks the schema, the pins and the license file at the SHA. It then fetches 
 
 ## Installs
 
-An install is pinned to a full commit SHA, and its files are stored once under their content digest. Before an install, the server fetches the plugin into a scratch folder, checks every file (no path that leaves the folder, no device or link out of the tree, size and count limits), computes the digest, and reads the plugin. The person who installs reviews the commit, the digest and what the plugin contributes. The install fetches the plugin again at the same commit and refuses it when the files differ from the reviewed ones.
+An install is pinned to a full commit SHA, and its files are stored once under their content digest. Before an install, the server fetches the plugin into a scratch folder, checks every file (no path that leaves the folder, no device or link out of the tree, size and count limits), computes the digest, and reads the plugin. The person who installs reviews the commit, the digest and what the plugin contributes. The digest covers the files and what the plugin contributes once its marketplace entry is merged in, so two marketplace entries that point at the same files but add different components are two packages. The install fetches the plugin again at the same commit and refuses it when the files or the marketplace entry differ from the reviewed ones.
 
 A plugin runs code when it has a command hook, a stdio MCP server, files in `bin/`, an LSP server, a monitor, or a shell injection in a skill or a command. Who can install:
 
