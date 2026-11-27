@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { REASONING_EFFORTS, SETTING_RANGES, settingsBody, settingsErrors, settingsForm, settingsWithEffort } from '../../src/utils/chatSettings.js'
-import { sliderFill, sliderText, sliderValue } from '../../packages/ui-kit/src/sliderModel.js'
+import { BOX_MAX_CHARS, BOX_MIN_CHARS, sliderBoxChars, sliderFill, sliderText, sliderValue } from '../../packages/ui-kit/src/sliderModel.js'
 
 test('slider ranges match what the server accepts', () => {
   const { temperature, top_p: topP, top_k: topK } = SETTING_RANGES
@@ -67,4 +67,11 @@ test('chip and sheet: a change of the effort keeps every other setting, so both 
   // What the chip reads back is what the form shows.
   for (const v of REASONING_EFFORTS) assert.equal(settingsForm(settingsWithEffort(stored, v)).reasoning_effort, v)
   assert.equal(settingsErrors(settingsForm(settingsWithEffort(stored, 'none'))).reasoning_effort, undefined)
+})
+
+test('slider box: as wide as the longer of the value and the placeholder, within bounds', () => {
+  assert.equal(sliderBoxChars('', 'Default (0.75)'), 14)
+  assert.equal(sliderBoxChars('0.5', 'Default'), 7)
+  assert.equal(sliderBoxChars('1', ''), BOX_MIN_CHARS)
+  assert.equal(sliderBoxChars('', 'A placeholder far too long for a phone row'), BOX_MAX_CHARS)
 })

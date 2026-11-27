@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef } from 'react'
 import Button from './Button.jsx'
-import { sliderFill, sliderText, sliderValue } from './sliderModel.js'
+import { sliderBoxChars, sliderFill, sliderText, sliderValue } from './sliderModel.js'
 
 // The kit slider: a native range input (arrow keys, Home, End, Page Up and
 // Page Down work as for any range) with a number box beside it and a reset
@@ -27,6 +27,11 @@ export default function Slider({ id, range, value, onChange, label, placeholder,
   const rangeRef = useRef(null)
   const fill = sliderFill(range, position)
   useLayoutEffect(() => { rangeRef.current?.style.setProperty('--dk-fill', `${fill}%`) }, [fill])
+  // The box is as wide as its longest text, so a placeholder such as
+  // "Default (0.75)" shows in full.
+  const boxRef = useRef(null)
+  const chars = sliderBoxChars(value, placeholder)
+  useLayoutEffect(() => { boxRef.current?.style.setProperty('--dk-chars', String(chars)) }, [chars])
   return (
     <div className="ui-slider" data-unset={set ? undefined : ''} data-testid={testId}>
       <input
@@ -45,11 +50,13 @@ export default function Slider({ id, range, value, onChange, label, placeholder,
         data-testid={testId ? `${testId}-range` : undefined}
       />
       <input
+        ref={boxRef}
         id={id}
         className="dk-input dk-input--mono ui-slider__box"
         inputMode={range.integer ? 'numeric' : 'decimal'}
         value={value ?? ''}
         placeholder={placeholder}
+        title={set ? undefined : placeholder}
         disabled={disabled}
         aria-invalid={invalid ? true : undefined}
         aria-describedby={describedBy}

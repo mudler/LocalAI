@@ -860,7 +860,9 @@
 /* ---- Slider: a range, a number box and a reset ---------------------------- */
 .ui-slider { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
 .ui-slider__range { flex: 1 1 auto; min-width: 0; }
-.ui-slider__box { flex: none; width: 6rem; text-align: right; }
+/* The box fits its longest text (--dk-chars, set by the component):
+   the mono font makes 1ch one character, plus the input's padding. */
+.ui-slider__box { flex: none; width: calc(var(--dk-chars, 5) * 1ch + 2 * var(--dk-space-3) + 2px); min-width: 6rem; text-align: right; }
 .ui-slider[data-unset] .ui-slider__range { opacity: .55; }
 
 /* ---- Select: the compact size for a row ------------------------------------ */

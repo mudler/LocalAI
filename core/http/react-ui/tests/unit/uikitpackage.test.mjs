@@ -72,7 +72,7 @@ test('ui-kit: each default token has the value of src/theme.css', () => {
 
 test('ui-kit: the CSS defines every token the kit rules read', () => {
   // Set at run time by a component, or optional with a fallback in the rule.
-  const RUNTIME = new Set(['--dk-at', '--dk-cols', '--dk-fill', '--dk-min', '--dk-undo', '--dk-value', '--dk-w',
+  const RUNTIME = new Set(['--dk-at', '--dk-chars', '--dk-cols', '--dk-fill', '--dk-min', '--dk-undo', '--dk-value', '--dk-w',
     '--lai-stroke', '--toast-lift', '--toast-ms', '--page-max'])
   const order = ['vendor/tokens.css', 'themes/localai.css', 'vendor/motion.css', 'vendor/components.css', 'css/defaults.css', 'css/kit.css', 'css/tabs.css', 'css/tag.css']
   const css = order.map((f) => noComments(read(join(kit, f)))).join('\n')

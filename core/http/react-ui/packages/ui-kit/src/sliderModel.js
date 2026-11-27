@@ -31,3 +31,13 @@ export function sliderFill(range, position) {
   const low = range.exclusiveMin ? range.step : range.min
   return Math.round(((position - low) / (range.max - low)) * 1000) / 10
 }
+
+// The width of the number box, in characters: the longer of the value and
+// the placeholder, so "Default (0.75)" is never cut. A box keeps room for a
+// short number and never grows past a phone row.
+export const BOX_MIN_CHARS = 5
+export const BOX_MAX_CHARS = 16
+export function sliderBoxChars(value, placeholder) {
+  const longest = Math.max(String(value ?? '').length, String(placeholder ?? '').length)
+  return Math.min(BOX_MAX_CHARS, Math.max(BOX_MIN_CHARS, longest))
+}
