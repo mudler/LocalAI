@@ -125,20 +125,46 @@ func (s *Service) fetchChecked(ctx context.Context, r resolved, sha string) (*ch
 	if c.sha != sha {
 		return fail(fmt.Errorf("plugins: fetched %s, want %s", c.sha, sha))
 	}
-	if c.tree, err = content.Check(f.Dir, s.limits()); err != nil {
+	v, err := CheckDir(f.Dir, s.limits(), claudeplugin.LoadOptions{Entry: r.entry, Marketplace: r.mkt.ID, Name: r.entry.Name})
+	if err != nil {
 		return fail(err)
 	}
-	c.digest = content.Digest(c.tree)
-	if c.plugin, err = claudeplugin.Load(f.Dir, claudeplugin.LoadOptions{Entry: r.entry, Marketplace: r.mkt.ID, Name: r.entry.Name}); err != nil {
-		return fail(fmt.Errorf("%w: %w", ErrInvalid, err))
-	}
-	if err := checkPluginName(c.plugin); err != nil {
-		return fail(err)
-	}
-	c.reasons = CodeReasons(c.plugin)
-	c.codeFiles = content.CodeFiles(c.tree, c.plugin)
-	c.model = ModelOf(c.plugin)
+	c.tree, c.digest, c.plugin = v.Tree, v.Digest, v.Plugin
+	c.reasons, c.codeFiles, c.model = v.CodeReasons, v.CodeFiles, v.Model
 	return c, nil
+}
+
+// Checked is a plugin folder that passed the checks of an install: the tree
+// checks, the content digest, the parse and the classification.
+type Checked struct {
+	Tree        content.Tree
+	Digest      string
+	Plugin      *claudeplugin.Plugin
+	CodeReasons []string
+	CodeFiles   []string
+	Model       Model
+}
+
+// CheckDir runs on a plugin folder the checks an install runs after the
+// fetch (spec 9.3 step 2 and 15.3). The server and `local-ai plugins
+// validate` share it, so a plugin that validates is one the server accepts.
+func CheckDir(dir string, lim content.Limits, opts claudeplugin.LoadOptions) (Checked, error) {
+	var v Checked
+	var err error
+	if v.Tree, err = content.Check(dir, lim); err != nil {
+		return Checked{}, err
+	}
+	v.Digest = content.Digest(v.Tree)
+	if v.Plugin, err = claudeplugin.Load(dir, opts); err != nil {
+		return Checked{}, fmt.Errorf("%w: %w", ErrInvalid, err)
+	}
+	if err := checkPluginName(v.Plugin); err != nil {
+		return Checked{}, err
+	}
+	v.CodeReasons = CodeReasons(v.Plugin)
+	v.CodeFiles = content.CodeFiles(v.Tree, v.Plugin)
+	v.Model = ModelOf(v.Plugin)
+	return v, nil
 }
 
 // writePackage stores the files of c in the workspace store, once per

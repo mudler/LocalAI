@@ -10,7 +10,7 @@ devbuild = "feature"
 
 LocalAI installs plugins that are compatible with the Claude Code plugin format. A plugin is a folder of skills, slash commands, sub-agents, MCP servers and hooks. A marketplace is a git repository or a JSON file that lists plugins and where to get them.
 
-This page describes what the server does in this version. The server keeps its marketplaces, refreshes them, and installs plugins through the [REST API](#rest-api). The `local-ai plugins` command and the **Plugins** tab of the Add-ons page come in later versions.
+This page describes what the server does in this version. The server keeps its marketplaces, refreshes them, and installs plugins through the [REST API](#rest-api). The [`local-ai plugins`]({{% relref "/reference/cli-reference#plugins" %}}) command uses the same API. The **Plugins** tab of the Add-ons page comes in a later version.
 
 The names `CLAUDE_PLUGIN_ROOT` and the other `CLAUDE_*` variables are names of the format: plugins read them, so LocalAI keeps them.
 

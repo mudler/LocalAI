@@ -130,6 +130,9 @@ local-ai chat skill list
 local-ai chat mcp add my-server -- npx -y @modelcontextprotocol/server-filesystem /tmp
 ```
 
+`local-ai chat plugin` manages the agent's plugins on this machine. The plugins of a LocalAI
+server are managed with [`local-ai plugins`]({{% relref "/reference/cli-reference#plugins" %}}).
+
 Everything after the first positional argument is forwarded verbatim, so LocalAI's own flags
 have to come first:
 

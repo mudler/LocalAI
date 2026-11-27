@@ -363,6 +363,29 @@ All `local-ai library` commands accept `--official-libraries` (`LOCALAI_OFFICIAL
 
 When two enabled sources list the same entry (same kind and id), your own source wins over a shipped default. If two of your own sources list it, the entry is refused and the message names both sources: disable or remove one of them. The `--galleries` and `--backend-galleries` flags keep working: each gallery they name is added as a source of your own (kind `model` or `backend`, format `gallery`) at startup, unless it is already a source.
 
+## Plugins
+
+`local-ai plugins` manages the [plugins]({{% relref "/features/plugins" %}}) of a running server: plugins in the Claude Code plugin format, from marketplaces. It talks to the server's REST API with `--target` (`LOCALAI_TARGET`, default `http://localhost:8080`) and `--api-key` (`LOCALAI_API_KEY`). `validate` is the exception: it works offline. `local-ai chat plugin` is another command: it manages the plugins of the terminal agent on this machine.
+
+| Command | What it does |
+|---------|--------------|
+| `local-ai plugins marketplace list` | List the marketplaces with their state, commit and last refresh |
+| `local-ai plugins marketplace add <owner/repo \| git URL \| JSON URL> [--ref REF] [--id ID]` | Add a marketplace and read it (administrators) |
+| `local-ai plugins marketplace remove <id>` | Remove a marketplace (administrators). The installs from it stay |
+| `local-ai plugins marketplace refresh [<id>]` | Read one marketplace, or every active one, now (administrators). A refresh installs nothing |
+| `local-ai plugins browse [QUERY] [--marketplace ID] [--category C] [--text-only] [--limit N]` | Search the catalog. `search` is the same command |
+| `local-ai plugins info <name@marketplace>` | Show one entry and its installs |
+| `local-ai plugins install <name@marketplace> [--scope user\|instance] [--yes]` | Show the commit, the digest, what the plugin adds and whether it runs code, ask, install, and show the progress. Ctrl-C cancels the job |
+| `local-ai plugins list [--all]` | List the installs and whether each one is on for you. `--all` lists every user's installs (administrators) |
+| `local-ai plugins update [<plugin>] [--check] [--yes]` | Without a plugin, list the installs with an update. With one, show the files that change and apply the update |
+| `local-ai plugins remove <plugin> [--yes]` | Remove an install |
+| `local-ai plugins enable <plugin> [--accept-code]`, `disable <plugin>` | Turn an install on or off for you |
+| `local-ai plugins validate <dir>`, `validate --marketplace <file> [--strict] [--max-bytes N]` | Run the checks of an install on a plugin folder, or on every plugin of a `marketplace.json`, with no server. Exits `1` when a plugin fails |
+
+A `<plugin>` is an install ID or `name@marketplace`. For a plugin that runs code, `install` prints the page of the web UI where an administrator reviews the code files and installs it, and exits `0`: only the administrator's browser session installs such a plugin. `update` does the same when the code of a plugin changes. When an install for everyone already exists, `install` prints its ID; turn it on with `enable`. An install that gained code needs `enable --accept-code`.
+
+`validate --marketplace` reads the relative sources from the files next to the `marketplace.json`, and fetches the other sources with git over `https`, into a scratch folder under `TMPDIR` that it removes. A skipped component is a warning; `--strict` makes it a failure.
+
 ## Other Commands
 
 LocalAI supports several subcommands beyond `run`:
@@ -372,6 +395,7 @@ LocalAI supports several subcommands beyond `run`:
 - `local-ai chat` - Run the built-in terminal agent against a LocalAI server
 - `local-ai addons` - Check an add-on zip file and upload it to a running server to install it
 - `local-ai library` - Manage the library sources (see [Library sources](#library-sources))
+- `local-ai plugins` - Manage the plugins of a running server (see [Plugins](#plugins))
 - `local-ai benchmark` - Benchmark configured text models against a running LocalAI server
 - `local-ai tts` - Convert text to speech
 - `local-ai sound-generation` - Generate audio files from text or audio

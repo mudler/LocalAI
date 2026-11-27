@@ -27,7 +27,7 @@ type ChatCMD struct {
 	Init   string `help:"Print the shell integration script for Ctrl+Space (zsh, bash, or fish)"`
 	Yolo   bool   `env:"LOCALAI_CHAT_YOLO" help:"Auto-approve every tool call without prompting"`
 
-	Args []string `arg:"" optional:"" passthrough:"" help:"Arguments forwarded to the agent, e.g. 'plugin install <url>', 'skill list', 'mcp add'"`
+	Args []string `arg:"" optional:"" passthrough:"" help:"Arguments forwarded to the agent, e.g. 'plugin install <url>', 'skill list', 'mcp add'. 'plugin' manages the terminal agent's plugins on this machine; 'local-ai plugins' manages the plugins of a server"`
 }
 
 func (c *ChatCMD) Run(ctx *cliContext.Context) error {
