@@ -865,7 +865,10 @@ options:
 Notes:
 
 - When `parallel` is not set in the options or in `LLAMACPP_PARALLEL`, paged serving uses 8 slots and logs it. The KV cache does not grow with the slots: they share `context_size`. On a GPU, LocalAI's hardware defaults set `parallel` from the VRAM, and set `parallel:1` on a GPU without room for more slots, so a tight fit keeps one slot.
-- Each slot keeps a little state of its own: the sampler, and for hybrid and recurrent models (Qwen3-Next, Mamba, LFM2) a recurrent state and its checkpoints. That state is per slot, so eight slots of such a model use more memory than one; set `parallel` lower if memory is tight.
+- Each slot keeps a little state of its own: the sampler, and for hybrid and recurrent models (Qwen3.5, Granite-H, Nemotron-H, LFM2) a recurrent state and up to `n_ctx_checkpoints` copies of it (context checkpoints, in host memory). For such a model LocalAI reads the state size from the GGUF header and:
+  - sets `n_ctx_checkpoints` so the checkpoints of all slots stay within the smaller of `cache_ram` (8 GiB by default) and a quarter of the host memory: slots x state x checkpoints, between 4 and 32 per slot. For example 6 for Qwen3.8-27B or Granite-4.0-H-Small at 8 slots, 20 for Qwen3.5-9B, and the default 32 for small models;
+  - on a GPU, counts one state per slot in the headroom check that picks the default `parallel`, so a tight fit gets fewer slots.
+  An explicit `n_ctx_checkpoints` or `parallel` always wins.
 - A model that sets `kv_unified:false`, `context_shift:true` or `cont_batching:false` runs without paged serving, with one info line in the log. Only `paged_kv:true` set explicitly together with one of those options fails the load, with an error that names the option.
 - A purely recurrent model (Mamba, RWKV) has no KV pool to share, so paged serving turns itself off for it at load, with one info line. Hybrid models (attention plus recurrent layers) keep it.
 - Embedding and rerank models run with paged serving too: their requests need no output reserve, and admission only waits when the pool is full.

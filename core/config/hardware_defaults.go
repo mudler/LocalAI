@@ -403,12 +403,61 @@ func ApplyHardwareDefaults(cfg *ModelConfig, gpu GPU) {
 	// proto field every backend simply ignores, so it needs no such gate.
 	if UsesLlamaCppServingOptions(cfg.Backend) {
 		before := len(cfg.Options)
-		cfg.Options = EnsureParallelOptionForContext(cfg.Options, gpu, ctx)
+		cfg.Options = EnsureParallelOptionForModel(cfg.Options, gpu, ctx, cfg.recurrentState)
 		if len(cfg.Options) > before {
 			xlog.Debug("[hardware_defaults] defaulting parallel slots for concurrent serving",
 				"option", cfg.Options[len(cfg.Options)-1], "context", ctx, "vram_gib", gpu.VRAM>>30)
 		}
+		// A hybrid or recurrent model keeps up to n_ctx_checkpoints copies of its
+		// recurrent state per slot in host memory: bound them by a byte budget.
+		before = len(cfg.Options)
+		cfg.Options = EnsureCheckpointOption(cfg.Options, cfg.recurrentState, slotsFromOptions(cfg.Options), hostRAM())
+		if len(cfg.Options) > before {
+			xlog.Info("[hardware_defaults] bounding context checkpoints of a model with a recurrent state",
+				"option", cfg.Options[len(cfg.Options)-1], "state_mib", cfg.recurrentState>>20, "slots", slotsFromOptions(cfg.Options))
+		}
 	}
+}
+
+// hostRAM is the container-aware total system memory, 0 when unknown. A
+// package var so tests can set it.
+var hostRAM = func() uint64 {
+	info, err := xsysinfo.GetSystemRAMInfo()
+	if err != nil || info == nil {
+		return 0
+	}
+	return info.Total
+}
+
+// ParallelSlotsForModel is ParallelSlotsForContext with the recurrent state of
+// a hybrid or recurrent model counted too: each slot keeps one state on the
+// device, so the slot count halves until the compute headroom check of
+// largeContextForDevice holds with the states added.
+func ParallelSlotsForModel(g GPU, ctx int, state uint64) int {
+	slots := ParallelSlotsForContext(g, ctx)
+	if g.VRAM == 0 || state == 0 {
+		return slots
+	}
+	if ctx <= 0 {
+		ctx = DefaultContextSize
+	}
+	extra := uint64(ctx) * uint64(BlackwellPhysicalBatch-DefaultPhysicalBatch) * computeBufferBytesPerCell
+	for slots > 1 && extra+uint64(slots)*state > g.VRAM/blackwellBatchHeadroomDivisor {
+		slots /= 2
+	}
+	return slots
+}
+
+// EnsureParallelOptionForModel is EnsureParallelOptionForContext for a model
+// whose per-slot recurrent state is known (0 for a model without one).
+func EnsureParallelOptionForModel(opts []string, gpu GPU, ctx int, state uint64) []string {
+	if hasParallelOption(opts) {
+		return opts
+	}
+	if slots := ParallelSlotsForModel(gpu, ctx, state); slots > 1 || gpu.VRAM > 0 {
+		return append(opts, fmt.Sprintf("parallel:%d", slots))
+	}
+	return opts
 }
 
 // parseComputeCapability splits a "major.minor" string into integer parts.

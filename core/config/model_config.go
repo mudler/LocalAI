@@ -75,6 +75,10 @@ type ModelConfig struct {
 	// batchFromHardware marks a Batch that ApplyHardwareDefaults wrote, so a
 	// later consumer can tell it from a `batch:` the user set.
 	batchFromHardware bool `yaml:"-" json:"-"`
+	// recurrentState is the per-sequence recurrent state of a hybrid or
+	// recurrent model from its GGUF header (0 otherwise), which
+	// ApplyHardwareDefaults counts per slot and per context checkpoint.
+	recurrentState uint64 `yaml:"-" json:"-"`
 	// mcpSessionKey keys the MCP session cache when it must differ from Name.
 	// A profile alias that brings its own MCP servers resolves to its target's
 	// config (so Name, and with it the backend process, stays the target's),
