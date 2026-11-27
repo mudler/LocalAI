@@ -128,6 +128,7 @@ func ModelEmbedding(ctx context.Context, s string, tokens []int, loader *model.M
 	case grpc.Backend:
 		fn = func() ([]float32, error) {
 			predictOptions := gRPCPredictOpts(modelConfig, loader.ModelPath)
+			withRequestPriority(ctx, predictOptions)
 			if len(tokens) > 0 {
 				embeds := []int32{}
 

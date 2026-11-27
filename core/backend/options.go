@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/priority"
 	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/pkg/downloader"
@@ -675,6 +676,14 @@ func withRequestPrivacy(ctx context.Context, opts *pb.PredictOptions) {
 	opts.PromptCachePath = ""
 	opts.PromptCacheAll = false
 	opts.PromptCacheRO = false
+}
+
+// withRequestPriority sets the priority class of the request (see
+// core/priority). The class comes from the context only: request Metadata is
+// merged into the options later and is the caller's to write, so it must never
+// decide the class.
+func withRequestPriority(ctx context.Context, opts *pb.PredictOptions) {
+	opts.Priority = int32(priority.Of(ctx))
 }
 
 func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions {
