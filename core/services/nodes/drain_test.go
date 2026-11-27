@@ -168,7 +168,7 @@ var _ = Describe("Node drain", func() {
 		Expect(seen.Status).To(Equal(StatusDraining))
 		Expect(seen.DrainDeadline.Unix()).To(Equal(res.Deadline.Unix()))
 		Expect(seen.LeavingReplicas).To(Equal(1))
-		got, _, err := other.FindAndLockDrainingReplica(ctx, "m", nil)
+		got, _, err := other.FindAndLockDrainingReplica(ctx, "m", nil, -1)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(got.ID).To(Equal(node.ID))
 
@@ -244,7 +244,7 @@ var _ = Describe("Node drain", func() {
 
 			_, _, err = registry.FindAndLockNodeWithModel(ctx, "m", nil, nil)
 			Expect(err).To(HaveOccurred(), "the healthy pass sees no replica")
-			node, _, err := registry.FindAndLockDrainingReplica(ctx, "m", nil)
+			node, _, err := registry.FindAndLockDrainingReplica(ctx, "m", nil, -1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(node.ID).To(Equal(draining.ID))
 			Expect(rowsOn(draining)[0].InFlight).To(Equal(1), "the pick reserves the replica like a healthy one")
@@ -265,9 +265,9 @@ var _ = Describe("Node drain", func() {
 			_, err := registry.DrainNode(ctx, node.ID, DrainOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			_, _, err = registry.FindAndLockDrainingReplica(ctx, "m", map[string]string{"tier": "cpu"})
+			_, _, err = registry.FindAndLockDrainingReplica(ctx, "m", map[string]string{"tier": "cpu"}, -1)
 			Expect(err).To(HaveOccurred())
-			got, _, err := registry.FindAndLockDrainingReplica(ctx, "m", map[string]string{"tier": "gpu"})
+			got, _, err := registry.FindAndLockDrainingReplica(ctx, "m", map[string]string{"tier": "gpu"}, -1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(got.ID).To(Equal(node.ID))
 		})
@@ -304,6 +304,8 @@ var _ = Describe("Node drain", func() {
 				res, err := newRouter().Route(ctx, "m", "m.gguf", "llama-cpp", "", nil, false)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res.Node.ID).To(Equal(healthy.ID))
+				// The request ends, so the healthy replica is idle again.
+				res.Release()
 			}
 		})
 
@@ -332,6 +334,41 @@ var _ = Describe("Node drain", func() {
 			res, err := newRouter().Route(ctx, "m", "m.gguf", "llama-cpp", "", nil, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.Node.ID).To(Equal(draining.ID))
+		})
+
+		It("serves the draining replica, not a stray replica on a healthy node the rule excludes", func() {
+			draining, stray := register("router-gpu2"), register("router-cpu2")
+			Expect(registry.SetNodeLabel(ctx, draining.ID, "tier", "gpu")).To(Succeed())
+			Expect(registry.SetNodeLabel(ctx, stray.ID, "tier", "cpu")).To(Succeed())
+			Expect(registry.SetModelScheduling(ctx, &ModelSchedulingConfig{ModelName: "m", NodeSelector: `{"tier":"gpu"}`})).To(Succeed())
+			loaded(draining, "m", 0)
+			loaded(stray, "m", 0)
+			_, err := registry.DrainNode(ctx, draining.ID, DrainOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			res, err := newRouter().Route(ctx, "m", "m.gguf", "llama-cpp", "", nil, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Node.ID).To(Equal(draining.ID))
+			Expect(rowsOn(stray)[0].InFlight).To(BeZero(), "the stray replica keeps no reservation")
+		})
+
+		It("routes to the draining replica while the healthy replica is busy", func() {
+			draining, healthy := register("router-draining3"), register("router-healthy3")
+			loaded(draining, "m", 0)
+			loaded(healthy, "m", 0)
+			Expect(registry.IncrementInFlight(ctx, healthy.ID, "m", 0)).To(Succeed())
+			_, err := registry.DrainNode(ctx, draining.ID, DrainOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			res, err := newRouter().Route(ctx, "m", "m.gguf", "llama-cpp", "", nil, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Node.ID).To(Equal(draining.ID), "the healthy replica is saturated: the draining one serves")
+			Expect(rowsOn(healthy)[0].InFlight).To(Equal(1), "the reservation taken on the busy replica is released")
+
+			// Both now run one request: the healthy replica wins the tie.
+			res, err = newRouter().Route(ctx, "m", "m.gguf", "llama-cpp", "", nil, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Node.ID).To(Equal(healthy.ID))
 		})
 	})
 	Describe("the health monitor", func() {

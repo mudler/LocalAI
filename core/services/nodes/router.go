@@ -877,10 +877,13 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		// No healthy node matches the rule. A matching node that drains may
 		// still serve the model until its replacement loads.
 		if errors.Is(err, ErrNoAvailableNodes) {
+			// Only the draining path: with no candidate, the healthy
+			// path would take any replica, also one on a node the rule
+			// excludes, and reject it after the lock.
 			if result := r.tryWarmPath(ctx, &routeAttempt{
 				trackingKey: trackingKey, modelName: modelName, backendType: backendType,
 				configRevision: configRevision, modelOpts: modelOpts, parallel: parallel,
-				sched: sched, candidateNodeIDs: []string{},
+				sched: sched, drainingOnly: true,
 			}); result != nil {
 				return result, nil
 			}
@@ -951,6 +954,9 @@ type routeAttempt struct {
 	candidateNodeIDs []string
 	pref             *RoutePreference
 	observeChain     []uint64
+	// drainingOnly limits the warm path to replicas on draining nodes: no
+	// healthy node matches the model's rule.
+	drainingOnly bool
 }
 
 // warmProbeRetryDelay is how long the warm path waits before it probes a replica
@@ -963,14 +969,9 @@ var warmProbeRetryDelay = 500 * time.Millisecond
 // waiter woken by a finished job re-runs it rather than trusting the signal,
 // because the model may have been evicted between ready and wake.
 func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *RouteResult {
-	node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, att.trackingKey, att.candidateNodeIDs, att.pref)
-	if err != nil || node == nil {
-		// No healthy node holds the model. A draining node may still: it
-		// serves its replicas until a replacement loads elsewhere.
-		node, nm = r.lockDrainingReplica(ctx, att.trackingKey, att.sched)
-		if node == nil {
-			return nil
-		}
+	node, nm := r.lockWarmReplica(ctx, att)
+	if node == nil {
+		return nil
 	}
 	modelAddr := node.Address
 	if nm.Address != "" {
@@ -1040,16 +1041,47 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 	return r.newRouteResult(node, att.trackingKey, replicaIdx, grpcClient, tracked)
 }
 
+// lockWarmReplica locks the loaded replica the warm path routes to, or
+// returns nil.
+//
+// A replica on a draining node has the lowest preference, but it serves until
+// it leaves: it takes the request when no healthy node has the model, and
+// also when it runs fewer requests than the least busy healthy replica. The
+// handover then does not put every request on the replacements while the
+// draining replica sits idle.
+func (r *SmartRouter) lockWarmReplica(ctx context.Context, att *routeAttempt) (*BackendNode, *NodeModel) {
+	if att.drainingOnly {
+		return r.lockDrainingReplica(ctx, att.trackingKey, att.sched, -1)
+	}
+	node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, att.trackingKey, att.candidateNodeIDs, att.pref)
+	if err != nil || node == nil {
+		return r.lockDrainingReplica(ctx, att.trackingKey, att.sched, -1)
+	}
+	if nm.InFlight == 0 {
+		return node, nm
+	}
+	dn, dnm := r.lockDrainingReplica(ctx, att.trackingKey, att.sched, nm.InFlight)
+	if dn == nil {
+		return node, nm
+	}
+	if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, nm.ReplicaIndex); err != nil {
+		xlog.Warn("Failed to release the reservation of a busy replica",
+			"node", node.ID, "model", att.trackingKey, "replica", nm.ReplicaIndex, "error", err)
+	}
+	return dn, dnm
+}
+
 // drainingReplicaLocker is the part of the registry that routes to a replica
 // on a draining node. The router's own fakes need not implement it.
 type drainingReplicaLocker interface {
-	FindAndLockDrainingReplica(ctx context.Context, modelName string, selector map[string]string) (*BackendNode, *NodeModel, error)
+	FindAndLockDrainingReplica(ctx context.Context, modelName string, selector map[string]string, inFlightBelow int) (*BackendNode, *NodeModel, error)
 }
 
 // lockDrainingReplica locks a loaded replica of the model on a draining node
-// that matches the rule's selector, or returns nil. A selector that cannot be
-// parsed matches nothing, as in placement.
-func (r *SmartRouter) lockDrainingReplica(ctx context.Context, trackingKey string, sched *ModelSchedulingConfig) (*BackendNode, *NodeModel) {
+// that matches the rule's selector, or returns nil. With inFlightBelow zero or
+// more, only a replica that runs fewer requests than that is taken. A
+// selector that cannot be parsed matches nothing, as in placement.
+func (r *SmartRouter) lockDrainingReplica(ctx context.Context, trackingKey string, sched *ModelSchedulingConfig, inFlightBelow int) (*BackendNode, *NodeModel) {
 	var selector map[string]string
 	if sched != nil && sched.NodeSelector != "" {
 		sel, err := decodeSelector(sched.NodeSelector)
@@ -1062,7 +1094,7 @@ func (r *SmartRouter) lockDrainingReplica(ctx context.Context, trackingKey strin
 	if !ok {
 		return nil, nil
 	}
-	node, nm, err := drained.FindAndLockDrainingReplica(ctx, trackingKey, selector)
+	node, nm, err := drained.FindAndLockDrainingReplica(ctx, trackingKey, selector, inFlightBelow)
 	if err != nil || node == nil {
 		return nil, nil
 	}

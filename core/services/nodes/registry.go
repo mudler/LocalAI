@@ -2209,19 +2209,21 @@ type RoutePreference struct {
 // matching replica elsewhere — the selector-mismatch fall-through path used to
 // trigger an eviction-busy loop when both sides had the model loaded.
 func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName string, candidateNodeIDs []string, pref *RoutePreference) (*BackendNode, *NodeModel, error) {
-	return r.findAndLockReplica(ctx, modelName, StatusHealthy, candidateNodeIDs, nil, pref)
+	return r.findAndLockReplica(ctx, modelName, StatusHealthy, candidateNodeIDs, nil, pref, -1)
 }
 
-// FindAndLockDrainingReplica is the fallback of FindAndLockNodeWithModel for a
-// model with no loaded replica on a healthy node: it locks the least busy
-// loaded replica on a draining node that matches selector. A draining node
-// keeps serving the replicas it has until a replacement loads elsewhere, so a
-// drain never leaves a model with no replica while a request waits.
-func (r *NodeRegistry) FindAndLockDrainingReplica(ctx context.Context, modelName string, selector map[string]string) (*BackendNode, *NodeModel, error) {
-	return r.findAndLockReplica(ctx, modelName, StatusDraining, nil, selector, nil)
+// FindAndLockDrainingReplica locks the least busy loaded replica of modelName
+// on a draining node that matches selector. The router uses it when no
+// healthy node has the model, and when the healthy replicas are busier than
+// a draining one (inFlightBelow, the in-flight count of the least busy
+// healthy replica; a negative value takes any replica). A draining node
+// keeps serving the replicas it has until they leave, so a drain never
+// leaves a model with no replica while a request waits.
+func (r *NodeRegistry) FindAndLockDrainingReplica(ctx context.Context, modelName string, selector map[string]string, inFlightBelow int) (*BackendNode, *NodeModel, error) {
+	return r.findAndLockReplica(ctx, modelName, StatusDraining, nil, selector, nil, inFlightBelow)
 }
 
-func (r *NodeRegistry) findAndLockReplica(ctx context.Context, modelName, nodeStatus string, candidateNodeIDs []string, selector map[string]string, pref *RoutePreference) (*BackendNode, *NodeModel, error) {
+func (r *NodeRegistry) findAndLockReplica(ctx context.Context, modelName, nodeStatus string, candidateNodeIDs []string, selector map[string]string, pref *RoutePreference, inFlightBelow int) (*BackendNode, *NodeModel, error) {
 	var nm NodeModel
 	var node BackendNode
 
@@ -2270,6 +2272,9 @@ func (r *NodeRegistry) findAndLockReplica(ctx context.Context, modelName, nodeSt
 		}
 		if len(candidateNodeIDs) > 0 {
 			base = base.Where("node_models.node_id IN ?", candidateNodeIDs)
+		}
+		if inFlightBelow >= 0 {
+			base = base.Where("node_models.in_flight < ?", inFlightBelow)
 		}
 
 		picked := false
