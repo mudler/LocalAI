@@ -9,7 +9,7 @@ Turn add-ons on and off, back up and restore their data, and check for and apply
 ## Add-ons page and management
 
 The web UI serves one page for add-ons at `/app/addons`, called **Add-ons**. It is
-shown to a caller who holds the `addons` feature, and to anyone who can open a built-in
+shown to a caller who holds the `addons` feature or the `plugins` feature, and to anyone who can open a built-in
 tile (none today). Studio and Talk are add-ons: they are listed only while they
 are installed. The first tab is **My add-ons**. Administrators also
 reach **Find add-ons** and **Sources**. The tabs are a
@@ -26,7 +26,19 @@ need the previous sidebar can set `LOCALAI_LEGACY_NAVIGATION=true` (flag
 `--legacy-navigation`); it also brings back the Add-ons hub, a one-tab bar over `/app/addons` that the legacy sidebar lists. The switch is a rollback aid and is removed one release after the
 new navigation ships; the UI reads it from the `addon_navigation` key of `/api/features`.
 
-A tab is addressed as `/app/addons?tab=browse|libraries`; My add-ons has no `tab`. What the
+### The Plugins tab
+
+The page has a **Plugins** tab for everyone who holds the `plugins` feature, which is on by default. It manages the plugins in the Claude Code plugin format: skills, commands and remote MCP servers that LocalAI reads from plugin marketplaces. Plugins are not add-ons, and they do not need the add-on runtime: with the runtime off (`addons` false in `/api/features`), `/app/addons` still opens, with the Plugins tab alone.
+
+The tab has three views, addressed as `/app/addons?tab=plugins&view=browse|installed|marketplaces`:
+
+- **Browse** lists the plugins of the active marketplaces. A card shows what the plugin adds and whether it runs code, when an install, a review or the curated list says so.
+- **Installed** lists the installs for everyone and your own, with your switch, **Update**, **Details**, **Roll back** and **Remove**. `&install=<ID>` opens the details of one install.
+- **Marketplaces** lists the marketplaces. Administrators add, refresh, switch and remove them here.
+
+`&plugin=<name@marketplace>` opens the review of that plugin, the link that `local-ai plugins install` and the LocalAI Assistant give for a plugin that runs code. An administrator installs a plugin that runs code, for everyone, from the browser only; a user installs a plugin that runs no code for themselves while `plugins_user_installs` is on. See [Plugins]({{% relref "/features/plugins" %}}) for the rules, the API and the settings.
+
+A tab is addressed as `/app/addons?tab=browse|libraries|plugins`; My add-ons has no `tab`. What the
 former Installed tab showed is the **More details** section of an add-on in My add-ons, so
 `?tab=installed` opens My add-ons. The management link of an app
 (`/app/addons?manage=ID`) opens My add-ons with the details of that add-on open.

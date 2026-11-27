@@ -18,6 +18,7 @@ An add-on runs as the operating system user that runs LocalAI. Nothing confines 
 | Task | Who |
 |---|---|
 | Install, update, remove, change the library | An administrator. With authentication off, you are the administrator. |
+| Install a plugin that runs no code for yourself | A user who has the `plugins` feature (on by default), while personal installs are allowed. See [Plugins](#plugins). |
 | Use an installed add-on | A user who has the `addons` feature. It is off by default for new users on a server with accounts. The user then switches it on in a chat (see below). |
 | Connect your own account to a service, such as a mailbox | Each user, for their own account. An administrator approves the service client first. |
 
@@ -61,6 +62,17 @@ Open the details of an add-on to see what it can do, its settings and its connec
 ## Update and remove
 
 When a newer version is in the library, the row shows **Update**. An upgrade starts the new version, and if it does not become ready, the old one starts again. To remove an add-on, open the menu of its row and choose **Remove**. Removing an add-on keeps its data.
+
+## Plugins
+
+The **Plugins** tab of the Add-ons page lists plugins in the Claude Code plugin format: skills, slash commands and connections to remote MCP servers that a plugin bundles. They are not add-ons and run nothing on the server.
+
+1. Open **Add-ons**, then **Plugins**. **Browse** shows the plugins of the marketplaces your administrator added; the curated `localai` marketplace is there by default.
+2. Choose **Install** on a plugin. LocalAI fetches it and shows a review: "Community plugin, not signed", the commit, what it adds, and the hosts it connects to. Confirm to install it for yourself. A plugin that runs code is installed by an administrator, for everyone.
+3. The install runs in the background. The tab tells you when it shows under **Installed**, and your notifications say how it ended.
+4. In a chat, the plugin's skills are in the **Skills** menu under **Plugin: `<name>`**, its commands are in the `/` menu as `/<name>:<command>`, and its connectors have one switch in the **Tools** menu. Switch a plugin off for one chat there.
+
+A plugin installed for everyone starts off for you: turn it on under **Installed**. When an update adds code, the plugin stays off until you choose **Turn on again**. See [Plugins]({{% relref "/features/plugins" %}}) for the details.
 
 ## Troubleshooting
 
