@@ -354,13 +354,20 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// still carry the frontend's stops: a load that the frontend is waiting
 	// for is then released in seconds, not after its stop window.
 	supervisor.beginShutdown()
-	if aborted := supervisor.abortLoadOperations(); len(aborted) > 0 {
+	abortWait := parseShutdownWindow("LOCALAI_SHUTDOWN_ABORT_WAIT", cfg.ShutdownAbortWait, defaultShutdownAbortWait)
+	aborted, loadsEnded := supervisor.abortLoadOperations(abortWait)
+	if len(aborted) > 0 {
 		xlog.Info("Aborted the loads in progress", "count", len(aborted))
+	}
+	if !loadsEnded {
+		// Telling the frontend the loads ended would let it place a model
+		// again while a process of this worker may still load it.
+		xlog.Warn("Not every load ended in the abort wait; the frontend releases them after their stop window", "abort_wait", abortWait)
 	}
 	shutdownCancel() // stop heartbeat loop immediately
 	<-splitDone
 	regClient.GracefulShutdown(nodeID, workerregistry.ShutdownOptions{
-		LoadsEnded:  true,
+		LoadsEnded:  loadsEnded,
 		RequestWait: parseShutdownWindow("LOCALAI_SHUTDOWN_REQUEST_WAIT", cfg.ShutdownRequestWait, workerregistry.DefaultShutdownRequestWait),
 		Timeout:     parseShutdownWindow("LOCALAI_SHUTDOWN_TIMEOUT", cfg.ShutdownTimeout, workerregistry.DefaultShutdownTimeout),
 	})

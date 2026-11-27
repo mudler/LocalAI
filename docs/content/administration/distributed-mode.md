@@ -514,6 +514,7 @@ This worker holds one route: the WebSocket tunnel to the frontend. Add `--nats-u
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Refuse to start the HTTP file-transfer server when the worker has no data plane token, that is, when it has neither a registration token nor a frontend that hands one over (it would otherwise fail open) |
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | Umbrella switch implying both `--registration-require-auth` and `--nats-require-auth` |
 | `--heartbeat-interval` | `LOCALAI_HEARTBEAT_INTERVAL` | `10s` | Interval between heartbeat pings |
+| `--shutdown-abort-wait` | `LOCALAI_SHUTDOWN_ABORT_WAIT` | `30s` | On `SIGTERM`, how long the worker waits for the loads it aborts to end (their processes exit and their downloads stop) before it drains. A load that did not end in this time is released by the frontend after its stop window. See [Worker shutdown](#worker-shutdown) |
 | `--shutdown-request-wait` | `LOCALAI_SHUTDOWN_REQUEST_WAIT` | `30s` | On `SIGTERM`, how long the worker waits for the requests in flight on its models before it deregisters. See [Worker shutdown](#worker-shutdown) |
 | `--shutdown-timeout` | `LOCALAI_SHUTDOWN_TIMEOUT` | `60s` | On `SIGTERM`, the bound of the drain, the wait for requests and the deregistration together. Stopping the backends comes after it |
 | `--routes` | `LOCALAI_WORKER_ROUTES` | *(derived)* | Routes this worker holds, comma separated: `nats`, `tunnel`, or both. When empty: `nats` when `--nats-url` is set (never with `--join`), and always `tunnel`. See [Workers and routes](#workers-and-routes) |
@@ -1153,19 +1154,19 @@ Loads that run on the node when the drain starts are cancelled, because a model 
 A worker that gets `SIGTERM` (or a `node.stop` from the frontend) shuts down in this order:
 
 1. It refuses new backend installs and upgrades at once. A load sent to it fails with `the worker is shutting down`; the frontend marks the node `draining`, so placement skips it, and answers the request with `503` and `Retry-After`. The next attempt loads the model on another node.
-2. It aborts the loads in progress: it kills their backend processes and waits until they exited. A stop the frontend sends for a process that is already being stopped is acknowledged as soon as that process exited.
-3. It drains its node through `POST /api/node/:id/drain` with `{"shutdown":true,"loads_ended":true}`. The frontend cancels the load jobs of the node and, because the worker vouched that their processes exited, releases them at once instead of holding the model for the 150 second stop window. A request or the reconciler then loads the model on another node within seconds.
+2. It aborts the loads in progress: it cancels their downloads, kills their backend processes, and waits until the processes exited and the installs returned, for up to `--shutdown-abort-wait` (`30s`) in total. A load that is still downloading has no process yet; it does not start one after this point. A stop the frontend sends for a process that is already being stopped is acknowledged as soon as that process exited, or answered "already stopping" after 5 seconds, before the frontend stops waiting for the reply.
+3. It drains its node through `POST /api/node/:id/drain` with `{"shutdown":true}`, and adds `"loads_ended":true` when every load ended in step 2. The frontend cancels the load jobs of the node and, when the worker vouched that the loads ended, releases them at once instead of holding the model for the 150 second stop window. A request or the reconciler then loads the model on another node within seconds. A load that did not end in the abort wait is released after the stop window, as for a worker that died.
 4. Its loaded models keep serving the requests in flight for up to `--shutdown-request-wait` (`30s`). New requests go to other replicas when there are any. The reconciler starts the replacements of the [drain](#draining-a-node) in this window.
 5. It deregisters (`offline`): the frontend removes its replicas, and the reconciler places what is still missing.
 6. It stops its backends: each gets a bounded `Free()` call and is then stopped.
 
-Steps 3 to 5 are bounded by `--shutdown-timeout` (`60s`). The total shutdown time is about that bound plus the stop of the backends, which runs one backend after the other: up to 5 seconds of `Free()` for each, plus the time its process takes to exit.
+Step 2 is bounded by `--shutdown-abort-wait` (`30s`), and steps 3 to 5 by `--shutdown-timeout` (`60s`). The total shutdown time is at most the sum of the two bounds (`90s` with the defaults) plus the stop of the backends, which runs one backend after the other: up to 5 seconds of `Free()` for each, plus the time its process takes to exit. Step 2 takes seconds in practice: a killed process group exits at once.
 
 ### Kubernetes
 
 LocalAI ships no manifests for the workers; these are the settings that fit the shutdown above.
 
-- **`terminationGracePeriodSeconds`**: cover the shutdown timeout plus the stop of the backends. With the defaults, use at least `90`; with several large backends per worker, `120`. A pod killed before the end loses the acknowledgement of its loads, and the frontend then holds those models for the stop window.
+- **`terminationGracePeriodSeconds`**: cover the abort wait, the shutdown timeout and the stop of the backends. With the defaults (`30s` + `60s`), use at least `120`; with several large backends per worker, `150`. A pod killed before the end loses the acknowledgement of its loads, and the frontend then holds those models for the stop window.
 - **`preStop`**: not needed. The worker handles `SIGTERM` itself (steps 1 to 6). Use a `preStop` hook that calls `POST /api/nodes/<node id>/drain` with an admin key only if you want the drain to start before the pod receives `SIGTERM`, for example to give replacements more time than `--shutdown-request-wait`. The hook time counts against `terminationGracePeriodSeconds`.
 - **Rolling updates** of GPU workers: `maxUnavailable: 1` and `maxSurge: 0`. A surge pod usually cannot get a GPU, and taking down more than one worker at a time can remove every replica of a model.
 - **PodDisruptionBudget**: `maxUnavailable: 1` on the worker pods, so a node drain of the cluster does not take several workers down at once.

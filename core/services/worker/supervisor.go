@@ -191,6 +191,14 @@ type backendSupervisor struct {
 	// another stop is already ending. Overridden only by tests; zero means
 	// defaultStoppingWait.
 	stoppingWait time.Duration
+	// loads counts the installs registered by beginLoad that have not
+	// returned: a shutdown waits for them (abortLoadOperations).
+	loads sync.WaitGroup
+	// loadCtx is the context of the downloads of loads, cancelled when the
+	// shutdown starts. See loadContext.
+	loadCtxOnce sync.Once
+	loadCtx     context.Context
+	cancelLoads context.CancelFunc
 }
 
 // defaultStartTimeout is how long startBackend waits for a new process to
@@ -570,6 +578,13 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		}
 		// Process died — clean up and restart
 		s.reapDeadProcess(backend, bp)
+	}
+
+	// A shutdown has aborted the loads it saw. A process started now would
+	// outlive them: the worker already told the frontend its loads ended.
+	if s.shuttingDown.Load() {
+		s.mu.Unlock()
+		return "", errWorkerShuttingDown
 	}
 
 	port, err := s.allocateFreePort(backend)

@@ -65,6 +65,13 @@ func (s *backendSupervisor) killTTL() time.Duration {
 // returns nil for an install with no model (an admin backend install): there is
 // no load to bound.
 func (s *backendSupervisor) beginOperation(req workerctl.BackendInstallRequest) *loadOperation {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.beginOperationLocked(req)
+}
+
+// beginOperationLocked is beginOperation for a caller that holds s.mu.
+func (s *backendSupervisor) beginOperationLocked(req workerctl.BackendInstallRequest) *loadOperation {
 	if req.ModelID == "" {
 		return nil
 	}
@@ -82,9 +89,6 @@ func (s *backendSupervisor) beginOperation(req workerctl.BackendInstallRequest) 
 		op.id = "anonymous-" + uuid.NewString()
 		op.anonymous = true
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.operations == nil {
 		s.operations = make(map[string]*loadOperation)
 	}

@@ -143,15 +143,16 @@ func (s *backendSupervisor) installBackend(req workerctl.BackendInstallRequest, 
 	if backendPath == "" {
 		if req.URI != "" {
 			xlog.Info("Installing backend from external URI", "backend", req.Backend, "uri", req.URI, "force", force)
+			// The load context: a shutdown cancels the download.
 			if err := galleryop.InstallExternalBackend(
-				context.Background(), galleries, s.systemState, s.ml, downloadCb, req.URI, req.Name, req.Alias, force, s.cfg.RequireBackendIntegrity,
+				s.loadContext(), galleries, s.systemState, s.ml, downloadCb, req.URI, req.Name, req.Alias, force, s.cfg.RequireBackendIntegrity,
 			); err != nil {
 				return "", fmt.Errorf("installing backend from gallery: %w", err)
 			}
 		} else {
 			xlog.Info("Installing backend from gallery", "backend", req.Backend, "force", force)
 			if err := gallery.InstallBackendFromGallery(
-				context.Background(), galleries, s.systemState, s.ml, req.Backend, downloadCb, force, s.cfg.RequireBackendIntegrity,
+				s.loadContext(), galleries, s.systemState, s.ml, req.Backend, downloadCb, force, s.cfg.RequireBackendIntegrity,
 			); err != nil {
 				return "", fmt.Errorf("installing backend from gallery: %w", err)
 			}

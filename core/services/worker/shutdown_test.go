@@ -45,14 +45,93 @@ var _ = Describe("Worker shutdown", func() {
 		s, _ := newOperationSupervisor(proc)
 
 		start := time.Now()
-		aborted := s.abortLoadOperations()
+		aborted, ended := s.abortLoadOperations(10 * time.Second)
 		Expect(aborted).To(ConsistOf("gen-1"))
+		Expect(ended).To(BeTrue())
 		Expect(time.Since(start)).To(BeNumerically("<", 15*time.Second))
 		Expect(proc.Done()).To(BeClosed(), "the process exited before abortLoadOperations returned")
 		Eventually(func() bool { return grandAlive(grandchild) }, 5*time.Second, 50*time.Millisecond).Should(BeFalse())
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		Expect(s.operations).To(BeEmpty())
+		Expect(s.processes).To(BeEmpty())
+	})
+
+	It("does not say the loads ended while a process outlives the abort wait", func() {
+		proc := startModelStopProcess()
+		DeferCleanup(func() { _ = proc.Stop() })
+		s := &backendSupervisor{cfg: &Config{}, processes: map[string]*backendProcess{}}
+		// Another stop is ending the process: the abort only waits for it.
+		s.processes["model#0"] = &backendProcess{proc: proc, addr: "127.0.0.1:59005", port: 59005, instance: "i1", stopping: true}
+		op, ok := s.beginLoad(workerctl.BackendInstallRequest{ModelID: "model", OperationID: "gen-1"})
+		Expect(ok).To(BeTrue())
+		Expect(s.attachOperation(op)).To(Equal("i1"))
+		s.endLoad()
+		s.beginShutdown()
+
+		start := time.Now()
+		aborted, ended := s.abortLoadOperations(300 * time.Millisecond)
+		Expect(aborted).To(ConsistOf("gen-1"))
+		Expect(ended).To(BeFalse())
+		Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second), "the abort phase is bounded as a whole")
+	})
+
+	It("cancels a load that still downloads and says the loads ended once its install returned", func() {
+		s := &backendSupervisor{cfg: &Config{}, processes: map[string]*backendProcess{}}
+		started := make(chan struct{})
+		s.installFn = func(workerctl.BackendInstallRequest, bool, func(string, string, string, float64)) (string, error) {
+			close(started)
+			// A download: it runs until the load context is cancelled.
+			<-s.loadContext().Done()
+			return "", s.loadContext().Err()
+		}
+		replies := make(chan workerctl.BackendInstallReply, 1)
+		go func() {
+			replies <- s.serveInstall(context.Background(), workerctl.BackendInstallRequest{Backend: "b", ModelID: "m", OperationID: "gen-2"}, nil)
+		}()
+		Eventually(started).Should(BeClosed())
+
+		s.beginShutdown()
+		aborted, ended := s.abortLoadOperations(5 * time.Second)
+		Expect(aborted).To(ConsistOf("gen-2"))
+		Expect(ended).To(BeTrue())
+		var reply workerctl.BackendInstallReply
+		Expect(replies).To(Receive(&reply), "the install returned before the abort did")
+		Expect(reply.Success).To(BeFalse())
+		Expect(reply.ShuttingDown).To(BeTrue(), "the frontend learns why, and places the load on another node")
+	})
+
+	It("does not say the loads ended while an install still runs", func() {
+		s := &backendSupervisor{cfg: &Config{}, processes: map[string]*backendProcess{}}
+		started, release := make(chan struct{}), make(chan struct{})
+		DeferCleanup(func() { close(release) })
+		s.installFn = func(workerctl.BackendInstallRequest, bool, func(string, string, string, float64)) (string, error) {
+			close(started)
+			<-release // an install step that does not watch the load context
+			return "", context.Canceled
+		}
+		go s.serveInstall(context.Background(), workerctl.BackendInstallRequest{Backend: "b", ModelID: "m", OperationID: "gen-3"}, nil)
+		Eventually(started).Should(BeClosed())
+
+		s.beginShutdown()
+		_, ended := s.abortLoadOperations(300 * time.Millisecond)
+		Expect(ended).To(BeFalse())
+	})
+
+	It("starts no load and no backend process once the shutdown started", func() {
+		s := &backendSupervisor{cfg: &Config{}, processes: map[string]*backendProcess{}}
+		s.beginShutdown()
+
+		_, ok := s.beginLoad(workerctl.BackendInstallRequest{ModelID: "m", OperationID: "late"})
+		Expect(ok).To(BeFalse(), "the check and the registration are one step")
+		Expect(s.operations).To(BeEmpty())
+
+		// An install that passed every check before the shutdown reaches the
+		// start of its process after it: the process does not start, so
+		// stopAllBackends leaves no process behind.
+		_, err := s.startBackend("m#0", "b", "/bin/sleep")
+		Expect(err).To(MatchError(errWorkerShuttingDown))
+		Expect(s.stopAllBackends(true)).To(BeEmpty())
 		Expect(s.processes).To(BeEmpty())
 	})
 

@@ -155,13 +155,21 @@ func (s *backendSupervisor) serveInstall(_ context.Context, req workerctl.Backen
 	// arrives: a controller that stops renewing it cannot leave a backend
 	// running for ever.
 	// A shutdown that started while this request waited for its locks has
-	// already aborted the loads it knew of. Do not start one it cannot see.
-	if s.shuttingDown.Load() {
+	// already aborted the loads it knew of. beginLoad refuses, in the same
+	// step as it registers the load, so a shutdown never misses one.
+	op, ok := s.beginLoad(req)
+	if !ok {
 		return refuseShuttingDown()
 	}
-	op := s.beginOperation(req)
+	defer s.endLoad()
 	addr, err := install(req, req.Force, downloadCb)
 	if err != nil {
+		if s.shuttingDown.Load() {
+			// The shutdown cancelled the download or refused the start of
+			// the process: say so, so the frontend skips this node.
+			xlog.Info("Install ended by the worker shutdown", "backend", req.Backend, "model", req.ModelID, "error", err)
+			return refuseShuttingDown()
+		}
 		xlog.Error("Failed to install backend via NATS", "error", err)
 		return workerctl.BackendInstallReply{Success: false, Error: err.Error()}
 	}
