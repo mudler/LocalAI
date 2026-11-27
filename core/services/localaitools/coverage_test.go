@@ -211,13 +211,15 @@ var adminRoutesWithoutTool = map[string]string{
 	// needs to read or change it.
 	"GET /api/models/search/sources": "the sources and the enabled set of the person: read in the search panel; search_models uses the enabled set",
 	"PUT /api/models/search/sources": "the enabled set is a personal choice made in the search panel, not something a model changes",
-	// Plugins: the install of a plugin that runs code, an update and a
-	// rollback need the administrator's own browser session (the request
-	// carries X-LocalAI-Confirm), as the add-on host grants do. The assistant
-	// holds no such session; it reads update previews with check_updates and
-	// points to the Plugins tab.
+	// Plugins: the install of a plugin that runs code and a rollback need
+	// the administrator's own browser session (the request carries
+	// X-LocalAI-Confirm), as the add-on host grants do. An update is a review
+	// of the files that change: the assistant reads the preview with
+	// check_updates and points to the Plugins tab, where a person reads the
+	// file list and the diffs. An update whose code changed also needs the
+	// browser session.
 	"POST /api/plugins/installs (a plugin that runs code)": "needs the administrator's browser session",
-	"POST /api/plugins/installs/:id/update":                "needs the administrator's browser session",
+	"POST /api/plugins/installs/:id/update":                "an update is the review of the files that change, done on the Plugins tab; an update whose code changed also needs the administrator's browser session",
 	"POST /api/plugins/installs/:id/rollback":              "needs the administrator's browser session",
 	"PUT /api/plugins/marketplaces/:id":                    "changing the ref or the switch of a marketplace is done on the Plugins tab; remove and add cover the assistant's needs",
 	"DELETE /api/plugins/marketplaces/:id":                 "removing a marketplace is a person's act on the Plugins tab, next to the installs that came from it",
