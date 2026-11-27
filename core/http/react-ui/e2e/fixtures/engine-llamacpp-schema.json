@@ -244,7 +244,7 @@
         "auto",
         "on"
       ],
-      "default": "auto",
+      "default": "off",
       "doc": "Sample tokens on the GPU. off: on the CPU. auto: on the GPU when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs. on: always on the GPU, turned off for a request with a grammar, a reasoning budget or logprobs.",
       "group": "speed",
       "localai_only": true
@@ -1773,24 +1773,24 @@
         "backend_sampling"
       ],
       "unset": {
-        "backend_sampling": "auto"
+        "backend_sampling": "off"
       },
       "choices": [
         {
           "value": "off",
           "label": "Off",
           "set": {
-            "backend_sampling": "off"
+            "backend_sampling": null
           },
-          "doc": "Sample tokens on the CPU."
+          "doc": "Sample tokens on the CPU. Nothing is written to the file."
         },
         {
           "value": "auto",
           "label": "Auto",
           "set": {
-            "backend_sampling": null
+            "backend_sampling": "auto"
           },
-          "doc": "Use GPU sampling when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs. Nothing is written to the file."
+          "doc": "Use GPU sampling when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs."
         },
         {
           "value": "on",
@@ -1890,9 +1890,9 @@
     {
       "id": "streams16",
       "name": "16 streams",
-      "description": "16 slots, GPU sampling when 16 requests run, no drafting.",
+      "description": "16 slots with GPU sampling on and no drafting.",
       "settings": {
-        "backend_sampling": "auto",
+        "backend_sampling": "on",
         "draft_model": null,
         "paged_kv": true,
         "paged_preempt": true,

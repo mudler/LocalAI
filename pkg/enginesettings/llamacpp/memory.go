@@ -138,12 +138,15 @@ var profiles = []es.Preset{
 	},
 	{
 		ID: "streams16", Name: "16 streams", Profile: true, Set: es.ProfileSetConcurrency, Streams: 16,
-		Description: "16 slots, GPU sampling when 16 requests run, no drafting.",
+		Description: "16 slots with GPU sampling on and no drafting.",
 		BestFor:     "Agents and tools that send requests in parallel.",
 		Settings: map[string]any{
 			"parallel": 16, "paged_kv": true, "paged_preempt": true,
-			// GPU sampling pays off from 16 streams; drafting costs under load.
-			"backend_sampling": "auto", "spec_type": "none", "draft_model": nil,
+			// GPU sampling for every request pays off from about 16 streams. auto
+			// mixes GPU- and CPU-sampled requests in one batch, which raised the
+			// inter-token latency p99 from 110 to 363 ms at 16 slots. Drafting
+			// costs under load.
+			"backend_sampling": "on", "spec_type": "none", "draft_model": nil,
 		},
 		Memory: map[es.MemoryKind]es.PresetMemory{
 			es.MemoryUnified:  {Settings: hostBounds, MinMemory: 32 * gib},

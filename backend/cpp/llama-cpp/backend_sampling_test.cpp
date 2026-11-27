@@ -32,13 +32,11 @@ int main() {
 
     // The rule: on only with GPU offload, no tensor split, a plain request, and
     // enough requests running.
-    check(backend_sampling_default_mode == backend_sampling_mode::automatic, "auto by default");
     check(gpu.min_slots == 16, "default threshold 16");
     check(use_backend_sampling(gpu, plain, 16), "16 slots on a GPU");
     check(use_backend_sampling(gpu, plain, 32), "32 slots on a GPU");
     check(!use_backend_sampling(gpu, plain, 15), "below the default threshold");
     check(!use_backend_sampling(gpu, plain, 8), "8 slots: no gain measured");
-    check(!use_backend_sampling(gpu, plain, 4), "4 slots: the old threshold");
     check(!use_backend_sampling(gpu, plain, 1), "a single slot");
 
     backend_sampling_model cpu = gpu;

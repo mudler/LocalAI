@@ -148,18 +148,18 @@ var loadMode = es.Combined{
 	},
 }
 
-// backendSampling is the GPU sampling choice of the editor. Auto, the backend
-// default, writes no entry; Off and On write the option.
+// backendSampling is the GPU sampling choice of the editor. Off writes no
+// entry, so a model without the option keeps the backend default.
 var backendSampling = es.Combined{
 	ID: "backend_sampling", Group: GroupSpeed,
 	Doc:   "Where tokens are sampled. A backend without GPU sampling ignores the setting.",
 	Keys:  []string{"backend_sampling"},
-	Unset: map[string]any{"backend_sampling": "auto"},
+	Unset: map[string]any{"backend_sampling": "off"},
 	Choices: []es.Choice{
-		{Value: "off", Label: "Off", Set: map[string]any{"backend_sampling": "off"},
-			Doc: "Sample tokens on the CPU."},
-		{Value: "auto", Label: "Auto", Set: map[string]any{"backend_sampling": nil},
-			Doc: "Use GPU sampling when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs. Nothing is written to the file."},
+		{Value: "off", Label: "Off", Set: map[string]any{"backend_sampling": nil},
+			Doc: "Sample tokens on the CPU. Nothing is written to the file."},
+		{Value: "auto", Label: "Auto", Set: map[string]any{"backend_sampling": "auto"},
+			Doc: "Use GPU sampling when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs."},
 		{Value: "on", Label: "On", Set: map[string]any{"backend_sampling": "on"},
 			Doc: "Sample tokens on the GPU. Faster with many parallel requests. Turned off automatically for requests that use a grammar, a reasoning budget or logprobs."},
 	},

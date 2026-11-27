@@ -108,12 +108,12 @@ test.describe('Runtime tuning: quick setup', () => {
     await expect(page.getByTestId('rt-quick-row-custom')).toHaveClass(/rt-quick__row--current/)
   })
 
-  test('GPU sampling is Off, Auto or On in the speed group, Auto writing no entry', async ({ page }) => {
+  test('GPU sampling is Off, Auto or On in the speed group, Off writing no entry', async ({ page }) => {
     const state = await open(page)
     const gpu = page.getByTestId('rt-group-speed').getByTestId('rt-backend-sampling-field')
     await expect(gpu).toContainText('GPU sampling')
     const select = page.getByTestId('rt-backend-sampling')
-    await expect(select).toHaveValue('auto')
+    await expect(select).toHaveValue('off')
     await expect(select.locator('option')).toHaveText(['Off', 'Auto', 'On'])
     await select.selectOption('auto')
     await expect(page.getByTestId('rt-backend-sampling-choice-hint')).toContainText('Use GPU sampling when the model runs on a GPU')
@@ -124,14 +124,10 @@ test.describe('Runtime tuning: quick setup', () => {
     await save(page).click()
     await expect.poll(() => state.patches.length).toBe(1)
     expect(lastPatch(state).options).toEqual(['keep_me:true', 'backend_sampling:on'])
-    await select.selectOption('auto')
+    await select.selectOption('off')
     await save(page).click()
     await expect.poll(() => state.patches.length).toBe(2)
     expect(lastPatch(state).options).toEqual(['keep_me:true'])
-    await select.selectOption('off')
-    await save(page).click()
-    await expect.poll(() => state.patches.length).toBe(3)
-    expect(lastPatch(state).options).toEqual(['keep_me:true', 'backend_sampling:off'])
   })
 
   test('a file with backend_sampling:auto opens on Auto', async ({ page }) => {

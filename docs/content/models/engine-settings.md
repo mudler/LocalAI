@@ -122,7 +122,7 @@ with a warning.
 | Prefill budget | `options: [prefill_budget:N]` or `prefill_budget:auto` (also read as `max_prefill_tokens`) |
 | KV pool tokens | `options: [kv_pool_tokens:N]` |
 | Output reserve | `options: [kv_output_reserve:N]` (default 256) |
-| GPU sampling | `options: [backend_sampling:off]` or `options: [backend_sampling:on]` (default `auto`) |
+| GPU sampling | `options: [backend_sampling:auto]` or `options: [backend_sampling:on]` |
 | GPU sampling minimum slots | `options: [backend_sampling_min_slots:N]` (default 16) |
 | Grammar engine | `options: [grammar_engine:auto]`, `gbnf` or `llguidance` (default auto) |
 | Recurrent state snapshots | `options: [n_rs_seq:N]` (also read as `rs_seq`) |
@@ -133,8 +133,8 @@ A backend build without these features ignores the options.
 
 | Choice | Model YAML | What it does |
 |---|---|---|
-| **Off** | `backend_sampling:off` | Tokens are sampled on the CPU. |
-| **Auto** (default) | no entry | Use GPU sampling when the model runs on a GPU with at least 16 parallel requests and the request does not need grammar or logprobs. |
+| **Off** (default) | no entry | Tokens are sampled on the CPU. |
+| **Auto** | `backend_sampling:auto` | Use GPU sampling when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs. |
 | **On** | `backend_sampling:on` | Sample tokens on the GPU. Faster with many parallel requests. Turned off automatically for requests that use a grammar, a reasoning budget or logprobs. |
 
 Any other flag works too. Write it in `options` with a leading dash and put a
@@ -242,7 +242,7 @@ the **Interactive** tab has a **Runtime tuning** section with the badge
   | **Long prompts** | `parameters.batch: 2048`, `ubatch:2048`. | `parameters.batch: 2048`, `ubatch:1024` (the compute buffer must fit one card). | `parameters.batch: 2048`, `ubatch:512`. |
   | **Default** | Removes `parallel`, `paged_kv`, `paged_preempt`, and what a stream setup wrote. | Same. | Same. |
   | **8 streams** | `parallel:8`, `paged_kv:true`, `paged_preempt:true`, `cache_ram:4096`, `n_ctx_checkpoints:8`. From 16 GB. | `parallel:8`, `paged_kv:true`, `paged_preempt:true`. From 8 GB. | As unified memory. From 16 GB. |
-  | **16 streams** | 8 streams with `parallel:16`, `backend_sampling:auto`, `spec_type:none` and no draft model. From 32 GB. | Same, without the cache bounds. From 16 GB. | As unified memory, without GPU sampling. From 32 GB. |
+  | **16 streams** | 8 streams with `parallel:16`, `backend_sampling:on`, `spec_type:none` and no draft model. From 32 GB. | Same, without the cache bounds. From 16 GB. | As unified memory, without GPU sampling. From 32 GB. |
   | **32+ streams** | `parallel:32`, `backend_sampling:on`, drafting off, the cache bounds, f16 KV cache; `cache_type_k`/`cache_type_v: q8_0` and flash attention only when the f16 cache does not fit. From 64 GB. | `parallel:32`, `backend_sampling:on`, drafting off, `q8_0` K and V cache, flash attention on. From 24 GB. | Not offered. |
 
   A stream setup is also refused when its estimate needs more than 90% of the

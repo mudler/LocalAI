@@ -282,7 +282,7 @@ test('engine settings: the quick setup profiles are apart from the presets', () 
     assert.equal(byId[id].group, 'serving', id)
   }
   assert.equal(byId['options.parallel'].group, 'serving')
-  // GPU sampling: a three-way choice over one plain options entry, Auto writing none.
+  // GPU sampling: a three-way choice over one plain options entry, Off writing none.
   const gpu = byId['options.backend_sampling']
   assert.equal(gpu.localAIOnly, true)
   assert.equal(gpu.flag, undefined)
@@ -292,19 +292,19 @@ test('engine settings: the quick setup profiles are apart from the presets', () 
   assert.deepEqual(sampling.choices.map(c => c.value), ['off', 'auto', 'on'])
   assert.match(sampling.choices[1].doc, /^Use GPU sampling when the model runs on a GPU/)
   assert.match(sampling.choices[2].doc, /^Sample tokens on the GPU\. Faster with many parallel requests\./)
-  // Auto is the backend default, so a file without the option reads as Auto and Auto writes nothing.
-  assert.equal(readCombined(schema, {}, sampling), 'auto')
-  assert.equal(readCombined(schema, { options: ['backend_sampling:off'] }, sampling), 'off')
+  // Off is the backend default, so a file without the option reads as Off and Off writes nothing.
+  assert.equal(readCombined(schema, {}, sampling), 'off')
+  assert.equal(readCombined(schema, { options: ['backend_sampling:auto'] }, sampling), 'auto')
   const draft = { options: ['my_option:true'] }
   writeCombined(schema, draft, sampling, 'on')
   assert.deepEqual(draft.options, ['my_option:true', 'backend_sampling:on'])
-  writeCombined(schema, draft, sampling, 'off')
-  assert.deepEqual(draft.options, ['my_option:true', 'backend_sampling:off'])
   writeCombined(schema, draft, sampling, 'auto')
+  assert.deepEqual(draft.options, ['my_option:true', 'backend_sampling:auto'])
+  writeCombined(schema, draft, sampling, 'off')
   assert.deepEqual(draft.options, ['my_option:true'])
   // No batch profile touches it; the 16 and 32 stream setups do.
   assert.ok(schema.profiles.every(p => !('options.backend_sampling' in p.settings)))
-  assert.equal(schema.concurrency.find(p => p.id === 'streams16').settings['options.backend_sampling'], 'auto')
+  assert.equal(schema.concurrency.find(p => p.id === 'streams16').settings['options.backend_sampling'], 'on')
 })
 
 test('engine settings: a batch profile is read back from the values, per memory kind, else custom', () => {
@@ -347,11 +347,11 @@ test('engine settings: concurrency profiles are a set of their own, with values 
   assert.equal(readProfile(schema, u8, { ...set, kind: 'unified' }), 'streams8')
   // The batch choice does not see the concurrency settings.
   assert.equal(readProfile(schema, u8), 'balanced')
-  // 16 streams: GPU sampling auto and drafting off, the draft model removed.
+  // 16 streams: GPU sampling on and drafting off, the draft model removed.
   const d16 = withProfile(schema, { draft_model: 'small.gguf', options: ['spec_type:draft-mtp'] }, tier('streams16', 'discrete'))
   assert.equal(d16.draft_model, undefined)
   assert.ok(d16.options.includes('spec_type:none'))
-  assert.ok(d16.options.includes('backend_sampling:auto'))
+  assert.ok(d16.options.includes('backend_sampling:on'))
   // No GPU: no GPU sampling.
   assert.ok(!withProfile(schema, {}, tier('streams16', 'system')).options.some(o => o.startsWith('backend_sampling')))
   // 32 streams: q8_0 on a discrete GPU; f16 on unified memory unless tight.
@@ -370,7 +370,7 @@ test('engine settings: concurrency profiles are a set of their own, with values 
   const down = withProfile(schema, d32, tier('streams16', 'discrete'))
   assert.equal(down.cache_type_k, undefined)
   assert.equal(down.flash_attention, undefined)
-  assert.ok(down.options.includes('backend_sampling:auto'))
+  assert.ok(down.options.includes('backend_sampling:on'))
   // Default removes every tier setting and keeps the person's own.
   const back = withProfile(schema, { ...d32, options: [...d32.options, 'use_jinja:true'] }, tier('concurrencyDefault', 'discrete'))
   assert.deepEqual(back, { options: ['use_jinja:true'] })

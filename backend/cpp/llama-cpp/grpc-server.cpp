@@ -217,7 +217,7 @@ std::atomic<bool> loaded_model{false};
 
 // backend_sampling of the loaded model (one per process): the option, and what
 // backend_sampling:auto needs to decide per request. See backend_sampling.h.
-static llama_grpc::backend_sampling_mode backend_sampling_option = llama_grpc::backend_sampling_default_mode;
+static llama_grpc::backend_sampling_mode backend_sampling_option = llama_grpc::backend_sampling_mode::off;
 static bool backend_sampling_option_set = false;
 static llama_grpc::backend_sampling_model backend_sampling_auto_model;
 
@@ -842,7 +842,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         }
     };
 
-    backend_sampling_option = llama_grpc::backend_sampling_default_mode;
+    backend_sampling_option = llama_grpc::backend_sampling_mode::off;
     backend_sampling_option_set = false;
     grammar_engine_option = llama_grpc::grammar_engine::automatic;
     backend_sampling_auto_model = llama_grpc::backend_sampling_model{};

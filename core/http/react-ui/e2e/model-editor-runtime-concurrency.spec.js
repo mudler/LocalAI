@@ -72,13 +72,13 @@ test.describe('Runtime tuning: concurrency', () => {
     expect(lastPatch(state).options).toHaveLength(4)
   })
 
-  test('16 streams turns GPU sampling to auto and drafting off, and 32+ uses an 8-bit cache on a discrete GPU', async ({ page }) => {
+  test('16 streams turns GPU sampling on and drafting off, and 32+ uses an 8-bit cache on a discrete GPU', async ({ page }) => {
     const state = await open(page, {
       configs: { ...CONFIGS, 'mtp-lab': 'name: mtp-lab\nbackend: llama-cpp\nparameters:\n  model: m.gguf\ncontext_size: 32768\noptions:\n  - spec_type:draft-mtp\n' },
       name: 'mtp-lab',
     })
     await tier(page, 'streams16').click()
-    await expect(page.getByTestId('rt-backend-sampling')).toHaveValue('auto')
+    await expect(page.getByTestId('rt-backend-sampling')).toHaveValue('on')
     await expect(page.getByTestId('rt-draft-mode-off')).toHaveAttribute('aria-checked', 'true')
     await expect(field(page, 'options-parallel')).toHaveValue('16')
 

@@ -577,7 +577,7 @@ var _ = Describe("the llama.cpp engine", func() {
 
 				s16 := byID("streams16").SettingsFor(kind, false)
 				Expect(s16).To(HaveKeyWithValue("parallel", 16))
-				Expect(s16).To(HaveKeyWithValue("backend_sampling", "auto"))
+				Expect(s16).To(HaveKeyWithValue("backend_sampling", "on"))
 				Expect(s16).To(HaveKeyWithValue("spec_type", "none"))
 
 				s32 := byID("streams32").SettingsFor(kind, false)
@@ -627,7 +627,7 @@ var _ = Describe("the llama.cpp engine", func() {
 		})
 	})
 
-	It("has a GPU sampling choice of Off, Auto and On, Auto writing no entry", func() {
+	It("has a GPU sampling choice of Off, Auto and On, Off writing no entry", func() {
 		var f es.Flag
 		for _, x := range engine.Schema().Flags {
 			if x.Key == "backend_sampling" {
@@ -637,7 +637,7 @@ var _ = Describe("the llama.cpp engine", func() {
 		Expect(f.Option).To(Equal("backend_sampling"))
 		Expect(f.Target).To(Equal(es.TargetOption))
 		Expect(f.Enum).To(Equal([]string{"off", "auto", "on"}))
-		Expect(f.Default).To(Equal("auto"))
+		Expect(f.Default).To(Equal("off"))
 		Expect(f.LocalAIOnly).To(BeTrue())
 		var c es.Combined
 		for _, x := range engine.Schema().Combined {
@@ -648,11 +648,10 @@ var _ = Describe("the llama.cpp engine", func() {
 		Expect(c.Group).To(Equal(lc.GroupSpeed))
 		Expect(c.Keys).To(Equal([]string{"backend_sampling"}))
 		Expect(c.Choices).To(HaveLen(3))
-		Expect(c.Unset["backend_sampling"]).To(Equal("auto"))
-		Expect(c.Choices[0].Set["backend_sampling"]).To(Equal("off"))
-		Expect(c.Choices[1].Set["backend_sampling"]).To(BeNil())
+		Expect(c.Choices[0].Set["backend_sampling"]).To(BeNil())
+		Expect(c.Choices[1].Set["backend_sampling"]).To(Equal("auto"))
 		Expect(c.Choices[2].Set["backend_sampling"]).To(Equal("on"))
-		Expect(c.Choices[1].Doc).To(Equal("Use GPU sampling when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs. Nothing is written to the file."))
+		Expect(c.Choices[1].Doc).To(Equal("Use GPU sampling when the model runs on a GPU with several parallel requests and the request does not need grammar or logprobs."))
 		Expect(c.Choices[2].Doc).To(Equal("Sample tokens on the GPU. Faster with many parallel requests. Turned off automatically for requests that use a grammar, a reasoning budget or logprobs."))
 		res, err := engine.BuildCommand(es.Config{"options": []any{"backend_sampling:auto"}})
 		Expect(err).ToNot(HaveOccurred())
