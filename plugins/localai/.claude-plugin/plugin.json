@@ -1,0 +1,13 @@
+{
+  "name": "localai",
+  "version": "0.1.0",
+  "description": "Use a LocalAI server: its API, models and the gallery, add-ons and the Sandbox.",
+  "author": {
+    "name": "LocalAI",
+    "url": "https://localai.io"
+  },
+  "homepage": "https://localai.io/docs/features/plugins/",
+  "repository": "https://github.com/mudler/LocalAI",
+  "license": "MIT",
+  "keywords": ["localai", "openai-api", "models", "gallery", "add-ons", "sandbox"]
+}

@@ -1,0 +1,143 @@
+{
+  "name": "localai",
+  "owner": {
+    "name": "LocalAI",
+    "url": "https://localai.io"
+  },
+  "description": "Plugins reviewed by the LocalAI maintainers: text-only skills and commands that work with local models.",
+  "plugins": [
+    {
+      "name": "localai",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/mudler/LocalAI.git",
+        "path": "plugins/localai",
+        "sha": "2cfbd71c76b27386b4fe630528067688fc947cf5"
+      },
+      "description": "Use a LocalAI server: the API, models and the gallery, add-ons and the Sandbox.",
+      "category": "localai",
+      "metadata": {
+        "localai": {
+          "license": "MIT",
+          "runsCode": false,
+          "phase": "P0",
+          "reviewed": "2026-11-27"
+        }
+      }
+    },
+    {
+      "name": "frontend-design",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/anthropics/claude-plugins-official.git",
+        "path": "plugins/frontend-design",
+        "sha": "0fbfda5a91f4adc311daca25acc99132f40f0b6e"
+      },
+      "description": "Design and build distinctive, production-grade web interfaces.",
+      "category": "design",
+      "metadata": {
+        "localai": {
+          "license": "Apache-2.0",
+          "runsCode": false,
+          "phase": "P0",
+          "reviewed": "2026-11-27"
+        }
+      }
+    },
+    {
+      "name": "python-development",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/wshobson/agents.git",
+        "path": "plugins/python-development",
+        "sha": "c96b5f6552dba32e4492307493ee613581430715"
+      },
+      "description": "Python skills: project layout, testing, typing, packaging, async, performance.",
+      "category": "development",
+      "metadata": {
+        "localai": {
+          "license": "MIT",
+          "runsCode": false,
+          "phase": "P0",
+          "reviewed": "2026-11-27"
+        }
+      }
+    },
+    {
+      "name": "developer-essentials",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/wshobson/agents.git",
+        "path": "plugins/developer-essentials",
+        "sha": "c96b5f6552dba32e4492307493ee613581430715"
+      },
+      "description": "Git workflows, debugging, code review, error handling, SQL, end-to-end tests, auth and monorepos.",
+      "category": "development",
+      "metadata": {
+        "localai": {
+          "license": "MIT",
+          "runsCode": false,
+          "phase": "P0",
+          "reviewed": "2026-11-27"
+        }
+      }
+    },
+    {
+      "name": "documentation-standards",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/wshobson/agents.git",
+        "path": "plugins/documentation-standards",
+        "sha": "c96b5f6552dba32e4492307493ee613581430715"
+      },
+      "description": "Write documentation that people and models can both read, with sources for each claim.",
+      "category": "documentation",
+      "metadata": {
+        "localai": {
+          "license": "MIT",
+          "runsCode": false,
+          "phase": "P0",
+          "reviewed": "2026-11-27"
+        }
+      }
+    },
+    {
+      "name": "shell-scripting",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/wshobson/agents.git",
+        "path": "plugins/shell-scripting",
+        "sha": "c96b5f6552dba32e4492307493ee613581430715"
+      },
+      "description": "Defensive Bash, POSIX shell, ShellCheck and Bats tests.",
+      "category": "development",
+      "metadata": {
+        "localai": {
+          "license": "MIT",
+          "runsCode": false,
+          "phase": "P0",
+          "reviewed": "2026-11-27"
+        }
+      }
+    },
+    {
+      "name": "unit-testing",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/wshobson/agents.git",
+        "path": "plugins/unit-testing",
+        "sha": "c96b5f6552dba32e4492307493ee613581430715"
+      },
+      "description": "Generate unit and integration tests for Python and JavaScript.",
+      "category": "testing",
+      "metadata": {
+        "localai": {
+          "license": "MIT",
+          "runsCode": false,
+          "phase": "P0",
+          "reviewed": "2026-11-27"
+        }
+      }
+    }
+  ]
+}

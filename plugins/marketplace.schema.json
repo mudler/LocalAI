@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mudler/LocalAI/blob/master/plugins/marketplace.schema.json",
+  "title": "LocalAI curated plugin marketplace",
+  "description": "The marketplace.json fields of the Claude Code plugin format that the curated LocalAI marketplace uses, plus metadata.localai. Each entry is a github or git-subdir source pinned to a full commit SHA: the file is served as a URL marketplace, which cannot use relative sources.",
+  "type": "object",
+  "required": ["name", "owner", "plugins"],
+  "properties": {
+    "name": {"const": "localai"},
+    "owner": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "email": {"type": "string"},
+        "url": {"type": "string"}
+      }
+    },
+    "description": {"type": "string"},
+    "version": {"type": "string"},
+    "metadata": {"type": "object"},
+    "plugins": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/entry"}
+    }
+  },
+  "$defs": {
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "A full 40-hex commit SHA. Short SHAs, branches and tags are refused."
+    },
+    "httpsGit": {
+      "type": "string",
+      "pattern": "^https://[^\\s]+\\.git$"
+    },
+    "entry": {
+      "type": "object",
+      "required": ["name", "source", "description", "metadata"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"},
+        "source": {
+          "oneOf": [
+            {"$ref": "#/$defs/githubSource"},
+            {"$ref": "#/$defs/gitSubdirSource"}
+          ]
+        },
+        "description": {"type": "string", "minLength": 1, "maxLength": 200},
+        "version": {"type": "string"},
+        "category": {"type": "string"},
+        "tags": {"type": "array", "items": {"type": "string"}},
+        "keywords": {"type": "array", "items": {"type": "string"}},
+        "homepage": {"type": "string"},
+        "strict": {"type": "boolean"},
+        "metadata": {
+          "type": "object",
+          "required": ["localai"],
+          "properties": {
+            "localai": {"$ref": "#/$defs/localai"}
+          }
+        }
+      }
+    },
+    "githubSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "repo", "sha"],
+      "properties": {
+        "source": {"const": "github"},
+        "repo": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+        "ref": {"type": "string"},
+        "sha": {"$ref": "#/$defs/sha"}
+      }
+    },
+    "gitSubdirSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "url", "path", "sha"],
+      "properties": {
+        "source": {"const": "git-subdir"},
+        "url": {"$ref": "#/$defs/httpsGit"},
+        "path": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$", "not": {"pattern": "(^|/)\\.\\.?(/|$)"}},
+        "ref": {"type": "string"},
+        "sha": {"$ref": "#/$defs/sha"}
+      }
+    },
+    "localai": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["license", "runsCode", "phase", "reviewed"],
+      "properties": {
+        "license": {
+          "description": "The SPDX ID of the license file in the plugin folder, or at the repository root. CI reads the file at the pinned SHA and compares. Add an ID here and in .github/scripts/plugins-marketplace-check.sh together.",
+          "enum": ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "MPL-2.0", "0BSD", "Unlicense", "CC0-1.0"]
+        },
+        "runsCode": {
+          "type": "boolean",
+          "description": "Whether the plugin runs code (hooks, stdio MCP servers, bin/, LSP, monitors, shell injections). CI compares it with the checks of local-ai plugins validate."
+        },
+        "phase": {"enum": ["P0", "P1", "P2", "P3"]},
+        "reviewed": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}
+      }
+    }
+  }
+}

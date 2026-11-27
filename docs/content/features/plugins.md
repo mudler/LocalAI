@@ -34,6 +34,42 @@ The server refreshes each marketplace every 6 hours. A refresh that fails keeps 
 
 Entries with an `npm`, `archive` or `command` source are listed as not supported.
 
+## The curated marketplace
+
+The default marketplace `localai` is a list that the LocalAI maintainers review. It lives in the LocalAI repository, in [`plugins/`](https://github.com/mudler/LocalAI/tree/master/plugins), and the server reads it as one file:
+
+```
+https://raw.githubusercontent.com/mudler/LocalAI/<ref>/plugins/.claude-plugin/marketplace.json
+```
+
+`<ref>` is the release tag for a release build, and `master` for any other build. A release server therefore sees new entries and new pins with the next release. To get them sooner, add the `master` URL as a second marketplace.
+
+Each entry points to the plugin's own repository at a full commit SHA. Nothing is copied into the LocalAI repository, except the `localai` plugin, which is kept there. Each entry also says, under `metadata.localai`, the SPDX license ID, whether the plugin runs code, and the date of its last review. The first list has plugins that run no code:
+
+| Plugin | Source | Adds |
+|---|---|---|
+| `localai` | LocalAI, `plugins/localai` | Skills `localai:api`, `localai:models`, `localai:addons`; command `/localai:install-model <name>` |
+| `frontend-design` | `anthropics/claude-plugins-official` | One skill to design and build web interfaces |
+| `python-development` | `wshobson/agents` | Python skills (layout, testing, typing, packaging, async, performance) and a scaffold command |
+| `developer-essentials` | `wshobson/agents` | Skills on git, debugging, code review, error handling, SQL, end-to-end tests, auth and monorepos |
+| `documentation-standards` | `wshobson/agents` | Two skills on documentation that people and models both read |
+| `shell-scripting` | `wshobson/agents` | Skills on defensive Bash, ShellCheck and Bats tests |
+| `unit-testing` | `wshobson/agents` | A command that generates unit tests |
+
+Some of these plugins also have sub-agents. LocalAI lists them and does not use them yet.
+
+The `localai` plugin is for agents that use a LocalAI server from outside, through its HTTP API and CLI. Inside a LocalAI chat, the built-in `localai` skill and the client tools already do this, so the plugin starts off for each user.
+
+### Propose a plugin
+
+Open a pull request that adds the entry to `plugins/.claude-plugin/marketplace.json`. The rules and a trial checklist are in [`plugins/README.md`](https://github.com/mudler/LocalAI/blob/master/plugins/README.md). In short:
+
+- the source is `github` or `git-subdir`, pinned to a full commit SHA;
+- `metadata.localai` has `license`, `runsCode`, `phase` and `reviewed`;
+- the pull request has the result of a trial with a local model: each skill and each command, one line each.
+
+CI checks the schema, the pins and the license file at the SHA. It then fetches each entry at its SHA and runs `local-ai plugins validate --strict` on it, which fails when `runsCode` differs from what the checks find. A change to the `localai` plugin keeps its old pin until a bot pull request pins it to the merge commit.
+
 ## Installs
 
 An install is pinned to a full commit SHA, and its files are stored once under their content digest. Before an install, the server fetches the plugin into a scratch folder, checks every file (no path that leaves the folder, no device or link out of the tree, size and count limits), computes the digest, and reads the plugin. The person who installs reviews the commit, the digest and what the plugin contributes. The install fetches the plugin again at the same commit and refuses it when the files differ from the reviewed ones.
