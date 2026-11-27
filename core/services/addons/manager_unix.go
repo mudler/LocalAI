@@ -27,25 +27,32 @@ func (m *Manager) cleanStages() error {
 		if !strings.HasPrefix(entry.Name(), "stage-") {
 			continue
 		}
-		if e = fs.WalkDir(root.FS(), entry.Name(), func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if !d.IsDir() {
-				return nil
-			}
-			// Descriptor chmod avoids following a link swapped in after WalkDir.
-			f, err := root.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_DIRECTORY, 0)
-			if err != nil {
-				return err
-			}
-			return errors.Join(f.Chmod(0700), f.Close()) // #nosec G122 -- the tree is owned by this process and locked; the walk only normalises its own files
-		}); e != nil {
-			return e
-		}
-		if e = root.RemoveAll(entry.Name()); e != nil {
+		if e = removeReadOnlyTree(root, entry.Name()); e != nil {
 			return e
 		}
 	}
 	return nil
+}
+
+// removeReadOnlyTree removes one published or staged tree under root. Its
+// folders are 0500, so they are made writable first, through descriptors
+// that never follow a link out of root.
+func removeReadOnlyTree(root *os.Root, name string) error {
+	if e := fs.WalkDir(root.FS(), name, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		// Descriptor chmod avoids following a link swapped in after WalkDir.
+		f, err := root.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_DIRECTORY, 0)
+		if err != nil {
+			return err
+		}
+		return errors.Join(f.Chmod(0700), f.Close()) // #nosec G122 -- the tree is owned by this process and locked; the walk only normalises its own files
+	}); e != nil {
+		return e
+	}
+	return root.RemoveAll(name)
 }

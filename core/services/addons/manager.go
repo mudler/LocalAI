@@ -1018,6 +1018,10 @@ func (m *Manager) Reconcile(ctx context.Context) error {
 	if e := m.persist("reconciled"); e != nil {
 		return e
 	}
+	// The journals are settled and nothing has started yet, so this is the
+	// one point where the referenced packages are known and none is in use
+	// by an operation.
+	m.sweepPackages()
 	// Grants follow the journal: a crash between the two files leaves entries
 	// of operations that never completed and of add-ons that are gone.
 	if e := m.reconcileGrantsLocked(ctx); e != nil {

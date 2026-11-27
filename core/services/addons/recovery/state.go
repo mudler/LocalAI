@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -288,4 +289,56 @@ func (r *Recovery) mode() string {
 		return ""
 	}
 	return r.cfg.Policy.Mode()
+}
+
+// PendingUpgrades reads the recovery journals under the owner root and
+// returns, by add-on ID, the candidate package digests of the upgrades they
+// have not finished. A journal names its candidate by digest only, so the
+// caller matches it against receipt.json. Any journal or state file that
+// cannot be read or parsed is an error: then nothing can tell which
+// packages recovery still needs.
+func PendingUpgrades(root string) (map[string][]string, error) {
+	entries, err := os.ReadDir(filepath.Join(root, "recovery"))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := map[string][]string{}
+	for _, e := range entries {
+		if !e.IsDir() || validID(e.Name()) != nil {
+			continue
+		}
+		dir := filepath.Join(root, "recovery", e.Name())
+		b, err := os.ReadFile(filepath.Join(dir, "state.json"))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return nil, err
+		}
+		if err == nil {
+			var s State
+			if json.Unmarshal(b, &s) != nil || s.State == "" {
+				return nil, fmt.Errorf("the recovery state of %s is unreadable", e.Name())
+			}
+		}
+		b, err = os.ReadFile(filepath.Join(dir, "journal.json"))
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		var j journalRecord
+		if json.Unmarshal(b, &j) != nil || j.Kind == "" {
+			return nil, fmt.Errorf("the recovery journal of %s is unreadable", e.Name())
+		}
+		if j.Kind != "upgrade" {
+			continue
+		}
+		if j.Digest == "" {
+			return nil, fmt.Errorf("the recovery journal of %s names no candidate", e.Name())
+		}
+		out[e.Name()] = append(out[e.Name()], j.Digest)
+	}
+	return out, nil
 }

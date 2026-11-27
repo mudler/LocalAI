@@ -298,9 +298,18 @@ catalog release. Persistence errors block further commands until reconciliation.
 Uninstall clears installed and enabled intent. It retains immutable generations,
 addon identity, data paths, and grant metadata. Mutable data lives under `data/`;
 owner metadata lives under `metadata/`; immutable packages live under `packages/`.
-Reconciliation removes abandoned `stage-*` directories but retains published
-packages, including packages published just before a crash. Operators must inspect
-unreferenced published packages before removing them. No automatic purge runs.
+Reconciliation removes abandoned `stage-*` directories. It then removes the
+published `package-*` directories that nothing references. A failed upgrade
+publishes its candidate before it starts it, so each failed attempt leaves one.
+A package is kept when the journal names it in any generation of any add-on
+(installed or not, so the previous generation stays available), in the pending
+state of an operation, or as the canceled upgrade that the same operation ID can
+continue, or when an unfinished data recovery upgrade names its digest. A
+package published just before a crash, whose operation recovery marks failed,
+is removed. When a recovery journal or state file cannot be read, or the journal
+names a package outside `packages/`, the sweep removes nothing and logs why.
+Links are never followed. Each removed directory is logged with its add-on ID
+and size, followed by the total freed.
 
 Drain, backup, and migration hooks are interfaces only. The lifecycle library does
 not claim to execute those operations. Later runtime integration must implement

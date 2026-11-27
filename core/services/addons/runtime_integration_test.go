@@ -499,3 +499,83 @@ var _ = Describe("Upgrade of a running add-on whose manifest has an empty list",
 		Expect(now.PID).NotTo(Equal(old.PID))
 	})
 })
+
+var _ = Describe("Restart after an upgrade whose candidate does not start", func() {
+	It("removes the package of the failed candidate and keeps the running add-on", func() {
+		cfg, c, installer := fixture()
+		dir := filepath.Join(cfg.Root, "packages", "package-stage-1")
+		Expect(os.MkdirAll(dir, 0700)).To(Succeed())
+		out, e := exec.Command("go", "build", "-o", filepath.Join(dir, "fixture"), "../../../tests/addons/fixture/cmd").CombinedOutput()
+		Expect(e).NotTo(HaveOccurred(), string(out))
+		b, e := os.ReadFile("../../../tests/addons/fixtures/contracts/service.json")
+		Expect(e).NotTo(HaveOccurred())
+		manifest, e := contract.ParseManifest(b)
+		Expect(e).NotTo(HaveOccurred())
+		manifest.Executable = "fixture"
+		b, e = json.Marshal(packages.PackageReceipt{Directory: dir, Manifest: manifest})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(os.WriteFile(filepath.Join(dir, "receipt.json"), b, 0400)).To(Succeed())
+		var receipt packages.PackageReceipt
+		Expect(json.Unmarshal(b, &receipt)).To(Succeed())
+		m, e := NewManager(ctx, cfg, c, installer, admin)
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(m.Close)
+		m.journal.Addons["sample"] = Status{AddonID: "sample", Installed: true, DesiredEnabled: true, Generation: 1, Generations: []Generation{{Number: 1, Receipt: receipt}}}
+		runtimeConfig := addonruntime.Config{StateRoot: filepath.Join(cfg.Root, "runtime"), Limits: contract.DefaultLimits(), ReadyTimeout: 2 * time.Second, StableHealth: time.Second}
+		s, e := addonruntime.NewSupervisor(runtimeConfig)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(m.AttachRuntime(ctx, s)).To(Succeed())
+
+		manifest.Version = "2.0.0"
+		manifestBytes, e := json.Marshal(manifest)
+		Expect(e).NotTo(HaveOccurred())
+		var archive bytes.Buffer
+		tw := tar.NewWriter(&archive)
+		for name, data := range map[string][]byte{"manifest.json": manifestBytes, "fixture": []byte("#!/bin/sh\nexit 3\n")} {
+			Expect(tw.WriteHeader(&tar.Header{Name: name, Mode: 0755, Size: int64(len(data))})).To(Succeed())
+			_, e = tw.Write(data)
+			Expect(e).NotTo(HaveOccurred())
+		}
+		Expect(tw.Close()).To(Succeed())
+		artifact := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(archive.Bytes()) }))
+		DeferCleanup(artifact.Close)
+		release := catalog.Release{ID: "sample", Name: "Sample", Version: "2.0.0", Artifact: artifact.URL + "/package.tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(archive.Bytes())), OS: manifest.OS, Arch: manifest.Arch}
+		library := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_ = catalog.WriteIndex(w, []catalog.Release{release})
+		}))
+		DeferCleanup(library.Close)
+		Expect(c.Sources.Save(ctx, actor, catalog.Source{ID: "test", Removed: true})).To(Succeed())
+		Expect(c.Sources.Save(ctx, actor, catalog.Source{ID: "upgrade", Name: "Upgrade", URL: library.URL, Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
+		_, e = c.Sources.Refresh(ctx, "upgrade")
+		Expect(e).NotTo(HaveOccurred())
+
+		_, e = m.Submit(ctx, actor, LifecycleCommand{OperationID: "upgrade-bad-candidate", AddonID: "sample", Action: "upgrade", SourceID: "upgrade", Version: "2.0.0"})
+		Expect(e).To(MatchError(ErrOperationFailed))
+		candidates := func() []string {
+			entries, e := os.ReadDir(filepath.Join(cfg.Root, "packages"))
+			Expect(e).NotTo(HaveOccurred())
+			var out []string
+			for _, entry := range entries {
+				if strings.HasPrefix(entry.Name(), "package-") && entry.Name() != "package-stage-1" {
+					out = append(out, entry.Name())
+				}
+			}
+			return out
+		}
+		Expect(candidates()).To(HaveLen(1))
+		Expect(m.Close()).To(Succeed())
+
+		m, e = NewManager(ctx, cfg, c, installer, admin)
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(m.Close)
+		Expect(m.Reconcile(ctx)).To(Succeed())
+		Expect(candidates()).To(BeEmpty())
+		s, e = addonruntime.NewSupervisor(runtimeConfig)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(m.AttachRuntime(ctx, s)).To(Succeed())
+		now, e := m.Runtime(ctx, "sample")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(now.Generation).To(Equal(uint64(1)))
+		Expect(filepath.Join(dir, "fixture")).To(BeAnExistingFile())
+	})
+})
