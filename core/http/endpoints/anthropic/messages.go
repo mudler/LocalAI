@@ -382,6 +382,9 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 		// length of the output at the last tool-call parse: a parse of the
 		// same output finds the same calls, which were emitted already.
 		var accumulatedContent functions.StreamOutput
+		// fnParser keeps its parse work across tokens; it finds what a parse
+		// of the whole output finds.
+		fnParser := functions.NewStreamFunctionCallParser(cfg.FunctionsConfig)
 		parsedLen := -1
 		currentBlockIndex := 0
 		inToolCall := false
@@ -426,11 +429,11 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 				<-keepaliveDone // wait for keepalive goroutine to exit before writing
 			})
 			accumulatedContent.Write(token)
+			fnParser.Write(token)
 
 			if shouldUseFn && accumulatedContent.Len() != parsedLen && accumulatedContent.MayHoldFunctionCall(cfg.FunctionsConfig) {
 				parsedLen = accumulatedContent.Len()
-				cleanedResult := functions.CleanupLLMResult(accumulatedContent.String(), cfg.FunctionsConfig)
-				toolCalls := functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
+				toolCalls := fnParser.Parse()
 
 				if len(toolCalls) > toolCallsEmitted {
 					if !inToolCall && currentBlockIndex == 0 {
