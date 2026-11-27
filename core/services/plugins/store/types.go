@@ -237,7 +237,10 @@ type Token struct {
 	CodeFiles []string
 	// Review is set when the confirmation needs the administrator's browser
 	// session: an update whose code changed, even with no file to tick.
-	Review    bool
+	Review bool
+	// Name is the manifest name of the plugin, the namespace of its skills
+	// and commands.
+	Name      string
 	ExpiresAt time.Time
 	CreatedAt time.Time
 }

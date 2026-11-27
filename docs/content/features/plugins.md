@@ -82,7 +82,7 @@ A plugin runs code when it has a command hook, an http hook (it sends the hook d
 | Install for everyone | no | yes |
 | Install a plugin that runs code | no | for everyone only, from the browser |
 
-An install for everyone of a plugin that users installed for themselves replaces their installs; it stays on for them. An update of a personal install whose new version runs code is refused, and the install keeps its version. An update that adds code to an install for everyone turns it off for each user until they turn it on again.
+Two plugins with the same name cannot both contribute to one person, because their skills and commands would have the same names: an install is refused with `409 conflict` when a plugin of that name from another marketplace is installed for everyone, or for the same person, and an install for everyone is refused when any install has that name. An install for everyone of a plugin that users installed for themselves replaces their installs; it stays on for them. An update of a personal install whose new version runs code is refused, and the install keeps its version. An update that adds code to an install for everyone turns it off for each user until they turn it on again.
 
 Plugin text is data from its author: skills and commands go into the prompt like any other skill. Community plugins are not signed; the curated marketplace is reviewed by people and is not signed either.
 
@@ -159,7 +159,7 @@ Errors use the usual error body; `error.type` says why:
 | 403 | `not_human_surface` | The change needs the administrator's browser session. |
 | 403 | `forbidden` | The caller may not do this. |
 | 404 | `not_found` | No such marketplace, entry, install or file. A personal install of another user is not found. |
-| 409 | `conflict` | The plugin is installed already, or the install changed meanwhile. |
+| 409 | `conflict` | The plugin is installed already, the install changed meanwhile, or another plugin with the same name is installed where both would contribute (from another marketplace); the message names that install. |
 | 409 | `instance_installed` | The plugin is installed for everyone; `error.param` is that install. |
 | 409 | `no_update` | The install is at the latest version. |
 | 409 | `needs_reenable` | The install now runs code; send `"reenable": true`. |

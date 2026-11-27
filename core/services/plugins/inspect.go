@@ -260,7 +260,7 @@ func (s *Service) Inspect(ctx context.Context, a Actor, pluginID string) (Previe
 	}
 	p.Token, p.ExpiresAt, err = s.newToken(ctx, store.Token{
 		Kind: store.TokenInstall, Principal: a.ID, PluginID: r.pluginID, SHA: c.sha, Digest: c.digest,
-		RunsCode: p.RunsCode, CodeFiles: c.codeFiles,
+		RunsCode: p.RunsCode, CodeFiles: c.codeFiles, Name: c.plugin.Name,
 	})
 	return p, err
 }

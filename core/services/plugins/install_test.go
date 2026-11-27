@@ -398,6 +398,24 @@ var _ = Describe("Installs", func() {
 		Expect(us.Enabled).To(BeTrue())
 	})
 
+	It("refuses an install of a plugin whose name another marketplace's install has, naming that install", func() {
+		_, err := install(admin, store.ScopeInstance)
+		Expect(err).NotTo(HaveOccurred())
+		first := installs()[0]
+		ff.setMarketplace("owner/other", marketplaceJSON("other", githubEntry("fmt", "o/fmt", "")), shaA, nil)
+		_, err = svc.AddMarketplace(ctx, admin, plugins.AddMarketplaceRequest{Source: "owner/other"})
+		Expect(err).NotTo(HaveOccurred())
+		for _, a := range []plugins.Actor{user, admin} {
+			p, err := svc.Inspect(ctx, a, "fmt@other")
+			Expect(err).NotTo(HaveOccurred())
+			_, err = svc.Install(ctx, a, p.Token, store.ScopeUser)
+			Expect(errors.Is(err, store.ErrConflict)).To(BeTrue(), "%v", err)
+			Expect(err.Error()).To(ContainSubstring("fmt@team"))
+			Expect(err.Error()).To(ContainSubstring(first.ID))
+		}
+		Expect(installs()).To(HaveLen(1))
+	})
+
 	It("refuses a second install of the same key and a user install of an instance plugin", func() {
 		_, err := install(admin, store.ScopeInstance)
 		Expect(err).NotTo(HaveOccurred())

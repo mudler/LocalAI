@@ -115,6 +115,38 @@ func (s *Service) checkNewInstall(ctx context.Context, a Actor, pluginID, scope 
 	return nil
 }
 
+// checkNameFree refuses an install whose manifest name another plugin ID
+// already uses where both would contribute: the skills and commands of a
+// plugin are named <name>:<skill>, so fmt@a and fmt@b would give the same
+// names. A user install meets the instance installs and the user's own; an
+// instance install meets every install. The error names the first install.
+func (s *Service) checkNameFree(ctx context.Context, a Actor, pluginID, scope, name string) error {
+	if name == "" {
+		return nil
+	}
+	f := store.InstallFilter{}
+	if scope == store.ScopeUser {
+		f.VisibleTo = a.ID
+	}
+	list, err := s.st.Installs(ctx, f)
+	if err != nil {
+		return err
+	}
+	for _, in := range list {
+		if in.PluginID == pluginID {
+			continue
+		}
+		pkg, err := s.st.Package(ctx, in.Digest)
+		if err != nil {
+			continue
+		}
+		if pkg.Name == name {
+			return fmt.Errorf("%w: the plugin name %q is taken by %s (install %s); remove it first", store.ErrConflict, name, in.PluginID, in.ID)
+		}
+	}
+	return nil
+}
+
 // Install confirms a preview and queues the install (spec 9.3 step 4). It
 // checks the rights again, consumes the token and returns the job ID. The
 // job fetches the plugin again at the same commit and refuses a digest that
@@ -137,6 +169,9 @@ func (s *Service) Install(ctx context.Context, a Actor, secret, scope string) (s
 		return "", err
 	}
 	if err := s.checkNewInstall(ctx, a, t.PluginID, scope); err != nil {
+		return "", err
+	}
+	if err := s.checkNameFree(ctx, a, t.PluginID, scope, t.Name); err != nil {
 		return "", err
 	}
 	if t, err = s.takeToken(ctx, a, secret, store.TokenInstall); err != nil {
@@ -172,6 +207,9 @@ func (s *Service) installJob(ctx context.Context, a Actor, t store.Token, scope 
 	}
 	runsCode := len(c.reasons) > 0
 	if err := s.checkInstallRights(a, scope, runsCode); err != nil {
+		return err
+	}
+	if err := s.checkNameFree(ctx, a, t.PluginID, scope, c.plugin.Name); err != nil {
 		return err
 	}
 	if err := s.writePackage(ctx, c); err != nil {
