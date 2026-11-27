@@ -30,8 +30,9 @@ func (a *Application) P2PUsers() p2papi.UserService { return p2pService{n: a.p2p
 // device, that the credential is its own, that the owner is active and that
 // the owner still has p2p_pair, and then opens a session of the owner that
 // carries the device. Every refusal is ErrSignInRefused. A wrong credential
-// counts against the redeem limiter of the peer; a right one is taken back,
-// so an app that signs in again and again is never locked out.
+// counts against the sign-in limiter of the peer (the peer alone, not its
+// source, and not the redeem limiter); a right one is taken back, so an app
+// that signs in again and again is never locked out.
 func (s p2pService) DeviceSession(ctx context.Context, from, credential string) (p2papi.DeviceSession, error) {
 	rt, err := s.share()
 	if err != nil {
@@ -45,7 +46,7 @@ func (s p2pService) DeviceSession(ctx context.Context, from, credential string) 
 	if db == nil {
 		return p2papi.DeviceSession{}, p2papi.ErrSignInRefused
 	}
-	ok, refund := rt.limit.Attempt(p, rt.sourceOf(p))
+	ok, refund := rt.signInLimit.Attempt(p, "")
 	if !ok {
 		return p2papi.DeviceSession{}, p2papi.ErrRateLimited
 	}

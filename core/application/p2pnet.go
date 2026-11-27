@@ -103,6 +103,11 @@ type p2pRuntime struct {
 	srv    *http.Server
 	sub    messaging.Subscription
 	limit  *globalLimiter
+	// signInLimit counts wrong device credentials per peer only. A paired
+	// peer's identity is proven by the connection, so a source bucket
+	// (shared by every peer behind one relay or NAT) would only let one
+	// peer lock the others out of sign-in and redeem.
+	signInLimit p2ppair.Limiter
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -350,6 +355,7 @@ func (rt *p2pRuntime) startShare() error {
 		return err
 	}
 	rt.limit = newGlobalLimiter(p2ppair.NewLimiter(nil), redeemGlobalMax, redeemGlobalWindow)
+	rt.signInLimit = p2ppair.NewLimiter(nil)
 	pcfg := p2ppair.Config{
 		ServerPeer: rt.host.ID(),
 		Addrs:      rt.linkAddrs,

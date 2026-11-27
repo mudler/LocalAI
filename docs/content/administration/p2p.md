@@ -411,8 +411,11 @@ with the rights of the owner and no more. The route checks, in this order:
    Administrators always have it.
 
 Every other case gets the same `403`, so the route does not tell which check
-failed. Wrong credentials count against the limit of wrong invite codes of the
-peer: after 5 in an hour the route answers `429`. The credential works only
+failed. Wrong credentials have their own limit, counted for the peer alone:
+after 5 in an hour from one peer the route answers `429` to that peer. The
+limit does not count by network source, because the P2P connection proves the
+peer, and it does not share the count of wrong invite codes, so peers behind
+the same relay or NAT cannot lock each other out. The credential works only
 from the peer that redeemed the invite, because the route reads the peer ID
 that the P2P connection proved. It is not an API key: the normal HTTP listener
 does not accept it.
@@ -470,8 +473,9 @@ The relay pass of an invite is kept in the memory of the frontend that made the
 invite, until the invite ends. Only that frontend can cancel the pass: when
 another frontend cancels the invite, or after a restart, the pass is not
 cancelled and ends with its time limit. The same holds for the count of wrong
-invite codes, which each frontend keeps for itself, so an attacker gets the
-limit once for each frontend.
+invite codes and of wrong device credentials, which each frontend keeps for
+itself (per-instance state), so an attacker gets the limit once for each
+frontend.
 
 ## Command line
 

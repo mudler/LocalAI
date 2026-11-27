@@ -209,7 +209,29 @@ var _ = Describe("P2P device sign-in", func() {
 		Expect(refusal).To(ContainSubstring(p2papi.ErrSignInRefused.Error()))
 	})
 
-	It("counts wrong credentials per peer with the redeem limiter", func() {
+	It("limits wrong credentials per peer only, apart from the redeem limiter", func() {
+		a, server := shareServer()
+		signInUser(a, "alice", auth.RoleUser, true)
+		// Every device here dials from loopback, so they share one source.
+		_, c1, _ := pairSignIn(server, "alice")
+		_, c2, _ := pairSignIn(server, "alice")
+		_, c3, cred3 := pairSignIn(server, "alice")
+		for _, c := range []*http.Client{c1, c2} {
+			for range 5 {
+				Expect(askSession(c, server, "nope", false).status).To(Equal(http.StatusForbidden))
+			}
+			Expect(askSession(c, server, "nope", false).status).To(Equal(http.StatusTooManyRequests))
+		}
+
+		By("letting another peer on the same source sign in")
+		ans := askSession(c3, server, cred3, false)
+		Expect(ans.status).To(Equal(http.StatusOK), ans.body)
+
+		By("letting a new device on the same source redeem an invite")
+		pairSignIn(server, "alice")
+	})
+
+	It("counts wrong credentials per peer", func() {
 		a, server := shareServer()
 		signInUser(a, "alice", auth.RoleUser, true)
 		_, c, cred := pairSignIn(server, "alice")
