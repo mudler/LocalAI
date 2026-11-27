@@ -262,6 +262,8 @@ them all in one step. When the guesses are right, answers come faster. The
 output is the same as without drafting. The **Drafting** section of Runtime
 tuning sets it up with one choice, so you do not need the llama.cpp flags.
 
+![The Drafting section with Draft model picked: qwen3-0.6b is the draft, the compatibility line says the vocabularies match, the memory line says it adds about 920 MB, and the fields for draft tokens, the acceptance threshold and the stream limit follow.](../../images/engine-settings/drafting.png)
+
 | Mode | What it writes | When to use it |
 |---|---|---|
 | **Off** (default) | Removes `spec_type`, `draft_model` and the drafting fields. For a model with an MTP head, it writes `spec_type:none`. | Normal chat. |
