@@ -753,7 +753,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     std::optional<int> spec_max_streams;
     // Order of waiting requests and the per-request prefill cap (serving_policy.h).
     std::optional<bool> admission_order;
-    std::optional<bool> prefix_defer;
     std::optional<int> prefill_cap;
     bool lazy_idle_save = false;
 
@@ -929,12 +928,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         } else if (!strcmp(optname, "admission_order") || !strcmp(optname, "paged_order")) {
             if (const auto v = llama_grpc::parse_switch(optval_str)) {
                 admission_order = *v;
-            } else {
-                SRV_WRN("%s: ignoring invalid value '%s' (expected true or false)\n", optname, optval_str.c_str());
-            }
-        } else if (!strcmp(optname, "prefix_defer")) {
-            if (const auto v = llama_grpc::parse_switch(optval_str)) {
-                prefix_defer = *v;
             } else {
                 SRV_WRN("%s: ignoring invalid value '%s' (expected true or false)\n", optname, optval_str.c_str());
             }
@@ -2027,10 +2020,8 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         params.paged_order       = paged.on && admission_order.value_or(true);
         params.prefill_cap       = paged.on ? prefill_cap.value_or(serving_policy::default_prefill_cap) : 0;
         params.paged_lazy_save   = paged.on && lazy_idle_save;
-        params.paged_defer       = paged.on && prefix_defer.value_or(false);
 #else
         (void) admission_order;
-        (void) prefix_defer;
         (void) prefill_cap;
         (void) lazy_idle_save;
 #endif
@@ -2059,7 +2050,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     (void) slot_attach;
     (void) spec_max_streams;
     (void) admission_order;
-    (void) prefix_defer;
     (void) prefill_cap;
     (void) lazy_idle_save;
 #endif

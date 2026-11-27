@@ -360,24 +360,6 @@ inline bool goes_before(const wait_key & a, const wait_key & b, const order_para
     return a.id < b.id;
 }
 
-// In-batch prefix-collision deferral (SGLang's, as in vllm.cpp): when a new
-// request starts with a prefix that an earlier request reads right now and no
-// cache holds yet, it waits until that request holds the prefix, then copies
-// it (prefix sharing) instead of reading it too. Bounds:
-// - the shared prefix must reach paged_min_attach (256) tokens, the least
-//   prefix sharing copies; vllm.cpp's 32 tokens would hold requests that
-//   then read the prefix anyway;
-// - the hold ends after prefix_hold_us (2 s), or when the request starves
-//   (preempted, overtake cap, max wait); a hold counts as one overtake;
-// - with more than prefix_hold_max_waiting (128) waiters the check is skipped.
-constexpr int64_t prefix_hold_us          = 2000000;
-constexpr int     prefix_hold_max_waiting = 128;
-
-inline bool hold_for_prefix(int64_t n_shared, int64_t n_cached, int64_t t_wait_us, bool starved, int n_waiting) {
-    return !starved && n_waiting <= prefix_hold_max_waiting && n_shared >= paged_min_attach &&
-           n_cached < n_shared && t_wait_us < prefix_hold_us;
-}
-
 // Default of prefill_cap with paged serving.
 constexpr int default_prefill_cap = 512;
 

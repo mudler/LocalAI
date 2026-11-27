@@ -163,12 +163,6 @@ var flags = []es.Flag{
 		OptionAliases: []string{"paged_order"},
 	},
 	{
-		Key: "prefix_defer", Target: es.TargetOption, Path: "options", Option: "prefix_defer",
-		Type: es.TypeBool, Default: "off", Group: GroupServing, LocalAIOnly: true,
-		Doc: "With paged serving: a new request that starts with a long prefix another request is reading waits up to 2 s, " +
-			"then copies that prefix instead of reading it again.",
-	},
-	{
 		Key: "prefill_cap", Target: es.TargetOption, Path: "options", Option: "prefill_cap",
 		Type: es.TypeInt, Min: es.F64(0), Default: "512", Group: GroupServing, LocalAIOnly: true,
 		Doc: "With paged serving: the most prompt tokens one request reads per step while other requests read prompts too. 0 turns it off.",
