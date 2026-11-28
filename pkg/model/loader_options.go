@@ -129,6 +129,23 @@ func (o *Options) finalized() (*Options, error) {
 	return &cp, nil
 }
 
+// detachedLoadContext preserves values from ctx while detaching cancellation
+// and deadlines so a local cold load outlives the initiating client request.
+func detachedLoadContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
+	return context.WithoutCancel(ctx)
+}
+
+// withoutCancel returns a shallow copy of o whose context preserves values
+// without propagating cancellation or deadlines from the caller's request.
+func (o *Options) withoutCancel() *Options {
+	cp := *o
+	cp.context = detachedLoadContext(o.context)
+	return &cp
+}
+
 func WithContext(ctx context.Context) Option {
 	return func(o *Options) {
 		o.context = ctx
