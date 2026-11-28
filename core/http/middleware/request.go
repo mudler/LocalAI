@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/telemetry"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
@@ -374,6 +375,7 @@ func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) (err error) {
 	// The model call runs on a context of its own: keep the incognito level.
 	ctxWithCorrelationID = privacy.WithLevel(ctxWithCorrelationID, privacy.FromContext(reqCtx))
 	ctxWithCorrelationID = diagnostics.Inherit(ctxWithCorrelationID, reqCtx)
+	ctxWithCorrelationID = telemetry.Inherit(ctxWithCorrelationID, reqCtx)
 
 	cls, err := requestPriority(c, reqCtx, re.applicationConfig, input.ServiceTier)
 	if err != nil {
@@ -919,6 +921,7 @@ func (re *RequestExtractor) SetOpenResponsesRequest(c echo.Context) (err error) 
 	// The model call runs on a context of its own: keep the incognito level.
 	ctxWithCorrelationID = privacy.WithLevel(ctxWithCorrelationID, privacy.FromContext(reqCtx))
 	ctxWithCorrelationID = diagnostics.Inherit(ctxWithCorrelationID, reqCtx)
+	ctxWithCorrelationID = telemetry.Inherit(ctxWithCorrelationID, reqCtx)
 
 	cls, err := requestPriority(c, reqCtx, re.applicationConfig, input.ServiceTier)
 	if err != nil {

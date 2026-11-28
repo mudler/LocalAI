@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piiadapter"
+	"github.com/mudler/LocalAI/core/telemetry"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 )
@@ -124,6 +125,7 @@ func setOllamaChatRequestContext(appConfig *config.ApplicationConfig) echo.Middl
 			// The model call runs on a context of its own: keep the incognito level.
 			ctxWithCorrelationID = privacy.WithLevel(ctxWithCorrelationID, privacy.FromContext(reqCtx))
 			ctxWithCorrelationID = diagnostics.Inherit(ctxWithCorrelationID, reqCtx)
+			ctxWithCorrelationID = telemetry.Inherit(ctxWithCorrelationID, reqCtx)
 			input.Context = ctxWithCorrelationID
 			input.Cancel = cancel
 
@@ -169,6 +171,7 @@ func setOllamaGenerateRequestContext(appConfig *config.ApplicationConfig) echo.M
 			// The model call runs on a context of its own: keep the incognito level.
 			ctxWithCorrelationID = privacy.WithLevel(ctxWithCorrelationID, privacy.FromContext(reqCtx))
 			ctxWithCorrelationID = diagnostics.Inherit(ctxWithCorrelationID, reqCtx)
+			ctxWithCorrelationID = telemetry.Inherit(ctxWithCorrelationID, reqCtx)
 			input.Ctx = ctxWithCorrelationID
 			input.Cancel = cancel
 

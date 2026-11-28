@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piiadapter"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/core/telemetry"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	"github.com/mudler/xlog"
@@ -109,6 +110,7 @@ func setAnthropicRequestContext(appConfig *config.ApplicationConfig) echo.Middle
 			// The model call runs on a context of its own: keep the incognito level.
 			ctxWithCorrelationID = privacy.WithLevel(ctxWithCorrelationID, privacy.FromContext(reqCtx))
 			ctxWithCorrelationID = diagnostics.Inherit(ctxWithCorrelationID, reqCtx)
+			ctxWithCorrelationID = telemetry.Inherit(ctxWithCorrelationID, reqCtx)
 
 			input.Context = ctxWithCorrelationID
 			input.Cancel = cancel
