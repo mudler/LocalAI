@@ -566,10 +566,9 @@ func (s *Sources) Refresh(ctx context.Context, sourceID string) (RefreshResult, 
 			text = string(r[:maxRefreshErrorChars]) + "..."
 		}
 		s.cache[sourceID] = cached{result: result, failed: true, err: text}
-		if errors.Is(e, ErrCredential) {
-			return result, e
-		}
-		return result, ErrRefresh
+		// e carries the cause and still matches ErrRefresh (errors.Is), so the
+		// caller and the log say what failed, not only that a refresh failed.
+		return result, e
 	}
 	result.Count = len(releases)
 	result.Skipped = len(skipped.Skipped)
@@ -644,14 +643,19 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 	}
 	indexed, e := ReadIndex(data, ReadableKinds...)
 	releases := indexed.Releases
-	if e != nil || releases == nil {
+	if e != nil {
+		// The decoder says which field or value it refused; keep that text so
+		// the cause reaches the log and the Sources page, not only a generic line.
+		return nil, IndexResult{}, fmt.Errorf("%w: the answer is not a valid library index: %w", ErrRefresh, e)
+	}
+	if releases == nil {
 		return nil, IndexResult{}, fmt.Errorf("%w: the answer is not a valid library index", ErrRefresh)
 	}
 	seen := map[string]bool{}
 	for i := range releases {
 		r := &releases[i]
 		if !validFetchedRelease(*r, src.AllowLoopbackHTTP) || !validKindFields(*r) || !validEntryUI(r.UI) || !validRequirements(r.Requires) || !validEntryTools(*r) {
-			return nil, IndexResult{}, fmt.Errorf("%w: the index has an entry that is not valid", ErrRefresh)
+			return nil, IndexResult{}, fmt.Errorf("%w: the index has an entry that is not valid: %q", ErrRefresh, r.ID)
 		}
 		r.Selection = ""
 		r.SourceID = src.ID
@@ -663,7 +667,7 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 		r.Policy = src.Policy
 		key := releaseKey(*r)
 		if seen[key] {
-			return nil, IndexResult{}, fmt.Errorf("%w: the index lists an entry twice", ErrRefresh)
+			return nil, IndexResult{}, fmt.Errorf("%w: the index lists the entry %q twice", ErrRefresh, r.ID)
 		}
 		seen[key] = true
 	}

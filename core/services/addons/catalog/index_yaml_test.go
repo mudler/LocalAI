@@ -77,6 +77,11 @@ var _ = Describe("library index document (YAML)", func() {
 		_, e, _ = refreshBody(yamlEntry + "    surprise: true\n")
 		Expect(e).To(MatchError(ErrRefresh))
 	})
+	It("names the field the index refused, so the cause is not only a generic refusal", func() {
+		_, e, _ := refreshBody(yamlEntry + "  surprise: true\n")
+		Expect(e).To(MatchError(ErrRefresh))
+		Expect(e.Error()).To(ContainSubstring("surprise"))
+	})
 	It("refuses a second document, a mapping, an empty body and a duplicate key", func() {
 		for name, body := range map[string]string{
 			"second document": yamlEntry + "---\n" + strings.Replace(yamlEntry, "version: 1.0.0", "version: 2.0.0", 1),
