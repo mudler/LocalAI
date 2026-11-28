@@ -229,15 +229,33 @@ func mapUnique(err error) error {
 // database was set up with.
 var ErrVolumeMismatch = errors.New("workspace: the blob folder is not the one the database expects")
 
-const volumeKey = "blob_volume"
+// ErrBackendMismatch means this node's blob backend (filesystem or object
+// store) does not match the backend recorded in the database.
+var ErrBackendMismatch = errors.New("workspace: the blob backend does not match the database")
 
-// VerifyBlobVolume checks, on a shared filesystem, that this node sees the
-// same blob folder as the other nodes of the database. The first node to start
-// gives the folder a random identity and records it in the database; every
-// node compares the two. A volume that is not shared would make a file written
-// through one frontend look missing on another. It does nothing for other
-// setups.
+const (
+	volumeKey  = "blob_volume"
+	backendKey = "blob_backend"
+)
+
+func (s *Workspace) blobBackend() string {
+	if fs, ok := s.blobs.(blob.Filesystem); ok && fs.IsFilesystem() {
+		return "filesystem"
+	}
+	return "objectstore"
+}
+
+// VerifyBlobVolume checks that this node uses the same blob backend (filesystem
+// or object store) as the database and, on a shared filesystem, that it sees
+// the same blob folder as the other nodes of the database. The first node to
+// start records the backend (and, for a shared filesystem, gives the folder a
+// random identity and records it in the database); every node compares against
+// what is stored. A mismatched backend or unshared volume would make files
+// written through one frontend look missing on another.
 func (s *Workspace) VerifyBlobVolume(ctx context.Context) error {
+	if err := s.verifyBlobBackend(ctx); err != nil {
+		return err
+	}
 	vol, ok := s.blobs.(blob.Volume)
 	if !s.sharedFilesystem || !ok {
 		return nil
@@ -281,11 +299,47 @@ func (s *Workspace) VerifyBlobVolume(ctx context.Context) error {
 	return nil
 }
 
+func (s *Workspace) verifyBlobBackend(ctx context.Context) error {
+	want := s.blobBackend()
+	got, err := s.metaValue(ctx, backendKey)
+	if err != nil {
+		return err
+	}
+	if got == "" {
+		// A database initialized before backend tracking may already carry
+		// a shared-filesystem volume marker; infer filesystem from it so an
+		// object-store node cannot silently attach to it.
+		volID, err := s.metaValue(ctx, volumeKey)
+		if err != nil {
+			return err
+		}
+		if volID != "" {
+			got = "filesystem"
+		}
+	}
+	if got == "" {
+		if _, err := s.db.ExecContext(ctx, `INSERT INTO studio_ws_meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING`, backendKey, want); err != nil {
+			return err
+		}
+		if got, err = s.metaValue(ctx, backendKey); err != nil {
+			return err
+		}
+	}
+	if got != want {
+		return fmt.Errorf("%w: database expects %q, node is configured for %q; every node must use the same blob backend", ErrBackendMismatch, got, want)
+	}
+	return nil
+}
+
 func (s *Workspace) volumeID(ctx context.Context) (string, error) {
-	var id string
-	err := s.db.QueryRowContext(ctx, `SELECT value FROM studio_ws_meta WHERE key = ?`, volumeKey).Scan(&id)
+	return s.metaValue(ctx, volumeKey)
+}
+
+func (s *Workspace) metaValue(ctx context.Context, key string) (string, error) {
+	var val string
+	err := s.db.QueryRowContext(ctx, `SELECT value FROM studio_ws_meta WHERE key = ?`, key).Scan(&val)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil
 	}
-	return id, err
+	return val, err
 }

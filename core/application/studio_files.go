@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -112,6 +113,9 @@ func (a *Application) initStudioFilesWithS3(newS3 func(context.Context, storage.
 	a.transfers().UseBlobs(blobs)
 	ws, closer, err := a.openWorkspaceIndex(root, blobs)
 	if err != nil {
+		if errors.Is(err, gormstore.ErrBackendMismatch) || errors.Is(err, gormstore.ErrVolumeMismatch) {
+			return fmt.Errorf("workspace index: %w", err)
+		}
 		return stop("workspace index", err, "Files are off: the workspace could not be started.")
 	}
 	f := files.New(ws, files.WithBlobs(blobs), files.WithMaxFileSize(a.studioUploadLimit()))
@@ -233,8 +237,9 @@ func (a *Application) openWorkspaceIndex(root string, blobs blob.Store) (workspa
 		if err != nil {
 			return nil, nil, err
 		}
-		// Without S3, nodes that share the database must share the blob
-		// folder too; a volume that is not shared loses files silently.
+		// Verify that every node sharing the database uses the same blob
+		// backend (S3 vs filesystem) and, without S3 on PostgreSQL, mounts
+		// the same blob folder so files are not silently split or orphaned.
 		if err := ws.VerifyBlobVolume(context.Background()); err != nil {
 			_ = ws.Close()
 			return nil, nil, err

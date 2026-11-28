@@ -192,11 +192,14 @@ live in the selected backend. Per-instance caches and scratch are disposable.
 For filesystem storage, every Files consumer must mount the same existing data
 directory/backing storage and use the same PostgreSQL database: frontends, the
 add-on owner and optional chat workers. Inference-only nodes need no Files mount.
-Equal path strings do not prove shared volume identity. With PostgreSQL, the
-first node to start writes a random `.volume-id` file in `DataPath/chats/blobs`
-and records the same id in the database; every node compares the two at startup
-and refuses to start on a mismatch or when the file is missing. This catches a
-volume that is not shared. The check covers the Files blob folder only. It doesn't check the models directory of distributed mode. It does not prove that the storage is coherent.
+Equal path strings do not prove shared volume identity. At startup, the database
+records which blob backend (`filesystem` or `objectstore`) owns its workspace
+metadata and refuses to start any node configured for a different backend,
+preventing silent S3/filesystem split-brain or accidental backend switches. With
+PostgreSQL on filesystem storage, the first node to start also writes a random
+`.volume-id` file in `DataPath/chats/blobs` and records the same id in the
+database; every node compares the two at startup and refuses to start on a
+mismatch or when the file is missing. This catches a volume that is not shared. The check covers the Files blob folder only. It doesn't check the models directory of distributed mode. It does not prove that the storage is coherent.
 Other data-path contents do not thereby become cluster-safe.
 
 Keep the canonical backing directory service-controlled, with compatible UID/GID
