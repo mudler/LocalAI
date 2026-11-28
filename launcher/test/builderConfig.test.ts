@@ -61,7 +61,8 @@ describe('electron-builder.yml', () => {
     // shown as LocalAI and not as local-ai-launcher. It must not be the
     // server's name `local-ai`.
     expect(cfg.mac.executableName).toBe('LocalAI')
-    expect(cfg.mac.extendInfo.CFBundleName).toBe('LocalAI')
+    // Let the builder use the same product name for CFBundleName and its helpers.
+    expect(cfg.mac.extendInfo.CFBundleName).toBeUndefined()
     expect(cfg.mac.extendInfo.CFBundleDisplayName).toBe('LocalAI')
     expect(cfg.dmg.title).toBe('LocalAI')
     // The workflow signs and notarizes the DMG file with scripts/sign-dmg.sh.
