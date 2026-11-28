@@ -88263,3 +88263,72 @@
       model: colibri/inkling-colibri
     template:
       use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-gsq-rco
+  description: |
+    # Inkling 2 Mini
+
+    Playground |
+    Tinker Cookbook
+
+    ## 1. General Information
+
+    Inkling 2 Mini is a general-purpose multimodal model that accepts text and image inputs and generates text outputs. It is intended for use in English and other languages, and across multiple coding languages. The model is designed to be used by developers building AI-powered applications, including agentic and tool-use systems, coding assistants, chatbots, and retrieval-augmented generation systems, and is suitable for general-purpose conversational use, instruction-following, and other natural language and visual tasks. It is released with open weights to support research, fine-tuning and integration into third-party products by downstream developers.
+
+    **Languages:** English, general multilingual support
+
+    **Model provider:** Thinking Machines Lab, Inc.
+
+    **Date of release:** November 20, 2026
+
+    **License:** Apache 2.0
+
+    Model Acceptable Use Policy
+
+    ## 2. Getting Started
+
+    The weights are available for download through Hugging Face here.
+
+    Developers can also access the model using the Tinker fine-tuning platform, which provides API access.
+
+    ...
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/ISTA-DASLab/Inkling-2-Mini-GSQ-RCO-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - gguf
+  files:
+    - filename: llama-cpp/models/Inkling-2-Mini-GSQ-RCO-Q2_K_XL/Inkling-2-Mini-GSQ-RCO-Q2_K_XL.gguf
+      sha256: df264db473adf61660f1968726646a73599e295e882d6a120f675363bd8179e0
+      uri: https://huggingface.co/ISTA-DASLab/Inkling-2-Mini-GSQ-RCO-GGUF/resolve/main/Inkling-2-Mini-GSQ-RCO-Q2_K_XL.gguf
+    - filename: llama-cpp/mmproj/Inkling-2-Mini-GSQ-RCO-Q2_K_XL/mmproj-Inkling-2-Mini-BF16.gguf
+      sha256: 4f8608d079a581c585b502b456630d935066e2382c53aa4b2aef0a231505b4ba
+      uri: https://huggingface.co/ISTA-DASLab/Inkling-2-Mini-GSQ-RCO-GGUF/resolve/main/mmproj-Inkling-2-Mini-BF16.gguf
+    - filename: llama-cpp/models/Inkling-2-Mini-GSQ-RCO-Q2_K_XL/dspark-Inkling-2-Mini-Q8_0.gguf
+      sha256: 7cca0010feae71c25c8530b202e05fd9d1eae09f635ae4f5f31b9f20470e8c48
+      uri: https://huggingface.co/ISTA-DASLab/Inkling-2-Mini-GSQ-RCO-GGUF/resolve/main/dspark-Inkling-2-Mini-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    draft_model: llama-cpp/models/Inkling-2-Mini-GSQ-RCO-Q2_K_XL/dspark-Inkling-2-Mini-Q8_0.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Inkling-2-Mini-GSQ-RCO-Q2_K_XL/mmproj-Inkling-2-Mini-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-dspark
+      - spec_n_max:3
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Inkling-2-Mini-GSQ-RCO-Q2_K_XL/Inkling-2-Mini-GSQ-RCO-Q2_K_XL.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: -1
+      top_p: 1
+    template:
+      use_tokenizer_template: true
