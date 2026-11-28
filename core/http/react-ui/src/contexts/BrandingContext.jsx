@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { brandingApi } from '../utils/api'
+import i18n, { SUPPORTED_LANGUAGES } from '../i18n'
 
 // Bundled defaults — used when the backend hasn't applied an override (or
 // when /api/branding is briefly unreachable on first load).
@@ -9,6 +10,7 @@ export const DEFAULT_BRANDING = {
   logoUrl: '/static/logo.png',
   logoHorizontalUrl: '/static/logo_horizontal.png',
   faviconUrl: '/favicon.svg',
+  defaultLanguage: '',
 }
 
 // The name is the bundled one: only then is it safe to draw the brand colour
@@ -30,13 +32,27 @@ export function BrandingProvider({ children }) {
   const refresh = useCallback(async () => {
     try {
       const data = await brandingApi.get()
+      const serverDefaultLang = (data?.default_language || '').trim()
       setBranding({
         instanceName: data?.instance_name || DEFAULT_BRANDING.instanceName,
         instanceTagline: data?.instance_tagline || '',
         logoUrl: data?.logo_url || DEFAULT_BRANDING.logoUrl,
         logoHorizontalUrl: data?.logo_horizontal_url || DEFAULT_BRANDING.logoHorizontalUrl,
         faviconUrl: data?.favicon_url || DEFAULT_BRANDING.faviconUrl,
+        defaultLanguage: serverDefaultLang,
       })
+
+      const hasExplicitChoice =
+        Boolean(localStorage.getItem('localai-language')) ||
+        new URLSearchParams(window.location.search).has('lng')
+      if (
+        serverDefaultLang &&
+        !hasExplicitChoice &&
+        SUPPORTED_LANGUAGES.some((l) => l.code === serverDefaultLang) &&
+        i18n.language !== serverDefaultLang
+      ) {
+        i18n.changeLanguage(serverDefaultLang)
+      }
     } catch (_e) {
       // /api/branding should always succeed (it's public and zero-side-effect).
       // If it doesn't, fall through to defaults so the UI still renders.

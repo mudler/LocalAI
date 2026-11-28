@@ -630,6 +630,7 @@ type BrandingConfig struct {
 	LogoFile           string
 	LogoHorizontalFile string
 	FaviconFile        string
+	DefaultLanguage    string
 }
 
 // AuthConfig holds configuration for user authentication and authorization.
@@ -2047,4 +2048,10 @@ func (o *ApplicationConfig) BrandingAssetURL(kind, file, defaultURL string) stri
 		return url
 	}
 	return url + "?v=" + strconv.FormatInt(info.ModTime().UnixNano(), 36)
+}
+
+func WithDefaultLanguage(lang string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Branding.DefaultLanguage = lang
+	}
 }
