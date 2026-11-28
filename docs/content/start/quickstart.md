@@ -14,7 +14,18 @@ Run open models for chat, images, speech and video on your own machines. The API
 
 ## Install and start LocalAI
 
-On Linux, or on a Mac with Apple Silicon, run the install script, then start LocalAI:
+Choose the app for your platform:
+
+- **Linux:** Download the [x86-64 AppImage](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI-Launcher-x86_64.AppImage) or the [ARM64 AppImage](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI-Launcher-arm64.AppImage).
+- **macOS (Apple Silicon):** Download the [LocalAI DMG](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg).
+- **Android:** See the [Android client guide]({{% relref "/start/install/android" %}}) for APK availability. The app connects to a LocalAI server on another machine.
+- **Windows 10 or 11 (x64, experimental):** Download the [LocalAI desktop installer](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI-Launcher-Setup-x64.exe).
+
+Follow the [desktop app guide]({{% relref "/start/install/desktop" %}}) to start the server on Linux, macOS, or Windows.
+
+### Alternative: install with a script
+
+On Linux or a Mac with Apple Silicon, run the install script, then start LocalAI:
 
 ```bash
 curl -sSL https://localai.io/install.sh | sh
@@ -26,6 +37,8 @@ The script installs the `local-ai` program and does not start it. The command `l
 
 On Windows, use the PowerShell script `irm https://localai.io/install.ps1 | iex`. See [Install on Windows]({{% relref "/start/install/windows" %}}).
 
+### Alternative: use Docker Compose
+
 On an Intel Mac, or when you prefer a container, use Docker Compose instead:
 
 ```bash
@@ -35,7 +48,7 @@ docker compose up -d
 
 The compose file keeps models, backends, settings and data in named volumes, so they stay when you recreate or upgrade the container.
 
-A desktop app for macOS and Linux is in the 5.0 release. See the [install guide]({{% relref "/start/install" %}}) for the other ways to install.
+See the [install guide]({{% relref "/start/install" %}}) for the other ways to install.
 
 For a GPU in a container, use the image that matches your hardware:
 
