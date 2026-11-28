@@ -1779,14 +1779,14 @@ definitions:
     type: object
   enginesettings.Capability:
     enum:
-    - drafting
     - command-line
     - tensor-placement
+    - drafting
     type: string
     x-enum-varnames:
-    - CapabilityDrafting
     - CapabilityCommandLine
     - CapabilityTensorPlacement
+    - CapabilityDrafting
   enginesettings.Choice:
     properties:
       doc:
