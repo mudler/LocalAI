@@ -371,7 +371,7 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 	if err := checkModelIdentity(in); err != nil {
 		return err
 	}
-	if spec, ok := parseBenchSpec(in.Prompt); ok {
+	if spec, ok := parseBenchSpec(benchPrompt(in)); ok {
 		return streamBench(spec, stream)
 	}
 	xlog.Debug("PredictStream called", "prompt", in.Prompt)
@@ -1206,10 +1206,19 @@ func (m *MockBackend) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest
 
 func (m *MockBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*pb.ModelMetadataResponse, error) {
 	xlog.Debug("ModelMetadata called", "model", in.Model)
-	return &pb.ModelMetadataResponse{
+	resp := &pb.ModelMetadataResponse{
 		SupportsThinking: false,
 		RenderedTemplate: "",
-	}, nil
+	}
+	// A model file named *markers* reports the tool format a llama.cpp
+	// autoparser detects for a Hermes-style template, for the load tests.
+	if strings.Contains(in.Model, "markers") {
+		resp.ToolFormat = &pb.ToolFormatMarkers{
+			FormatType: "json_native", SectionStart: "<tool_call>", SectionEnd: "</tool_call>",
+			NameField: "name", ArgsField: "arguments",
+		}
+	}
+	return resp, nil
 }
 
 // voiceEmbedFromWAV reads a 16-bit LE mono WAV and returns a 2-d speaker
