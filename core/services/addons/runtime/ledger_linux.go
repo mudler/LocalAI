@@ -53,7 +53,11 @@ func recoverProcess(ctx context.Context, p processIdentity) error {
 	// Open the handle BEFORE reading identity. If the PID exits/recycles while
 	// checking /proc, this handle still refers only to the process we opened.
 	fd, e := unix.PidfdOpen(p.PID, 0)
-	if errors.Is(e, unix.ESRCH) {
+	// ESRCH: no process has the PID any more. ENOENT: the PID is now a thread
+	// that is not a thread-group leader, often a thread of this very process
+	// after a container restart, when PIDs start again from 1. Neither can be
+	// the add-on process that was recorded, so there is nothing to recover.
+	if errors.Is(e, unix.ESRCH) || errors.Is(e, unix.ENOENT) {
 		return nil
 	}
 	if e != nil {
