@@ -162,6 +162,8 @@ deterministic and applies to each request on its own:
    and query parameters in JSON-encoded MCP text results are preserved.
 4. If no tool result contains a URL, nothing is appended. No URL is ever made
    up: every link on the line was returned by a tool.
+5. An empty final answer gets nothing appended, so a source line never stands in
+   for an answer the model did not give.
 
 In a streamed response the line arrives as one additional content chunk before
 the final chunk, like the number note. Both checks can be enabled together; the

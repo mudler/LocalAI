@@ -312,6 +312,13 @@ var _ = Describe("ChatEndpoint evidence check", func() {
 						To(HaveSuffix("A good oil."))
 				})
 
+				It("adds nothing to an empty answer", func() {
+					fx := newMCPResultFixture(toolResult)
+					toolThenAnswer("")
+					Expect(answer(run(resolve(withSources, fx.url), stream, "Is this a good olive oil?"))).
+						NotTo(ContainSubstring("Quellen"))
+				})
+
 				It("adds nothing without the switch", func() {
 					fx := newMCPResultFixture(toolResult)
 					toolThenAnswer("A good oil.")
