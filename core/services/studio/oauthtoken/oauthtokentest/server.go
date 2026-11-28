@@ -142,7 +142,8 @@ func (s *Server) token(w http.ResponseWriter, r *http.Request) {
 		select {
 		case <-gate:
 		case <-r.Context().Done():
-			return
+			// Returning here would send an implicit empty 200.
+			panic(http.ErrAbortHandler)
 		}
 	}
 	s.mu.Lock()
