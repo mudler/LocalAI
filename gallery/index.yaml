@@ -88,6 +88,10 @@
       top_p: 0.95
     template:
       use_tokenizer_template: true
+  variants:
+    - model: qwen3.8-flash-next-ista-iq2_xs
+    - model: qwen3.8-flash-next-ista-iq3_s
+    - model: qwen3.8-flash-next-ista-iq3_xxs
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: qwen3.8-flash-next-ista-iq2_xs
   description: |
@@ -1411,6 +1415,10 @@
       top_p: 0.95
     template:
       use_tokenizer_template: true
+  variants:
+    - model: qwen3.8-flash-next-unsloth-ud-q4_k_xl
+    - model: qwen3.8-flash-next-unsloth-ud-q5_k_xl
+    - model: qwen3.8-flash-next-unsloth-ud-q6_k_xl
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: qwen3.8-flash-next-unsloth-ud-q4_k_xl
   description: |
@@ -28572,6 +28580,7 @@
       model: ced-base-q8_0.gguf
   variants:
     - model: ced-base-f16
+    - model: parakeet-cpp-ced-base
 - url: github:mudler/LocalAI/gallery/ced.yaml@master
   name: ced-tiny-f16
   description: |
@@ -28620,6 +28629,7 @@
       model: ced-tiny-q8_0.gguf
   variants:
     - model: ced-tiny-f16
+    - model: parakeet-cpp-ced-tiny
 - url: github:mudler/LocalAI/gallery/ced.yaml@master
   name: ced-mini-f16
   description: |
@@ -35290,6 +35300,14 @@
       use_tokenizer_template: true
     tts:
       voice: female
+  variants:
+    - model: lfm3-audio-2b-pipeline
+    - model: lfm3-audio-2b-pipeline-vad
+    - model: lfm3-audio-2b-q8
+    - model: lfm3-audio-2b-q8-pipeline
+    - model: lfm3-audio-2b-q8-pipeline-vad
+    - model: lfm3-audio-2b-q8-vad
+    - model: lfm3-audio-2b-vad
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: lfm3-audio-2b-q8
   description: |
@@ -59759,6 +59777,8 @@
     parameters:
       model: stablediffusion-cpp/models/flux-2-klein-4b-Q4_0.gguf
     step: 4
+  variants:
+    - model: flux.2-klein-4b-q8_0-ggml
 - url: github:mudler/LocalAI/gallery/flux-ggml.yaml@master
   name: flux.2-klein-9b
   description: |
@@ -59849,6 +59869,8 @@
     parameters:
       model: stablediffusion-cpp/models/flux3_image_klein_sd-Q4_K_M.gguf
     step: 16
+  variants:
+    - model: flux.3-image-klein-q8_0
 - url: github:mudler/LocalAI/gallery/flux-ggml.yaml@master
   name: flux.3-image-klein-q8_0
   description: |
@@ -59942,6 +59964,8 @@
     parameters:
       model: stablediffusion-cpp/models/flux3_image_klein-Q4_K_M.gguf
     step: 20
+  variants:
+    - model: flux.3-image-klein-base-q8_0
 - url: github:mudler/LocalAI/gallery/flux-ggml.yaml@master
   name: flux.3-image-klein-base-q8_0
   description: |
@@ -60079,6 +60103,8 @@
     parameters:
       model: stablediffusion-cpp/models/moss_image_sft_int8_convrot.safetensors
     step: 20
+  variants:
+    - model: moss-image-sft-q4_k-ggml
 - url: github:mudler/LocalAI/gallery/z-image-ggml.yaml@master
   name: Z-Image-Turbo
   description: "Z-Image is a powerful and highly efficient image generation model with 6B parameters. Currently there are three variants of which this is the Turbo edition.\n\n\U0001F680 Z-Image-Turbo – A distilled version of Z-Image that matches or exceeds leading competitors with only 8 NFEs (Number of Function Evaluations). It offers ⚡️sub-second inference latency⚡️ on enterprise-grade H800 GPUs and fits comfortably within 16G VRAM consumer devices. It excels in photorealistic image generation, bilingual text rendering (English & Chinese), and robust instruction adherence.\n"
@@ -66410,6 +66436,8 @@
     name: parakeet-cpp-tdt-0.6b-v3
     parameters:
       model: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+  variants:
+    - model: parakeet-cpp-tdt-0.6b-v3-silero-vad
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-phonon-2.5-f16
   description: |
@@ -66503,6 +66531,9 @@
     name: parakeet-cpp-phonon-2.5-q4_k
     parameters:
       model: parakeet-cpp/phonon-2.5-q4_k.gguf
+  variants:
+    - model: parakeet-cpp-phonon-2.5-f16
+    - model: parakeet-cpp-phonon-2.5-q8_0
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-phonon-2.5-packed
   description: |
@@ -66627,6 +66658,9 @@
     name: parakeet-cpp-phonon-2.5-english-q4_k
     parameters:
       model: parakeet-cpp/phonon-2.5-english-q4_k.gguf
+  variants:
+    - model: parakeet-cpp-phonon-2.5-english-f16
+    - model: parakeet-cpp-phonon-2.5-english-q8_0
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-phonon-2.5-english-packed
   description: |
@@ -66900,6 +66934,8 @@
       - vad:true
     parameters:
       model: parakeet-cpp/ultra-q8_0.gguf
+  variants:
+    - model: parakeet-cpp-moondream-ultra-f16
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-moondream-redux-packed
   description: |
@@ -66999,6 +67035,8 @@
       - vad:true
     parameters:
       model: parakeet-cpp/redux-q8_0.gguf
+  variants:
+    - model: parakeet-cpp-moondream-redux-f16
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-fluid-speech-pro
   description: |
@@ -67031,6 +67069,8 @@
     name: parakeet-cpp-fluid-speech-pro
     parameters:
       model: parakeet-cpp/fluid-speech-pro-q8_0.gguf
+  variants:
+    - model: parakeet-cpp-fluid-speech-pro-f32
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-fluid-speech-pro-f32
   description: |
@@ -67094,6 +67134,8 @@
     name: parakeet-cpp-silero-vad-f16
     parameters:
       model: parakeet-cpp/silero-vad-f16.gguf
+  variants:
+    - model: parakeet-cpp-vad
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-vad-moondream-redux-packed
   description: |
@@ -67217,6 +67259,8 @@
     name: parakeet-cpp-vad-moondream-ultra
     parameters:
       model: parakeet-cpp/ultra-vad-q8_0.gguf
+  variants:
+    - model: parakeet-cpp-vad-moondream-ultra-q8_0
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-vad
   description: |
@@ -67311,6 +67355,10 @@
     name: parakeet-cpp-nemotron-3-diarization
     parameters:
       model: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+  variants:
+    - model: parakeet-cpp-nemotron-3-diarization-asr
+    - model: parakeet-cpp-nemotron-3-diarization-asr-speakers
+    - model: parakeet-cpp-nemotron-3-diarization-speakers
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-nemotron-3-diarization-asr
   description: |
@@ -67506,6 +67554,10 @@
       - speaker_model:voice-detect-wespeaker-resnet34.gguf
     parameters:
       model: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+  variants:
+    - model: parakeet-cpp-multilingual-diarization-speakers-sounds
+    - model: parakeet-cpp-realtime-scene-tdt
+    - model: parakeet-cpp-realtime-scene-tdt-base
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-multilingual-diarization-speakers-sounds
   description: |
@@ -67760,6 +67812,9 @@
       - sound_model:parakeet-cpp/ced-tiny-q8_0.gguf
     parameters:
       model: parakeet-cpp/realtime_eou_120m-v1-f16.gguf
+  variants:
+    - model: parakeet-cpp-realtime-scene-base
+    - model: parakeet-cpp-realtime-scene-speakers
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-realtime-scene-tdt
   description: |
@@ -78419,6 +78474,8 @@
     name: nemo-speech-cpp-nemotron-3.5-asr-streaming
     parameters:
       model: nemo-speech-cpp/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf
+  variants:
+    - model: nemo-speech-cpp-nemotron-3.5-asr-streaming-diarized
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: nemo-speech-cpp-nemotron-3.5-asr-streaming-diarized
   description: |
@@ -78501,6 +78558,8 @@
     name: nemo-speech-cpp-parakeet-tdt-0.6b-v3
     parameters:
       model: nemo-speech-cpp/parakeet-tdt-0.6b-v3.q8_0.gguf
+  variants:
+    - model: nemo-speech-cpp-parakeet-tdt-0.6b-v3-diarized
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: nemo-speech-cpp-parakeet-tdt-0.6b-v3-diarized
   description: |
@@ -79453,6 +79512,9 @@
       use_tokenizer_template: true
   variants:
     - model: swift-1.5-qwen3.8-flash-next-q8
+    - model: swift-1.5-qwen3.8-flash-next-iq2_xs
+    - model: swift-1.5-qwen3.8-flash-next-iq3_s
+    - model: swift-1.5-qwen3.8-flash-next-iq3_xxs
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: swift-1.5-qwen3.8-flash-next-q8
   description: |
@@ -84410,6 +84472,9 @@
       top_p: 0.9
     template:
       use_tokenizer_template: true
+  variants:
+    - model: olala-v1.0-mini-7a1b-bf16
+    - model: olala-v1.0-mini-7a1b-q6-k
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: olala-v1.0-mini-7a1b-q6-k
   description: |
