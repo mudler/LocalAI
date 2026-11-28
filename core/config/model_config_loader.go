@@ -219,17 +219,53 @@ func LoadOptionGalleryFiles(galleries ...Gallery) ConfigLoaderOption {
 		}
 		for _, configured := range galleries {
 			for _, raw := range append([]string{configured.URL}, configured.Mirrors...) {
-				parsed, err := url.Parse(raw)
-				if err != nil || parsed.Scheme != "file" || parsed.Path == "" {
+				path, ok := fileURLPath(raw)
+				if !ok {
 					continue
 				}
-				absolute, err := filepath.Abs(filepath.FromSlash(parsed.Path))
+				absolute, err := filepath.Abs(filepath.FromSlash(path))
 				if err == nil {
 					o.galleryFiles[absolute] = struct{}{}
 				}
 			}
 		}
 	}
+}
+
+// fileURLPath converts a file:// URL into the local slash path it designates
+// and reports whether raw is a file URL naming a local path. On Windows the
+// drive letter can sit in the authority ("file://C:/models/m.yaml", and
+// "file://C:\models\m.yaml" once separators are normalized) or right after the
+// root slash ("file:///C:/models/m.yaml"); both are folded back into the path
+// so the result matches what filepath.Abs reports for the same file on
+// Windows. A UNC authority is preserved as a leading "//".
+func fileURLPath(raw string) (string, bool) {
+	parsed, err := url.Parse(strings.ReplaceAll(raw, "\\", "/"))
+	if err != nil || parsed.Scheme != "file" || parsed.Opaque != "" {
+		return "", false
+	}
+	path := parsed.Path
+	switch {
+	case isDriveVolume(parsed.Host):
+		path = parsed.Host + path
+	case len(path) > 2 && path[0] == '/' && path[2] == ':':
+		path = path[1:]
+	case parsed.Host != "":
+		path = "//" + parsed.Host + path
+	}
+	if path == "" {
+		return "", false
+	}
+	return path, true
+}
+
+// isDriveVolume reports whether s looks like a Windows drive prefix such as "c:".
+func isDriveVolume(s string) bool {
+	return len(s) == 2 && s[1] == ':' && isDriveLetter(s[0])
+}
+
+func isDriveLetter(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }
 
 type ConfigLoaderOption func(*LoadOptions)
