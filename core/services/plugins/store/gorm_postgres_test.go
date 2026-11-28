@@ -31,7 +31,7 @@ var _ = Describe("the GORM plugins store on PostgreSQL", func() {
 		DeferCleanup(func() { _ = sqlDB.Close() })
 		s, err := store.NewGormStore(db)
 		Expect(err).NotTo(HaveOccurred())
-		for _, tbl := range []string{"plugin_user_state", "plugin_installs", "plugin_packages", "plugin_marketplace_snapshots", "plugin_marketplaces"} {
+		for _, tbl := range []string{"plugin_preview_tokens", "plugin_inspections", "plugin_user_state", "plugin_installs", "plugin_packages", "plugin_marketplace_snapshots", "plugin_marketplaces"} {
 			Expect(db.Exec("DELETE FROM " + tbl).Error).NotTo(HaveOccurred())
 		}
 		return s
