@@ -923,11 +923,12 @@ test-extra-backend-llama-cpp: docker-build-llama-cpp
 ## the prefill budget and the prompt cache. The 1024-token pool holds about
 ## three of the overcommit requests, and the small output reserve makes the
 ## parity requests outgrow the pool, so both the waiting and the preemption
-## paths run on CPU.
+## paths run on CPU. Set prefill_long between the short chat prompts and
+## the budget probe: even the long probe fits inside the 1024-token pool.
 test-extra-backend-llama-cpp-paged: docker-build-llama-cpp
 	BACKEND_IMAGE=local-ai-backend:llama-cpp \
 	BACKEND_TEST_CTX_SIZE=1024 \
-	BACKEND_TEST_OPTIONS=paged_kv,parallel:4,kv_output_reserve:16,prefill_budget:16,spec_type:none \
+	BACKEND_TEST_OPTIONS=paged_kv,parallel:4,kv_output_reserve:16,prefill_budget:16,prefill_long:128,spec_type:none \
 	BACKEND_TEST_CAPS=health,load,paged_overcommit,paged_parity,paged_budget,paged_cache,paged_attach,paged_resume \
 	$(MAKE) test-extra-backend
 
