@@ -124,7 +124,14 @@ var _ = Describe("Check", func() {
 	})
 
 	It("refuses two paths that differ only in case", func() {
-		refusedWith(checkErr(tree(map[string]string{"README.md": "a", "readme.md": "b"}), lim), content.CodeCaseCollision)
+		dir := tree(map[string]string{"README.md": "a"})
+		f, err := os.OpenFile(filepath.Join(dir, "readme.md"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+		if errors.Is(err, os.ErrExist) {
+			Skip("the test volume treats README.md and readme.md as the same entry")
+		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.Close()).To(Succeed())
+		refusedWith(checkErr(dir, lim), content.CodeCaseCollision)
 		refusedWith(checkErr(tree(map[string]string{"Skills/a.md": "a", "skills/a.md": "b"}), lim), content.CodeCaseCollision)
 	})
 
