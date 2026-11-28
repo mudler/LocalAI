@@ -168,7 +168,7 @@ export default function Sound() {
         noModel={noModel ? { type: 'sound', label: t('studio.tabs.sound'), onChanged: ws.installed.refetch } : null}
         options={<>
           <ModelChip value={model} onChange={setModel} capability={CAP_SOUND_GENERATION} changed={changed.has('model')} />
-          <div className="dk-segmented ws-mode" role="tablist" aria-label={t('studio.workspace.fields.mode')} data-changed={changed.has('mode') || undefined}>
+          <div className="dk-segmented studio-ws-mode" role="tablist" aria-label={t('studio.workspace.fields.mode')} data-changed={changed.has('mode') || undefined}>
             <button type="button" role="tab" className="dk-seg" aria-selected={mode === 'simple'} onClick={() => setMode('simple')}>{t('sound.labels.simple')}</button>
             <button type="button" role="tab" className="dk-seg" aria-selected={mode === 'advanced'} onClick={() => setMode('advanced')}>{t('sound.labels.advanced')}</button>
           </div>
@@ -190,13 +190,13 @@ export default function Sound() {
               </Field>
             ) : (
               <>
-                <div className="ws-grid">
+                <div className="studio-ws-grid">
                   <Field label={t('sound.labels.bpm')} htmlFor="sound-bpm" changed={changed.has('bpm')}><input id="sound-bpm" className="dk-input" type="number" value={bpm} onChange={(e) => setBpm(e.target.value)} /></Field>
                   <Field label={t('sound.labels.keyscale')} htmlFor="sound-key" changed={changed.has('key')}><input id="sound-key" className="dk-input" value={keyscale} onChange={(e) => setKeyscale(e.target.value)} /></Field>
                   <Field label={t('sound.labels.language')} htmlFor="sound-language" changed={changed.has('language')}><input id="sound-language" className="dk-input" value={language} onChange={(e) => setLanguage(e.target.value)} /></Field>
                   <Field label={t('sound.labels.timesignature')} htmlFor="sound-timesig" changed={changed.has('timesignature')}><input id="sound-timesig" className="dk-input" value={timesignature} onChange={(e) => setTimesignature(e.target.value)} /></Field>
                 </div>
-                <label className="ws-check" data-changed={changed.has('think') || undefined}>
+                <label className="studio-ws-check" data-changed={changed.has('think') || undefined}>
                   <input type="checkbox" checked={think} onChange={(e) => setThink(e.target.checked)} />
                   <span>{t('sound.labels.thinkMode')}</span>
                 </label>
@@ -210,7 +210,7 @@ export default function Sound() {
         {mode === 'simple' ? (
           <>
             <textarea
-              className="ws-prompt textarea"
+              className="studio-ws-prompt textarea"
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={t('sound.labels.promptPlaceholder')}
@@ -247,10 +247,10 @@ export default function Sound() {
         ) : (
           <>
             <Field label={t('sound.labels.caption')} htmlFor="sound-caption" changed={changed.has('prompt')}>
-              <textarea id="sound-caption" className="ws-prompt textarea" value={caption} onChange={(e) => setCaption(e.target.value)} rows={2} />
+              <textarea id="sound-caption" className="studio-ws-prompt textarea" value={caption} onChange={(e) => setCaption(e.target.value)} rows={2} />
             </Field>
             <Field label={t('sound.labels.lyrics')} htmlFor="sound-lyrics" changed={changed.has('lyrics')}>
-              <textarea id="sound-lyrics" className="ws-prompt textarea" value={lyrics} onChange={(e) => setLyrics(e.target.value)} placeholder={t('sound.labels.lyricsPlaceholder')} rows={3} />
+              <textarea id="sound-lyrics" className="studio-ws-prompt textarea" value={lyrics} onChange={(e) => setLyrics(e.target.value)} placeholder={t('sound.labels.lyricsPlaceholder')} rows={3} />
             </Field>
           </>
         )}
@@ -270,9 +270,9 @@ export default function Sound() {
             download={{ href: selectedEntry ? selectedEntry.results[0]?.url : audioUrl, name: `sound-${new Date().toISOString().slice(0, 10)}.wav` }}
             onRerun={rerun}
           >
-            <div className="ws-audio">
+            <div className="studio-ws-audio">
               <WaveformPlayer src={selectedEntry ? selectedEntry.results[0]?.url : audioUrl} height={96} />
-              {selectedEntry && <p className="ws-quote">&ldquo;{selectedEntry.prompt}&rdquo;</p>}
+              {selectedEntry && <p className="studio-ws-quote">&ldquo;{selectedEntry.prompt}&rdquo;</p>}
             </div>
           </ResultCard>
         ) : (

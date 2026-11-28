@@ -194,7 +194,7 @@ export default function ImageGen() {
             <Field label={t('image.labels.negativePrompt')} htmlFor="image-negative" changed={changed.has('negative')}>
               <textarea id="image-negative" className="textarea" value={negativePrompt} onChange={(e) => setNegativePrompt(e.target.value)} placeholder={t('image.labels.negativePromptPlaceholder')} rows={2} />
             </Field>
-            <div className="ws-grid">
+            <div className="studio-ws-grid">
               <Field label={t('image.labels.steps')} htmlFor="image-steps" changed={changed.has('steps')}>
                 <input id="image-steps" className="dk-input" type="number" value={steps} onChange={(e) => setSteps(e.target.value)} placeholder={t('image.labels.stepsPlaceholder')} />
               </Field>
@@ -208,7 +208,7 @@ export default function ImageGen() {
         submit={{ label: t('image.actions.generate'), busyLabel: t('image.actions.generating'), busy: loading, disabled: !model || !prompt.trim() || noModel, why }}
       >
         <textarea
-          className="ws-prompt textarea"
+          className="studio-ws-prompt textarea"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder={t('image.labels.promptPlaceholder')}
@@ -234,7 +234,7 @@ export default function ImageGen() {
             download={displayImages.length === 1 ? { href: displayImages[0].url, name: `image-${Date.now()}.png` } : null}
             onRerun={rerun}
           >
-            <div className={`ws-grid-images${displayImages.length === 1 ? ' ws-grid-images--one' : ''} media-result-grid`}>
+            <div className={`studio-ws-grid-images${displayImages.length === 1 ? ' studio-ws-grid-images--one' : ''} media-result-grid`}>
               {displayImages.map((im, i) => (
                 <button type="button" key={i} className="media-result-thumb" onClick={() => setLightboxIdx(i)} title={t('image.actions.view')} aria-label={t('image.actions.view')}>
                   <img src={im.url} alt={im.alt} />

@@ -272,7 +272,7 @@ export default function AudioTransform() {
         changes={changes}
         submit={{ label: t('audioTransform.actions.transform'), busyLabel: t('audioTransform.actions.processing'), busy: loading, disabled: !model || !audioFile || noModel, why }}
       >
-        <div className="ws-inputs">
+        <div className="studio-ws-inputs">
           <AudioInput
             label={t('audioTransform.labels.audio')}
             file={audioFile}
@@ -332,7 +332,7 @@ export default function AudioTransform() {
             download={{ href: selectedEntry.results.find(r => r.kind === 'output')?.url, name: `audio-transform-${selectedEntry.model || 'output'}.wav` }}
             onRerun={rerun}
           >
-            <div className="ws-audio audio-transform-stack">
+            <div className="studio-ws-audio audio-transform-stack">
               {selectedEntry.results.map((r) => (
                 <WaveformPlayer
                   key={r.kind || r.url}
@@ -353,7 +353,7 @@ export default function AudioTransform() {
             download={{ href: outputUrl, name: `audio-transform-${model || 'output'}-${new Date().toISOString().slice(0, 10)}.wav` }}
             onRerun={rerun}
           >
-            <div className="ws-audio audio-transform-stack">
+            <div className="studio-ws-audio audio-transform-stack">
               <div className="audio-spectrogram-pair">
                 <Spectrogram src={audioUrl} label={t('audioTransform.result.inputSpectrum')} testId="spectrogram-input" />
                 <Spectrogram src={outputUrl} label={t('audioTransform.result.outputSpectrum')} testId="spectrogram-output" />
@@ -365,7 +365,7 @@ export default function AudioTransform() {
           </ResultCard>
         ) : audioUrl ? (
           <ViewCard title={t('audioTransform.result.audio')} sub={t('studio.workspace.transform.waiting')}>
-            <div className="ws-audio audio-transform-stack">
+            <div className="studio-ws-audio audio-transform-stack">
               <div className="audio-spectrogram-pair">
                 <Spectrogram src={audioUrl} label={t('audioTransform.result.inputSpectrum')} testId="spectrogram-input" />
                 <div className="audio-spectrogram">
