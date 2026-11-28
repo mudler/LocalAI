@@ -60,7 +60,11 @@ func agentFileVersion(folders int, hasSwitches, hasProject bool) int {
 // @Success 200 {object} schema.ChatsAgentExport "The agent file"
 // @Router /api/chats/agents/{id}/export [get]
 func (h *Handlers) ExportAgent(c echo.Context) error {
-	a, err := h.svc.OwnAgent(c.Request().Context(), userID(c), c.Param("id"))
+	owner, ok := h.agentOwner(c)
+	if !ok {
+		return nil
+	}
+	a, err := h.svc.OwnAgent(c.Request().Context(), owner, c.Param("id"))
 	if err != nil {
 		return failFor(c, err)
 	}
@@ -68,15 +72,15 @@ func (h *Handlers) ExportAgent(c echo.Context) error {
 		MCPServers: a.MCPServers, Addons: a.Addons, Collections: a.Collections, Skills: a.Skills, Plugins: a.Plugins, Network: a.Network, SandboxProfile: a.SandboxProfile, Memory: a.Memory, MemorySave: a.MemorySave,
 		BuiltinsOff: a.BuiltinsOff, BuiltinsOn: a.BuiltinsOn, Builtins: a.Builtins}
 	if a.ProjectID != "" {
-		return h.exportProjectAgent(c, a, w)
+		return h.exportProjectAgent(c, owner, a, w)
 	}
-	rows := h.svc.AgentFolderRows(c.Request().Context(), userID(c), []agents.Agent{a})[a.ID]
+	rows := h.svc.AgentFolderRows(c.Request().Context(), owner, []agents.Agent{a})[a.ID]
 	for i, f := range a.FolderList() {
 		// Imports resolve paths in the home only. A followed root outside
 		// it must stay scoped but unset, not bind to a same-spelled home path.
 		exportPath := ""
-		if abs, live := h.svc.FolderResolver().PathOf(c.Request().Context(), h.svc.Principal(userID(c)), f.Node); live {
-			exportPath = h.svc.Files().Rel(h.svc.Principal(userID(c)), abs)
+		if abs, live := h.svc.FolderResolver().PathOf(c.Request().Context(), h.svc.Principal(owner), f.Node); live {
+			exportPath = h.svc.Files().Rel(h.svc.Principal(owner), abs)
 		}
 		mode := f.Mode
 		if i < len(rows) {
@@ -95,12 +99,12 @@ func (h *Handlers) ExportAgent(c echo.Context) error {
 // exportProjectAgent writes a project agent as a version 5 file. The folders
 // are the two project-relative paths, never a node or a path of the files of
 // the exporter, and the project is named for a hint only.
-func (h *Handlers) exportProjectAgent(c echo.Context, a agents.Agent, w schema.ChatsAgentWrite) error {
+func (h *Handlers) exportProjectAgent(c echo.Context, owner string, a agents.Agent, w schema.ChatsAgentWrite) error {
 	ref := &schema.ChatsAgentProjectRef{ID: a.ProjectID}
 	if ps := h.svc.Projects(); ps != nil {
 		// A project that cannot be read now (deleted, broken) leaves the id
 		// alone in the reference: the name is not known.
-		if r, err := ps.Get(c.Request().Context(), h.svc.Principal(userID(c)), a.ProjectID); err == nil {
+		if r, err := ps.Get(c.Request().Context(), h.svc.Principal(owner), a.ProjectID); err == nil {
 			ref = &schema.ChatsAgentProjectRef{ID: r.Project.ID, Name: r.Project.Name, Slug: r.Project.Slug}
 		}
 	}
@@ -188,6 +192,10 @@ func (h *Handlers) ImportAgent(c echo.Context) error {
 	if projectID != "" && create {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "send project_id or create_project, not both")
 	}
+	owner, ok := h.agentOwner(c)
+	if !ok {
+		return nil
+	}
 	if create && !file.ProjectFile {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "create_project needs a version 5 file of a project agent")
 	}
@@ -239,7 +247,7 @@ func (h *Handlers) ImportAgent(c echo.Context) error {
 		if create {
 			// Judge the agent before anything is made for it, so a refused
 			// agent leaves no project behind.
-			if cerr := h.svc.CheckImportedAgent(c.Request().Context(), userID(c), a); cerr != nil {
+			if cerr := h.svc.CheckImportedAgent(c.Request().Context(), owner, a); cerr != nil {
 				return failFor(c, cerr)
 			}
 			ps, ok := h.projectsHost(c)
@@ -253,7 +261,7 @@ func (h *Handlers) ImportAgent(c echo.Context) error {
 			if name == "" {
 				name = strings.TrimSpace(def.Name)
 			}
-			p, perr := ps.Create(c.Request().Context(), h.svc.Principal(userID(c)), projects.CreateInput{Name: name})
+			p, perr := ps.Create(c.Request().Context(), h.svc.Principal(owner), projects.CreateInput{Name: name})
 			if perr != nil {
 				return failProject(c, perr)
 			}
@@ -262,11 +270,11 @@ func (h *Handlers) ImportAgent(c echo.Context) error {
 		}
 		a.ProjectID = projectID
 	}
-	saved, err := h.svc.ImportAgentFolders(c.Request().Context(), userID(c), a, rowsIn)
+	saved, err := h.svc.ImportAgentFolders(c.Request().Context(), owner, a, rowsIn)
 	if err != nil {
 		if madeProject != "" {
 			// The project exists only for this agent: do not leave it empty.
-			if derr := h.svc.Projects().Delete(c.Request().Context(), h.svc.Principal(userID(c)), madeProject); derr != nil {
+			if derr := h.svc.Projects().Delete(c.Request().Context(), h.svc.Principal(owner), madeProject); derr != nil {
 				xlog.Warn("studio: could not remove the project made for a refused import", "project", madeProject, "error", derr)
 			}
 		}
@@ -288,7 +296,7 @@ func (h *Handlers) ImportAgent(c echo.Context) error {
 			warnings = append(warnings, "The file names no folder. Choose a folder before you use this agent.")
 		}
 	}
-	return c.JSON(http.StatusCreated, schema.ChatsAgentImportResult{Agent: h.agentFull(c, saved), Warnings: warnings})
+	return c.JSON(http.StatusCreated, schema.ChatsAgentImportResult{Agent: h.agentFull(c, owner, saved), Warnings: warnings})
 }
 
 // requestParam is a parameter of the request: the query string, else a form

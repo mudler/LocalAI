@@ -60,6 +60,7 @@ type ChatsSwitches struct {
 // grants nothing, and a chat gets only what you may use at that moment.
 type ChatsAgent struct {
 	ID           string   `json:"id"`
+	Owner        string   `json:"owner,omitempty"`
 	Name         string   `json:"name"`
 	Description  string   `json:"description"`
 	Instructions string   `json:"instructions"`

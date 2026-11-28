@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/xlog"
 )
 
 // folderOut is the folder of an agent as the API shows it, or nil for an
@@ -48,14 +49,14 @@ func folderIn(f *schema.ChatsAgentFolderWrite) *studiosvc.AgentFolderWrite {
 }
 
 // agentFull is agentOut with the folder resolved for the user.
-func (h *Handlers) agentFull(c echo.Context, a agents.Agent) schema.ChatsAgent {
+func (h *Handlers) agentFull(c echo.Context, user string, a agents.Agent) schema.ChatsAgent {
 	out := agentOut(a)
-	h.addFolders(c, &out, a, h.svc.AgentFolderRows(c.Request().Context(), userID(c), []agents.Agent{a})[a.ID])
+	h.addFolders(c, &out, user, a, h.svc.AgentFolderRows(c.Request().Context(), user, []agents.Agent{a})[a.ID])
 	return out
 }
 
 // addFolders puts the folder rows of an agent, and the notice, in its output.
-func (h *Handlers) addFolders(c echo.Context, out *schema.ChatsAgent, a agents.Agent, rows []studiosvc.AgentFolderState) {
+func (h *Handlers) addFolders(c echo.Context, out *schema.ChatsAgent, user string, a agents.Agent, rows []studiosvc.AgentFolderState) {
 	if len(rows) == 0 {
 		return
 	}
@@ -63,7 +64,7 @@ func (h *Handlers) addFolders(c echo.Context, out *schema.ChatsAgent, a agents.A
 	for _, r := range rows {
 		out.Folders = append(out.Folders, *folderOut(r, true))
 	}
-	if n := h.svc.SharedNotMounted(c.Request().Context(), userID(c), a); n > 0 {
+	if n := h.svc.SharedNotMounted(c.Request().Context(), user, a); n > 0 {
 		out.FolderNotice = &schema.ChatsAgentFolderNotice{NotMounted: n}
 	}
 }
@@ -75,7 +76,7 @@ func agentOut(a agents.Agent) schema.ChatsAgent {
 		}
 		return l
 	}
-	return schema.ChatsAgent{ID: a.ID, Name: a.Name, Description: a.Description, Instructions: a.Instructions, Model: a.Model,
+	return schema.ChatsAgent{ID: a.ID, Owner: a.Principal, Name: a.Name, Description: a.Description, Instructions: a.Instructions, Model: a.Model,
 		MCPServers: nz(a.MCPServers), Addons: nz(a.Addons), Collections: nz(a.Collections), Skills: nz(a.Skills), Plugins: nz(a.Plugins),
 		Network: networkOf(a.Network), SandboxProfile: a.SandboxProfile, Memory: a.Memory, MemorySave: a.MemorySave, ProjectID: a.ProjectID, BuiltinsOff: nz(a.BuiltinsOff), BuiltinsOn: nz(a.BuiltinsOn), Builtins: nz(a.Builtins), Connections: a.Connections, Resources: a.Resources, Created: a.Created, Updated: a.Updated}
 }
@@ -140,14 +141,57 @@ func (h *Handlers) sharedOut(a agents.Agent, acc studiosvc.AgentAccess) schema.C
 	return out
 }
 
+// agentOwner resolves the owner principal for an agent request. Normal
+// callers act on their own agents; an administrator may act on behalf of
+// another user by passing ?user_id=<id>, the same parameter project routes use.
+// A caller who is not an administrator and names another user gets 403.
+func (h *Handlers) agentOwner(c echo.Context) (string, bool) {
+	caller := userID(c)
+	target := c.QueryParam(auth.UserIDQueryParam)
+	if target == "" || target == caller {
+		return caller, true
+	}
+	if !auth.CanImpersonate(c) {
+		_ = fail(c, http.StatusForbidden, typeAuthz, "only an administrator can act on behalf of another user")
+		return "", false
+	}
+	if !userIDPattern.MatchString(target) {
+		_ = fail(c, http.StatusBadRequest, typeInvalid, "user_id must be a user id: letters, digits, '-' and '_'")
+		return "", false
+	}
+	known := false
+	if h.userExists != nil {
+		var err error
+		if known, err = h.userExists(c.Request().Context(), target); err != nil {
+			xlog.Error("studio: user lookup failed", "error", err)
+			_ = fail(c, http.StatusInternalServerError, typeServerError, "could not look up the user")
+			return "", false
+		}
+	}
+	if !known {
+		_ = fail(c, http.StatusNotFound, typeNotFound, "user not found")
+		return "", false
+	}
+	auth.LogImpersonation(caller, target, c.Path())
+	return target, true
+}
+
 // ListAgents lists the saved agents.
 // @Summary List your saved agents and the agents shared with you.
 // @Description Your own agents come first, then the agents other people shared with you. access says which is which: role owner for yours (with sharedWith, the number of grants), use or viewer for a shared one (with owner, the name of the person who shared it). A shared agent carries its full definition only for viewer, and never the owner's connections, resources or folders: you run it with your own.
 // @Tags chats
+// @Param user_id query string false "an administrator only: act on behalf of this user id instead of your own"
 // @Success 200 {object} schema.ChatsAgentList "Your agents, sorted by name, then the shared ones"
+// @Failure 400 {object} schema.ErrorResponse "user_id is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
+// @Failure 404 {object} schema.ErrorResponse "user not found"
 // @Router /api/chats/agents [get]
 func (h *Handlers) ListAgents(c echo.Context) error {
-	list, err := h.svc.AgentsWithShared(c.Request().Context(), userID(c))
+	owner, ok := h.agentOwner(c)
+	if !ok {
+		return nil
+	}
+	list, err := h.svc.AgentsWithShared(c.Request().Context(), owner)
 	if err != nil {
 		return failFor(c, err)
 	}
@@ -158,14 +202,14 @@ func (h *Handlers) ListAgents(c echo.Context) error {
 			own = append(own, e.Agent)
 		}
 	}
-	rows := h.svc.AgentFolderRows(c.Request().Context(), userID(c), own)
+	rows := h.svc.AgentFolderRows(c.Request().Context(), owner, own)
 	for _, e := range list {
 		if !e.Access.Owner() {
 			out.Agents = append(out.Agents, h.sharedOut(e.Agent, e.Access))
 			continue
 		}
 		o := agentOut(e.Agent)
-		h.addFolders(c, &o, e.Agent, rows[e.Agent.ID])
+		h.addFolders(c, &o, owner, e.Agent, rows[e.Agent.ID])
 		o.Access = h.accessOut(e.Access, e.Agent)
 		out.Agents = append(out.Agents, o)
 	}
@@ -241,19 +285,26 @@ func (h *Handlers) AgentNeeds(c echo.Context) error {
 // @Description An agent is a definition: instructions and exact lists of the MCP servers, add-ons, collections and skills a chat with it may use. A chat gets what the lists name and you may use at that moment, never more. Start a chat with it by passing agent_id to POST /api/chats. folders [{path, mode}] gives the agent up to 8 folders of your files, each read or write (folder {path, mode} is the same with one entry); without them the agent works on all your files.
 // @Tags chats
 // @Param request body schema.ChatsAgentWrite true "the agent"
+// @Param user_id query string false "an administrator only: act on behalf of this user id instead of your own"
 // @Success 201 {object} schema.ChatsAgent "The saved agent"
 // @Failure 400 {object} schema.ErrorResponse "The definition or the folder is not valid"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
+// @Failure 404 {object} schema.ErrorResponse "user not found"
 // @Router /api/chats/agents [post]
 func (h *Handlers) CreateAgent(c echo.Context) error {
+	owner, ok := h.agentOwner(c)
+	if !ok {
+		return nil
+	}
 	a, folders, ok, err := h.agentIn(c)
 	if !ok {
 		return err
 	}
-	saved, err := h.svc.SaveAgentWithFolders(c.Request().Context(), userID(c), a, folders)
+	saved, err := h.svc.SaveAgentWithFolders(c.Request().Context(), owner, a, folders)
 	if err != nil {
 		return failFor(c, err)
 	}
-	return c.JSON(http.StatusCreated, h.agentFull(c, saved))
+	return c.JSON(http.StatusCreated, h.agentFull(c, owner, saved))
 }
 
 // GetAgent reads a saved agent.
@@ -261,18 +312,25 @@ func (h *Handlers) CreateAgent(c echo.Context) error {
 // @Description An agent shared with you carries its full definition only for the role viewer, and never the owner's connections, resources or folders.
 // @Tags chats
 // @Param id path string true "the agent's id"
+// @Param user_id query string false "an administrator only: act on behalf of this user id instead of your own"
 // @Success 200 {object} schema.ChatsAgent "The agent"
+// @Failure 400 {object} schema.ErrorResponse "user_id is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Failure 404 {object} schema.ErrorResponse "No such agent, or it is another user's and not shared with you"
 // @Router /api/chats/agents/{id} [get]
 func (h *Handlers) GetAgent(c echo.Context) error {
-	a, acc, err := h.svc.SharedAgent(c.Request().Context(), userID(c), c.Param("id"))
+	owner, ok := h.agentOwner(c)
+	if !ok {
+		return nil
+	}
+	a, acc, err := h.svc.SharedAgent(c.Request().Context(), owner, c.Param("id"))
 	if err != nil {
 		return failFor(c, err)
 	}
 	if !acc.Owner() {
 		return c.JSON(http.StatusOK, h.sharedOut(a, acc))
 	}
-	out := h.agentFull(c, a)
+	out := h.agentFull(c, owner, a)
 	out.Access = h.accessOut(acc, a)
 	return c.JSON(http.StatusOK, out)
 }
@@ -283,21 +341,27 @@ func (h *Handlers) GetAgent(c echo.Context) error {
 // @Tags chats
 // @Param id path string true "the agent's id"
 // @Param request body schema.ChatsAgentWrite true "the agent"
+// @Param user_id query string false "an administrator only: act on behalf of this user id instead of your own"
 // @Success 200 {object} schema.ChatsAgent "The saved agent"
 // @Failure 400 {object} schema.ErrorResponse "The definition or the folder is not valid"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/agents/{id} [put]
 func (h *Handlers) UpdateAgent(c echo.Context) error {
+	owner, ok := h.agentOwner(c)
+	if !ok {
+		return nil
+	}
 	a, folders, ok, err := h.agentIn(c)
 	if !ok {
 		return err
 	}
 	a.ID = c.Param("id")
-	saved, err := h.svc.SaveAgentWithFolders(c.Request().Context(), userID(c), a, folders)
+	saved, err := h.svc.SaveAgentWithFolders(c.Request().Context(), owner, a, folders)
 	if err != nil {
 		return failFor(c, err)
 	}
-	return c.JSON(http.StatusOK, h.agentFull(c, saved))
+	return c.JSON(http.StatusOK, h.agentFull(c, owner, saved))
 }
 
 // DeleteAgent deletes a saved agent.
@@ -306,13 +370,19 @@ func (h *Handlers) UpdateAgent(c echo.Context) error {
 // @Tags chats
 // @Param id path string true "the agent's id"
 // @Param memory query string false "what to do with the agent's own notes" Enums(keep, export, delete) default(keep)
+// @Param user_id query string false "an administrator only: act on behalf of this user id instead of your own"
 // @Success 204 "Deleted"
 // @Success 200 {file} file "Deleted; a zip file of the agent's notes (memory=export)"
 // @Failure 400 {object} schema.ErrorResponse "memory is not keep, export or delete"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/agents/{id} [delete]
 func (h *Handlers) DeleteAgent(c echo.Context) error {
-	zipped, err := h.svc.DeleteAgentWithNotes(c.Request().Context(), userID(c), c.Param("id"), c.QueryParam("memory"))
+	owner, ok := h.agentOwner(c)
+	if !ok {
+		return nil
+	}
+	zipped, err := h.svc.DeleteAgentWithNotes(c.Request().Context(), owner, c.Param("id"), c.QueryParam("memory"))
 	if err != nil {
 		return failFor(c, err)
 	}
