@@ -5392,6 +5392,7 @@
       - use_jinja:true
     parameters:
       model: Qwen3.5-0.8B-Artemis-Q5_K_M.gguf
+    reasoning_effort: none
     template:
       use_tokenizer_template: true
   variants:
@@ -5428,6 +5429,7 @@
       - use_jinja:true
     parameters:
       model: Qwen3.5-0.8B-Artemis-Q4_K_M.gguf
+    reasoning_effort: none
     template:
       use_tokenizer_template: true
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -5471,6 +5473,7 @@
       - use_jinja:true
     parameters:
       model: llama-cpp/models/Qwen3.5-2B-Artemis-GGUF/Qwen3.5-2B-Artemis-Q5_K_M.gguf
+    reasoning_effort: none
     template:
       use_tokenizer_template: true
   variants:
@@ -5516,6 +5519,7 @@
       - use_jinja:true
     parameters:
       model: llama-cpp/models/Qwen3.5-2B-Artemis-GGUF/Qwen3.5-2B-Artemis-Q4_K_M.gguf
+    reasoning_effort: none
     template:
       use_tokenizer_template: true
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -5558,6 +5562,7 @@
       - use_jinja:true
     parameters:
       model: llama-cpp/models/Qwen3.5-4B-Artemis-GGUF/Qwen3.5-4B-Artemis-Q4_K_M.gguf
+    reasoning_effort: none
     template:
       use_tokenizer_template: true
   variants:
@@ -5603,6 +5608,7 @@
       - use_jinja:true
     parameters:
       model: llama-cpp/models/Qwen3.5-4B-Artemis-GGUF/Qwen3.5-4B-Artemis-Q5_K_M.gguf
+    reasoning_effort: none
     template:
       use_tokenizer_template: true
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -5645,6 +5651,7 @@
       - use_jinja:true
     parameters:
       model: llama-cpp/models/Qwen3.5-4B-Artemis-GGUF/Qwen3.5-4B-Artemis-Q5_K_S.gguf
+    reasoning_effort: none
     template:
       use_tokenizer_template: true
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -5687,6 +5694,7 @@
       - use_jinja:true
     parameters:
       model: llama-cpp/models/Qwen3.5-9B-Artemis-GGUF/Qwen3.5-9B-Artemis-Q4_K_M.gguf
+    reasoning_effort: none
     template:
       use_tokenizer_template: true
   variants:
@@ -5732,6 +5740,7 @@
       - use_jinja:true
     parameters:
       model: llama-cpp/models/Qwen3.5-9B-Artemis-GGUF/Qwen3.5-9B-Artemis-Q5_K_S.gguf
+    reasoning_effort: none
     template:
       use_tokenizer_template: true
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -5774,6 +5783,7 @@
       - use_jinja:true
     parameters:
       model: llama-cpp/models/Qwen3.5-9B-Artemis-GGUF/Qwen3.5-9B-Artemis-IQ4_XS.gguf
+    reasoning_effort: none
     template:
       use_tokenizer_template: true
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
