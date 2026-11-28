@@ -57,7 +57,7 @@ class AnalysisHead:
 
       * audeering/wav2vec2-large-robust-24-ft-age-gender — age
         regression (0–100 years) + 3-way gender (female/male/child).
-        Apache 2.0.
+        CC-BY-NC-SA-4.0 (non-commercial).
       * superb/wav2vec2-base-superb-er — 4-way emotion classification
         (neutral / happy / angry / sad). Apache 2.0.
 
@@ -67,8 +67,9 @@ class AnalysisHead:
     else. Set either to an empty string to disable that head.
     """
 
-    # Age + gender is OFF by default: the high-accuracy Apache-2.0
-    # checkpoint (Audeering wav2vec2-large-robust-24-ft-age-gender) uses a
+    # Age + gender is OFF by default: the high-accuracy
+    # CC-BY-NC-SA-4.0 (non-commercial) checkpoint (Audeering
+    # wav2vec2-large-robust-24-ft-age-gender) uses a
     # custom multi-task head that AutoModelForAudioClassification silently
     # mangles — it drops the age weights as UNEXPECTED and re-initialises
     # the classifier head with random values, so the output is noise. Users
@@ -278,7 +279,7 @@ class SpeechBrainEngine:
 
     def analyze(self, audio_path: str, actions):
         # Age / gender / emotion aren't produced by ECAPA-TDNN itself;
-        # delegate to AnalysisHead which wraps separate Apache-2.0
+        # delegate to AnalysisHead which wraps separate Hugging Face
         # checkpoints. Returns a single segment spanning the clip —
         # segmentation / diarisation is a future enhancement.
         waveform = self._load_waveform(audio_path)
