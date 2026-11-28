@@ -698,5 +698,8 @@ export function filterMatrix({
     if (backendChanged(backend, pathPrefix, changedFiles)) changedBackends.add(backend);
   }
 
-  return { filtered, filteredDarwin, filteredWindows, changedBackends };
+  // The CPU gRPC recipes are test inputs, not backend image inputs.
+  const testLlamaCppGrpc = changedBackends.has("llama-cpp") ||
+    changedFiles.includes("tests/e2e-backends/llama-cpp-grpc.mk");
+  return { filtered, filteredDarwin, filteredWindows, changedBackends, testLlamaCppGrpc };
 }

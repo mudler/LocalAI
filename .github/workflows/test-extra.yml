@@ -44,6 +44,7 @@ jobs:
       voxcpm: ${{ steps.detect.outputs.voxcpm }}
       llama-cpp-quantization: ${{ steps.detect.outputs.llama-cpp-quantization }}
       llama-cpp: ${{ steps.detect.outputs.llama-cpp }}
+      test-llama-cpp-grpc: ${{ steps.detect.outputs.test-llama-cpp-grpc }}
       ik-llama-cpp: ${{ steps.detect.outputs.ik-llama-cpp }}
       turboquant: ${{ steps.detect.outputs.turboquant }}
       vllm: ${{ steps.detect.outputs.vllm }}
@@ -501,7 +502,7 @@ jobs:
           make --jobs=5 --output-sync=target -C backend/python/llama-cpp-quantization test
   tests-llama-cpp-grpc:
     needs: detect-changes
-    if: needs.detect-changes.outputs.llama-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    if: needs.detect-changes.outputs.test-llama-cpp-grpc == 'true' || needs.detect-changes.outputs.run-all == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:

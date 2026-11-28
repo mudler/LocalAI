@@ -284,7 +284,7 @@ function emitFullMatrix() {
 function emitFilteredMatrix(changedFiles, previousMatrix, protoRevisions) {
   console.log("Changed files:", changedFiles);
 
-  const { filtered, filteredDarwin, filteredWindows, changedBackends } = filterMatrix({
+  const { filtered, filteredDarwin, filteredWindows, changedBackends, testLlamaCppGrpc } = filterMatrix({
     includes,
     includesDarwin,
     includesWindows,
@@ -319,6 +319,8 @@ function emitFilteredMatrix(changedFiles, previousMatrix, protoRevisions) {
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-windows=${JSON.stringify({ include: filteredWindows })}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge-matrix-multiarch=${JSON.stringify(mergeMatrixMultiarch)}\n`);
   emitSinglearchShards(singlearch);
+
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `test-llama-cpp-grpc=${testLlamaCppGrpc}\n`);
 
   // Per-backend boolean outputs
   for (const backend of allBackendPaths.keys()) {

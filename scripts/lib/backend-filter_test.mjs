@@ -102,6 +102,18 @@ const run = (changedFiles, previousMatrix) =>
 
 const names = entries => entries.map(e => e.backend).sort();
 
+test("llama.cpp gRPC test recipes select the E2E job without selecting images", () => {
+  const result = run(["tests/e2e-backends/llama-cpp-grpc.mk"]);
+  assert.equal(result.testLlamaCppGrpc, true);
+  assert.deepEqual(result.filtered, []);
+  assert.deepEqual(result.filteredDarwin, []);
+  assert.deepEqual(result.filteredWindows, []);
+  assert.equal(result.changedBackends.size, 0);
+  assert.equal(run(["Makefile"]).testLlamaCppGrpc, false);
+  assert.equal(run(["backend/python/vllm/backend.py"]).testLlamaCppGrpc, false);
+  assert.equal(run(["backend/cpp/llama-cpp/grpc-server.cpp"]).testLlamaCppGrpc, true);
+});
+
 test("a change to only package-gpu-libs.sh rebuilds every Linux image", () => {
   // The PR #10946 regression: this script decides which GPU libraries end up
   // inside an image, but lives under scripts/, so the per-backend prefix match
