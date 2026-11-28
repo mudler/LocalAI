@@ -123,7 +123,7 @@ func readRootIndex(dir string) (*v1.IndexManifest, error) {
 	return &idx, nil
 }
 
-// loadManifestBlob reads one image manifest and its config by digest.
+// loadLegByDescriptor reads one image manifest and its config by descriptor digest.
 func loadLegByDescriptor(dir string, d v1.Descriptor) (*leg, error) {
 	if d.MediaType != types.OCIManifestSchema1 {
 		return nil, fail("E_LAYERS", "manifest media type %q is not an OCI image manifest", d.MediaType)
