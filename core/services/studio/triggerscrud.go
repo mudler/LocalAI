@@ -963,18 +963,10 @@ func (h *Triggers) MaxRunsPerDay(t triggers.Trigger) int {
 	if err != nil {
 		return limit
 	}
-	loc, err := t.Location()
-	if err != nil {
+	if _, err := t.Location(); err != nil {
 		return limit
 	}
-	gap := sch.MinGap(h.o.Clock(), loc)
-	if gap <= 0 {
-		return 1 // runs once
-	}
-	if per := int((24*time.Hour + gap - 1) / gap); per < limit {
-		return per
-	}
-	return limit
+	return min(limit, sch.TimesPerDay())
 }
 
 // DailyCapOf is the daily limit of t as it applies now, before the

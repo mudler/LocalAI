@@ -47,6 +47,12 @@ var _ = Describe("Schedule", func() {
 		Expect(Schedule{}.String()).To(Equal("Never"), "zero schedule")
 	})
 
+	It("counts distinct clock times on a matching day, not the shortest interval between runs", func() {
+		Expect(mustParse("daily 08:00").TimesPerDay()).To(Equal(1))
+		Expect(mustParse("5,10 8,17 * * 1-5").TimesPerDay()).To(Equal(4))
+		Expect(mustParse("*/15 * * * *").TimesPerDay()).To(Equal(96))
+	})
+
 	It("refuses a bad schedule", func() {
 		for _, c := range []struct{ in, want string }{
 			{"", "schedule must be"},

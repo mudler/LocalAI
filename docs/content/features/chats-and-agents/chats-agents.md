@@ -773,6 +773,8 @@ proposed: confirm it first, then change it.
   records the prompt and completion tokens of its model requests (`tokens` on the
   run), and a trigger reports the average of its last runs, the most runs one day
   can have, and whether the model is a remote service (`cost` on the trigger).
+  For a schedule, the maximum counts its times on a matching local calendar day,
+  up to its daily limit. A daily schedule still counts as one across a clock change.
   LocalAI keeps no price list, so the cost is in tokens only.
 - **History.** A trigger keeps its last 200 finished runs, and every run of
   the last two days. A finished run older than 30 days is removed, whatever the

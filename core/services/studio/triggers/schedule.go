@@ -464,6 +464,10 @@ func (s Schedule) lastDue(after, upTo time.Time, loc *time.Location, limit int) 
 	return last, n
 }
 
+// TimesPerDay is the number of distinct wall-clock times on a matching day.
+// A daylight-saving gap can coalesce times, but cannot add a firing.
+func (s Schedule) TimesPerDay() int { return len(s.hours) * len(s.mins) }
+
 // gapSamples is how many next times MinGap looks at: enough to see a burst of
 // a cron schedule (minutes or hours of one day) between sparse days.
 const gapSamples = 120
