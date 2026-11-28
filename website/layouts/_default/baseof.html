@@ -6,6 +6,7 @@
   {{ partial "nav.html" . }}
   {{ block "main" . }}{{ end }}
   {{ partial "footer.html" . }}
+  <script src="{{ "download/picker.js" | relURL }}" defer></script>
   <script src="{{ "js/main.js" | relURL }}" defer></script>
 </body>
 </html>

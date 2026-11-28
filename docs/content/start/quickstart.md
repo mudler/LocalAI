@@ -14,14 +14,11 @@ Run open models for chat, images, speech and video on your own machines. The API
 
 ## Install and start LocalAI
 
-Choose the app for your platform:
+{{< download-buttons >}}
 
-- **Linux:** Download the [x86-64 AppImage](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI-Launcher-x86_64.AppImage) or the [ARM64 AppImage](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI-Launcher-arm64.AppImage).
-- **macOS (Apple Silicon):** Download the [LocalAI DMG](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg).
-- **Android:** See the [Android client guide]({{% relref "/start/install/android" %}}) for APK availability. The app connects to a LocalAI server on another machine.
-- **Windows 10 or 11 (x64, experimental):** Download the [LocalAI desktop installer](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI-Launcher-Setup-x64.exe).
+Follow the [desktop app guide]({{% relref "/start/install/desktop" %}}) to start the server on Linux, macOS, or Windows 10 or 11.
 
-Follow the [desktop app guide]({{% relref "/start/install/desktop" %}}) to start the server on Linux, macOS, or Windows.
+On Android, see the [Android client guide]({{% relref "/start/install/android" %}}) for APK availability. The app connects to a LocalAI server on another machine.
 
 ### Alternative: install with a script
 

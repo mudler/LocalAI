@@ -254,3 +254,23 @@ div.highlight pre code[data-lang="plaintext"]::before { content: "text"; }
 p.lai-lede, p.lai-legend, .lai-left p,
 #R-body-inner > .flex-block-wrapper article.narrow > p.lai-lede,
 #R-body-inner > .flex-block-wrapper article.narrow > p.lai-legend { text-align: left; }
+
+/* Map the homepage download picker to the active Relearn color variant. */
+.dlb {
+  --f-body: var(--MAIN-font, sans-serif);
+  --dk-accent: var(--PRIMARY-color);
+  --dk-accent-text: var(--PRIMARY-color);
+  --dk-control-edge: var(--MENU-SEARCH-BORDER-color);
+  --dk-accent-wash: var(--BOX-BG-color);
+  --dk-muted: var(--MAIN-TEXT-color);
+}
+.dlb .dlb__main {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  min-height: 48px;
+  padding: .7rem 1.4rem;
+  border: 2px solid var(--dk-control-edge);
+  border-radius: 999px;
+  font-weight: 700;
+}

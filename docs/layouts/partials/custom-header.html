@@ -31,3 +31,7 @@
 <meta name="keywords" content="{{ delimit . ", " }}">
 {{- end }}
 <meta property="og:image:alt" content="The LocalAI llama mascot with the LocalAI logo.">
+{{- if .HasShortcode "download-buttons" }}
+<link rel="stylesheet" href="{{ "download/picker.css" | relURL }}">
+<script src="{{ "download/picker.js" | relURL }}" defer></script>
+{{- end }}

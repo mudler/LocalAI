@@ -1,0 +1,15 @@
+{{- $dl := "https://github.com/mudler/LocalAI/releases/latest/download" -}}
+{{- if not (.site.Store.Get "osSprite") }}{{ .site.Store.Set "osSprite" true }}{{ partial "download/os-sprite.html" . }}{{ end }}
+<div class="dlb dlb--pick" data-dl>
+  <div class="acts"><a class="{{ .cls }} dlb__main" data-dl-main hidden></a></div>
+  <div class="dlb__sel" role="group" aria-labelledby="dlb-l-{{ .id }}">
+    <p class="dlb__lbl" id="dlb-l-{{ .id }}" data-dl-label>Download for your system</p>
+    <ul class="dlb__opts">
+      <li><a class="dlb__opt" data-dl-os="mac" href="{{ $dl }}/LocalAI.dmg"><svg class="dlb__ico" aria-hidden="true" focusable="false"><use href="#os-apple"/></svg><span class="dlb__t">macOS, Apple silicon</span><span class="dlb__file">LocalAI.dmg</span></a></li>
+      <li><a class="dlb__opt" data-dl-os="linux-x64" href="{{ $dl }}/LocalAI-Launcher-x86_64.AppImage"><svg class="dlb__ico" aria-hidden="true" focusable="false"><use href="#os-linux"/></svg><span class="dlb__t">Linux x86-64</span><span class="dlb__file">LocalAI-Launcher-x86_64.AppImage</span></a></li>
+      <li><a class="dlb__opt" data-dl-os="linux-arm64" href="{{ $dl }}/LocalAI-Launcher-arm64.AppImage"><svg class="dlb__ico" aria-hidden="true" focusable="false"><use href="#os-linux"/></svg><span class="dlb__t">Linux ARM64</span><span class="dlb__file">LocalAI-Launcher-arm64.AppImage</span></a></li>
+      <li><a class="dlb__opt" data-dl-os="win" href="{{ $dl }}/LocalAI-Launcher-Setup-x64.exe"><svg class="dlb__ico" aria-hidden="true" focusable="false"><use href="#os-windows"/></svg><span class="dlb__t">Windows x64 (experimental)</span><span class="dlb__file">LocalAI-Launcher-Setup-x64.exe</span></a></li>
+    </ul>
+  </div>
+  <p class="fine dlb__msg" data-dl-msg hidden></p>
+</div>

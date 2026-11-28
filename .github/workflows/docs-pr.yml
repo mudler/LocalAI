@@ -11,6 +11,8 @@ on:
   pull_request:
     paths:
       - 'docs/**'
+      - 'website/layouts/partials/download/**'
+      - 'website/static/download/**'
       - 'gallery/**'
       - '.github/ci/modelslist.go'
       - '.github/ci/gen-redirects.sh'

@@ -128,3 +128,10 @@ enableEmoji = true
   [[module.mounts]]
     source = 'i18n'
     target = 'i18n'
+  # Share the homepage download picker without loading the rest of the site theme.
+  [[module.mounts]]
+    source = '../website/layouts/partials/download'
+    target = 'layouts/partials/download'
+  [[module.mounts]]
+    source = '../website/static/download'
+    target = 'static/download'

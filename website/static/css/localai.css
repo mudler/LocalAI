@@ -292,20 +292,9 @@ html.rv-on .rv { transition: opacity .3s ease, transform .3s ease; }
 .dl .need { margin: .8rem 0 0; }
 .dl code { overflow-wrap: anywhere; }
 @media (max-width: 480px) { .dl .acts .btn { width: 100%; } }
-.dlb svg { width: 20px; height: 20px; flex: none; }
 .hero__dl { margin-top: 1.1rem; }
 .dlb__note { margin-top: .6rem; }
 .dlb__soon { margin-top: .3rem; }
-@media (max-width: 480px) { .dlb .btn { width: 100%; } }
-.dlb--pick .acts { margin-bottom: .2rem; }
-.dlb--pick .dlb__main[hidden] { display: none; }
-.dlb__lbl { margin: .9rem 0 .5rem; font: 700 .8rem/1 var(--f-body); letter-spacing: .1em; text-transform: uppercase; color: var(--dk-muted); }
-.dlb__opts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem; }
-.dlb__opt { display: grid; grid-template-columns: 20px 1fr; column-gap: .6rem; row-gap: .25rem; align-items: center; min-height: 48px; padding: .6rem 1rem; border-radius: 14px; border: 2px solid var(--dk-control-edge); background: transparent; color: var(--dk-accent-text); font: 700 .95rem/1.2 var(--f-body); text-decoration: none; transition: background .15s; }
-.dlb__opt:hover { background: var(--dk-accent-wash); border-color: var(--dk-accent); }
-.dlb__opt[aria-current] { border-color: var(--dk-accent); background: var(--dk-accent-wash); }
-.dlb__file { grid-column: 2; font: 400 .78rem/1.2 var(--f-body); color: var(--dk-muted); overflow-wrap: anywhere; }
-@media (max-width: 480px) { .dlb__opts { flex-direction: column; } .dlb__opt { width: 100%; } }
 
 /* release status strip at the top of the home page */
 .notice { background: var(--dk-accent-wash); border-bottom: 1px solid var(--dk-edge); }
@@ -342,7 +331,4 @@ html.rv-on .rv { transition: opacity .3s ease, transform .3s ease; }
 .film-hero--on .film-play { display: none; }
 .film-note { margin: .7rem 0 0; }
 @media (prefers-reduced-motion: reduce) { .film-play__i { transition: none; } }
-.dlb__ico { width: 20px; height: 20px; flex: none; fill: currentColor; }
-.dlb__opt .dlb__ico { grid-row: 1 / span 2; }
-.dlb .btn svg.dlb__ico { fill: currentColor; stroke: none; }
 .hero__oss { margin: .7rem 0 0; }
